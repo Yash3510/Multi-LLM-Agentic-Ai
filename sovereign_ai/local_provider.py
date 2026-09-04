@@ -1,18 +1,26 @@
 import json
 import base64
+import time
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 from .provider import ModelProvider
 from .config import is_local_endpoint
+from .security import record_blocked
 
 
 class OpenAICompatibleProvider(ModelProvider):
     """Provider for Bionic Studio, LM Studio, and similar local APIs."""
 
-    def __init__(self, base_url: str, sovereign_mode: bool = True):
+    def __init__(self, base_url: str, sovereign_mode: bool = True, db=None):
         if sovereign_mode and not is_local_endpoint(base_url):
+            if db: record_blocked(db, base_url, "non-local model endpoint rejected")
             raise ValueError("Sovereign mode only permits local model endpoints")
         self.base_url = base_url.rstrip("/")
+        self.db = db
+
+    def _audit(self, model, started, success):
+        if self.db:
+            self.db.execute("INSERT INTO audit_events(username,action,details) VALUES(?,?,?)", ("system", "model_invocation", json.dumps({"provider": "bionic-compatible-local", "model": model, "local": True, "duration_ms": round((time.monotonic() - started) * 1000), "success": success})))
 
     def chat(self, messages, model):
         result = []
@@ -23,8 +31,13 @@ class OpenAICompatibleProvider(ModelProvider):
         body = json.dumps({"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False}).encode()
         request = Request(self.base_url + "/chat/completions", data=body,
                           headers={"Content-Type": "application/json"}, method="POST")
-        with urlopen(request, timeout=120) as response:
-            return json.load(response)["choices"][0]["message"]["content"]
+        started = time.monotonic()
+        try:
+            with urlopen(request, timeout=120) as response:
+                result = json.load(response)["choices"][0]["message"]["content"]
+            self._audit(model, started, True); return result
+        except Exception:
+            self._audit(model, started, False); raise
 
     def vision(self, prompt, image, model):
         encoded = base64.b64encode(image).decode("ascii")

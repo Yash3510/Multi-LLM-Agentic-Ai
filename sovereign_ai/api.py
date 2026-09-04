@@ -53,7 +53,7 @@ class ApiServer:
                 if path in ("", "/"):
                     return self.send_json(200, {"service": "Sovereign AI local backend", "ui": "Tkinter desktop", "status": "ready"})
                 if path == "/api/health":
-                    return self.send_json(200, server.health(server.db, server.provider, server.settings.storage_dir))
+                    return self.send_json(200, server.health(server.db, server.provider, server.settings.storage_dir, server.settings))
                 username, _ = self.user()
                 if not username:
                     return self.send_json(401, {"error": "Authentication required"})
