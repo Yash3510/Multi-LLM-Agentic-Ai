@@ -32,6 +32,29 @@ class TaskEngine:
         )
         return row.lastrowid
 
+    def chat(self, request: str, conversation_id=None, user_name="local-user", model=None, on_event=None):
+        """Handle ordinary conversation without forcing a RAG refusal or approval gate."""
+        selected = self.router.route("analysis", model)
+        row = self.db.execute(
+            "INSERT INTO tasks(conversation_id,user_name,status,plan_json,input,model,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+            (conversation_id, user_name, "executing", json.dumps({"task_type": "chat", "model": selected}), request, selected),
+        )
+        task_id = row.lastrowid
+        self._event(on_event, task_id, "tony", "Listening", "executing")
+        try:
+            answer = self.provider.generate(
+                "You are Tony Stark, a helpful local assistant. Answer the user's message naturally and directly. "
+                "Do not claim access to facts that are not in the conversation.\n\nUSER: " + request,
+                selected,
+            )
+            self.db.execute("UPDATE tasks SET status='completed',agent='tony',output=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (answer, task_id))
+            self._event(on_event, task_id, "tony", "Responded", "completed")
+            return {"task_id": task_id, "status": "completed", "result": answer}
+        except Exception as exc:
+            self.db.execute("UPDATE tasks SET status='failed',agent='tony',output=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (str(exc), task_id))
+            self._event(on_event, task_id, "tony", "Local model error: " + str(exc), "failed")
+            return {"task_id": task_id, "status": "failed", "result": str(exc)}
+
     def run(self, request: str, conversation_id: int | None = None,
             user_name: str = "local-user", model: str | None = None, on_event=None, task_id=None) -> dict:
         if not task_id and self.plan(request, model)["task_type"] == "code":

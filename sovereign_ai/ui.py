@@ -182,7 +182,7 @@ class SovereignApp(tk.Tk):
                             break
                         threading.Event().wait(0.25)
                 else:
-                    result = self.task_engine.run(prompt, self.current_conversation, model=self.model_var.get(), on_event=tokens.put)
+                    result = self.task_engine.chat(prompt, self.current_conversation, model=self.model_var.get(), on_event=tokens.put)
                     tokens.put({"result": result})
             except Exception as exc: tokens.put({"error": str(exc)})
             tokens.put(None)
