@@ -18,6 +18,10 @@ class FakeProvider:
         return "FRIDAY findings: request analyzed."
 
 
+class ToolProvider(FakeProvider):
+    pass
+
+
 class AgentRuntimeTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -59,6 +63,14 @@ class AgentRuntimeTests(unittest.TestCase):
         self.assertIn("Calculator result: 4", jarvis_output)
         approved = TaskEngine(self.db, FakeProvider(), "fallback").approve(result["task_id"], "admin")
         self.assertEqual(approved["status"], "completed")
+
+    def test_full_flow_runs_jarvis_tool_before_ultron(self):
+        events = []
+        result = TaskEngine(self.db, FakeProvider(), "fallback").run("Calculate 2 + 2", on_event=events.append)
+        self.assertEqual(result["status"], "awaiting_approval")
+        jarvis = self.db.execute("SELECT output FROM task_steps WHERE task_id=? AND agent='jarvis'", (result["task_id"],)).fetchone()[0]
+        self.assertIn("Calculator result: 4", jarvis)
+        self.assertEqual(self.db.execute("SELECT agent FROM task_steps WHERE task_id=? ORDER BY step_number", (result["task_id"],)).fetchall()[-1][0], "ultron")
 
 
 if __name__ == "__main__": unittest.main()

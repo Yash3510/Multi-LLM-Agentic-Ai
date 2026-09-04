@@ -58,8 +58,9 @@ class Friday(Agent):
     def execute(self, action, payload, model):
         if self.knowledge:
             grounded = self.knowledge.answer(payload, self.provider, model)
-            citations = "\n".join(f"Source: {item['source']} | page {item['page']} | section {item['section']}" for item in grounded["citations"])
-            return grounded["answer"] + ("\n\n" + citations if citations else "")
+            if grounded["citations"]:
+                citations = "\n".join(f"Source: {item['source']} | page {item['page']} | section {item['section']}" for item in grounded["citations"])
+                return grounded["answer"] + "\n\n" + citations
         prompt = ("You are FRIDAY, the analysis agent. Analyze the request below. "
                   "Return factual findings and clearly label assumptions.\n\n" + payload)
         return self.provider.generate(prompt, model)

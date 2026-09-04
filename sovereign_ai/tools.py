@@ -78,9 +78,18 @@ class ToolRegistry:
 
     def execute(self, request):
         match = re.search(r"(?:calculate|compute)\s+([0-9+*/().%\s-]+)", request, re.I)
-        if not match: return None
-        result = self.execute_tool("calculate", {"expression": match.group(1).strip()})
-        return "Calculator result: " + str(result["result"]) if result["success"] else None
+        if match:
+            result = self.execute_tool("calculate", {"expression": match.group(1).strip()})
+            return "Calculator result: " + str(result["result"]) if result["success"] else None
+        file_match = re.search(r"create\s+(?:a\s+)?file\s+(?:named|called)\s+([\w.-]+)(?:\s+containing\s*:\s*(.*))?", request, re.I)
+        if file_match:
+            result = self.execute_tool("write_file", {"path": file_match.group(1), "content": file_match.group(2) or ""}, permission="write")
+            return "Created local workspace file: " + str(result["result"]) if result["success"] else "Tool failure: " + result["error"]
+        folder_match = re.search(r"create\s+(?:a\s+)?(?:folder|directory)\s+(?:named|called)\s+([\w.-]+)", request, re.I)
+        if folder_match:
+            result = self.execute_tool("create_directory", {"path": folder_match.group(1)}, permission="write")
+            return "Created local workspace folder: " + str(result["result"]) if result["success"] else "Tool failure: " + result["error"]
+        return None
 
     def _safe_path(self, value):
         path = (self.workspace / value).resolve()
