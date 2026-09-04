@@ -142,10 +142,11 @@ class SovereignApp(tk.Tk):
         self.chat = tk.Text(self.body, wrap="word", bg="#0b1218", fg="#d8e5ed", insertbackground="white", relief="flat", padx=18, pady=16)
         self.chat.pack(expand=True, fill="both", pady=16); self.chat.configure(state="disabled")
         bottom = ttk.Frame(self.body); bottom.pack(fill="x")
-        self.prompt = tk.Text(bottom, height=3, wrap="word", bg="#172631", fg="white", insertbackground="white", relief="flat", padx=10, pady=8); self.prompt.pack(side="left", expand=True, fill="x")
-        ttk.Button(bottom, text="Stop", command=self.stop_generation).pack(side="left", padx=(10, 0))
-        ttk.Button(bottom, text="Send", command=self.send).pack(side="left", padx=(6, 0))
-        ttk.Button(bottom, text="Approve result", command=self.approve_result).pack(side="left", padx=(6, 0))
+        self.prompt = tk.Text(bottom, height=3, wrap="word", bg="#172631", fg="white", insertbackground="white", relief="flat", padx=10, pady=8); self.prompt.pack(fill="x")
+        actions = ttk.Frame(self.body); actions.pack(fill="x", pady=(6, 0))
+        ttk.Button(actions, text="Stop", command=self.stop_generation).pack(side="right")
+        ttk.Button(actions, text="Send", command=self.send).pack(side="right", padx=(6, 0))
+        ttk.Button(actions, text="Approve result", command=self.approve_result).pack(side="right", padx=(6, 0))
         if self.current_conversation:
             for row in self.conversations.messages(self.current_conversation): self.append_chat(row["role"], row["content"])
 
