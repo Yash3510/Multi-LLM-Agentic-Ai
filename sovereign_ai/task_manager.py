@@ -20,6 +20,16 @@ class BackgroundTaskManager:
             self.on_complete(request, conversation_id, result)
         return result
 
+    def revise(self, task_id, user_name="local-user"):
+        self.executor.submit(self._revise, task_id, user_name)
+        return {"task_id": task_id, "status": "queued", "approval_state": "revision_queued"}
+
+    def _revise(self, task_id, user_name):
+        result = self.engine.revise(task_id, user_name)
+        if self.on_complete:
+            self.on_complete(result.get("request", ""), None, result)
+        return result
+
     def shutdown(self):
         # Drain active work before its database and storage dependencies close.
         self.executor.shutdown(wait=True, cancel_futures=True)

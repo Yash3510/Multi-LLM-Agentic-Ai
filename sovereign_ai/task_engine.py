@@ -213,6 +213,15 @@ class TaskEngine:
         self.db.execute("INSERT INTO audit_events(username,action,details) VALUES(?,?,?)", (user_name, "task_changes_requested", json.dumps({"task_id": task_id, "comment": comment})))
         return {"task_id": task_id, "status": "awaiting_approval", "approval_state": "changes_requested", "comment": comment}
 
+    def revise(self, task_id: int, user_name: str = "local-user") -> dict:
+        """Re-run a reviewed task so approval always applies to fresh output."""
+        row = self.db.execute("SELECT input,model,conversation_id,user_name,approval_state FROM tasks WHERE id=?", (task_id,)).fetchone()
+        if not row: raise ValueError("Task not found")
+        if row["approval_state"] != "changes_requested": raise ValueError("Task has no requested changes")
+        self.db.execute("UPDATE tasks SET status='queued',approval_state='pending',approval_decision=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?", (task_id,))
+        self.db.execute("INSERT INTO audit_events(username,action,details) VALUES(?,?,?)", (user_name, "task_revision_started", json.dumps({"task_id": task_id})))
+        return self.run(row["input"], row["conversation_id"], row["user_name"] or user_name, row["model"], task_id=task_id)
+
     def reject(self, task_id: int, comment: str, user_name: str = "local-user") -> dict:
         row = self.db.execute("SELECT status FROM tasks WHERE id=?", (task_id,)).fetchone()
         if not row: raise ValueError("Task not found")

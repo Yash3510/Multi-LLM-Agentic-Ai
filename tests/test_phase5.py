@@ -36,10 +36,18 @@ class Phase5Tests(unittest.TestCase):
                 requested = engine.request_changes(task["task_id"], "Include the missing inspection date", "reviewer")
                 self.assertEqual(requested["approval_state"], "changes_requested")
                 with self.assertRaises(ValueError): engine.approve(task["task_id"], "reviewer")
-                rejected = engine.reject(task["task_id"], "Evidence is insufficient", "reviewer")
+                revised = engine.revise(task["task_id"], "reviewer")
+                self.assertEqual(revised["status"], "awaiting_approval")
+                approved = engine.approve(task["task_id"], "reviewer")
+                self.assertEqual(approved["status"], "completed")
+                second = engine.run("Analyze another report")
+                engine.request_changes(second["task_id"], "Correct the summary", "reviewer")
+                revised_second = engine.revise(second["task_id"], "reviewer")
+                self.assertEqual(revised_second["status"], "awaiting_approval")
+                rejected = engine.reject(second["task_id"], "Evidence is insufficient", "reviewer")
                 self.assertEqual(rejected["status"], "failed")
                 actions = [row[0] for row in db.execute("SELECT action FROM audit_events WHERE username='reviewer'")]
-                self.assertEqual(actions, ["task_changes_requested", "task_rejected"])
+                self.assertEqual(actions, ["task_changes_requested", "task_revision_started", "task_approved", "task_changes_requested", "task_revision_started", "task_rejected"])
             finally:
                 db.close()
 

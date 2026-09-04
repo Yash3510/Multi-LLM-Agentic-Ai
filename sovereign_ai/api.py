@@ -117,7 +117,8 @@ class ApiServer:
                         return self.send_json(200, server.tasks.approve(task_id, username))
                     if path.startswith("/api/tasks/") and path.endswith("/request-changes"):
                         task_id = int(path.split("/")[3])
-                        return self.send_json(200, server.tasks.request_changes(task_id, payload.get("comment", ""), username))
+                        server.tasks.request_changes(task_id, payload.get("comment", ""), username)
+                        return self.send_json(202, server.task_manager.revise(task_id, username))
                     if path.startswith("/api/tasks/") and path.endswith("/reject"):
                         task_id = int(path.split("/")[3])
                         return self.send_json(200, server.tasks.reject(task_id, payload.get("comment", ""), username))
