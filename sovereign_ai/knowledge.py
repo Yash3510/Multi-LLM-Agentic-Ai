@@ -93,7 +93,7 @@ class DocumentParser:
 class KnowledgeService:
     def __init__(self, db, storage_dir, local_model_url, provider=None, embedding_model="local-embedding", config=None):
         self.db, self.storage_dir = db, Path(storage_dir)
-        self.embedder = LocalEmbedder(local_model_url, embedding_model)
+        self.embedder = LocalEmbedder(local_model_url, embedding_model, db=db)
         self.parser = DocumentParser(provider)
         self.index = TurbovecVectorStore(self.storage_dir.parent / "knowledge.tv")
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="knowledge")

@@ -70,3 +70,6 @@ class BackendClient:
 
     def search(self, question):
         return self.request("POST", "/api/knowledge/search", {"question": question})[1]
+
+    def security_events(self):
+        return self.request("GET", "/api/security/events")[1]

@@ -64,6 +64,8 @@ class ApiServer:
                     # Keep the UI usable while Bionic is starting; health still reports
                     # whether the configured local model service is actually reachable.
                     return self.send_json(200, {"models": models or [server.settings.default_model]})
+                if path == "/api/security/events":
+                    return self.send_json(200, [dict(item) for item in server.db.execute("SELECT * FROM audit_events WHERE action LIKE 'security_%' OR action LIKE '%invocation' ORDER BY id DESC LIMIT 100")])
                 if path == "/api/tasks":
                     return self.send_json(200, [dict(row) for row in server.db.execute("SELECT * FROM tasks ORDER BY id DESC")])
                 if path.startswith("/api/tasks/"):

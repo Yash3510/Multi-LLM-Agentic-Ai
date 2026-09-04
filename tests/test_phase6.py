@@ -29,5 +29,14 @@ class Phase6Tests(unittest.TestCase):
             self.assertIn("Security events", statuses)
             db.close()
 
+    def test_external_embedding_endpoint_is_rejected(self):
+        from sovereign_ai.embeddings import LocalEmbedder
+        with tempfile.TemporaryDirectory() as directory:
+            db = Database(Path(directory) / "security.db")
+            try:
+                with self.assertRaises(ValueError): LocalEmbedder("https://embeddings.example.com/v1", db=db)
+                self.assertEqual(db.execute("SELECT COUNT(*) FROM audit_events WHERE action='security_blocked'").fetchone()[0], 1)
+            finally: db.close()
+
 
 if __name__ == "__main__": unittest.main()
