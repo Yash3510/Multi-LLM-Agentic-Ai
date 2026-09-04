@@ -70,6 +70,8 @@ class AgentRuntimeTests(unittest.TestCase):
         self.assertEqual(result["status"], "awaiting_approval")
         jarvis = self.db.execute("SELECT output FROM task_steps WHERE task_id=? AND agent='jarvis'", (result["task_id"],)).fetchone()[0]
         self.assertIn("Calculator result: 4", jarvis)
+        self.assertIn("Calculator result: 4", result["result"])
+        self.assertNotEqual(result["result"].splitlines()[0], "PASS")
         self.assertEqual(self.db.execute("SELECT agent FROM task_steps WHERE task_id=? ORDER BY step_number", (result["task_id"],)).fetchall()[-1][0], "ultron")
 
 

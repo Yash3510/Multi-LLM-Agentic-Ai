@@ -142,7 +142,9 @@ class TaskEngine:
                 self.db.execute("UPDATE task_steps SET status='complete',output=?,verification=?,completed_at=CURRENT_TIMESTAMP WHERE id=?",
                                 (result, json.dumps(validation), step_id))
                 self._event(on_event, task_id, agent_name, "Completed", "complete")
-                payload, final, verification = result, result, validation
+                payload, verification = result, validation
+                if agent_name != "ultron":
+                    final = result
                 step_index += 1
             except Exception as exc:
                 self.logger.exception("Task %s failed at %s", task_id, agent_name)
