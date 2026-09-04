@@ -60,7 +60,10 @@ class ApiServer:
                 if path == "/api/conversations":
                     return self.send_json(200, [dict(row) for row in server.conversations.list()])
                 if path == "/api/models":
-                    return self.send_json(200, {"models": list(server.provider.list_models())})
+                    models = list(server.provider.list_models())
+                    # Keep the UI usable while Bionic is starting; health still reports
+                    # whether the configured local model service is actually reachable.
+                    return self.send_json(200, {"models": models or [server.settings.default_model]})
                 if path == "/api/tasks":
                     return self.send_json(200, [dict(row) for row in server.db.execute("SELECT * FROM tasks ORDER BY id DESC")])
                 if path.startswith("/api/tasks/"):
