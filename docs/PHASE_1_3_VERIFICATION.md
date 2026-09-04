@@ -12,14 +12,14 @@ docker exec <container> tesseract --version  PASS (5.5.0)
 docker exec <container> pdfinfo -v           PASS (25.03.0)
 docker exec <container> python -m unittest discover -s tests -p test_ocr_acceptance.py -v
                                              PASS (2 tests)
-python -m unittest discover -s tests -v      PASS (23 tests, 3 skipped)
+python -m unittest discover -s tests -v      PASS (23 tests, 2 skipped)
 python -m compileall -q sovereign_ai         PASS
 ```
 
-The three host skips are expected in this workstation runtime: two OCR tests
-because native OCR tools are intentionally installed in Docker, and one Bionic
-health test because the Bionic endpoint was not accepting connections during
-verification. The same OCR tests passed inside the built application container.
+The two host skips are expected in this workstation runtime: OCR tests are
+intentionally verified inside Docker because native OCR tools are installed in
+the application container. The Bionic health test passed against the live
+endpoint, and real chat, embedding, and vision checks also passed.
 
 ## Phase 1: Tkinter and Docker
 
@@ -32,7 +32,7 @@ verification. The same OCR tests passed inside the built application container.
 | Fresh Docker image build | PASS | `docker compose build` |
 | Fresh service startup and API health | PASS | `docker compose up -d`, `GET /api/health` |
 | Persistent local volume across restart | PASS | `docker compose restart` and `/app/data/acceptance/restart.txt` |
-| Live Tkinter-to-Docker connection | NOT VERIFIED | Tkinter smoke is automated, but the UI currently uses local service classes rather than the HTTP API |
+| Live Tkinter-to-Docker connection | NOT PASSING | Tkinter launches and Docker is healthy, but the current UI uses local service classes rather than the HTTP API |
 
 Docker runs the local backend and persistence. The official desktop UI remains
 Tkinter on the workstation and is not forced into a headless container.
@@ -63,8 +63,10 @@ Tkinter on the workstation and is not forced into a headless container.
 | Re-indexing/version replacement | PASS | `tests/test_knowledge.py` |
 | Native Tesseract and Poppler availability | PASS in Docker | `docker exec ... tesseract --version`, `pdfinfo -v` |
 | Scanned-PDF local OCR with page number | PASS in Docker | `tests/test_ocr_acceptance.py` |
-| Bionic health connection | NOT VERIFIED in this run | Endpoint was offline/refused on host and from the container |
-| Real Bionic embedding/vision inference | NOT VERIFIED | Requires loaded compatible Bionic models and an accepting endpoint |
+| Bionic health connection | PASS | `GET /api/health` reports the local model API connected |
+| Real Bionic embedding inference | PASS | `text-embedding-nomic-embed-text-v1.5` returned a 768-dimensional vector |
+| Real Bionic chat inference | PASS | `google/gemma-4-e2b` returned the requested `LOCAL_CHAT_OK` response |
+| Real Bionic vision inference | PASS | `google/gemma-4-e2b` read `DEMO LOCAL VISION TEST` from a generated image |
 | Basic DOCX/XLSX/PPTX structure extraction | PASS | `tests/test_knowledge.py` |
 | Complex office tables, diagrams, and layout reconstruction | PARTIAL | Basic labels/text only by design |
 | Evidence viewer | PASS | Tkinter evidence interaction in `sovereign_ai/ui.py` |
@@ -82,7 +84,7 @@ Tkinter on the workstation and is not forced into a headless container.
 - Docker Desktop with Compose for backend services.
 - Bionic Studio Local Model API at `http://localhost:1234/v1` for live model chat,
   embeddings, and vision. The Bionic endpoint must be running and expose the
-  requested compatible models.
+  requested compatible models. This requirement was live-tested successfully.
 - Docker persists application state in the named `sovereign_data` volume.
 
 ## Reproduction
@@ -102,12 +104,11 @@ python -m sovereign_ai
 
 ## Final status
 
-Phase 1: **Acceptance verified for Docker/backend/Tkinter smoke; live UI-to-Docker integration remains not verified.**
+Phase 1: **Mostly acceptance verified; Docker/backend and Tkinter smoke pass, but live UI-to-Docker integration is not passing because the UI is not currently an HTTP client.**
 
 Phase 2: **Acceptance verified for the implemented single-server agent and async task workflow.**
 
-Phase 3: **Acceptance verified for local OCR, fallback embeddings, Turbovec, RAG, citations, deletion, and re-indexing; real Bionic inference remains not verified.**
+Phase 3: **Acceptance verified for local OCR, real Bionic chat/embeddings/vision, fallback embeddings, Turbovec, RAG, citations, deletion, and re-indexing.**
 
-The project is not marked fully ready for Phase 4 until the two live integration
-items above are exercised with Bionic running and the workstation Tkinter app
-connected to the Docker backend.
+The project is not marked fully ready for Phase 4 until the workstation Tkinter
+app is connected to and exercises the Docker backend over its HTTP API.
