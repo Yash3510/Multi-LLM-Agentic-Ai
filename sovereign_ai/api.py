@@ -16,7 +16,7 @@ class ApiServer:
         self.db, self.provider, self.settings = db, provider, settings
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files, self.health = FileService(db, settings.storage_dir), check
-        self.tasks = TaskEngine(db, provider, settings.default_model)
+        self.tasks = TaskEngine(db, provider, settings.default_model, self.files)
         self.logger = logging.getLogger("sovereign_ai.api")
         server = self
 
@@ -79,6 +79,9 @@ class ApiServer:
                     if path == "/api/logout":
                         server.auth.logout(token)
                         return self.send_json(200, {"logged_out": True})
+                    if path.startswith("/api/tasks/") and path.endswith("/approve"):
+                        task_id = int(path.split("/")[3])
+                        return self.send_json(200, server.tasks.approve(task_id, username))
                     if path == "/api/conversations":
                         conversation_id = server.conversations.create(payload.get("title", "New conversation"), payload.get("model", server.settings.default_model))
                         return self.send_json(201, {"id": conversation_id})

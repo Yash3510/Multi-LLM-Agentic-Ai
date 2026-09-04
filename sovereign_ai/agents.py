@@ -32,6 +32,13 @@ class TonyStark(Agent):
             {"agent": "ultron", "action": "verify_result"},
         ]}
 
+    def replan(self, request: str, challenge: str, model: str) -> dict:
+        return {"reason": challenge, "steps": [
+            {"agent": "friday", "action": "reanalyze_with_challenge", "model": model},
+            {"agent": "jarvis", "action": "execute_structured", "model": model},
+            {"agent": "ultron", "action": "verify_result", "model": model},
+        ]}
+
     def execute(self, action, payload, model):
         return payload
 
@@ -63,8 +70,12 @@ class Jarvis(Agent):
     def plan(self, request):
         return {"agent": self.name, "action": "execute_structured"}
 
+    def __init__(self, provider, tools=None):
+        self.provider, self.tools = provider, tools
+
     def execute(self, action, payload, model):
-        return "JARVIS execution result:\n" + payload
+        tool_result = self.tools.execute(payload) if self.tools else None
+        return "JARVIS execution result:\n" + ((tool_result + "\n") if tool_result else "") + payload
 
     def validate(self, result, model):
         return {"passed": bool(result.strip()), "confidence": 0.8 if result.strip() else 0.0}
@@ -89,5 +100,5 @@ class Ultron(Agent):
         return {"passed": first_line.startswith("PASS"), "confidence": 0.85 if first_line.startswith("PASS") else 0.25, "challenge": result}
 
 
-def agents_for(provider):
-    return {"tony": TonyStark(), "friday": Friday(provider), "jarvis": Jarvis(), "ultron": Ultron(provider)}
+def agents_for(provider, tools=None):
+    return {"tony": TonyStark(), "friday": Friday(provider), "jarvis": Jarvis(provider, tools), "ultron": Ultron(provider)}

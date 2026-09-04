@@ -19,7 +19,8 @@ class SovereignApp(tk.Tk):
         self.db, self.provider, self.settings = db, provider, settings
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files = FileService(db, settings.storage_dir)
-        self.task_engine = TaskEngine(db, provider, settings.default_model)
+        self.task_engine = TaskEngine(db, provider, settings.default_model, self.files)
+        self.last_task_id = None
         self.current_conversation = None
         self.model_var = tk.StringVar(value=settings.default_model)
         self.stop_event = threading.Event()
@@ -110,6 +111,7 @@ class SovereignApp(tk.Tk):
         self.prompt = tk.Text(bottom, height=3, wrap="word", bg="#172631", fg="white", insertbackground="white", relief="flat", padx=10, pady=8); self.prompt.pack(side="left", expand=True, fill="x")
         ttk.Button(bottom, text="Stop", command=self.stop_generation).pack(side="left", padx=(10, 0))
         ttk.Button(bottom, text="Send", command=self.send).pack(side="left", padx=(6, 0))
+        ttk.Button(bottom, text="Approve result", command=self.approve_result).pack(side="left", padx=(6, 0))
         if self.current_conversation:
             for row in self.conversations.messages(self.current_conversation): self.append_chat(row["role"], row["content"])
 
@@ -153,12 +155,23 @@ class SovereignApp(tk.Tk):
                     self.activity.see("end")
                 elif isinstance(token, dict) and "result" in token:
                     result = token["result"]
+                    self.last_task_id = result["task_id"]
                     full = result["result"]
                     self.chat.configure(state="normal"); render(self.chat, full); self.chat.see("end"); self.chat.configure(state="disabled")
                 elif isinstance(token, dict) and "error" in token:
                     full = "[Task error: " + token["error"] + "]"
                     self.chat.configure(state="normal"); render(self.chat, full); self.chat.see("end"); self.chat.configure(state="disabled")
         except queue.Empty: self.after(50, self._poll_tokens, tokens, full)
+
+    def approve_result(self):
+        if not self.last_task_id:
+            messagebox.showinfo("Approval", "No task is awaiting approval")
+            return
+        try:
+            result = self.task_engine.approve(self.last_task_id)
+            self.activity.insert("end", f"TONY: Task {result['task_id']} approved")
+        except Exception as exc:
+            messagebox.showerror("Approval", str(exc))
 
     def show_files(self):
         for widget in self.body.winfo_children(): widget.destroy()
