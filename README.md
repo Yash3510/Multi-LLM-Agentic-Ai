@@ -13,6 +13,8 @@
 7. [Phase 6 — Sovereign Security](06_PHASE_6_SOVEREIGN_SECURITY.md)
 8. [Phase 7 — Polish & SIH Demo](07_PHASE_7_POLISH_DEMO.md)
 
+Demo and security runbooks: [Demo guide](docs/DEMO.md) and [Sovereign security](docs/SECURITY.md).
+
 ## Recommended Build Order
 
 ```text

@@ -103,6 +103,8 @@ class SovereignApp(tk.Tk):
         self.model_box = ttk.Combobox(self.sidebar, textvariable=self.model_var, values=models or [self.settings.default_model], state="normal", width=22)
         self.model_box.pack(anchor="w", pady=(0, 20))
         ttk.Button(self.sidebar, text="+ New conversation", command=self.new_conversation).pack(fill="x", pady=3)
+        ttk.Button(self.sidebar, text="Dashboard", command=self.show_dashboard).pack(fill="x", pady=3)
+        ttk.Button(self.sidebar, text="Demo guide", command=self.show_demo_guide).pack(fill="x", pady=3)
         ttk.Label(self.sidebar, text="History").pack(anchor="w", pady=(22, 5))
         self.history = tk.Listbox(self.sidebar, height=10, width=24, bg="#0b1218", fg="#d8e5ed", relief="flat", highlightthickness=0)
         self.history.pack(fill="x", pady=(0, 8))
@@ -115,7 +117,61 @@ class SovereignApp(tk.Tk):
         ttk.Button(self.sidebar, text="Settings", command=self.show_settings).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="Logout", command=self.show_auth).pack(fill="x", pady=(26, 3))
         self.body = ttk.Frame(self, padding=24); self.body.pack(side="right", expand=True, fill="both")
+        self.show_dashboard()
+
+    def show_dashboard(self):
+        for widget in self.body.winfo_children(): widget.destroy()
+        ttk.Label(self.body, text="Sovereign runtime", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(self.body, text="Judge-ready local operations overview", style="Subtitle.TLabel").pack(anchor="w", pady=(2, 18))
+        statuses = self.backend.health() if self.backend else check(self.db, self.provider, self.settings.storage_dir, self.settings)
+        models = self.backend.models() if self.backend else list(self.provider.list_models())
+        documents = self.backend.documents() if self.backend else list(self.db.execute("SELECT id FROM documents WHERE processing_status='ready'"))
+        local_tasks = list(self.db.execute("SELECT status FROM tasks ORDER BY id DESC LIMIT 20"))
+        artifacts_dir = self.settings.storage_dir / "artifacts"
+        artifacts = list(artifacts_dir.rglob("*") if artifacts_dir.exists() else [])
+        cards = ttk.Frame(self.body); cards.pack(fill="x")
+        values = [("RUNTIME", "ONLINE" if statuses.get("Backend", (False,))[0] else "OFFLINE"),
+                  ("LOCAL MODELS", str(len(models)) + " available"),
+                  ("KNOWLEDGE BASE", str(len(documents)) + " ready"),
+                  ("ACTIVE TASKS", str(sum(1 for row in local_tasks if row["status"] in ("queued", "executing", "verifying", "planning")))),
+                  ("DELIVERABLES", str(sum(1 for path in artifacts if path.is_file()))),
+                  ("NETWORK", "AIR-GAPPED" if self.settings.sovereign_mode else "POLICY OFF")]
+        for index, (label, value) in enumerate(values):
+            card = ttk.Frame(cards, padding=16, style="Card.TFrame"); card.grid(row=index // 3, column=index % 3, sticky="nsew", padx=5, pady=5)
+            ttk.Label(card, text=label).pack(anchor="w")
+            ttk.Label(card, text=value, style="Title.TLabel").pack(anchor="w", pady=(8, 0))
+        for column in range(3): cards.columnconfigure(column, weight=1)
+        ttk.Label(self.body, text="System checks", style="Title.TLabel").pack(anchor="w", pady=(28, 10))
+        checks = tk.Text(self.body, height=8, wrap="word", bg="#0b1218", fg="#d8e5ed", relief="flat", padx=14, pady=12)
+        checks.pack(fill="x"); checks.configure(state="normal")
+        for name, (ok, detail) in statuses.items(): checks.insert("end", ("PASS  " if ok else "WARN  ") + f"{name}: {detail}\n")
+        checks.configure(state="disabled")
+        ttk.Button(self.body, text="Open chat workspace", command=self.show_chat).pack(anchor="w", pady=18)
+
+    def show_demo_guide(self):
+        for widget in self.body.winfo_children(): widget.destroy()
+        ttk.Label(self.body, text="SIH demo guide", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(self.body, text="A controlled, local-only demonstration path", style="Subtitle.TLabel").pack(anchor="w", pady=(2, 18))
+        steps = [
+            ("1. Ingest evidence", "Open Knowledge, upload a clearly labelled test PDF, and wait for Ready."),
+            ("2. Ask FRIDAY", "Search the local knowledge base and inspect the returned page evidence."),
+            ("3. Run Tony workflow", "Submit an analysis request and observe FRIDAY, JARVIS, and ULTRON activity."),
+            ("4. Review output", "Inspect verification, then Approve, Request Changes, or Reject."),
+            ("5. Inspect deliverables", "Open the Artifacts panel and verify generated files locally."),
+            ("6. Show sovereignty", "Open System status and show local model, storage, audit, and network policy."),
+        ]
+        for title, description in steps:
+            row = ttk.Frame(self.body, padding=10, style="Card.TFrame"); row.pack(fill="x", pady=4)
+            ttk.Label(row, text=title, style="Title.TLabel").pack(anchor="w")
+            ttk.Label(row, text=description).pack(anchor="w", pady=(4, 0))
+        ttk.Label(self.body, text="Safe test prompts", style="Title.TLabel").pack(anchor="w", pady=(22, 8))
+        for prompt in ("What agents can you work with?", "Analyze this inspection report", "Create a Python program that calculates total and average employee hours"):
+            ttk.Button(self.body, text=prompt, command=lambda value=prompt: self._load_demo_prompt(value)).pack(anchor="w", pady=2)
+
+    def _load_demo_prompt(self, prompt):
         self.show_chat()
+        self.prompt.insert("1.0", prompt)
+        self.prompt.focus_set()
 
     def refresh_history(self):
         self.history.delete(0, "end")
