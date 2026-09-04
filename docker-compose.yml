@@ -1,0 +1,15 @@
+services:
+  sovereign-ai:
+    build: .
+    environment:
+      SOVEREIGN_DATA_DIR: /app/data
+      LOCAL_MODEL_URL: ${LOCAL_MODEL_URL:-http://host.docker.internal:1234/v1}
+      LOCAL_MODEL: ${LOCAL_MODEL:-local-model}
+      DISPLAY: ${DISPLAY:-:0}
+    ports:
+      - "8000:8000"
+    volumes:
+      - sovereign_data:/app/data
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+volumes:
+  sovereign_data:
