@@ -20,5 +20,15 @@ class ChatTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT status FROM tasks WHERE id=?", (result["task_id"],)).fetchone()[0], "completed")
             db.close()
 
+    def test_explicit_file_request_uses_safe_registered_tool(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = Database(Path(directory) / "chat.db")
+            engine = TaskEngine(db, ChatProvider(), "fallback", knowledge=None)
+            engine.tools.workspace = Path(directory).resolve()
+            result = engine.chat("Create a file named report.txt")
+            self.assertEqual(result["status"], "completed")
+            self.assertTrue((Path(directory) / "report.txt").exists())
+            db.close()
+
 
 if __name__ == "__main__": unittest.main()

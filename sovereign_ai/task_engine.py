@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import datetime
 from .agents import agents_for
 from .router import ModelRouter
@@ -42,11 +43,26 @@ class TaskEngine:
         task_id = row.lastrowid
         self._event(on_event, task_id, "tony", "Listening", "executing")
         try:
-            answer = self.provider.generate(
+            lowered = request.lower()
+            file_match = re.search(r"create\s+(?:a\s+)?file\s+(?:named|called)\s+([\w.-]+)", request, re.I)
+            folder_match = re.search(r"create\s+(?:a\s+)?(?:folder|directory)\s+(?:named|called)\s+([\w.-]+)", request, re.I)
+            if (file_match or folder_match) and "desktop" in lowered:
+                answer = "I can create files only inside the approved Sovereign workspace, not directly on the Desktop."
+            elif file_match:
+                result = self.tools.execute_tool("write_file", {"path": file_match.group(1), "content": ""}, permission="write", task_id=task_id, agent="jarvis")
+                answer = "Created local workspace file: " + str(result.get("result")) if result["success"] else "I could not create that file: " + result["error"]
+            elif folder_match:
+                result = self.tools.execute_tool("create_directory", {"path": folder_match.group(1)}, permission="write", task_id=task_id, agent="jarvis")
+                answer = "Created local workspace folder: " + str(result.get("result")) if result["success"] else "I could not create that folder: " + result["error"]
+            elif re.search(r"(?:calculate|compute)\s+[0-9+*/().%\s-]+", request, re.I):
+                answer = self.tools.execute(request) or "I could not evaluate that calculation safely."
+            else:
+                answer = self.provider.generate(
                 "You are Tony Stark, a helpful local assistant. Answer the user's message naturally and directly. "
-                "Do not claim access to facts that are not in the conversation.\n\nUSER: " + request,
-                selected,
-            )
+                    "You work with FRIDAY, JARVIS, and ULTRON. Do not claim access to external systems, desktop files, or APIs. "
+                    "Do not claim you performed an action unless a tool result confirms it.\n\nUSER: " + request,
+                    selected,
+                )
             self.db.execute("UPDATE tasks SET status='completed',agent='tony',output=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (answer, task_id))
             self._event(on_event, task_id, "tony", "Responded", "completed")
             return {"task_id": task_id, "status": "completed", "result": answer}
