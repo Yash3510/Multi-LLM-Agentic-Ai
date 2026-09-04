@@ -23,5 +23,13 @@ class LocalModelTests(unittest.TestCase):
             self.skipTest("Bionic Studio Local Model API is not running")
         self.assertTrue(healthy, message)
 
+    def test_bionic_non_streaming_generation_when_available(self):
+        provider = OpenAICompatibleProvider(load_settings().local_model_url)
+        healthy, _ = provider.health_check()
+        if not healthy:
+            self.skipTest("Bionic Studio Local Model API is not running")
+        result = provider.generate("Reply with exactly LOCAL_GENERATE_OK.", "google/gemma-4-e2b")
+        self.assertIn("LOCAL_GENERATE_OK", result)
+
 
 if __name__ == "__main__": unittest.main()

@@ -18,6 +18,14 @@ class OpenAICompatibleProvider(ModelProvider):
         result = []
         return self.stream(messages, model, result.append)
 
+    def generate(self, prompt: str, model: str) -> str:
+        """Use a bounded non-streaming request for background agent work."""
+        body = json.dumps({"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False}).encode()
+        request = Request(self.base_url + "/chat/completions", data=body,
+                          headers={"Content-Type": "application/json"}, method="POST")
+        with urlopen(request, timeout=120) as response:
+            return json.load(response)["choices"][0]["message"]["content"]
+
     def vision(self, prompt, image, model):
         encoded = base64.b64encode(image).decode("ascii")
         body = json.dumps({"model": model, "messages": [{"role": "user", "content": [

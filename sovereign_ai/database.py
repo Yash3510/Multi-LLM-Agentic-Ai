@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Iterable
 
@@ -71,6 +72,7 @@ class Database:
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(path, check_same_thread=False)
+        self._lock = threading.RLock()
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys = ON")
         self.migrate()
@@ -102,8 +104,9 @@ class Database:
                 self.connection.execute("INSERT INTO schema_migrations(version) VALUES (3)")
 
     def execute(self, query: str, args: Iterable = ()) -> sqlite3.Cursor:
-        with self.connection:
-            return self.connection.execute(query, tuple(args))
+        with self._lock:
+            with self.connection:
+                return self.connection.execute(query, tuple(args))
 
     def close(self) -> None:
         self.connection.close()

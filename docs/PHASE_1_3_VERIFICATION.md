@@ -12,7 +12,7 @@ docker exec <container> tesseract --version  PASS (5.5.0)
 docker exec <container> pdfinfo -v           PASS (25.03.0)
 docker exec <container> python -m unittest discover -s tests -p test_ocr_acceptance.py -v
                                              PASS (2 tests)
-python -m unittest discover -s tests -v      PASS (24 tests, 2 skipped)
+python -m unittest discover -s tests -v      PASS (25 tests, 2 skipped)
 python -m compileall -q sovereign_ai         PASS
 ```
 
@@ -46,7 +46,7 @@ Tkinter on the workstation and is not forced into a headless container.
 | ULTRON retry and Tony replan | PASS | `tests/test_agents.py` |
 | Human approval state transition | PASS | `tests/test_agents.py` |
 | Non-blocking background submission | PASS | `tests/test_async_tasks.py` |
-| HTTP task creation returns `202` and `task_id` | PASS | `tests/test_api.py` |
+| HTTP task creation returns `202` and `task_id` | PASS | `tests/test_api.py`, `tests/test_ui_backend_acceptance.py` |
 | HTTP task status collection/item/approval routes | PASS | `tests/test_api.py` |
 | Production-scale distributed orchestration | NOT IN SCOPE | Single-server worker pool is the intentional Phase 1-3 implementation |
 
