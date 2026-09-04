@@ -53,7 +53,7 @@ Observed locally with Docker Desktop running: **7 Phase 4 tests passed, includin
 
 - **LangGraph:** Implemented and tested as the bounded coding/tool state graph; it does not replace Tony.
 - **Full dataset workflow through live Tony/JARVIS/ULTRON:** Partially tested. The registry and deliverables are tested directly; the graph coding path is deterministic-test verified.
-- **Full coding workflow:** Implemented and tested with a local deterministic provider plus the real Docker sandbox. A live Bionic code-generation run remains environment/model dependent.
+- **Full coding workflow:** Implemented and tested with a local deterministic provider plus the real Docker sandbox. Bionic health and live local text generation are verified; live Bionic code-generation output remains model-prompt dependent.
 - **Tkinter artifact browser/open action:** Implemented; OS launching requires a desktop session and is not automated in headless CI.
 - **Memory/CPU enforcement:** Configured on Docker sandbox; platform-level measurement is not separately benchmarked.
 
@@ -77,4 +77,4 @@ python -m unittest discover -s tests -v
 python -m compileall -q sovereign_ai
 ```
 
-Phase 4 status: **Tool registry, structured document readers, LangGraph coding orchestration, approval interruption, Docker sandbox execution, deliverables, ULTRON verification, and Tkinter artifact actions are implemented and tested. Live Bionic-generated coding output remains model/environment dependent and is not part of the deterministic acceptance suite.**
+Phase 4 status: **Acceptance verified for the current environment: tool registry, structured document readers, LangGraph coding orchestration, approval interruption, Docker sandbox execution, deliverables, ULTRON verification, Tkinter artifact propagation, and live local backend/model connectivity all pass. Live Bionic code-generation output remains model-prompt dependent; host OCR checks are skipped because OCR is verified inside Docker.**
