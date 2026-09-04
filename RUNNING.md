@@ -24,6 +24,8 @@ The compose file persists application data in the `sovereign_data` volume. Tkint
 
 Docker runs the local API on `http://localhost:8000`. The API exposes `/api/setup`, `/api/login`, `/api/logout`, `/api/health`, `/api/models`, `/api/tasks`, `/api/conversations`, `/api/files`, `/api/knowledge/documents`, `/api/knowledge/search`, and `/api/knowledge/ask`. Protected routes use the bearer token returned by `/api/login`. Docker runs backend services; launch the Tkinter desktop application on the workstation with the local service configuration.
 
+To connect the Tkinter workstation UI to the Docker backend, set `SOVEREIGN_BACKEND_URL=http://localhost:8000` before launching `python -m sovereign_ai`. The app then authenticates against Docker and uses its task, upload, knowledge, model, and health endpoints. Without this variable, the app preserves its standalone local-service mode.
+
 ## Checks
 
 ```text

@@ -1,4 +1,5 @@
 import argparse
+import os
 import threading
 from .config import load_settings
 from .database import Database
@@ -7,6 +8,7 @@ from .api import ApiServer
 from .logging_config import configure_logging
 from .ui import SovereignApp
 from .knowledge import KnowledgeService
+from .backend_client import BackendClient
 
 
 def main():
@@ -27,7 +29,9 @@ def main():
         try: api.serve_forever()
         finally: api.shutdown(); db.close()
         return
-    app = SovereignApp(db, provider, settings, knowledge)
+    backend_url = os.getenv("SOVEREIGN_BACKEND_URL")
+    backend = BackendClient(backend_url) if backend_url else None
+    app = SovereignApp(db, provider, settings, knowledge, backend)
     try: app.mainloop()
     finally: db.close()
 

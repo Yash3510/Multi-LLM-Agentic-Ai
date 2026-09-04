@@ -1,22 +1,26 @@
 import queue
 import threading
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from pathlib import Path
 from .auth import AuthService
 from .conversations import ConversationService
 from .files import FileService
 from .health import check
 from .markdown import render
 from .task_engine import TaskEngine
+from .backend_client import BackendClient
 
 
 class SovereignApp(tk.Tk):
-    def __init__(self, db, provider, settings, knowledge=None):
+    def __init__(self, db, provider, settings, knowledge=None, backend=None):
         super().__init__()
         self.title("Sovereign AI | Local Workbench")
         self.geometry("1120x720")
         self.minsize(860, 560)
         self.db, self.provider, self.settings = db, provider, settings
+        self.backend = backend
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files = FileService(db, settings.storage_dir)
         from .knowledge import KnowledgeService
@@ -47,10 +51,31 @@ class SovereignApp(tk.Tk):
         frame.place(relx=.5, rely=.5, anchor="center", width=430, height=360)
         ttk.Label(frame, text="SOVEREIGN AI", style="Title.TLabel").pack(pady=(18, 4))
         ttk.Label(frame, text="Fully local industrial knowledge workbench").pack(pady=(0, 24))
-        if not self.auth.has_admin():
+        if self.backend:
+            self._remote_auth_form(frame)
+        elif not self.auth.has_admin():
             self._auth_form(frame, True)
         else:
             self._auth_form(frame, False)
+
+    def _remote_auth_form(self, parent):
+        ttk.Label(parent, text="Sign in to local Docker backend").pack(anchor="w")
+        user = ttk.Entry(parent); user.pack(fill="x", pady=(6, 12)); user.focus_set()
+        password = ttk.Entry(parent, show="*"); password.pack(fill="x", pady=(0, 20))
+        def login():
+            try:
+                self.backend.login(user.get(), password.get())
+                self.show_main()
+            except Exception as exc: messagebox.showerror("Backend sign in", str(exc))
+        def setup():
+            try:
+                self.backend.setup(user.get(), password.get())
+                self.backend.login(user.get(), password.get())
+                self.show_main()
+            except Exception as exc: messagebox.showerror("Backend setup", str(exc))
+        ttk.Button(parent, text="Sign in", command=login).pack(fill="x", pady=4)
+        ttk.Button(parent, text="Create administrator", command=setup).pack(fill="x", pady=4)
+        password.bind("<Return>", lambda _: login())
 
     def _auth_form(self, parent, setup):
         ttk.Label(parent, text="Create administrator" if setup else "Local sign in").pack(anchor="w")
@@ -72,7 +97,8 @@ class SovereignApp(tk.Tk):
         self.clear()
         self.sidebar = ttk.Frame(self, padding=18, style="Card.TFrame"); self.sidebar.pack(side="left", fill="y")
         ttk.Label(self.sidebar, text="SOVEREIGN AI", style="Title.TLabel").pack(anchor="w", pady=(0, 28))
-        self.model_box = ttk.Combobox(self.sidebar, textvariable=self.model_var, values=list(self.provider.list_models()) or [self.settings.default_model], state="normal", width=22)
+        models = self.backend.models() if self.backend else list(self.provider.list_models())
+        self.model_box = ttk.Combobox(self.sidebar, textvariable=self.model_var, values=models or [self.settings.default_model], state="normal", width=22)
         self.model_box.pack(anchor="w", pady=(0, 20))
         ttk.Button(self.sidebar, text="+ New conversation", command=self.new_conversation).pack(fill="x", pady=3)
         ttk.Label(self.sidebar, text="History").pack(anchor="w", pady=(22, 5))
@@ -101,7 +127,9 @@ class SovereignApp(tk.Tk):
             self.show_chat()
 
     def new_conversation(self):
-        self.current_conversation = self.conversations.create("New conversation", self.model_var.get()); self.show_chat()
+        self.current_conversation = (self.backend.create_conversation("New conversation", self.model_var.get())
+                                     if self.backend else self.conversations.create("New conversation", self.model_var.get()))
+        self.show_chat()
 
     def show_chat(self):
         for widget in self.body.winfo_children(): widget.destroy()
@@ -139,8 +167,20 @@ class SovereignApp(tk.Tk):
         self.stop_event.clear(); tokens = queue.Queue()
         def run():
             try:
-                result = self.task_engine.run(prompt, self.current_conversation, model=self.model_var.get(), on_event=tokens.put)
-                tokens.put({"result": result})
+                if self.backend:
+                    result = self.backend.submit_task(prompt, self.model_var.get(), self.current_conversation)
+                    task_id = result["task_id"]
+                    tokens.put({"agent": "tony", "message": "Task queued in local backend"})
+                    while not self.stop_event.is_set():
+                        status = self.backend.task(task_id)
+                        tokens.put({"agent": status.get("agent") or "tony", "message": status.get("status", "working")})
+                        if status["status"] in {"awaiting_approval", "completed", "failed"}:
+                            tokens.put({"result": {"task_id": task_id, "status": status["status"], "result": status.get("output") or status.get("error", "")}})
+                            break
+                        threading.Event().wait(0.25)
+                else:
+                    result = self.task_engine.run(prompt, self.current_conversation, model=self.model_var.get(), on_event=tokens.put)
+                    tokens.put({"result": result})
             except Exception as exc: tokens.put({"error": str(exc)})
             tokens.put(None)
         threading.Thread(target=run, daemon=True).start(); self._poll_tokens(tokens, "")
@@ -171,7 +211,7 @@ class SovereignApp(tk.Tk):
             messagebox.showinfo("Approval", "No task is awaiting approval")
             return
         try:
-            result = self.task_engine.approve(self.last_task_id)
+            result = self.backend.approve(self.last_task_id) if self.backend else self.task_engine.approve(self.last_task_id)
             self.activity.insert("end", f"TONY: Task {result['task_id']} approved")
         except Exception as exc:
             messagebox.showerror("Approval", str(exc))
@@ -187,8 +227,11 @@ class SovereignApp(tk.Tk):
         source = filedialog.askopenfilename()
         if source:
             try:
-                stored = self.files.store(source)
-                self.knowledge.ingest(source, stored_name=stored["stored_name"])
+                if self.backend:
+                    self.backend.upload(Path(source))
+                else:
+                    stored = self.files.store(source)
+                    self.knowledge.ingest(source, stored_name=stored["stored_name"])
                 self.show_files()
             except Exception as exc: messagebox.showerror("Upload", str(exc))
 
@@ -202,7 +245,8 @@ class SovereignApp(tk.Tk):
         def run_search():
             evidence.clear()
             results.delete(0, "end")
-            for row in self.knowledge.search(search.get()):
+            rows = self.backend.search(search.get()) if self.backend else self.knowledge.search(search.get())
+            for row in rows:
                 evidence.append(row)
                 results.insert("end", f"{row['source_filename']} | page {row['page']} | {row['section']} | score {row['score']:.3f}")
                 results.insert("end", "  " + row["content"][:300])
@@ -214,15 +258,19 @@ class SovereignApp(tk.Tk):
         results.bind("<Double-Button-1>", inspect)
         ttk.Button(self.body, text="Search local knowledge", command=run_search).pack(anchor="w", pady=(0, 10))
         ttk.Label(self.body, text="Documents").pack(anchor="w")
-        for row in self.knowledge.list_documents():
+        documents = self.backend.documents() if self.backend else self.knowledge.list_documents()
+        for row in documents:
             ttk.Label(self.body, text=f"{row['original_name']} | {row['processing_status']} | v{row['version']}").pack(anchor="w")
 
     def upload_knowledge(self):
         source = filedialog.askopenfilename()
         if source:
             try:
-                stored = self.files.store(source)
-                self.knowledge.ingest(source, stored_name=stored["stored_name"])
+                if self.backend:
+                    self.backend.upload(Path(source))
+                else:
+                    stored = self.files.store(source)
+                    self.knowledge.ingest(source, stored_name=stored["stored_name"])
                 self.show_knowledge()
             except Exception as exc:
                 messagebox.showerror("Knowledge upload", str(exc))
@@ -230,7 +278,8 @@ class SovereignApp(tk.Tk):
     def show_status(self):
         for widget in self.body.winfo_children(): widget.destroy()
         ttk.Label(self.body, text="System status", style="Title.TLabel").pack(anchor="w", pady=(0, 20))
-        for name, (ok, detail) in check(self.db, self.provider, self.settings.storage_dir).items():
+        statuses = self.backend.health() if self.backend else check(self.db, self.provider, self.settings.storage_dir)
+        for name, (ok, detail) in statuses.items():
             ttk.Label(self.body, text=("● " if ok else "○ ") + f"{name}: {detail}", foreground="#74c69d" if ok else "#f28482").pack(anchor="w", pady=8)
 
     def show_settings(self):

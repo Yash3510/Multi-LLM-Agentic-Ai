@@ -12,7 +12,7 @@ docker exec <container> tesseract --version  PASS (5.5.0)
 docker exec <container> pdfinfo -v           PASS (25.03.0)
 docker exec <container> python -m unittest discover -s tests -p test_ocr_acceptance.py -v
                                              PASS (2 tests)
-python -m unittest discover -s tests -v      PASS (23 tests, 2 skipped)
+python -m unittest discover -s tests -v      PASS (24 tests, 2 skipped)
 python -m compileall -q sovereign_ai         PASS
 ```
 
@@ -32,7 +32,7 @@ endpoint, and real chat, embedding, and vision checks also passed.
 | Fresh Docker image build | PASS | `docker compose build` |
 | Fresh service startup and API health | PASS | `docker compose up -d`, `GET /api/health` |
 | Persistent local volume across restart | PASS | `docker compose restart` and `/app/data/acceptance/restart.txt` |
-| Live Tkinter-to-Docker connection | NOT PASSING | Tkinter launches and Docker is healthy, but the current UI uses local service classes rather than the HTTP API |
+| Live Tkinter-to-Docker connection | PASS | `tests/test_ui_backend_acceptance.py` launches Tkinter in backend mode, authenticates, discovers models, creates a conversation, and submits a task to Docker |
 
 Docker runs the local backend and persistence. The official desktop UI remains
 Tkinter on the workstation and is not forced into a headless container.
@@ -104,11 +104,11 @@ python -m sovereign_ai
 
 ## Final status
 
-Phase 1: **Mostly acceptance verified; Docker/backend and Tkinter smoke pass, but live UI-to-Docker integration is not passing because the UI is not currently an HTTP client.**
+Phase 1: **Acceptance verified for Docker/backend, Tkinter responsiveness, and live Tkinter-to-Docker integration.**
 
 Phase 2: **Acceptance verified for the implemented single-server agent and async task workflow.**
 
 Phase 3: **Acceptance verified for local OCR, real Bionic chat/embeddings/vision, fallback embeddings, Turbovec, RAG, citations, deletion, and re-indexing.**
 
-The project is not marked fully ready for Phase 4 until the workstation Tkinter
-app is connected to and exercises the Docker backend over its HTTP API.
+Phase 1 is now ready for Phase 4 dependency purposes. Phase 3 complex document
+layout and drawing support remain the documented limitations.
