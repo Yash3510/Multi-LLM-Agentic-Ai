@@ -18,7 +18,7 @@ class Phase4Tests(unittest.TestCase):
 
     def test_registry_permissions_safe_paths_and_audit(self):
         names = {tool.name for tool in self.registry.list_tools()}
-        self.assertTrue({"read_file", "write_file", "search_files", "csv_summary", "calculate", "delete_file"} <= names)
+        self.assertTrue({"read_file", "write_file", "move_file", "copy_file", "search_files", "csv_summary", "calculate", "delete_file"} <= names)
         created = self.registry.execute_tool("write_file", {"path": "note.txt", "content": "Compressor C-101"}, permission="write")
         self.assertTrue(created["success"])
         self.assertEqual(self.registry.execute_tool("read_file", {"path": "note.txt"})["result"], "Compressor C-101")
@@ -29,6 +29,12 @@ class Phase4Tests(unittest.TestCase):
         self.assertIn("approval", approved["error"].lower())
         escaped = self.registry.execute_tool("read_file", {"path": "../secret.txt"})
         self.assertFalse(escaped["success"])
+        copied = self.registry.execute_tool("copy_file", {"source": "note.txt", "destination": "copy.txt"}, permission="write")
+        self.assertTrue(copied["success"])
+        moved = self.registry.execute_tool("move_file", {"source": "copy.txt", "destination": "moved.txt"}, permission="write")
+        self.assertTrue(moved["success"])
+        escaped_artifact = self.registry.execute_tool("generate_txt", {"name": "../outside.txt", "content": "blocked"}, permission="write")
+        self.assertFalse(escaped_artifact["success"])
         self.assertGreater(self.db.execute("SELECT COUNT(*) FROM audit_events WHERE action='tool_invocation'").fetchone()[0], 0)
 
     def test_dataset_read_calculate_and_csv_summary(self):

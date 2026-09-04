@@ -23,7 +23,16 @@ class DockerSandbox:
         self.image, self.timeout, self.memory, self.cpus, self.output_limit = image, timeout, memory, cpus, output_limit
 
     def available(self):
-        return shutil.which("docker") is not None
+        if shutil.which("docker") is None:
+            return False
+        try:
+            probe = subprocess.run(
+                ["docker", "info", "--format", "{{.ServerVersion}}"],
+                capture_output=True, text=True, timeout=3,
+            )
+            return probe.returncode == 0 and bool(probe.stdout.strip())
+        except (OSError, subprocess.TimeoutExpired):
+            return False
 
     def run(self, code, files=None):
         if not self.available(): return SandboxResult(False, "", "", None, error="Docker is required for the code sandbox")

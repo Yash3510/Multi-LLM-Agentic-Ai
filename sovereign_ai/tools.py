@@ -3,6 +3,7 @@ import csv
 import hashlib
 import operator
 import re
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -100,15 +101,17 @@ class ToolRegistry:
         self.register_tool(Tool("calculate", "Deterministic arithmetic", {"required": ["expression"]}, ("read",), "LOW", 5, lambda a: self.calculator.calculate(a["expression"])))
         self.register_tool(Tool("read_file", "Read an approved local text file", {"required": ["path"]}, ("read",), "LOW", 10, lambda a: self._safe_path(a["path"]).read_text(encoding="utf-8")))
         self.register_tool(Tool("write_file", "Write a text deliverable", {"required": ["path", "content"]}, ("write",), "MEDIUM", 10, self._write))
+        self.register_tool(Tool("move_file", "Move a file within the workspace", {"required": ["source", "destination"]}, ("write",), "MEDIUM", 10, self._move))
+        self.register_tool(Tool("copy_file", "Copy a file within the workspace", {"required": ["source", "destination"]}, ("read", "write"), "MEDIUM", 10, self._copy))
         self.register_tool(Tool("create_directory", "Create a workspace directory", {"required": ["path"]}, ("write",), "MEDIUM", 10, lambda a: str(self._safe_path(a["path"]).mkdir(parents=True, exist_ok=True) or self._safe_path(a["path"]))))
         self.register_tool(Tool("search_files", "Search text in workspace files", {"required": ["query"]}, ("read",), "LOW", 10, self._search))
         self.register_tool(Tool("csv_summary", "Summarize a local CSV", {"required": ["path"]}, ("read",), "LOW", 10, self._csv_summary))
         self.register_tool(Tool("delete_file", "Delete a workspace file", {"required": ["path"]}, ("delete",), "HIGH", 10, lambda a: str(self._safe_path(a["path"]).unlink() or self._safe_path(a["path"]))))
-        self.register_tool(Tool("generate_txt", "Generate a local text deliverable", {"required": ["name", "content"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.text(a["name"], a["content"])))
-        self.register_tool(Tool("generate_csv", "Generate a local CSV deliverable", {"required": ["name", "headers", "rows"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.csv(a["name"], a["headers"], a["rows"])))
-        self.register_tool(Tool("generate_xlsx", "Generate a local spreadsheet deliverable", {"required": ["name", "sheet", "headers", "rows"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.xlsx(a["name"], a["sheet"], a["headers"], a["rows"])))
-        self.register_tool(Tool("generate_docx", "Generate a local DOCX deliverable", {"required": ["name", "title", "paragraphs"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.docx(a["name"], a["title"], a["paragraphs"])))
-        self.register_tool(Tool("generate_pptx", "Generate a local PPTX deliverable", {"required": ["name", "title", "body"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.pptx(a["name"], a["title"], a["body"])))
+        self.register_tool(Tool("generate_txt", "Generate a local text deliverable", {"required": ["name", "content"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.text(self._artifact_name(a["name"]), a["content"])))
+        self.register_tool(Tool("generate_csv", "Generate a local CSV deliverable", {"required": ["name", "headers", "rows"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.csv(self._artifact_name(a["name"]), a["headers"], a["rows"])))
+        self.register_tool(Tool("generate_xlsx", "Generate a local spreadsheet deliverable", {"required": ["name", "sheet", "headers", "rows"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.xlsx(self._artifact_name(a["name"]), a["sheet"], a["headers"], a["rows"])))
+        self.register_tool(Tool("generate_docx", "Generate a local DOCX deliverable", {"required": ["name", "title", "paragraphs"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.docx(self._artifact_name(a["name"]), a["title"], a["paragraphs"])))
+        self.register_tool(Tool("generate_pptx", "Generate a local PPTX deliverable", {"required": ["name", "title", "body"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.pptx(self._artifact_name(a["name"]), a["title"], a["body"])))
         self.register_tool(Tool("execute_python", "Execute code in the isolated Docker sandbox", {"required": ["code"]}, ("execute",), "HIGH", 30, self._sandbox_result))
 
     def _sandbox_result(self, arguments):
@@ -117,6 +120,20 @@ class ToolRegistry:
 
     def _write(self, args):
         path = self._safe_path(args["path"]); path.parent.mkdir(parents=True, exist_ok=True); path.write_text(args["content"], encoding="utf-8"); return str(path)
+
+    def _move(self, args):
+        source, destination = self._safe_path(args["source"]), self._safe_path(args["destination"])
+        if not source.is_file(): raise FileNotFoundError(args["source"])
+        destination.parent.mkdir(parents=True, exist_ok=True); return str(shutil.move(str(source), str(destination)))
+
+    def _copy(self, args):
+        source, destination = self._safe_path(args["source"]), self._safe_path(args["destination"])
+        if not source.is_file(): raise FileNotFoundError(args["source"])
+        destination.parent.mkdir(parents=True, exist_ok=True); return str(shutil.copy2(source, destination))
+
+    def _artifact_name(self, name):
+        path = self._safe_path(name)
+        return str(path.relative_to(self.workspace))
 
     def _search(self, args):
         return [{"path": str(path.relative_to(self.workspace)), "matches": path.read_text(encoding="utf-8", errors="ignore").count(args["query"])} for path in self.workspace.rglob("*") if path.is_file() and args["query"] in path.read_text(encoding="utf-8", errors="ignore")]

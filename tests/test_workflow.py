@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from sovereign_ai.database import Database
+from sovereign_ai.sandbox import DockerSandbox
 from sovereign_ai.tools import ToolRegistry
 from sovereign_ai.workflow import AgenticWorkflow
 
@@ -26,6 +27,8 @@ class WorkflowTests(unittest.TestCase):
                 db.close()
 
     def test_coding_workflow_executes_in_sandbox_and_ultron_verifies(self):
+        if not DockerSandbox().available():
+            self.skipTest("Docker daemon is unavailable")
         with tempfile.TemporaryDirectory() as directory:
             db = Database(Path(directory) / "test.db")
             try:
