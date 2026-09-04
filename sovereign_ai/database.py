@@ -44,6 +44,26 @@ SCHEMA = [
         id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, action TEXT NOT NULL,
         details TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""",
+    """CREATE TABLE IF NOT EXISTS documents (
+        id TEXT PRIMARY KEY, original_name TEXT NOT NULL, stored_name TEXT NOT NULL,
+        file_type TEXT NOT NULL, size INTEGER NOT NULL, checksum TEXT NOT NULL,
+        uploaded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, modified_at TEXT,
+        page_count INTEGER, processing_status TEXT NOT NULL DEFAULT 'uploaded',
+        processing_error TEXT, version INTEGER NOT NULL DEFAULT 1,
+        embedding_model TEXT, metadata_json TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS document_chunks (
+        id TEXT PRIMARY KEY, document_id TEXT NOT NULL, document_version INTEGER NOT NULL,
+        page INTEGER, section TEXT, block_number INTEGER, source_filename TEXT NOT NULL,
+        content TEXT NOT NULL, content_hash TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+    )""",
+    """CREATE TABLE IF NOT EXISTS knowledge_jobs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, document_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'queued', stage TEXT NOT NULL DEFAULT 'uploaded',
+        error TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+    )""",
 ]
 
 
@@ -65,7 +85,7 @@ class Database:
                     self.connection.execute(statement)
                 self.connection.execute("INSERT INTO schema_migrations(version) VALUES (1)")
             if 2 not in versions:
-                self.connection.execute(SCHEMA[7])
+                self.connection.execute(SCHEMA[6])
                 columns = {row[1] for row in self.connection.execute("PRAGMA table_info(tasks)")}
                 additions = {
                     "user_name": "TEXT", "plan_json": "TEXT", "current_step": "INTEGER DEFAULT 0",
@@ -76,6 +96,10 @@ class Database:
                     if name not in columns:
                         self.connection.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
                 self.connection.execute("INSERT INTO schema_migrations(version) VALUES (2)")
+            if 3 not in versions:
+                for statement in SCHEMA[8:11]:
+                    self.connection.execute(statement)
+                self.connection.execute("INSERT INTO schema_migrations(version) VALUES (3)")
 
     def execute(self, query: str, args: Iterable = ()) -> sqlite3.Cursor:
         with self.connection:

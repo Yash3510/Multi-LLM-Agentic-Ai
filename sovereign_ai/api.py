@@ -13,10 +13,13 @@ class ApiServer:
         from .files import FileService
         from .health import check
         from .task_engine import TaskEngine
+        from .knowledge import KnowledgeService
         self.db, self.provider, self.settings = db, provider, settings
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files, self.health = FileService(db, settings.storage_dir), check
-        self.tasks = TaskEngine(db, provider, settings.default_model, self.files)
+        self.knowledge = KnowledgeService(db, settings.storage_dir, settings.local_model_url, provider, settings.embedding_model,
+                                           {"top_k": settings.knowledge_top_k, "similarity_threshold": settings.knowledge_similarity_threshold})
+        self.tasks = TaskEngine(db, provider, settings.default_model, self.files, self.knowledge)
         self.logger = logging.getLogger("sovereign_ai.api")
         server = self
 
@@ -58,6 +61,10 @@ class ApiServer:
                     return self.send_json(200, [dict(row) for row in server.db.execute("SELECT * FROM tasks ORDER BY id DESC")])
                 if path == "/api/files":
                     return self.send_json(200, [dict(row) for row in server.files.list_files()])
+                if path == "/api/knowledge/documents":
+                    return self.send_json(200, [dict(row) for row in server.knowledge.list_documents()])
+                if path == "/api/knowledge/search":
+                    return self.send_json(400, {"error": "Use POST for knowledge search"})
                 if path.startswith("/api/conversations/") and path.endswith("/messages"):
                     conversation_id = path.split("/")[3]
                     return self.send_json(200, [dict(row) for row in server.conversations.messages(int(conversation_id))])
@@ -100,9 +107,15 @@ class ApiServer:
                         temp = server.settings.data_dir / (".upload_" + name.replace("\\", "_").replace("/", "_"))
                         temp.write_bytes(raw)
                         try:
-                            return self.send_json(201, server.files.store(str(temp)))
+                            stored = server.files.store(str(temp))
+                            document = server.knowledge.ingest(str(temp), asynchronous=False)
+                            return self.send_json(201, {"file": stored, "document": document})
                         finally:
                             temp.unlink(missing_ok=True)
+                    if path == "/api/knowledge/search":
+                        return self.send_json(200, server.knowledge.search(payload.get("question", ""), payload.get("filters"), payload.get("top_k")))
+                    if path == "/api/knowledge/ask":
+                        return self.send_json(200, server.knowledge.answer(payload["question"], server.provider, payload.get("model", server.settings.default_model), payload.get("filters")))
                     if path.startswith("/api/conversations/") and path.endswith("/messages"):
                         conversation_id = int(path.split("/")[3])
                         server.conversations.add_message(conversation_id, payload["role"], payload["content"])

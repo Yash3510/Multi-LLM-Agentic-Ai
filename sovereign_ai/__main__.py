@@ -6,6 +6,7 @@ from .local_provider import OpenAICompatibleProvider
 from .api import ApiServer
 from .logging_config import configure_logging
 from .ui import SovereignApp
+from .knowledge import KnowledgeService
 
 
 def main():
@@ -14,6 +15,8 @@ def main():
     configure_logging(settings.data_dir)
     db = Database(settings.db_path)
     provider = OpenAICompatibleProvider(settings.local_model_url)
+    knowledge = KnowledgeService(db, settings.storage_dir, settings.local_model_url, provider, settings.embedding_model,
+                                 {"top_k": settings.knowledge_top_k, "similarity_threshold": settings.knowledge_similarity_threshold})
     parser = argparse.ArgumentParser()
     parser.add_argument("--api", action="store_true", help="Run the local HTTP API without Tkinter")
     parser.add_argument("--host", default="127.0.0.1")
@@ -24,7 +27,7 @@ def main():
         try: api.serve_forever()
         finally: api.shutdown(); db.close()
         return
-    app = SovereignApp(db, provider, settings)
+    app = SovereignApp(db, provider, settings, knowledge)
     try: app.mainloop()
     finally: db.close()
 

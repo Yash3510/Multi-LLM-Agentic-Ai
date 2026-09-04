@@ -49,13 +49,17 @@ class TonyStark(Agent):
 class Friday(Agent):
     name = "friday"
 
-    def __init__(self, provider):
-        self.provider = provider
+    def __init__(self, provider, knowledge=None):
+        self.provider, self.knowledge = provider, knowledge
 
     def plan(self, request):
         return {"agent": self.name, "action": "analyze_request"}
 
     def execute(self, action, payload, model):
+        if self.knowledge:
+            grounded = self.knowledge.answer(payload, self.provider, model)
+            citations = "\n".join(f"Source: {item['source']} | page {item['page']} | section {item['section']}" for item in grounded["citations"])
+            return grounded["answer"] + ("\n\n" + citations if citations else "")
         prompt = ("You are FRIDAY, the analysis agent. Analyze the request below. "
                   "Return factual findings and clearly label assumptions.\n\n" + payload)
         return self.provider.generate(prompt, model)
@@ -100,5 +104,5 @@ class Ultron(Agent):
         return {"passed": first_line.startswith("PASS"), "confidence": 0.85 if first_line.startswith("PASS") else 0.25, "challenge": result}
 
 
-def agents_for(provider, tools=None):
-    return {"tony": TonyStark(), "friday": Friday(provider), "jarvis": Jarvis(provider, tools), "ultron": Ultron(provider)}
+def agents_for(provider, tools=None, knowledge=None):
+    return {"tony": TonyStark(), "friday": Friday(provider, knowledge), "jarvis": Jarvis(provider, tools), "ultron": Ultron(provider)}

@@ -20,7 +20,7 @@ docker compose up --build
 
 The compose file persists application data in the `sovereign_data` volume. Tkinter needs a desktop display; on Linux, allow the container to access the X display with `xhost +local:docker` before starting it. On Windows and macOS, running the local Python command is the simplest desktop path.
 
-Docker runs the local API on `http://localhost:8000`. The API exposes `/api/setup`, `/api/login`, `/api/logout`, `/api/health`, `/api/models`, `/api/conversations`, and `/api/files`. Protected routes use the bearer token returned by `/api/login`.
+Docker runs the local API on `http://localhost:8000`. The API exposes `/api/setup`, `/api/login`, `/api/logout`, `/api/health`, `/api/models`, `/api/conversations`, `/api/files`, `/api/knowledge/documents`, `/api/knowledge/search`, and `/api/knowledge/ask`. Protected routes use the bearer token returned by `/api/login`.
 
 ## Checks
 

@@ -1,4 +1,5 @@
 import json
+import base64
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 from .provider import ModelProvider
@@ -13,6 +14,16 @@ class OpenAICompatibleProvider(ModelProvider):
     def chat(self, messages, model):
         result = []
         return self.stream(messages, model, result.append)
+
+    def vision(self, prompt, image, model):
+        encoded = base64.b64encode(image).decode("ascii")
+        body = json.dumps({"model": model, "messages": [{"role": "user", "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + encoded}},
+        ]}], "stream": False}).encode()
+        request = Request(self.base_url + "/chat/completions", data=body, headers={"Content-Type": "application/json"})
+        with urlopen(request, timeout=120) as response:
+            return json.load(response)["choices"][0]["message"]["content"]
 
     def stream(self, messages, model, on_token, stop_event=None):
         body = json.dumps({"model": model, "messages": messages, "stream": True}).encode()

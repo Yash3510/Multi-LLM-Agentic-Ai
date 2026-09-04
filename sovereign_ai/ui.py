@@ -11,7 +11,7 @@ from .task_engine import TaskEngine
 
 
 class SovereignApp(tk.Tk):
-    def __init__(self, db, provider, settings):
+    def __init__(self, db, provider, settings, knowledge=None):
         super().__init__()
         self.title("Sovereign AI | Local Workbench")
         self.geometry("1120x720")
@@ -19,7 +19,9 @@ class SovereignApp(tk.Tk):
         self.db, self.provider, self.settings = db, provider, settings
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files = FileService(db, settings.storage_dir)
-        self.task_engine = TaskEngine(db, provider, settings.default_model, self.files)
+        from .knowledge import KnowledgeService
+        self.knowledge = knowledge or KnowledgeService(db, settings.storage_dir, settings.local_model_url, provider, settings.embedding_model)
+        self.task_engine = TaskEngine(db, provider, settings.default_model, self.files, self.knowledge)
         self.last_task_id = None
         self.current_conversation = None
         self.model_var = tk.StringVar(value=settings.default_model)
@@ -79,6 +81,7 @@ class SovereignApp(tk.Tk):
         self.history.bind("<<ListboxSelect>>", self.select_conversation)
         self.refresh_history()
         ttk.Button(self.sidebar, text="Files", command=self.show_files).pack(fill="x", pady=3)
+        ttk.Button(self.sidebar, text="Knowledge", command=self.show_knowledge).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="System status", command=self.show_status).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="Settings", command=self.show_settings).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="Logout", command=self.show_auth).pack(fill="x", pady=(26, 3))
@@ -183,8 +186,46 @@ class SovereignApp(tk.Tk):
     def upload(self):
         source = filedialog.askopenfilename()
         if source:
-            try: self.files.store(source); self.show_files()
+            try:
+                self.files.store(source)
+                self.knowledge.ingest(source)
+                self.show_files()
             except Exception as exc: messagebox.showerror("Upload", str(exc))
+
+    def show_knowledge(self):
+        for widget in self.body.winfo_children(): widget.destroy()
+        ttk.Label(self.body, text="Knowledge workspace", style="Title.TLabel").pack(anchor="w")
+        ttk.Button(self.body, text="Upload to knowledge base", command=self.upload_knowledge).pack(anchor="w", pady=(8, 0))
+        search = ttk.Entry(self.body); search.pack(fill="x", pady=12)
+        results = tk.Listbox(self.body, bg="#0b1218", fg="#d8e5ed", relief="flat"); results.pack(expand=True, fill="both")
+        evidence = []
+        def run_search():
+            evidence.clear()
+            results.delete(0, "end")
+            for row in self.knowledge.search(search.get()):
+                evidence.append(row)
+                results.insert("end", f"{row['source_filename']} | page {row['page']} | {row['section']} | score {row['score']:.3f}")
+                results.insert("end", "  " + row["content"][:300])
+        def inspect(_event=None):
+            selected = results.curselection()
+            if selected:
+                row = evidence[selected[0] // 2]
+                messagebox.showinfo("Evidence", f"{row['source_filename']}\nPage: {row['page']}\nSection: {row['section']}\n\n{row['content']}")
+        results.bind("<Double-Button-1>", inspect)
+        ttk.Button(self.body, text="Search local knowledge", command=run_search).pack(anchor="w", pady=(0, 10))
+        ttk.Label(self.body, text="Documents").pack(anchor="w")
+        for row in self.knowledge.list_documents():
+            ttk.Label(self.body, text=f"{row['original_name']} | {row['processing_status']} | v{row['version']}").pack(anchor="w")
+
+    def upload_knowledge(self):
+        source = filedialog.askopenfilename()
+        if source:
+            try:
+                self.files.store(source)
+                self.knowledge.ingest(source)
+                self.show_knowledge()
+            except Exception as exc:
+                messagebox.showerror("Knowledge upload", str(exc))
 
     def show_status(self):
         for widget in self.body.winfo_children(): widget.destroy()

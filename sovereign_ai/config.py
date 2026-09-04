@@ -10,6 +10,9 @@ class Settings:
     storage_dir: Path
     local_model_url: str
     default_model: str
+    embedding_model: str = "local-embedding"
+    knowledge_top_k: int = 5
+    knowledge_similarity_threshold: float = -1.0
 
 
 def load_settings() -> Settings:
@@ -20,4 +23,7 @@ def load_settings() -> Settings:
         storage_dir=data_dir / "files",
         local_model_url=os.getenv("LOCAL_MODEL_URL", "http://localhost:1234/v1"),
         default_model=os.getenv("LOCAL_MODEL", os.getenv("OLLAMA_MODEL", "local-model")),
+        embedding_model=os.getenv("LOCAL_EMBEDDING_MODEL", "local-embedding"),
+        knowledge_top_k=int(os.getenv("KNOWLEDGE_TOP_K", "5")),
+        knowledge_similarity_threshold=float(os.getenv("KNOWLEDGE_SIMILARITY_THRESHOLD", "-1.0")),
     )
