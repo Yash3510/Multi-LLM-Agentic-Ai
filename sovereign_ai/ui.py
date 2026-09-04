@@ -179,7 +179,10 @@ class SovereignApp(tk.Tk):
                         status = self.backend.task(task_id)
                         tokens.put({"agent": status.get("agent") or "tony", "message": status.get("status", "working")})
                         if status["status"] in {"awaiting_approval", "completed", "failed"}:
-                            tokens.put({"result": {"task_id": task_id, "status": status["status"], "result": status.get("output") or status.get("error", "")}})
+                            tokens.put({"result": {"task_id": task_id, "status": status["status"],
+                                                     "result": status.get("output") or status.get("error", ""),
+                                                     "workflow_state": status.get("workflow_state", {}),
+                                                     "verification": status.get("verification_result", {})}})
                             break
                         threading.Event().wait(0.25)
                 else:
@@ -221,6 +224,7 @@ class SovereignApp(tk.Tk):
         try:
             result = self.backend.approve(self.last_task_id) if self.backend else self.task_engine.approve(self.last_task_id)
             self.activity.insert("end", f"TONY: Task {result['task_id']} approved")
+            self.activity.insert("end", "TONY: Result approved and available in Artifacts")
         except Exception as exc:
             messagebox.showerror("Approval", str(exc))
 

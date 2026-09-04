@@ -68,7 +68,17 @@ class ApiServer:
                     row = server.db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
                     if not row: return self.send_json(404, {"error": "Task not found"})
                     steps = [dict(item) for item in server.db.execute("SELECT * FROM task_steps WHERE task_id=? ORDER BY step_number", (task_id,))]
-                    return self.send_json(200, {**dict(row), "steps": steps})
+                    result = {**dict(row), "steps": steps}
+                    try:
+                        workflow_state = json.loads(row["plan_json"] or "{}").get("workflow_state")
+                        if workflow_state:
+                            result["workflow_state"] = workflow_state
+                            result["artifacts"] = workflow_state.get("artifacts", [])
+                            result["verification_result"] = workflow_state.get("verification_result", {})
+                    except (TypeError, json.JSONDecodeError):
+                        # Older tasks may contain a non-JSON plan; their status remains usable.
+                        pass
+                    return self.send_json(200, result)
                 if path == "/api/files":
                     return self.send_json(200, [dict(row) for row in server.files.list_files()])
                 if path == "/api/knowledge/documents":
