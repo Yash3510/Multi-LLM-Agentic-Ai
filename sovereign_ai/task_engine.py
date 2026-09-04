@@ -25,6 +25,20 @@ class TaskEngine:
             step["model"] = selected
         return plan
 
+    @staticmethod
+    def requires_orchestration(request: str) -> bool:
+        """Keep ordinary conversation out of the approval-controlled task flow."""
+        lowered = request.lower()
+        orchestration_terms = (
+            "create file", "create a file", "create folder", "create a folder",
+            "create directory", "create a directory", "write file",
+            "run code", "execute code", "generate code", "script", "program",
+            "analyze report", "analyze this", "inspect report", "inspect this", "research", "search knowledge",
+            "use friday", "use jarvis", "use ultron", "verify result",
+            "reindex", "re-index", "upload", "document processing",
+        )
+        return any(term in lowered for term in orchestration_terms)
+
     def create_task(self, request: str, user_name: str = "local-user", model: str | None = None, conversation_id=None):
         plan = self.plan(request, model)
         row = self.db.execute(

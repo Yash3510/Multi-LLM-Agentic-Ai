@@ -11,6 +11,12 @@ class ChatProvider:
 
 
 class ChatTests(unittest.TestCase):
+    def test_simple_questions_do_not_enter_orchestration_flow(self):
+        self.assertFalse(TaskEngine.requires_orchestration("Calculate 2 + 2"))
+        self.assertFalse(TaskEngine.requires_orchestration("Which agents can you work with?"))
+        self.assertTrue(TaskEngine.requires_orchestration("Create a file named report.txt"))
+        self.assertTrue(TaskEngine.requires_orchestration("Analyze this inspection report"))
+
     def test_normal_chat_uses_local_model_and_completes(self):
         with tempfile.TemporaryDirectory() as directory:
             db = Database(Path(directory) / "chat.db")
