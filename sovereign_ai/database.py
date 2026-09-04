@@ -33,6 +33,13 @@ SCHEMA = [
         status TEXT NOT NULL DEFAULT 'queued', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(conversation_id) REFERENCES conversations(id)
     )""",
+    """CREATE TABLE IF NOT EXISTS task_steps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL,
+        step_number INTEGER NOT NULL, agent TEXT NOT NULL, action TEXT NOT NULL,
+        model TEXT, status TEXT NOT NULL DEFAULT 'queued', input TEXT, output TEXT,
+        verification TEXT, error TEXT, started_at TEXT, completed_at TEXT,
+        FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    )""",
     """CREATE TABLE IF NOT EXISTS audit_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, action TEXT NOT NULL,
         details TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -52,10 +59,23 @@ class Database:
         with self.connection:
             self.connection.execute(SCHEMA[0])
             applied = self.connection.execute("SELECT version FROM schema_migrations").fetchall()
-            if not applied:
-                for statement in SCHEMA[1:]:
+            versions = {row[0] for row in applied}
+            if 1 not in versions:
+                for statement in SCHEMA[1:8]:
                     self.connection.execute(statement)
                 self.connection.execute("INSERT INTO schema_migrations(version) VALUES (1)")
+            if 2 not in versions:
+                self.connection.execute(SCHEMA[7])
+                columns = {row[1] for row in self.connection.execute("PRAGMA table_info(tasks)")}
+                additions = {
+                    "user_name": "TEXT", "plan_json": "TEXT", "current_step": "INTEGER DEFAULT 0",
+                    "agent": "TEXT", "model": "TEXT", "input": "TEXT", "output": "TEXT",
+                    "verification": "TEXT", "updated_at": "TEXT",
+                }
+                for name, definition in additions.items():
+                    if name not in columns:
+                        self.connection.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
+                self.connection.execute("INSERT INTO schema_migrations(version) VALUES (2)")
 
     def execute(self, query: str, args: Iterable = ()) -> sqlite3.Cursor:
         with self.connection:

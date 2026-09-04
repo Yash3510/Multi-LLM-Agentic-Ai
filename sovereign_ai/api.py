@@ -12,9 +12,11 @@ class ApiServer:
         from .conversations import ConversationService
         from .files import FileService
         from .health import check
+        from .task_engine import TaskEngine
         self.db, self.provider, self.settings = db, provider, settings
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files, self.health = FileService(db, settings.storage_dir), check
+        self.tasks = TaskEngine(db, provider, settings.default_model)
         self.logger = logging.getLogger("sovereign_ai.api")
         server = self
 
@@ -52,6 +54,8 @@ class ApiServer:
                     return self.send_json(200, [dict(row) for row in server.conversations.list()])
                 if path == "/api/models":
                     return self.send_json(200, {"models": list(server.provider.list_models())})
+                if path == "/api/tasks":
+                    return self.send_json(200, [dict(row) for row in server.db.execute("SELECT * FROM tasks ORDER BY id DESC")])
                 if path == "/api/files":
                     return self.send_json(200, [dict(row) for row in server.files.list_files()])
                 if path.startswith("/api/conversations/") and path.endswith("/messages"):
@@ -82,11 +86,11 @@ class ApiServer:
                         conversation_id = int(path.split("/")[3])
                         prompt = payload["content"].strip()
                         model = payload.get("model", server.settings.default_model)
-                        server.conversations.add_message(conversation_id, "user", prompt)
-                        messages = [dict(row) for row in server.conversations.messages(conversation_id)]
-                        answer = server.provider.chat(messages, model)
-                        server.conversations.add_message(conversation_id, "assistant", answer)
-                        return self.send_json(200, {"role": "assistant", "content": answer})
+                        result = server.tasks.run(prompt, conversation_id, username, model)
+                        if result["status"] == "complete":
+                            server.conversations.add_message(conversation_id, "user", prompt)
+                            server.conversations.add_message(conversation_id, "assistant", result["result"])
+                        return self.send_json(200, result)
                     if path == "/api/files":
                         name = payload.get("name", "upload.txt")
                         raw = base64.b64decode(payload.get("content", ""), validate=True)

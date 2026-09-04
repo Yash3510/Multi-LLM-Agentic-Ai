@@ -7,6 +7,7 @@ from .conversations import ConversationService
 from .files import FileService
 from .health import check
 from .markdown import render
+from .task_engine import TaskEngine
 
 
 class SovereignApp(tk.Tk):
@@ -18,6 +19,7 @@ class SovereignApp(tk.Tk):
         self.db, self.provider, self.settings = db, provider, settings
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files = FileService(db, settings.storage_dir)
+        self.task_engine = TaskEngine(db, provider, settings.default_model)
         self.current_conversation = None
         self.model_var = tk.StringVar(value=settings.default_model)
         self.stop_event = threading.Event()
@@ -100,6 +102,8 @@ class SovereignApp(tk.Tk):
     def show_chat(self):
         for widget in self.body.winfo_children(): widget.destroy()
         ttk.Label(self.body, text="Chat workspace", style="Title.TLabel").pack(anchor="w")
+        self.activity = tk.Listbox(self.body, height=5, bg="#172631", fg="#9fe7d1", relief="flat", highlightthickness=0)
+        self.activity.pack(fill="x", pady=(12, 0))
         self.chat = tk.Text(self.body, wrap="word", bg="#0b1218", fg="#d8e5ed", insertbackground="white", relief="flat", padx=18, pady=16)
         self.chat.pack(expand=True, fill="both", pady=16); self.chat.configure(state="disabled")
         bottom = ttk.Frame(self.body); bottom.pack(fill="x")
@@ -128,10 +132,12 @@ class SovereignApp(tk.Tk):
         self.conversations.add_message(self.current_conversation, "user", prompt)
         self.append_chat("assistant", "")
         self.stop_event.clear(); tokens = queue.Queue()
-        messages = [dict(row) for row in self.conversations.messages(self.current_conversation)]
         def run():
-            try: self.provider.stream(messages, self.model_var.get(), tokens.put, self.stop_event); tokens.put(None)
-            except Exception as exc: tokens.put(f"\n[Local model error: {exc}]\n"); tokens.put(None)
+            try:
+                result = self.task_engine.run(prompt, self.current_conversation, model=self.model_var.get(), on_event=tokens.put)
+                tokens.put({"result": result})
+            except Exception as exc: tokens.put({"error": str(exc)})
+            tokens.put(None)
         threading.Thread(target=run, daemon=True).start(); self._poll_tokens(tokens, "")
         self.refresh_history()
 
@@ -142,7 +148,16 @@ class SovereignApp(tk.Tk):
                 if token is None:
                     if full: self.conversations.add_message(self.current_conversation, "assistant", full)
                     return
-                full += token; self.chat.configure(state="normal"); self.chat.insert("end", token); self.chat.see("end"); self.chat.configure(state="disabled")
+                if isinstance(token, dict) and "agent" in token:
+                    self.activity.insert("end", f"{token['agent'].upper()}: {token['message']}")
+                    self.activity.see("end")
+                elif isinstance(token, dict) and "result" in token:
+                    result = token["result"]
+                    full = result["result"]
+                    self.chat.configure(state="normal"); render(self.chat, full); self.chat.see("end"); self.chat.configure(state="disabled")
+                elif isinstance(token, dict) and "error" in token:
+                    full = "[Task error: " + token["error"] + "]"
+                    self.chat.configure(state="normal"); render(self.chat, full); self.chat.see("end"); self.chat.configure(state="disabled")
         except queue.Empty: self.after(50, self._poll_tokens, tokens, full)
 
     def show_files(self):
