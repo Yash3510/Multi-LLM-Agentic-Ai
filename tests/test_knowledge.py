@@ -47,6 +47,16 @@ class KnowledgeTests(unittest.TestCase):
         self.knowledge.delete(first["id"])
         self.assertEqual(self.knowledge.search("protective equipment"), [])
 
+    def test_changed_upload_creates_new_version_and_old_version_is_not_retrieved(self):
+        source = Path(self.temp.name) / "manual.txt"
+        source.write_text("Version one says use gloves.", encoding="utf-8")
+        first = self.knowledge.ingest(str(source), asynchronous=False)
+        source.write_text("Version two says use a face shield.", encoding="utf-8")
+        second = self.knowledge.ingest(str(source), asynchronous=False)
+        self.assertEqual(second["version"], 2)
+        results = self.knowledge.search("What protection is required?")
+        self.assertTrue(all(row["document_version"] == 2 for row in results))
+
     def test_no_evidence_does_not_call_llm(self):
         answer = self.knowledge.answer("Unknown procedure", self.provider, "local-model")
         self.assertEqual(answer["citations"], [])

@@ -85,10 +85,11 @@ class KnowledgeService:
         self.index = TurbovecVectorStore(self.storage_dir.parent / "knowledge.tv")
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="knowledge")
         self.logger = logging.getLogger("sovereign_ai.knowledge")
-        self.top_k = (config or {}).get("top_k", 5)
-        self.threshold = (config or {}).get("similarity_threshold", -1.0)
+        self.config = config or {}
+        self.top_k = self.config.get("top_k", 5)
+        self.threshold = self.config.get("similarity_threshold", -1.0)
 
-    def ingest(self, source: str, asynchronous=True):
+    def ingest(self, source: str, asynchronous=True, stored_name=None):
         path = Path(source)
         checksum = hashlib.sha256(path.read_bytes()).hexdigest()
         current = self.db.execute("SELECT * FROM documents WHERE original_name=? AND version=(SELECT MAX(version) FROM documents WHERE original_name=?)", (path.name, path.name)).fetchone()
@@ -96,15 +97,16 @@ class KnowledgeService:
             return dict(current)
         version = (current["version"] + 1) if current else 1
         document_id = uuid.uuid5(uuid.NAMESPACE_URL, checksum + ":" + str(version)).hex
-        stored_name = path.name
+        stored_name = stored_name or path.name
         row = self.db.execute("INSERT INTO documents(id,original_name,stored_name,file_type,size,checksum,modified_at,version,metadata_json) VALUES(?,?,?,?,?,?,?,?,?)",
                               (document_id, path.name, stored_name, mimetypes.guess_type(path.name)[0] or path.suffix.lower(), path.stat().st_size, checksum, datetime.fromtimestamp(path.stat().st_mtime).isoformat(), version, "{}"))
         self.db.execute("INSERT INTO knowledge_jobs(document_id,status,stage) VALUES(?,?,?)", (document_id, "queued", "uploaded"))
         self._audit("document_uploaded", document_id, "queued")
+        process_source = str(self.storage_dir / stored_name) if (self.storage_dir / stored_name).exists() else str(path)
         if asynchronous:
-            self.executor.submit(self.process, document_id, str(path))
+            self.executor.submit(self.process, document_id, process_source)
         else:
-            self.process(document_id, str(path))
+            self.process(document_id, process_source)
         return dict(self.db.execute("SELECT * FROM documents WHERE id=?", (document_id,)).fetchone())
 
     def process(self, document_id: str, source: str):
@@ -154,8 +156,23 @@ class KnowledgeService:
             row = self.db.execute("SELECT * FROM document_chunks WHERE id=?", (candidate["vector_id"],)).fetchone()
             if row:
                 results.append({**dict(row), "score": candidate["score"]})
+        if not filters or filters.get("latest", True):
+            results = [item for item in results if self._is_latest(item["document_id"], item["document_version"])]
+        if self.config.get("rerank", True):
+            question_terms = set(re.findall(r"[a-z0-9]+", question.lower()))
+            for item in results:
+                terms = set(re.findall(r"[a-z0-9]+", item["content"].lower()))
+                item["rerank_score"] = item["score"] + 0.15 * len(question_terms & terms) / max(len(question_terms), 1)
+            results.sort(key=lambda item: item["rerank_score"], reverse=True)
         self._audit("knowledge_search", None, f"results={len(results)}")
         return results
+
+    def _is_latest(self, document_id, version):
+        row = self.db.execute("SELECT original_name FROM documents WHERE id=?", (document_id,)).fetchone()
+        if not row:
+            return False
+        latest = self.db.execute("SELECT MAX(version) FROM documents WHERE original_name=?", (row["original_name"],)).fetchone()[0]
+        return version == latest
 
     def answer(self, question: str, provider, model: str, filters=None):
         evidence = self.search(question, filters)
@@ -170,10 +187,31 @@ class KnowledgeService:
         return {"answer": answer, "citations": citations, "evidence": evidence}
 
     def delete(self, document_id):
+        document = self.db.execute("SELECT stored_name FROM documents WHERE id=?", (document_id,)).fetchone()
+        if not document:
+            raise ValueError("Document not found")
         ids = [row[0] for row in self.db.execute("SELECT id FROM document_chunks WHERE document_id=?", (document_id,))]
         self.index.delete(ids)
         self.db.execute("DELETE FROM documents WHERE id=?", (document_id,))
+        target = self.storage_dir / document["stored_name"]
+        if target.exists():
+            target.unlink()
+        self.db.execute("DELETE FROM files WHERE stored_name=?", (document["stored_name"],))
         self._audit("document_deleted", document_id, "deleted")
+
+    def reindex(self, document_id, asynchronous=True):
+        row = self.db.execute("SELECT stored_name FROM documents WHERE id=?", (document_id,)).fetchone()
+        if not row:
+            raise ValueError("Document not found")
+        source = self.storage_dir / row["stored_name"]
+        if not source.exists():
+            raise FileNotFoundError("Original local file is unavailable")
+        self._stage(document_id, "queued")
+        if asynchronous:
+            self.executor.submit(self.process, document_id, str(source))
+        else:
+            self.process(document_id, str(source))
+        self._audit("document_reindexed", document_id, "queued")
 
     def list_documents(self):
         return self.db.execute("SELECT * FROM documents ORDER BY uploaded_at DESC").fetchall()

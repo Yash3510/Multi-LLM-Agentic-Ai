@@ -13,6 +13,7 @@ class Settings:
     embedding_model: str = "local-embedding"
     knowledge_top_k: int = 5
     knowledge_similarity_threshold: float = -1.0
+    knowledge_rerank: bool = True
 
 
 def load_settings() -> Settings:
@@ -26,4 +27,5 @@ def load_settings() -> Settings:
         embedding_model=os.getenv("LOCAL_EMBEDDING_MODEL", "local-embedding"),
         knowledge_top_k=int(os.getenv("KNOWLEDGE_TOP_K", "5")),
         knowledge_similarity_threshold=float(os.getenv("KNOWLEDGE_SIMILARITY_THRESHOLD", "-1.0")),
+        knowledge_rerank=os.getenv("KNOWLEDGE_RERANK", "true").lower() in ("1", "true", "yes"),
     )

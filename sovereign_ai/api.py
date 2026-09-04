@@ -18,7 +18,7 @@ class ApiServer:
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files, self.health = FileService(db, settings.storage_dir), check
         self.knowledge = KnowledgeService(db, settings.storage_dir, settings.local_model_url, provider, settings.embedding_model,
-                                           {"top_k": settings.knowledge_top_k, "similarity_threshold": settings.knowledge_similarity_threshold})
+                                           {"top_k": settings.knowledge_top_k, "similarity_threshold": settings.knowledge_similarity_threshold, "rerank": settings.knowledge_rerank})
         self.tasks = TaskEngine(db, provider, settings.default_model, self.files, self.knowledge)
         self.logger = logging.getLogger("sovereign_ai.api")
         server = self
@@ -108,7 +108,7 @@ class ApiServer:
                         temp.write_bytes(raw)
                         try:
                             stored = server.files.store(str(temp))
-                            document = server.knowledge.ingest(str(temp), asynchronous=False)
+                            document = server.knowledge.ingest(str(temp), asynchronous=False, stored_name=stored["stored_name"])
                             return self.send_json(201, {"file": stored, "document": document})
                         finally:
                             temp.unlink(missing_ok=True)
@@ -116,6 +116,9 @@ class ApiServer:
                         return self.send_json(200, server.knowledge.search(payload.get("question", ""), payload.get("filters"), payload.get("top_k")))
                     if path == "/api/knowledge/ask":
                         return self.send_json(200, server.knowledge.answer(payload["question"], server.provider, payload.get("model", server.settings.default_model), payload.get("filters")))
+                    if path.startswith("/api/knowledge/documents/") and path.endswith("/reindex"):
+                        server.knowledge.reindex(path.split("/")[4])
+                        return self.send_json(202, {"queued": True})
                     if path.startswith("/api/conversations/") and path.endswith("/messages"):
                         conversation_id = int(path.split("/")[3])
                         server.conversations.add_message(conversation_id, payload["role"], payload["content"])
@@ -134,6 +137,9 @@ class ApiServer:
                     return self.send_json(401, {"error": "Authentication required"})
                 if path.startswith("/api/files/"):
                     server.files.delete(int(path.split("/")[-1]))
+                    return self.send_json(200, {"deleted": True})
+                if path.startswith("/api/knowledge/documents/"):
+                    server.knowledge.delete(path.split("/")[-1])
                     return self.send_json(200, {"deleted": True})
                 return self.send_json(404, {"error": "Route not found"})
 

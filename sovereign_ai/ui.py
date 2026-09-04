@@ -187,8 +187,8 @@ class SovereignApp(tk.Tk):
         source = filedialog.askopenfilename()
         if source:
             try:
-                self.files.store(source)
-                self.knowledge.ingest(source)
+                stored = self.files.store(source)
+                self.knowledge.ingest(source, stored_name=stored["stored_name"])
                 self.show_files()
             except Exception as exc: messagebox.showerror("Upload", str(exc))
 
@@ -221,8 +221,8 @@ class SovereignApp(tk.Tk):
         source = filedialog.askopenfilename()
         if source:
             try:
-                self.files.store(source)
-                self.knowledge.ingest(source)
+                stored = self.files.store(source)
+                self.knowledge.ingest(source, stored_name=stored["stored_name"])
                 self.show_knowledge()
             except Exception as exc:
                 messagebox.showerror("Knowledge upload", str(exc))

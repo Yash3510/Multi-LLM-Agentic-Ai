@@ -16,7 +16,7 @@ def main():
     db = Database(settings.db_path)
     provider = OpenAICompatibleProvider(settings.local_model_url)
     knowledge = KnowledgeService(db, settings.storage_dir, settings.local_model_url, provider, settings.embedding_model,
-                                 {"top_k": settings.knowledge_top_k, "similarity_threshold": settings.knowledge_similarity_threshold})
+                                 {"top_k": settings.knowledge_top_k, "similarity_threshold": settings.knowledge_similarity_threshold, "rerank": settings.knowledge_rerank})
     parser = argparse.ArgumentParser()
     parser.add_argument("--api", action="store_true", help="Run the local HTTP API without Tkinter")
     parser.add_argument("--host", default="127.0.0.1")

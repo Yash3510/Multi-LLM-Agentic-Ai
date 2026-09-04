@@ -12,6 +12,8 @@ On first launch, create an administrator with a username and password of at leas
 
 For local chat with Bionic Studio, enable its Local Model API and use the default URL `http://localhost:1234/v1`. Set `LOCAL_MODEL` to the model ID shown by Bionic Studio, or leave it as-is and choose a model from the sidebar when the API is connected. If the local API is unavailable, the app still starts and reports the model backend as offline.
 
+Phase 3 accelerators are listed in `requirements.txt`. Install them with `python -m pip install -r requirements.txt` for Turbovec, machine-readable PDF parsing, local OCR, and image handling. OCR also requires a local Tesseract installation; no cloud OCR is used.
+
 ## Docker
 
 ```text
