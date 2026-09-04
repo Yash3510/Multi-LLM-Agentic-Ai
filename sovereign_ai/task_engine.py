@@ -7,10 +7,10 @@ from .tools import ToolRegistry
 
 
 class TaskEngine:
-    def __init__(self, db, provider, default_model, file_service=None):
+    def __init__(self, db, provider, default_model, file_service=None, knowledge=None):
         self.db, self.provider = db, provider
         self.router = ModelRouter(provider, default_model)
-        self.agents = agents_for(provider, ToolRegistry(file_service))
+        self.agents = agents_for(provider, ToolRegistry(file_service), knowledge)
         self.logger = logging.getLogger("sovereign_ai.tasks")
 
     def plan(self, request: str, model: str | None = None) -> dict:
