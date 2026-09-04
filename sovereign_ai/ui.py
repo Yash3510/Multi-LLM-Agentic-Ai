@@ -332,7 +332,7 @@ class SovereignApp(tk.Tk):
     def show_status(self):
         for widget in self.body.winfo_children(): widget.destroy()
         ttk.Label(self.body, text="System status", style="Title.TLabel").pack(anchor="w", pady=(0, 20))
-        statuses = self.backend.health() if self.backend else check(self.db, self.provider, self.settings.storage_dir)
+        statuses = self.backend.health() if self.backend else check(self.db, self.provider, self.settings.storage_dir, self.settings)
         for name, (ok, detail) in statuses.items():
             ttk.Label(self.body, text=("● " if ok else "○ ") + f"{name}: {detail}", foreground="#74c69d" if ok else "#f28482").pack(anchor="w", pady=8)
 
