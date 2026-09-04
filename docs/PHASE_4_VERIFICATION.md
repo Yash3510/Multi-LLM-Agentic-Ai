@@ -25,7 +25,7 @@ python -m unittest tests.test_phase4 -v
 python -m unittest tests.test_phase4 tests.test_workflow -v
 ```
 
-Observed locally: **7 runnable tests passed; 2 Docker-dependent tests skipped when the Docker daemon is stopped**.
+Observed locally with Docker Desktop running: **7 Phase 4 tests passed, including all Docker sandbox checks**.
 
 | Acceptance | Result | Evidence |
 |---|---|---|
@@ -77,4 +77,4 @@ python -m unittest discover -s tests -v
 python -m compileall -q sovereign_ai
 ```
 
-Phase 4 status: **Tool registry, structured document readers, LangGraph coding orchestration, approval interruption, deliverables, ULTRON verification, and Tkinter artifact actions are implemented and tested. Docker sandbox execution and live Bionic-generated coding output remain unverified until Docker Desktop's engine is running.**
+Phase 4 status: **Tool registry, structured document readers, LangGraph coding orchestration, approval interruption, Docker sandbox execution, deliverables, ULTRON verification, and Tkinter artifact actions are implemented and tested. Live Bionic-generated coding output remains model/environment dependent and is not part of the deterministic acceptance suite.**
