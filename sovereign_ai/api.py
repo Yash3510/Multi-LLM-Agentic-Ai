@@ -61,8 +61,8 @@ class ApiServer:
                     return self.send_json(200, [dict(row) for row in server.conversations.list()])
                 if path == "/api/models":
                     return self.send_json(200, {"models": list(server.provider.list_models())})
-                    if path == "/api/tasks":
-                        return self.send_json(200, [dict(row) for row in server.db.execute("SELECT * FROM tasks ORDER BY id DESC")])
+                if path == "/api/tasks":
+                    return self.send_json(200, [dict(row) for row in server.db.execute("SELECT * FROM tasks ORDER BY id DESC")])
                 if path.startswith("/api/tasks/"):
                     task_id = int(path.split("/")[-1])
                     row = server.db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()

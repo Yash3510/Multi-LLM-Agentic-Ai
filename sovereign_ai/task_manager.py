@@ -21,4 +21,5 @@ class BackgroundTaskManager:
         return result
 
     def shutdown(self):
-        self.executor.shutdown(wait=False, cancel_futures=True)
+        # Drain active work before its database and storage dependencies close.
+        self.executor.shutdown(wait=True, cancel_futures=True)
