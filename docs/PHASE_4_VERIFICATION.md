@@ -8,6 +8,8 @@
 - High-risk `execute_python` tool gated by approval and routed through Docker.
 - Docker sandbox with no network, read-only source mount, dropped capabilities, resource limits, timeout, temporary workspace, and captured stdout/stderr.
 - JARVIS now receives the expanded registry through the existing `TaskEngine` boundary.
+- Coding requests now route through a bounded LangGraph state graph while Tony remains the application router.
+- Tkinter includes an artifact panel with safe Open/Open folder actions for generated local files.
 - Bionic remains the existing local model provider; no cloud service was introduced.
 
 ## Tested
@@ -18,7 +20,11 @@ Command:
 python -m unittest tests.test_phase4 -v
 ```
 
-Observed: **4 tests passed**.
+```powershell
+python -m unittest tests.test_phase4 tests.test_workflow -v
+```
+
+Observed: **6 tests passed**.
 
 | Acceptance | Result | Evidence |
 |---|---|---|
@@ -35,13 +41,17 @@ Observed: **4 tests passed**.
 | Sandbox failed execution | PASS | `tests/test_phase4.py` |
 | Sandbox timeout | PASS | `tests/test_phase4.py` |
 | Sandbox network isolation | PASS | `tests/test_phase4.py`, Docker `--network none` |
+| LangGraph approval interruption | PASS | `tests/test_workflow.py` |
+| LangGraph coding workflow and ULTRON verification | PASS | `tests/test_workflow.py` |
+| TaskEngine coding-workflow integration | PASS | `sovereign_ai/task_engine.py` routes code tasks to the graph |
+| Tkinter artifact panel/open actions | IMPLEMENTED | `sovereign_ai/ui.py`; OS action requires a desktop session |
 
 ## Partially tested or not verified
 
-- **LangGraph:** Not integrated. The existing single-server `TaskEngine` already provides persisted workflow state and retries; adding a second orchestrator was avoided until it provides a concrete benefit.
-- **Full dataset workflow through live Tony/JARVIS/ULTRON:** Partially tested. The registry and deliverables are tested directly; a complete model-driven workflow is not yet acceptance-tested.
-- **Full coding workflow:** Partially tested. The Docker sandbox is tested directly and is registered as an approval-gated tool, but model-generated code-to-sandbox orchestration is not yet wired as a dedicated workflow.
-- **Tkinter artifact browser/open action:** Not implemented in this phase slice.
+- **LangGraph:** Implemented and tested as the bounded coding/tool state graph; it does not replace Tony.
+- **Full dataset workflow through live Tony/JARVIS/ULTRON:** Partially tested. The registry and deliverables are tested directly; the graph coding path is deterministic-test verified.
+- **Full coding workflow:** Implemented and tested with a local deterministic provider plus the real Docker sandbox. A live Bionic code-generation run remains environment/model dependent.
+- **Tkinter artifact browser/open action:** Implemented; OS launching requires a desktop session and is not automated in headless CI.
 - **Memory/CPU enforcement:** Configured on Docker sandbox; platform-level measurement is not separately benchmarked.
 
 ## Libraries
@@ -64,4 +74,4 @@ python -m unittest discover -s tests -v
 python -m compileall -q sovereign_ai
 ```
 
-Phase 4 status: **Core tools, deliverables, permissions, audit, and Docker sandbox implemented and tested. Full LangGraph/model-driven workflows remain partial/not verified.**
+Phase 4 status: **LangGraph coding orchestration, approval interruption, tool execution, Docker sandbox execution, ULTRON verification, deliverables, and Tkinter artifact actions are implemented and tested. Live Bionic-generated coding output remains not verified.**

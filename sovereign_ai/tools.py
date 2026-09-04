@@ -100,10 +100,10 @@ class ToolRegistry:
         self.register_tool(Tool("generate_xlsx", "Generate a local spreadsheet deliverable", {"required": ["name", "sheet", "headers", "rows"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.xlsx(a["name"], a["sheet"], a["headers"], a["rows"])))
         self.register_tool(Tool("generate_docx", "Generate a local DOCX deliverable", {"required": ["name", "title", "paragraphs"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.docx(a["name"], a["title"], a["paragraphs"])))
         self.register_tool(Tool("generate_pptx", "Generate a local PPTX deliverable", {"required": ["name", "title", "body"]}, ("write",), "MEDIUM", 10, lambda a: self.deliverables.pptx(a["name"], a["title"], a["body"])))
-        self.register_tool(Tool("execute_python", "Execute code in the isolated Docker sandbox", {"required": ["code"]}, ("execute",), "HIGH", 30, lambda a: self._sandbox_result(a["code"])))
+        self.register_tool(Tool("execute_python", "Execute code in the isolated Docker sandbox", {"required": ["code"]}, ("execute",), "HIGH", 30, self._sandbox_result))
 
-    def _sandbox_result(self, code):
-        result = self.sandbox.run(code)
+    def _sandbox_result(self, arguments):
+        result = self.sandbox.run(arguments["code"], arguments.get("files"))
         return {"success": result.success, "stdout": result.stdout, "stderr": result.stderr, "exit_code": result.exit_code, "timed_out": result.timed_out, "error": result.error}
 
     def _write(self, args):

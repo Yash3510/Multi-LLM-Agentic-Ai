@@ -1,6 +1,7 @@
 import queue
 import threading
 import os
+import subprocess
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
@@ -27,6 +28,7 @@ class SovereignApp(tk.Tk):
         self.knowledge = knowledge or KnowledgeService(db, settings.storage_dir, settings.local_model_url, provider, settings.embedding_model)
         self.task_engine = TaskEngine(db, provider, settings.default_model, self.files, self.knowledge)
         self.last_task_id = None
+        self.artifacts = []
         self.current_conversation = None
         self.model_var = tk.StringVar(value=settings.default_model)
         self.stop_event = threading.Event()
@@ -108,6 +110,7 @@ class SovereignApp(tk.Tk):
         self.refresh_history()
         ttk.Button(self.sidebar, text="Files", command=self.show_files).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="Knowledge", command=self.show_knowledge).pack(fill="x", pady=3)
+        ttk.Button(self.sidebar, text="Artifacts", command=self.show_artifacts).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="System status", command=self.show_status).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="Settings", command=self.show_settings).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="Logout", command=self.show_auth).pack(fill="x", pady=(26, 3))
@@ -199,6 +202,7 @@ class SovereignApp(tk.Tk):
                 elif isinstance(token, dict) and "result" in token:
                     result = token["result"]
                     self.last_task_id = result["task_id"]
+                    self.artifacts = result.get("workflow_state", {}).get("artifacts", [])
                     full = result["result"]
                     self.chat.configure(state="normal"); render(self.chat, full); self.chat.see("end"); self.chat.configure(state="disabled")
                 elif isinstance(token, dict) and "error" in token:
@@ -222,6 +226,20 @@ class SovereignApp(tk.Tk):
         ttk.Button(self.body, text="Upload file", command=self.upload).pack(anchor="w", pady=16)
         self.file_list = tk.Listbox(self.body, bg="#0b1218", fg="#d8e5ed", relief="flat"); self.file_list.pack(expand=True, fill="both")
         for row in self.files.list_files(): self.file_list.insert("end", f"{row['original_name']}  |  {row['size']:,} bytes  |  {row['created_at']}")
+
+    def show_artifacts(self):
+        for widget in self.body.winfo_children(): widget.destroy()
+        ttk.Label(self.body, text="Generated artifacts", style="Title.TLabel").pack(anchor="w")
+        listing = tk.Listbox(self.body, bg="#0b1218", fg="#d8e5ed", relief="flat"); listing.pack(expand=True, fill="both", pady=12)
+        for item in self.artifacts:
+            listing.insert("end", f"{Path(item['file_path']).name} | {item['file_type']} | {item['file_size']:,} bytes | task {item.get('task_id')}")
+        def open_selected():
+            selected = listing.curselection()
+            if selected and Path(self.artifacts[selected[0]]["file_path"]).exists(): os.startfile(self.artifacts[selected[0]]["file_path"])
+        def open_folder():
+            if self.artifacts: subprocess.Popen(["explorer", "/select,", self.artifacts[0]["file_path"]])
+        ttk.Button(self.body, text="Open", command=open_selected).pack(anchor="w", side="left")
+        ttk.Button(self.body, text="Open folder", command=open_folder).pack(anchor="w", side="left", padx=8)
 
     def upload(self):
         source = filedialog.askopenfilename()
