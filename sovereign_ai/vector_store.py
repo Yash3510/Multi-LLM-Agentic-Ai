@@ -35,6 +35,10 @@ class TurbovecVectorStore(VectorStore):
         self.save()
 
     def _rebuild_turbovec(self):
+        if not self.vectors:
+            self.index = None
+            self._numeric_ids = {}
+            return
         try:
             import numpy as np
             from turbovec import IdMapIndex
