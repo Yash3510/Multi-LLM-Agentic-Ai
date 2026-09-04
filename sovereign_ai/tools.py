@@ -100,6 +100,10 @@ class ToolRegistry:
     def _register_defaults(self):
         self.register_tool(Tool("calculate", "Deterministic arithmetic", {"required": ["expression"]}, ("read",), "LOW", 5, lambda a: self.calculator.calculate(a["expression"])))
         self.register_tool(Tool("read_file", "Read an approved local text file", {"required": ["path"]}, ("read",), "LOW", 10, lambda a: self._safe_path(a["path"]).read_text(encoding="utf-8")))
+        self.register_tool(Tool("read_pdf", "Extract local PDF text by page", {"required": ["path"]}, ("read",), "LOW", 30, self._read_pdf))
+        self.register_tool(Tool("read_docx", "Extract local DOCX paragraphs and tables", {"required": ["path"]}, ("read",), "LOW", 20, self._read_docx))
+        self.register_tool(Tool("read_xlsx", "Extract local workbook sheets and rows", {"required": ["path"]}, ("read",), "LOW", 20, self._read_xlsx))
+        self.register_tool(Tool("read_pptx", "Extract local presentation slide text", {"required": ["path"]}, ("read",), "LOW", 20, self._read_pptx))
         self.register_tool(Tool("write_file", "Write a text deliverable", {"required": ["path", "content"]}, ("write",), "MEDIUM", 10, self._write))
         self.register_tool(Tool("move_file", "Move a file within the workspace", {"required": ["source", "destination"]}, ("write",), "MEDIUM", 10, self._move))
         self.register_tool(Tool("copy_file", "Copy a file within the workspace", {"required": ["source", "destination"]}, ("read", "write"), "MEDIUM", 10, self._copy))
@@ -141,6 +145,33 @@ class ToolRegistry:
     def _csv_summary(self, args):
         with self._safe_path(args["path"]).open(newline="", encoding="utf-8") as stream: rows = list(csv.DictReader(stream))
         return {"rows": len(rows), "columns": list(rows[0]) if rows else []}
+
+    def _read_pdf(self, args):
+        from pypdf import PdfReader
+        reader = PdfReader(self._safe_path(args["path"]))
+        return {"pages": [{"page": index + 1, "text": page.extract_text() or ""} for index, page in enumerate(reader.pages)]}
+
+    def _read_docx(self, args):
+        from docx import Document
+        document = Document(self._safe_path(args["path"]))
+        return {"paragraphs": [item.text for item in document.paragraphs],
+                "tables": [[[cell.text for cell in row.cells] for row in table.rows] for table in document.tables]}
+
+    def _read_xlsx(self, args):
+        from openpyxl import load_workbook
+        workbook = load_workbook(self._safe_path(args["path"]), read_only=True, data_only=False)
+        try:
+            return {"sheets": {sheet.title: [list(row) for row in sheet.iter_rows(values_only=True)] for sheet in workbook.worksheets}}
+        finally:
+            workbook.close()
+
+    def _read_pptx(self, args):
+        from pptx import Presentation
+        presentation = Presentation(self._safe_path(args["path"]))
+        slides = []
+        for index, slide in enumerate(presentation.slides, 1):
+            slides.append({"slide": index, "text": [shape.text for shape in slide.shapes if hasattr(shape, "text") and shape.text]})
+        return {"slides": slides}
 
     def _audit(self, task_id, agent, tool, arguments, result):
         if self.db: self.db.execute("INSERT INTO audit_events(username,action,details) VALUES(?,?,?)", (agent, "tool_invocation", str({"task_id": task_id, "tool": tool.name, "risk_level": tool.risk_level, "input_hash": hashlib.sha256(str(arguments).encode()).hexdigest(), "success": result["success"], "duration_ms": result["duration_ms"]})))

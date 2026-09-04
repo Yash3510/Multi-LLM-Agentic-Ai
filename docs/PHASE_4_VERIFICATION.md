@@ -4,6 +4,7 @@
 
 - Explicit `Tool` registry with schemas, permissions, risk levels, timeouts, structured results, and audit records.
 - Workspace-confined read, write, search, directory, CSV summary, calculation, and delete tools.
+- Workspace-confined move and copy tools, plus structured PDF, DOCX, XLSX, and PPTX readers.
 - Registered TXT, CSV, DOCX, XLSX, and PPTX deliverable generation using local libraries.
 - High-risk `execute_python` tool gated by approval and routed through Docker.
 - Docker sandbox with no network, read-only source mount, dropped capabilities, resource limits, timeout, temporary workspace, and captured stdout/stderr.
@@ -24,7 +25,7 @@ python -m unittest tests.test_phase4 -v
 python -m unittest tests.test_phase4 tests.test_workflow -v
 ```
 
-Observed: **6 tests passed**.
+Observed locally: **7 runnable tests passed; 2 Docker-dependent tests skipped when the Docker daemon is stopped**.
 
 | Acceptance | Result | Evidence |
 |---|---|---|
@@ -33,6 +34,8 @@ Observed: **6 tests passed**.
 | Permission denial and approval gate | PASS | `tests/test_phase4.py` |
 | Audit record for tool invocation | PASS | `tests/test_phase4.py` |
 | Dataset CSV read and deterministic calculation | PASS | `tests/test_phase4.py` |
+| Workspace move/copy and artifact traversal protection | PASS | `tests/test_phase4.py` |
+| PDF/DOCX/XLSX/PPTX structured readers | PASS | `tests/test_phase4.py` |
 | TXT/CSV generation and validation | PASS | `tests/test_phase4.py` |
 | DOCX generation and reopen validation | PASS | `tests/test_phase4.py` |
 | XLSX generation, sheet validation, and reopen | PASS | `tests/test_phase4.py` |
@@ -74,4 +77,4 @@ python -m unittest discover -s tests -v
 python -m compileall -q sovereign_ai
 ```
 
-Phase 4 status: **LangGraph coding orchestration, approval interruption, tool execution, Docker sandbox execution, ULTRON verification, deliverables, and Tkinter artifact actions are implemented and tested. Live Bionic-generated coding output remains not verified.**
+Phase 4 status: **Tool registry, structured document readers, LangGraph coding orchestration, approval interruption, deliverables, ULTRON verification, and Tkinter artifact actions are implemented and tested. Docker sandbox execution and live Bionic-generated coding output remain unverified until Docker Desktop's engine is running.**

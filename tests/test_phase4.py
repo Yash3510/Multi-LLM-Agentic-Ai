@@ -58,6 +58,15 @@ class Phase4Tests(unittest.TestCase):
         finally: workbook.close()
         self.assertEqual(Presentation(self.workspace / "brief.pptx").slides[0].shapes.title.text, "Inspection")
 
+    def test_document_reader_tools_extract_structure(self):
+        service = DeliverableService(self.workspace)
+        service.docx("read.docx", "Inspection", ["Local evidence"])
+        service.xlsx("read.xlsx", "Results", ["name", "value"], [["A", 2]])
+        service.pptx("read.pptx", "Inspection", "Local evidence")
+        self.assertEqual(self.registry.execute_tool("read_docx", {"path": "read.docx"})["result"]["paragraphs"], ["Inspection", "Local evidence"])
+        self.assertEqual(self.registry.execute_tool("read_xlsx", {"path": "read.xlsx"})["result"]["sheets"]["Results"][1], ["A", 2])
+        self.assertEqual(self.registry.execute_tool("read_pptx", {"path": "read.pptx"})["result"]["slides"][0]["text"], ["Inspection", "Local evidence"])
+
     def test_docker_sandbox_success_failure_timeout_and_network_block(self):
         sandbox = DockerSandbox(timeout=5)
         if not sandbox.available(): self.skipTest("Docker is unavailable")
