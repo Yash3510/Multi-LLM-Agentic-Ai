@@ -7,6 +7,7 @@ import re
 import threading
 import uuid
 import zipfile
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -40,8 +41,14 @@ class DocumentParser:
             values = []
             for name in names:
                 root = ElementTree.fromstring(archive.read(name))
-                values.extend(value.text for value in root.iter() if value.text and value.text.strip())
-            return " ".join(values)
+                texts = [value.text.strip() for value in root.iter() if value.text and value.text.strip()]
+                if "document" in name:
+                    values.append("Document paragraphs: " + " ".join(texts))
+                elif "sheet" in name:
+                    values.append(f"Worksheet {Path(name).stem}: " + " | ".join(texts))
+                elif "slide" in name:
+                    values.append(f"Slide {Path(name).stem}: " + " ".join(texts))
+            return "\n".join(values)
 
     def _pdf(self, path):
         try:
@@ -62,10 +69,16 @@ class DocumentParser:
         try:
             import pytesseract
             from pdf2image import convert_from_path
+            if not shutil.which("tesseract") or not shutil.which("pdfinfo"):
+                return []
             return [{"page": number, "section": "", "content": pytesseract.image_to_string(image)}
                     for number, image in enumerate(convert_from_path(str(path)), 1)]
-        except (ImportError, OSError):
+        except Exception:
             return []
+
+    @staticmethod
+    def ocr_available():
+        return bool(shutil.which("tesseract") and shutil.which("pdfinfo"))
 
     def _image(self, path):
         if not self.provider:

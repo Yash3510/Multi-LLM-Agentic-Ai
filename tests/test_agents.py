@@ -58,7 +58,7 @@ class AgentRuntimeTests(unittest.TestCase):
         jarvis_output = self.db.execute("SELECT output FROM task_steps WHERE task_id=? AND agent='jarvis'", (result["task_id"],)).fetchone()[0]
         self.assertIn("Calculator result: 4", jarvis_output)
         approved = TaskEngine(self.db, FakeProvider(), "fallback").approve(result["task_id"], "admin")
-        self.assertEqual(approved["status"], "approved")
+        self.assertEqual(approved["status"], "completed")
 
 
 if __name__ == "__main__": unittest.main()

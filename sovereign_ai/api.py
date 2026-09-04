@@ -14,12 +14,14 @@ class ApiServer:
         from .health import check
         from .task_engine import TaskEngine
         from .knowledge import KnowledgeService
+        from .task_manager import BackgroundTaskManager
         self.db, self.provider, self.settings = db, provider, settings
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files, self.health = FileService(db, settings.storage_dir), check
         self.knowledge = KnowledgeService(db, settings.storage_dir, settings.local_model_url, provider, settings.embedding_model,
                                            {"top_k": settings.knowledge_top_k, "similarity_threshold": settings.knowledge_similarity_threshold, "rerank": settings.knowledge_rerank})
         self.tasks = TaskEngine(db, provider, settings.default_model, self.files, self.knowledge)
+        self.task_manager = BackgroundTaskManager(self.tasks, on_complete=self._task_complete)
         self.logger = logging.getLogger("sovereign_ai.api")
         server = self
 
@@ -48,6 +50,8 @@ class ApiServer:
 
             def do_GET(self):
                 path = urlparse(self.path).path.rstrip("/")
+                if path in ("", "/"):
+                    return self.send_json(200, {"service": "Sovereign AI local backend", "ui": "Tkinter desktop", "status": "ready"})
                 if path == "/api/health":
                     return self.send_json(200, server.health(server.db, server.provider, server.settings.storage_dir))
                 username, _ = self.user()
@@ -57,8 +61,14 @@ class ApiServer:
                     return self.send_json(200, [dict(row) for row in server.conversations.list()])
                 if path == "/api/models":
                     return self.send_json(200, {"models": list(server.provider.list_models())})
-                if path == "/api/tasks":
-                    return self.send_json(200, [dict(row) for row in server.db.execute("SELECT * FROM tasks ORDER BY id DESC")])
+                    if path == "/api/tasks":
+                        return self.send_json(200, [dict(row) for row in server.db.execute("SELECT * FROM tasks ORDER BY id DESC")])
+                if path.startswith("/api/tasks/"):
+                    task_id = int(path.split("/")[-1])
+                    row = server.db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+                    if not row: return self.send_json(404, {"error": "Task not found"})
+                    steps = [dict(item) for item in server.db.execute("SELECT * FROM task_steps WHERE task_id=? ORDER BY step_number", (task_id,))]
+                    return self.send_json(200, {**dict(row), "steps": steps})
                 if path == "/api/files":
                     return self.send_json(200, [dict(row) for row in server.files.list_files()])
                 if path == "/api/knowledge/documents":
@@ -86,6 +96,9 @@ class ApiServer:
                     if path == "/api/logout":
                         server.auth.logout(token)
                         return self.send_json(200, {"logged_out": True})
+                    if path == "/api/tasks":
+                        task_id = server.task_manager.submit(payload["request"], username, payload.get("model"), payload.get("conversation_id"))
+                        return self.send_json(202, {"task_id": task_id, "status": "queued"})
                     if path.startswith("/api/tasks/") and path.endswith("/approve"):
                         task_id = int(path.split("/")[3])
                         return self.send_json(200, server.tasks.approve(task_id, username))
@@ -96,11 +109,8 @@ class ApiServer:
                         conversation_id = int(path.split("/")[3])
                         prompt = payload["content"].strip()
                         model = payload.get("model", server.settings.default_model)
-                        result = server.tasks.run(prompt, conversation_id, username, model)
-                        if result["status"] == "complete":
-                            server.conversations.add_message(conversation_id, "user", prompt)
-                            server.conversations.add_message(conversation_id, "assistant", result["result"])
-                        return self.send_json(200, result)
+                        task_id = server.task_manager.submit(prompt, username, model, conversation_id)
+                        return self.send_json(202, {"task_id": task_id, "status": "queued"})
                     if path == "/api/files":
                         name = payload.get("name", "upload.txt")
                         raw = base64.b64decode(payload.get("content", ""), validate=True)
@@ -145,9 +155,15 @@ class ApiServer:
 
         self.httpd = ThreadingHTTPServer((host, port), Handler)
 
+    def _task_complete(self, request, conversation_id, result):
+        if conversation_id and result.get("status") == "awaiting_approval":
+            self.conversations.add_message(conversation_id, "user", request)
+            self.conversations.add_message(conversation_id, "assistant", result["result"])
+
     def serve_forever(self):
         self.logger.info("API server listening on %s", self.httpd.server_address)
         self.httpd.serve_forever()
 
     def shutdown(self):
+        self.task_manager.shutdown()
         self.httpd.shutdown()

@@ -20,16 +20,32 @@ class TaskEngine:
             step["model"] = selected
         return plan
 
-    def run(self, request: str, conversation_id: int | None = None,
-            user_name: str = "local-user", model: str | None = None, on_event=None) -> dict:
+    def create_task(self, request: str, user_name: str = "local-user", model: str | None = None, conversation_id=None):
         plan = self.plan(request, model)
-        task_row = self.db.execute(
+        row = self.db.execute(
             "INSERT INTO tasks(conversation_id,user_name,status,plan_json,input,model,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)",
-            (conversation_id, user_name, "running", json.dumps(plan), request, plan["steps"][0]["model"]),
+            (conversation_id, user_name, "queued", json.dumps(plan), request, plan["steps"][0]["model"]),
         )
-        task_id = task_row.lastrowid
+        return row.lastrowid
+
+    def run(self, request: str, conversation_id: int | None = None,
+            user_name: str = "local-user", model: str | None = None, on_event=None, task_id=None) -> dict:
+        if task_id:
+            row = self.db.execute("SELECT plan_json FROM tasks WHERE id=?", (task_id,)).fetchone()
+            if not row:
+                raise ValueError("Task not found")
+            plan = json.loads(row["plan_json"])
+            self.db.execute("UPDATE tasks SET status='planning',updated_at=CURRENT_TIMESTAMP WHERE id=?", (task_id,))
+        else:
+            plan = self.plan(request, model)
+            task_row = self.db.execute(
+                "INSERT INTO tasks(conversation_id,user_name,status,plan_json,input,model,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+                (conversation_id, user_name, "planning", json.dumps(plan), request, plan["steps"][0]["model"]),
+            )
+            task_id = task_row.lastrowid
         self._event(on_event, task_id, "tony", "Task understood", "complete")
         self._event(on_event, task_id, "tony", "Plan created", "complete")
+        self.db.execute("UPDATE tasks SET status='routing',updated_at=CURRENT_TIMESTAMP WHERE id=?", (task_id,))
         payload = request
         final = ""
         verification = {}
@@ -46,6 +62,7 @@ class TaskEngine:
                             (task_id, index, agent_name, action, selected_model, "running", payload))
             step_id = self.db.execute("SELECT last_insert_rowid()").fetchone()[0]
             self.db.execute("UPDATE tasks SET current_step=?,agent=?,model=? WHERE id=?", (index, agent_name, selected_model, task_id))
+            self.db.execute("UPDATE tasks SET status=? WHERE id=?", ("verifying" if agent_name == "ultron" else "executing", task_id))
             self._event(on_event, task_id, agent_name, "Running " + action, "running")
             agent = self.agents[agent_name]
             try:
@@ -96,9 +113,9 @@ class TaskEngine:
             raise ValueError("Task not found")
         if row["status"] != "awaiting_approval":
             raise ValueError("Task is not awaiting approval")
-        self.db.execute("UPDATE tasks SET status='approved',updated_at=CURRENT_TIMESTAMP WHERE id=?", (task_id,))
+        self.db.execute("UPDATE tasks SET status='completed',updated_at=CURRENT_TIMESTAMP WHERE id=?", (task_id,))
         self.db.execute("INSERT INTO audit_events(username,action,details) VALUES(?,?,?)", (user_name, "task_approved", f"Task {task_id} approved"))
-        return {"task_id": task_id, "status": "approved", "result": row["output"]}
+        return {"task_id": task_id, "status": "completed", "result": row["output"]}
 
     def _event(self, callback, task_id, agent, message, status):
         if callback:

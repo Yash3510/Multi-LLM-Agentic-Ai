@@ -14,7 +14,7 @@ def main():
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     configure_logging(settings.data_dir)
     db = Database(settings.db_path)
-    provider = OpenAICompatibleProvider(settings.local_model_url)
+    provider = OpenAICompatibleProvider(settings.local_model_url, settings.sovereign_mode)
     knowledge = KnowledgeService(db, settings.storage_dir, settings.local_model_url, provider, settings.embedding_model,
                                  {"top_k": settings.knowledge_top_k, "similarity_threshold": settings.knowledge_similarity_threshold, "rerank": settings.knowledge_rerank})
     parser = argparse.ArgumentParser()

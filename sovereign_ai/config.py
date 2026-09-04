@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 import os
+from urllib.parse import urlparse
+import ipaddress
 
 
 @dataclass(frozen=True)
@@ -14,6 +16,17 @@ class Settings:
     knowledge_top_k: int = 5
     knowledge_similarity_threshold: float = -1.0
     knowledge_rerank: bool = True
+    sovereign_mode: bool = True
+
+
+def is_local_endpoint(url: str) -> bool:
+    hostname = (urlparse(url).hostname or "").lower()
+    if hostname in {"localhost", "127.0.0.1", "::1", "host.docker.internal"}:
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_private
+    except ValueError:
+        return False
 
 
 def load_settings() -> Settings:
@@ -28,4 +41,5 @@ def load_settings() -> Settings:
         knowledge_top_k=int(os.getenv("KNOWLEDGE_TOP_K", "5")),
         knowledge_similarity_threshold=float(os.getenv("KNOWLEDGE_SIMILARITY_THRESHOLD", "-1.0")),
         knowledge_rerank=os.getenv("KNOWLEDGE_RERANK", "true").lower() in ("1", "true", "yes"),
+        sovereign_mode=os.getenv("SOVEREIGN_MODE", "true").lower() in ("1", "true", "yes"),
     )

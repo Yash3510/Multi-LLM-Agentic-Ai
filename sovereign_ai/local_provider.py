@@ -3,12 +3,15 @@ import base64
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 from .provider import ModelProvider
+from .config import is_local_endpoint
 
 
 class OpenAICompatibleProvider(ModelProvider):
     """Provider for Bionic Studio, LM Studio, and similar local APIs."""
 
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str, sovereign_mode: bool = True):
+        if sovereign_mode and not is_local_endpoint(base_url):
+            raise ValueError("Sovereign mode only permits local model endpoints")
         self.base_url = base_url.rstrip("/")
 
     def chat(self, messages, model):

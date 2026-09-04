@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from sovereign_ai.database import Database
 from sovereign_ai.knowledge import KnowledgeService
@@ -61,6 +62,24 @@ class KnowledgeTests(unittest.TestCase):
         answer = self.knowledge.answer("Unknown procedure", self.provider, "local-model")
         self.assertEqual(answer["citations"], [])
         self.assertIn("could not find sufficient evidence", answer["answer"])
+
+    def test_office_xml_extraction_preserves_basic_structure_labels(self):
+        temp = tempfile.TemporaryDirectory()
+        root = Path(temp.name)
+        fixtures = {
+            "demo.docx": ("word/document.xml", "<document><p>Maintenance Heading</p><p>Inspect the seal.</p><table><tr><tc>Header</tc><tc>Value</tc></tr></table></document>"),
+            "demo.xlsx": ("xl/worksheets/sheet1.xml", "<worksheet><sheetData><row><c>Header</c><c>Value</c></row></sheetData></worksheet>"),
+            "demo.pptx": ("ppt/slides/slide1.xml", "<slide><title>Inspection Plan</title><p>Review before startup.</p></slide>"),
+        }
+        parser = self.knowledge.parser
+        for filename, (entry, xml) in fixtures.items():
+            path = root / filename
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr(entry, xml)
+            text = parser.parse(path)[0]["content"]
+            self.assertTrue(any(label in text for label in ("Document paragraphs:", "Worksheet", "Slide")))
+            self.assertIn("Inspection" if filename.endswith("pptx") else "Header" if filename.endswith("xlsx") else "Maintenance", text)
+        temp.cleanup()
 
 
 if __name__ == "__main__": unittest.main()
