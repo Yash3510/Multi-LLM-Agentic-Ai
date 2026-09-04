@@ -46,5 +46,10 @@ class FoundationTests(unittest.TestCase):
             thread.join()
         self.assertEqual(errors, [])
 
+    def test_database_repairs_missing_task_steps_table(self):
+        self.db.connection.execute("DROP TABLE task_steps")
+        self.db.migrate()
+        self.assertIsNotNone(self.db.execute("SELECT * FROM task_steps LIMIT 1"))
+
 
 if __name__ == "__main__": unittest.main()
