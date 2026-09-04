@@ -55,6 +55,12 @@ class BackendClient:
     def approve(self, task_id):
         return self.request("POST", f"/api/tasks/{task_id}/approve", {})[1]
 
+    def request_changes(self, task_id, comment):
+        return self.request("POST", f"/api/tasks/{task_id}/request-changes", {"comment": comment})[1]
+
+    def reject(self, task_id, comment):
+        return self.request("POST", f"/api/tasks/{task_id}/reject", {"comment": comment})[1]
+
     def upload(self, path):
         encoded = base64.b64encode(path.read_bytes()).decode("ascii")
         return self.request("POST", "/api/files", {"name": path.name, "content": encoded})[1]

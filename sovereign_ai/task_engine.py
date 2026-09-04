@@ -166,7 +166,7 @@ class TaskEngine:
                 self.db.execute("UPDATE tasks SET status='failed',output=?,verification=? WHERE id=?", (str(exc), json.dumps(verification), task_id))
                 self._event(on_event, task_id, agent_name, str(exc), "failed")
                 return {"task_id": task_id, "status": "failed", "plan": plan, "result": str(exc), "verification": verification}
-        self.db.execute("UPDATE tasks SET status='awaiting_approval',output=?,verification=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (final, json.dumps(verification), task_id))
+        self.db.execute("UPDATE tasks SET status='awaiting_approval',approval_state='pending',output=?,verification=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (final, json.dumps(verification), task_id))
         self._event(on_event, task_id, "ultron", "Final result awaiting human approval", "awaiting_approval")
         return {"task_id": task_id, "status": "awaiting_approval", "plan": plan, "result": final, "verification": verification}
 
@@ -179,18 +179,20 @@ class TaskEngine:
         state = self.coding_workflow.run(request, model or plan["steps"][0]["model"], task_id, approved)
         status = {"awaiting_approval": "awaiting_approval", "completed": "completed", "failed": "failed"}.get(state.get("final_status"), "failed")
         output = json.dumps(state.get("tool_result") or state.get("verification_result") or {})
-        self.db.execute("UPDATE tasks SET status=?,agent=?,current_step=?,output=?,plan_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                        (status, state.get("current_agent"), 0, output, json.dumps({"task_type": "code", "workflow_state": state}), task_id))
+        self.db.execute("UPDATE tasks SET status=?,approval_state=?,agent=?,current_step=?,output=?,plan_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                        (status, "pending" if status == "awaiting_approval" else "not_required", state.get("current_agent"), 0, output, json.dumps({"task_type": "code", "workflow_state": state}), task_id))
         if on_event:
             on_event({"task_id": task_id, "agent": state.get("current_agent", "tony"), "message": state.get("current_step", status), "status": status})
         return {"task_id": task_id, "status": status, "result": output, "verification": state.get("verification_result", {}), "workflow_state": state}
 
     def approve(self, task_id: int, user_name: str = "local-user") -> dict:
-        row = self.db.execute("SELECT status,output FROM tasks WHERE id=?", (task_id,)).fetchone()
+        row = self.db.execute("SELECT status,approval_state,output FROM tasks WHERE id=?", (task_id,)).fetchone()
         if not row:
             raise ValueError("Task not found")
         if row["status"] != "awaiting_approval":
             raise ValueError("Task is not awaiting approval")
+        if row["approval_state"] not in (None, "pending"):
+            raise ValueError("A new result is required after review changes")
         plan_row = self.db.execute("SELECT plan_json,input,model FROM tasks WHERE id=?", (task_id,)).fetchone()
         if plan_row and plan_row["plan_json"] and "workflow_state" in plan_row["plan_json"]:
             state = json.loads(plan_row["plan_json"])["workflow_state"]
@@ -198,9 +200,27 @@ class TaskEngine:
             if result["status"] != "completed": raise ValueError("Approved coding workflow did not complete")
             self.db.execute("INSERT INTO audit_events(username,action,details) VALUES(?,?,?)", (user_name, "task_approved", f"Task {task_id} approved"))
             return {"task_id": task_id, "status": "completed", "result": result["result"]}
-        self.db.execute("UPDATE tasks SET status='completed',updated_at=CURRENT_TIMESTAMP WHERE id=?", (task_id,))
-        self.db.execute("INSERT INTO audit_events(username,action,details) VALUES(?,?,?)", (user_name, "task_approved", f"Task {task_id} approved"))
+        self.db.execute("UPDATE tasks SET status='completed',approval_state='approved',approval_decision='approved',updated_at=CURRENT_TIMESTAMP WHERE id=?", (task_id,))
+        self.db.execute("INSERT INTO audit_events(username,action,details) VALUES(?,?,?)", (user_name, "task_approved", json.dumps({"task_id": task_id, "decision": "approved"})))
         return {"task_id": task_id, "status": "completed", "result": row["output"]}
+
+    def request_changes(self, task_id: int, comment: str, user_name: str = "local-user") -> dict:
+        row = self.db.execute("SELECT status FROM tasks WHERE id=?", (task_id,)).fetchone()
+        if not row: raise ValueError("Task not found")
+        if row["status"] != "awaiting_approval": raise ValueError("Task is not awaiting approval")
+        comment = (comment or "Changes requested").strip()[:2000]
+        self.db.execute("UPDATE tasks SET approval_state='changes_requested',approval_decision='request_changes',approval_comment=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (comment, task_id))
+        self.db.execute("INSERT INTO audit_events(username,action,details) VALUES(?,?,?)", (user_name, "task_changes_requested", json.dumps({"task_id": task_id, "comment": comment})))
+        return {"task_id": task_id, "status": "awaiting_approval", "approval_state": "changes_requested", "comment": comment}
+
+    def reject(self, task_id: int, comment: str, user_name: str = "local-user") -> dict:
+        row = self.db.execute("SELECT status FROM tasks WHERE id=?", (task_id,)).fetchone()
+        if not row: raise ValueError("Task not found")
+        if row["status"] != "awaiting_approval": raise ValueError("Task is not awaiting approval")
+        comment = (comment or "Rejected by human reviewer").strip()[:2000]
+        self.db.execute("UPDATE tasks SET status='failed',approval_state='rejected',approval_decision='rejected',approval_comment=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (comment, task_id))
+        self.db.execute("INSERT INTO audit_events(username,action,details) VALUES(?,?,?)", (user_name, "task_rejected", json.dumps({"task_id": task_id, "comment": comment})))
+        return {"task_id": task_id, "status": "failed", "approval_state": "rejected", "comment": comment}
 
     def _event(self, callback, task_id, agent, message, status):
         if callback:

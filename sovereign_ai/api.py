@@ -115,6 +115,12 @@ class ApiServer:
                     if path.startswith("/api/tasks/") and path.endswith("/approve"):
                         task_id = int(path.split("/")[3])
                         return self.send_json(200, server.tasks.approve(task_id, username))
+                    if path.startswith("/api/tasks/") and path.endswith("/request-changes"):
+                        task_id = int(path.split("/")[3])
+                        return self.send_json(200, server.tasks.request_changes(task_id, payload.get("comment", ""), username))
+                    if path.startswith("/api/tasks/") and path.endswith("/reject"):
+                        task_id = int(path.split("/")[3])
+                        return self.send_json(200, server.tasks.reject(task_id, payload.get("comment", ""), username))
                     if path == "/api/conversations":
                         conversation_id = server.conversations.create(payload.get("title", "New conversation"), payload.get("model", server.settings.default_model))
                         return self.send_json(201, {"id": conversation_id})

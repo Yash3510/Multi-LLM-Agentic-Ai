@@ -147,6 +147,8 @@ class SovereignApp(tk.Tk):
         ttk.Button(actions, text="Stop", command=self.stop_generation).pack(side="right")
         ttk.Button(actions, text="Send", command=self.send).pack(side="right", padx=(6, 0))
         ttk.Button(actions, text="Approve result", command=self.approve_result).pack(side="right", padx=(6, 0))
+        ttk.Button(actions, text="Request changes", command=self.request_changes).pack(side="right", padx=(6, 0))
+        ttk.Button(actions, text="Reject", command=self.reject_result).pack(side="right", padx=(6, 0))
         if self.current_conversation:
             for row in self.conversations.messages(self.current_conversation): self.append_chat(row["role"], row["content"])
 
@@ -227,6 +229,32 @@ class SovereignApp(tk.Tk):
             self.activity.insert("end", "TONY: Result approved and available in Artifacts")
         except Exception as exc:
             messagebox.showerror("Approval", str(exc))
+
+    def request_changes(self):
+        if not self.last_task_id:
+            messagebox.showinfo("Review", "No task is awaiting review")
+            return
+        comment = self._review_comment("Request changes", "Describe the requested changes:")
+        if comment is None: return
+        try:
+            result = self.backend.request_changes(self.last_task_id, comment) if self.backend else self.task_engine.request_changes(self.last_task_id, comment)
+            self.activity.insert("end", f"TONY: Changes requested ({result['comment']})")
+        except Exception as exc: messagebox.showerror("Request changes", str(exc))
+
+    def reject_result(self):
+        if not self.last_task_id:
+            messagebox.showinfo("Review", "No task is awaiting review")
+            return
+        comment = self._review_comment("Reject result", "Explain why this result is rejected:")
+        if comment is None: return
+        try:
+            result = self.backend.reject(self.last_task_id, comment) if self.backend else self.task_engine.reject(self.last_task_id, comment)
+            self.activity.insert("end", f"TONY: Result rejected ({result['comment']})")
+        except Exception as exc: messagebox.showerror("Reject result", str(exc))
+
+    def _review_comment(self, title, prompt):
+        from tkinter import simpledialog
+        return simpledialog.askstring(title, prompt, parent=self)
 
     def show_files(self):
         for widget in self.body.winfo_children(): widget.destroy()

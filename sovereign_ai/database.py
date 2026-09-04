@@ -102,6 +102,16 @@ class Database:
                 for statement in SCHEMA[8:11]:
                     self.connection.execute(statement)
                 self.connection.execute("INSERT INTO schema_migrations(version) VALUES (3)")
+            if 4 not in versions:
+                columns = {row[1] for row in self.connection.execute("PRAGMA table_info(tasks)")}
+                for name, definition in {
+                    "approval_state": "TEXT DEFAULT 'not_required'",
+                    "approval_decision": "TEXT",
+                    "approval_comment": "TEXT",
+                }.items():
+                    if name not in columns:
+                        self.connection.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
+                self.connection.execute("INSERT INTO schema_migrations(version) VALUES (4)")
             # Repair databases created by older Phase 2 builds that recorded the
             # migration but did not create every task table.
             self.connection.execute(SCHEMA[5])
@@ -111,6 +121,7 @@ class Database:
                 "user_name": "TEXT", "plan_json": "TEXT", "current_step": "INTEGER DEFAULT 0",
                 "agent": "TEXT", "model": "TEXT", "input": "TEXT", "output": "TEXT",
                 "verification": "TEXT", "updated_at": "TEXT",
+                "approval_state": "TEXT DEFAULT 'not_required'", "approval_decision": "TEXT", "approval_comment": "TEXT",
             }.items():
                 if name not in columns:
                     self.connection.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")

@@ -101,8 +101,21 @@ class Ultron(Agent):
         return self.provider.generate(prompt, model)
 
     def validate(self, result, model):
-        first_line = result.strip().splitlines()[0].upper() if result.strip() else "FAIL"
-        return {"passed": first_line.startswith("PASS"), "confidence": 0.85 if first_line.startswith("PASS") else 0.25, "challenge": result}
+        raw = result.strip()
+        parsed = {}
+        if raw.startswith("{"):
+            try:
+                import json
+                parsed = json.loads(raw)
+            except (TypeError, ValueError):
+                parsed = {}
+        first_line = raw.splitlines()[0].upper() if raw else "FAIL"
+        status = str(parsed.get("status", "PASS" if first_line.startswith("PASS") else "FAIL")).upper()
+        passed = status == "PASS"
+        return {"status": status, "passed": passed, "confidence": float(parsed.get("confidence", 0.85 if passed else 0.25)),
+                "issues": parsed.get("issues", [] if passed else ["Verifier returned a failure verdict"]),
+                "warnings": parsed.get("warnings", []), "evidence": parsed.get("evidence", []),
+                "recommendation": parsed.get("recommendation", "approve" if passed else "rework"), "summary": raw[:1000]}
 
 
 def agents_for(provider, tools=None, knowledge=None):
