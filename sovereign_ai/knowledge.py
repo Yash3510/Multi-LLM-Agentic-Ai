@@ -106,7 +106,7 @@ class DocumentParser:
 
 class KnowledgeService:
     def __init__(self, db, storage_dir, local_model_url, provider=None, embedding_model="local-embedding", config=None):
-        self.db, self.storage_dir = db, Path(storage_dir)
+        self.db, self.storage_dir, self.provider = db, Path(storage_dir), provider
         self.embedder = LocalEmbedder(local_model_url, embedding_model, db=db)
         self.parser = DocumentParser(provider)
         self.index = TurbovecVectorStore(self.storage_dir.parent / "knowledge.tv")
@@ -115,6 +115,7 @@ class KnowledgeService:
         self.config = config or {}
         self.top_k = self.config.get("top_k", 5)
         self.threshold = self.config.get("similarity_threshold", -1.0)
+        self.metadata_model = self.config.get("metadata_model")
 
     def ingest(self, source: str, asynchronous=True, stored_name=None):
         path = Path(source)
@@ -149,8 +150,10 @@ class KnowledgeService:
         try:
             self._stage(document_id, "parsing")
             pages = self.parser.parse(Path(source))
-            self._stage(document_id, "chunking")
             document = self.db.execute("SELECT original_name,version FROM documents WHERE id=?", (document_id,)).fetchone()
+            metadata = self._friday_metadata(document["original_name"], pages)
+            self.db.execute("UPDATE documents SET metadata_json=? WHERE id=?", (json.dumps(metadata), document_id))
+            self._stage(document_id, "chunking")
             chunks = self._chunks(document_id, document["version"], document["original_name"], pages)
             self.db.execute("DELETE FROM document_chunks WHERE document_id=?", (document_id,))
             for chunk in chunks:
@@ -168,6 +171,35 @@ class KnowledgeService:
             self.db.execute("UPDATE documents SET processing_status='error',processing_error=? WHERE id=?", (str(exc), document_id))
             self._stage(document_id, "error", str(exc))
             self._audit("document_processing_failed", document_id, "error")
+
+    def _friday_metadata(self, filename, pages):
+        """Ask the local FRIDAY model for compact metadata, with a deterministic fallback."""
+        text = "\n\n".join(f"Page {page['page']}: {page.get('content', '')}" for page in pages)
+        fallback = {"title": Path(filename).stem, "document_type": Path(filename).suffix.lower().lstrip("."),
+                    "summary": text[:500], "keywords": [], "sections": sorted({page.get("section", "") for page in pages if page.get("section")}),
+                    "generated_by": "FRIDAY", "model": None}
+        if not self.provider or not text.strip():
+            self._audit("metadata_generated", None, "fallback")
+            return fallback
+        try:
+            model = self.metadata_model
+            if not model:
+                models = list(self.provider.list_models())
+                model = next((item for item in models if "qwen" in item.lower()), models[0] if models else "local-model")
+            prompt = ("You are FRIDAY. Generate compact document metadata as JSON only. "
+                      "Use exactly these keys: title, document_type, summary, keywords, sections. "
+                      "Do not invent facts; use only the supplied pages.\n\n" + text[:12000])
+            raw = self.provider.generate(prompt, model).strip()
+            start, end = raw.find("{"), raw.rfind("}")
+            parsed = json.loads(raw[start:end + 1]) if start >= 0 and end > start else {}
+            if not isinstance(parsed, dict): raise ValueError("FRIDAY metadata was not an object")
+            fallback.update({key: parsed[key] for key in ("title", "document_type", "summary", "keywords", "sections") if key in parsed})
+            fallback["model"] = model
+            self._audit("metadata_generated", None, "friday")
+        except Exception as exc:
+            fallback["error"] = str(exc)[:200]
+            self._audit("metadata_generation_failed", None, "fallback")
+        return fallback
 
     def _chunks(self, document_id, version, filename, pages):
         chunks = []

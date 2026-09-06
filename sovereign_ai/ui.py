@@ -1,6 +1,7 @@
 import queue
 import threading
 import os
+import json
 import subprocess
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -371,6 +372,14 @@ class SovereignApp(tk.Tk):
         documents = self.backend.documents() if self.backend else self.knowledge.list_documents()
         for row in documents:
             ttk.Label(self.body, text=f"{row['original_name']} | {row['processing_status']} | v{row['version']}").pack(anchor="w")
+            try:
+                metadata = json.loads(row.get("metadata_json") or "{}")
+                if metadata:
+                    summary = str(metadata.get("summary", "")).replace("\n", " ")[:180]
+                    provenance = metadata.get("model") or "local fallback"
+                    ttk.Label(self.body, text=f"  FRIDAY: {metadata.get('title', row['original_name'])} | {metadata.get('document_type', 'document')} | {provenance}\n  {summary}").pack(anchor="w", padx=12, pady=(0, 6))
+            except (TypeError, ValueError):
+                pass
 
     def upload_knowledge(self):
         source = filedialog.askopenfilename()

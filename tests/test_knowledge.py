@@ -38,6 +38,8 @@ class KnowledgeTests(unittest.TestCase):
         self.assertEqual(answer["citations"][0]["page"], 1)
         self.assertIn("supplied evidence", answer["answer"])
         self.assertIn("maintenance.txt", self.provider.last_prompt)
+        metadata = self.db.execute("SELECT metadata_json FROM documents WHERE id=?", (document["id"],)).fetchone()[0]
+        self.assertEqual(__import__("json").loads(metadata)["generated_by"], "FRIDAY")
 
     def test_duplicate_is_not_reprocessed_and_delete_removes_results(self):
         source = Path(self.temp.name) / "sop.txt"
