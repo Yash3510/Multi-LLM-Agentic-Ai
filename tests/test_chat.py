@@ -24,6 +24,7 @@ class ChatTests(unittest.TestCase):
     def test_simple_questions_do_not_enter_orchestration_flow(self):
         self.assertFalse(TaskEngine.requires_orchestration("Calculate 2 + 2"))
         self.assertFalse(TaskEngine.requires_orchestration("Which agents can you work with?"))
+        self.assertFalse(TaskEngine.requires_orchestration("Create a folder named reports at Desktop"))
         self.assertTrue(TaskEngine.requires_orchestration("Create a file named report.txt"))
         self.assertTrue(TaskEngine.requires_orchestration("Analyze this inspection report"))
 

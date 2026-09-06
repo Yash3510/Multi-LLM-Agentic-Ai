@@ -29,6 +29,10 @@ class TaskEngine:
     def requires_orchestration(request: str) -> bool:
         """Keep ordinary conversation out of the approval-controlled task flow."""
         lowered = request.lower()
+        # Desktop writes are rejected by the direct-chat safety guard; do not
+        # send them through the multi-agent workflow only to be rejected later.
+        if "desktop" in lowered and re.search(r"create\s+(?:a\s+)?(?:file|folder|directory)", lowered):
+            return False
         orchestration_terms = (
             "create file", "create a file", "create folder", "create a folder",
             "create directory", "create a directory", "write file",
