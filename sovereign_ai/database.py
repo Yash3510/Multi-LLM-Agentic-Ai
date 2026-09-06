@@ -65,6 +65,11 @@ SCHEMA = [
         error TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
     )""",
+    """CREATE TABLE IF NOT EXISTS access_grants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL UNIQUE,
+        access TEXT NOT NULL CHECK(access IN ('read', 'write')),
+        created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""",
 ]
 
 
@@ -112,6 +117,9 @@ class Database:
                     if name not in columns:
                         self.connection.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
                 self.connection.execute("INSERT INTO schema_migrations(version) VALUES (4)")
+            if 5 not in versions:
+                self.connection.execute(SCHEMA[11])
+                self.connection.execute("INSERT INTO schema_migrations(version) VALUES (5)")
             # Repair databases created by older Phase 2 builds that recorded the
             # migration but did not create every task table.
             self.connection.execute(SCHEMA[5])

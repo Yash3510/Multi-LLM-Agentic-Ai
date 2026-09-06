@@ -15,9 +15,11 @@ class ApiServer:
         from .task_engine import TaskEngine
         from .knowledge import KnowledgeService
         from .task_manager import BackgroundTaskManager
+        from .access_control import AccessControlService
         self.db, self.provider, self.settings = db, provider, settings
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files, self.health = FileService(db, settings.storage_dir), check
+        self.access_control = AccessControlService(db, settings.storage_dir)
         self.knowledge = KnowledgeService(db, settings.storage_dir, settings.local_model_url, provider, settings.embedding_model,
                                            {"top_k": settings.knowledge_top_k, "similarity_threshold": settings.knowledge_similarity_threshold, "rerank": settings.knowledge_rerank})
         self.tasks = TaskEngine(db, provider, settings.default_model, self.files, self.knowledge)
@@ -66,6 +68,8 @@ class ApiServer:
                     return self.send_json(200, {"models": models or [server.settings.default_model]})
                 if path == "/api/security/events":
                     return self.send_json(200, [dict(item) for item in server.db.execute("SELECT * FROM audit_events WHERE action LIKE 'security_%' OR action LIKE '%invocation' ORDER BY id DESC LIMIT 100")])
+                if path == "/api/access":
+                    return self.send_json(200, server.access_control.list())
                 if path == "/api/tasks":
                     return self.send_json(200, [dict(row) for row in server.db.execute("SELECT * FROM tasks ORDER BY id DESC")])
                 if path.startswith("/api/tasks/"):
@@ -111,6 +115,8 @@ class ApiServer:
                     if path == "/api/logout":
                         server.auth.logout(token)
                         return self.send_json(200, {"logged_out": True})
+                    if path == "/api/access":
+                        return self.send_json(201, server.access_control.grant(payload["path"], payload.get("access", "read"), username))
                     if path == "/api/tasks":
                         task_id = server.task_manager.submit(payload["request"], username, payload.get("model"), payload.get("conversation_id"))
                         return self.send_json(202, {"task_id": task_id, "status": "queued"})
@@ -170,6 +176,10 @@ class ApiServer:
                 if path.startswith("/api/files/"):
                     server.files.delete(int(path.split("/")[-1]))
                     return self.send_json(200, {"deleted": True})
+                if path == "/api/access":
+                    payload = self.read_json()
+                    server.access_control.revoke(payload["path"], username)
+                    return self.send_json(200, {"revoked": True})
                 if path.startswith("/api/knowledge/documents/"):
                     server.knowledge.delete(path.split("/")[-1])
                     return self.send_json(200, {"deleted": True})

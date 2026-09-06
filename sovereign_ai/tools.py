@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from .deliverables import DeliverableService
 from .sandbox import DockerSandbox
+from .access_control import AccessControlService
 
 
 class Calculator:
@@ -46,6 +47,7 @@ class ToolRegistry:
     def __init__(self, file_service=None, db=None, workspace=None):
         self.calculator = Calculator(); self.file_service = file_service; self.db = db
         self.workspace = Path(workspace or (file_service.storage_dir if file_service else Path.cwd())).resolve(); self.workspace.mkdir(parents=True, exist_ok=True)
+        self.access_control = AccessControlService(db, self.workspace) if db else None
         self.deliverables = DeliverableService(self.workspace)
         self.sandbox = DockerSandbox()
         self._tools = {}; self._register_defaults()
@@ -94,7 +96,9 @@ class ToolRegistry:
 
     def _safe_path(self, value):
         path = (self.workspace / value).resolve()
-        if path != self.workspace and self.workspace not in path.parents: raise PermissionError("Path escapes the approved workspace")
+        if self.access_control and not self.access_control.allows(path, "read"):
+            raise PermissionError("Path is not approved; grant access in the Access Control workspace")
+        if not self.access_control and path != self.workspace and self.workspace not in path.parents: raise PermissionError("Path escapes the approved workspace")
         return path
 
     def _register_defaults(self):
@@ -107,7 +111,7 @@ class ToolRegistry:
         self.register_tool(Tool("write_file", "Write a text deliverable", {"required": ["path", "content"]}, ("write",), "MEDIUM", 10, self._write))
         self.register_tool(Tool("move_file", "Move a file within the workspace", {"required": ["source", "destination"]}, ("write",), "MEDIUM", 10, self._move))
         self.register_tool(Tool("copy_file", "Copy a file within the workspace", {"required": ["source", "destination"]}, ("read", "write"), "MEDIUM", 10, self._copy))
-        self.register_tool(Tool("create_directory", "Create a workspace directory", {"required": ["path"]}, ("write",), "MEDIUM", 10, lambda a: str(self._safe_path(a["path"]).mkdir(parents=True, exist_ok=True) or self._safe_path(a["path"]))))
+        self.register_tool(Tool("create_directory", "Create a workspace directory", {"required": ["path"]}, ("write",), "MEDIUM", 10, self._create_directory))
         self.register_tool(Tool("search_files", "Search text in workspace files", {"required": ["query"]}, ("read",), "LOW", 10, self._search))
         self.register_tool(Tool("csv_summary", "Summarize a local CSV", {"required": ["path"]}, ("read",), "LOW", 10, self._csv_summary))
         self.register_tool(Tool("delete_file", "Delete a workspace file", {"required": ["path"]}, ("delete",), "HIGH", 10, lambda a: str(self._safe_path(a["path"]).unlink() or self._safe_path(a["path"]))))
@@ -123,15 +127,29 @@ class ToolRegistry:
         return {"success": result.success, "stdout": result.stdout, "stderr": result.stderr, "exit_code": result.exit_code, "timed_out": result.timed_out, "error": result.error}
 
     def _write(self, args):
-        path = self._safe_path(args["path"]); path.parent.mkdir(parents=True, exist_ok=True); path.write_text(args["content"], encoding="utf-8"); return str(path)
+        path = self._safe_path(args["path"])
+        if self.access_control and not self.access_control.allows(path, "write"):
+            raise PermissionError("Write access is not approved for this path")
+        path.parent.mkdir(parents=True, exist_ok=True); path.write_text(args["content"], encoding="utf-8"); return str(path)
+
+    def _create_directory(self, args):
+        path = self._safe_path(args["path"])
+        if self.access_control and not self.access_control.allows(path, "write"):
+            raise PermissionError("Write access is not approved for this path")
+        path.mkdir(parents=True, exist_ok=True)
+        return str(path)
 
     def _move(self, args):
         source, destination = self._safe_path(args["source"]), self._safe_path(args["destination"])
+        if self.access_control and not self.access_control.allows(destination, "write"):
+            raise PermissionError("Write access is not approved for this path")
         if not source.is_file(): raise FileNotFoundError(args["source"])
         destination.parent.mkdir(parents=True, exist_ok=True); return str(shutil.move(str(source), str(destination)))
 
     def _copy(self, args):
         source, destination = self._safe_path(args["source"]), self._safe_path(args["destination"])
+        if self.access_control and not self.access_control.allows(destination, "write"):
+            raise PermissionError("Write access is not approved for this path")
         if not source.is_file(): raise FileNotFoundError(args["source"])
         destination.parent.mkdir(parents=True, exist_ok=True); return str(shutil.copy2(source, destination))
 

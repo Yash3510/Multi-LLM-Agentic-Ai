@@ -73,3 +73,12 @@ class BackendClient:
 
     def security_events(self):
         return self.request("GET", "/api/security/events")[1]
+
+    def access_grants(self):
+        return self.request("GET", "/api/access")[1]
+
+    def grant_access(self, path, access):
+        return self.request("POST", "/api/access", {"path": path, "access": access})[1]
+
+    def revoke_access(self, path):
+        return self.request("DELETE", "/api/access", {"path": path})[1]

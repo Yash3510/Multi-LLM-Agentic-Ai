@@ -13,6 +13,7 @@ from .health import check
 from .markdown import render
 from .task_engine import TaskEngine
 from .backend_client import BackendClient
+from .access_control import AccessControlService
 
 
 class SovereignApp(tk.Tk):
@@ -25,6 +26,7 @@ class SovereignApp(tk.Tk):
         self.backend = backend
         self.auth, self.conversations = AuthService(db), ConversationService(db)
         self.files = FileService(db, settings.storage_dir)
+        self.access_control = AccessControlService(db, settings.storage_dir)
         from .knowledge import KnowledgeService
         self.knowledge = knowledge or KnowledgeService(db, settings.storage_dir, settings.local_model_url, provider, settings.embedding_model)
         self.task_engine = TaskEngine(db, provider, settings.default_model, self.files, self.knowledge)
@@ -116,6 +118,7 @@ class SovereignApp(tk.Tk):
         ttk.Button(self.sidebar, text="Artifacts", command=self.show_artifacts).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="System status", command=self.show_status).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="Settings", command=self.show_settings).pack(fill="x", pady=3)
+        ttk.Button(self.sidebar, text="Access Control", command=self.show_access_control).pack(fill="x", pady=3)
         ttk.Button(self.sidebar, text="Logout", command=self.show_auth).pack(fill="x", pady=(26, 3))
         self.body = ttk.Frame(self, padding=24); self.body.pack(side="right", expand=True, fill="both")
         self.show_dashboard()
@@ -400,6 +403,52 @@ class SovereignApp(tk.Tk):
         statuses = self.backend.health() if self.backend else check(self.db, self.provider, self.settings.storage_dir, self.settings)
         for name, (ok, detail) in statuses.items():
             ttk.Label(self.body, text=("● " if ok else "○ ") + f"{name}: {detail}", foreground="#74c69d" if ok else "#f28482").pack(anchor="w", pady=8)
+
+    def show_access_control(self):
+        for widget in self.body.winfo_children(): widget.destroy()
+        ttk.Label(self.body, text="Access Control", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(self.body, text="Grant JARVIS access to a local file or folder. Protected system paths are always blocked.").pack(anchor="w", pady=(2, 16))
+        selected = tk.StringVar()
+        ttk.Entry(self.body, textvariable=selected).pack(fill="x", pady=4)
+        controls = ttk.Frame(self.body); controls.pack(fill="x", pady=4)
+        def choose_file():
+            value = filedialog.askopenfilename()
+            if value: selected.set(value)
+        def choose_folder():
+            value = filedialog.askdirectory()
+            if value: selected.set(value)
+        ttk.Button(controls, text="Choose file", command=choose_file).pack(side="left", padx=(0, 6))
+        ttk.Button(controls, text="Choose folder", command=choose_folder).pack(side="left")
+        access = tk.StringVar(value="read")
+        ttk.Label(self.body, text="Permission").pack(anchor="w", pady=(14, 2))
+        ttk.Combobox(self.body, textvariable=access, values=("read", "write"), state="readonly", width=12).pack(anchor="w")
+        listing = tk.Listbox(self.body, bg="#0b1218", fg="#d8e5ed", relief="flat")
+        listing.pack(expand=True, fill="both", pady=18)
+        grants = []
+        def refresh():
+            grants[:] = self.backend.access_grants() if self.backend else self.access_control.list()
+            listing.delete(0, "end")
+            for grant in grants: listing.insert("end", f"{grant['access'].upper():5} | {grant['path']}")
+        def grant():
+            try:
+                if not selected.get().strip(): raise ValueError("Choose a file or folder first")
+                if self.backend: self.backend.grant_access(selected.get().strip(), access.get())
+                else: self.access_control.grant(selected.get().strip(), access.get())
+                refresh()
+            except Exception as exc: messagebox.showerror("Grant access", str(exc))
+        def revoke():
+            index = listing.curselection()
+            if not index: return
+            try:
+                path = grants[index[0]]["path"]
+                if self.backend: self.backend.revoke_access(path)
+                else: self.access_control.revoke(path)
+                refresh()
+            except Exception as exc: messagebox.showerror("Revoke access", str(exc))
+        actions = ttk.Frame(self.body); actions.pack(fill="x")
+        ttk.Button(actions, text="Grant / update access", command=grant).pack(side="left")
+        ttk.Button(actions, text="Revoke selected", command=revoke).pack(side="left", padx=8)
+        refresh()
 
     def show_settings(self):
         for widget in self.body.winfo_children(): widget.destroy()
