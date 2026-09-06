@@ -373,7 +373,7 @@ class SovereignApp(tk.Tk):
         for row in documents:
             ttk.Label(self.body, text=f"{row['original_name']} | {row['processing_status']} | v{row['version']}").pack(anchor="w")
             try:
-                metadata = json.loads(row.get("metadata_json") or "{}")
+                metadata = json.loads(row["metadata_json"] or "{}")
                 if metadata:
                     summary = str(metadata.get("summary", "")).replace("\n", " ")[:180]
                     provenance = metadata.get("model") or "local fallback"
