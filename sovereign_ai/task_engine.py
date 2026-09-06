@@ -10,7 +10,7 @@ from .workflow import AgenticWorkflow
 
 class TaskEngine:
     def __init__(self, db, provider, default_model, file_service=None, knowledge=None):
-        self.db, self.provider = db, provider
+        self.db, self.provider, self.knowledge = db, provider, knowledge
         self.router = ModelRouter(provider, default_model)
         self.tools = ToolRegistry(file_service, db=db)
         self.agents = agents_for(provider, self.tools, knowledge)
@@ -38,6 +38,17 @@ class TaskEngine:
             "reindex", "re-index", "upload", "document processing",
         )
         return any(term in lowered for term in orchestration_terms)
+
+    @staticmethod
+    def is_document_question(request: str) -> bool:
+        """Identify likely local-document questions without hijacking normal chat."""
+        lowered = request.lower()
+        document_terms = (
+            "document", "notes", "manual", "report", "inspection", "sop",
+            "uploaded", "knowledge base", "local knowledge", "according to",
+            "in the file", "in this file", "what does .* contain",
+        )
+        return any(re.search(term, lowered) for term in document_terms)
 
     def create_task(self, request: str, user_name: str = "local-user", model: str | None = None, conversation_id=None):
         plan = self.plan(request, model)
@@ -70,6 +81,15 @@ class TaskEngine:
                 answer = "Created local workspace folder: " + str(result.get("result")) if result["success"] else "I could not create that folder: " + result["error"]
             elif re.search(r"(?:calculate|compute)\s+[0-9+*/().%\s-]+", request, re.I):
                 answer = self.tools.execute(request) or "I could not evaluate that calculation safely."
+            elif self.knowledge and self.is_document_question(request):
+                grounded = self.knowledge.answer(request, self.provider, "qwen/qwen3-vl-4b")
+                answer = grounded["answer"]
+                if grounded.get("citations"):
+                    sources = "\n".join(
+                        f"Source: {item['source']} | page {item['page']} | section {item['section']}"
+                        for item in grounded["citations"]
+                    )
+                    answer += "\n\n" + sources
             else:
                 answer = self.provider.generate(
                 "You are Tony Stark, a helpful local assistant. Answer the user's message naturally and directly. "

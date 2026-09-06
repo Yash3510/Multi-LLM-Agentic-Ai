@@ -7,7 +7,17 @@ from sovereign_ai.task_engine import TaskEngine
 
 class ChatProvider:
     def list_models(self): return ["local-chat-model"]
-    def generate(self, prompt, model): return "Hello from Tony."
+    def generate(self, prompt, model):
+        self.last_model = model
+        return "Hello from Tony."
+
+
+class KnowledgeStub:
+    def answer(self, question, provider, model):
+        provider.knowledge_model = model
+        return {"answer": "The notes contain the local procedure.", "citations": [
+            {"source": "dsa-notes.txt", "page": 1, "section": "", "evidence": "Local procedure"}
+        ]}
 
 
 class ChatTests(unittest.TestCase):
@@ -34,6 +44,19 @@ class ChatTests(unittest.TestCase):
             result = engine.chat("Create a file named report.txt")
             self.assertEqual(result["status"], "completed")
             self.assertTrue((Path(directory) / "report.txt").exists())
+            db.close()
+
+    def test_document_question_uses_friday_knowledge_and_citation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            provider = ChatProvider()
+            db = Database(Path(directory) / "chat.db")
+            result = TaskEngine(db, provider, "fallback", knowledge=KnowledgeStub()).chat(
+                "What does the document dsa notes contain?"
+            )
+            self.assertIn("local procedure", result["result"])
+            self.assertIn("dsa-notes.txt | page 1", result["result"])
+            self.assertEqual(provider.knowledge_model, "qwen/qwen3-vl-4b")
+            self.assertFalse(hasattr(provider, "last_model"))
             db.close()
 
 
