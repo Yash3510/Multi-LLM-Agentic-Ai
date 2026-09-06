@@ -84,8 +84,8 @@ class DocumentParser:
                            "--security-opt", "no-new-privileges", "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
                            "-v", f"{path.resolve()}:/input.pdf:ro", "multi-llm-docs-sovereign-ai", "sh", "-lc",
                            "pdftoppm -png -r 180 /input.pdf /tmp/page >/dev/null 2>&1; for image in /tmp/page-*.png; do echo '---PAGE---'; tesseract \"$image\" stdout 2>/dev/null; done"]
-                result = subprocess.run(command, capture_output=True, text=True, timeout=120)
-                if result.returncode == 0 and result.stdout.strip():
+                result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+                if result.returncode == 0 and (result.stdout or "").strip():
                     pages = [item.strip() for item in result.stdout.split("---PAGE---") if item.strip()]
                     return [{"page": number, "section": "", "content": content} for number, content in enumerate(pages, 1)]
         except (OSError, subprocess.TimeoutExpired):
@@ -177,7 +177,7 @@ class KnowledgeService:
 
     def _friday_metadata(self, filename, pages):
         """Ask the local FRIDAY model for compact metadata, with a deterministic fallback."""
-        text = "\n\n".join(f"Page {page['page']}: {page.get('content', '')}" for page in pages)
+        text = "\n\n".join(f"Page {page['page']}: {page.get('content') or ''}" for page in pages)
         fallback = {"title": Path(filename).stem, "document_type": Path(filename).suffix.lower().lstrip("."),
                     "summary": text[:500], "keywords": [], "sections": sorted({page.get("section", "") for page in pages if page.get("section")}),
                     "generated_by": "FRIDAY", "model": None}
@@ -189,7 +189,7 @@ class KnowledgeService:
             prompt = ("You are FRIDAY. Generate compact document metadata as JSON only. "
                       "Use exactly these keys: title, document_type, summary, keywords, sections. "
                       "Do not invent facts; use only the supplied pages.\n\n" + text[:12000])
-            raw = self.provider.generate(prompt, model).strip()
+            raw = (self.provider.generate(prompt, model) or "").strip()
             start, end = raw.find("{"), raw.rfind("}")
             parsed = json.loads(raw[start:end + 1]) if start >= 0 and end > start else {}
             if not isinstance(parsed, dict): raise ValueError("FRIDAY metadata was not an object")
@@ -204,7 +204,7 @@ class KnowledgeService:
     def _chunks(self, document_id, version, filename, pages):
         chunks = []
         for page in pages:
-            text = re.sub(r"\s+", " ", page.get("content", "")).strip()
+            text = re.sub(r"\s+", " ", page.get("content") or "").strip()
             if not text:
                 continue
             words, size = text.split(), 180
