@@ -69,6 +69,13 @@ class KnowledgeTests(unittest.TestCase):
         self.assertEqual(answer["citations"], [])
         self.assertIn("could not find sufficient evidence", answer["answer"])
 
+    def test_unrelated_document_is_not_cited(self):
+        source = Path(self.temp.name) / "dsa-notes.txt"
+        source.write_text("Data structures and graph algorithms.", encoding="utf-8")
+        self.knowledge.ingest(str(source), asynchronous=False)
+        answer = self.knowledge.answer("What does the MRPL accounts transactions document contain?", self.provider, "local-model")
+        self.assertEqual(answer["citations"], [])
+
     def test_office_xml_extraction_preserves_basic_structure_labels(self):
         temp = tempfile.TemporaryDirectory()
         root = Path(temp.name)

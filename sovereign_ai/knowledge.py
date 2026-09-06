@@ -218,12 +218,19 @@ class KnowledgeService:
         query = self.embedder.embed([question])[0]
         candidates = self.index.search(query, top_k or self.top_k, filters)
         results = []
+        question_terms = set(re.findall(r"[a-z0-9]+", question.lower())) - {"what", "does", "the", "a", "an", "is", "are", "in", "of", "to", "this", "that", "contain", "contains"}
         for candidate in candidates:
             if candidate["score"] < self.threshold:
                 continue
             row = self.db.execute("SELECT * FROM document_chunks WHERE id=?", (candidate["vector_id"],)).fetchone()
             if row:
-                results.append({**dict(row), "score": candidate["score"]})
+                item = {**dict(row), "score": candidate["score"]}
+                searchable = set(re.findall(r"[a-z0-9]+", (item["content"] + " " + item["source_filename"]).lower()))
+                # Fallback embeddings can rank unrelated chunks; do not cite them
+                # unless lexical evidence or a strong semantic score supports them.
+                if not question_terms.intersection(searchable) and candidate["score"] < 0.45:
+                    continue
+                results.append(item)
         if not filters or filters.get("latest", True):
             results = [item for item in results if self._is_latest(item["document_id"], item["document_version"])]
         if self.config.get("rerank", True):

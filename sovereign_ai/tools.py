@@ -96,7 +96,8 @@ class ToolRegistry:
 
     def _safe_path(self, value):
         path = (self.workspace / value).resolve()
-        if self.access_control and not self.access_control.allows(path, "read"):
+        in_workspace = path == self.workspace or self.workspace in path.parents
+        if self.access_control and not in_workspace and not self.access_control.allows(path, "read"):
             raise PermissionError("Path is not approved; grant access in the Access Control workspace")
         if not self.access_control and path != self.workspace and self.workspace not in path.parents: raise PermissionError("Path escapes the approved workspace")
         return path
@@ -128,27 +129,31 @@ class ToolRegistry:
 
     def _write(self, args):
         path = self._safe_path(args["path"])
-        if self.access_control and not self.access_control.allows(path, "write"):
+        in_workspace = path == self.workspace or self.workspace in path.parents
+        if self.access_control and not in_workspace and not self.access_control.allows(path, "write"):
             raise PermissionError("Write access is not approved for this path")
         path.parent.mkdir(parents=True, exist_ok=True); path.write_text(args["content"], encoding="utf-8"); return str(path)
 
     def _create_directory(self, args):
         path = self._safe_path(args["path"])
-        if self.access_control and not self.access_control.allows(path, "write"):
+        in_workspace = path == self.workspace or self.workspace in path.parents
+        if self.access_control and not in_workspace and not self.access_control.allows(path, "write"):
             raise PermissionError("Write access is not approved for this path")
         path.mkdir(parents=True, exist_ok=True)
         return str(path)
 
     def _move(self, args):
         source, destination = self._safe_path(args["source"]), self._safe_path(args["destination"])
-        if self.access_control and not self.access_control.allows(destination, "write"):
+        in_workspace = destination == self.workspace or self.workspace in destination.parents
+        if self.access_control and not in_workspace and not self.access_control.allows(destination, "write"):
             raise PermissionError("Write access is not approved for this path")
         if not source.is_file(): raise FileNotFoundError(args["source"])
         destination.parent.mkdir(parents=True, exist_ok=True); return str(shutil.move(str(source), str(destination)))
 
     def _copy(self, args):
         source, destination = self._safe_path(args["source"]), self._safe_path(args["destination"])
-        if self.access_control and not self.access_control.allows(destination, "write"):
+        in_workspace = destination == self.workspace or self.workspace in destination.parents
+        if self.access_control and not in_workspace and not self.access_control.allows(destination, "write"):
             raise PermissionError("Write access is not approved for this path")
         if not source.is_file(): raise FileNotFoundError(args["source"])
         destination.parent.mkdir(parents=True, exist_ok=True); return str(shutil.copy2(source, destination))
