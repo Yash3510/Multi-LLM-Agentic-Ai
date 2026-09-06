@@ -30,6 +30,13 @@ class FoundationTests(unittest.TestCase):
         self.assertEqual(row["original_name"], "notes.txt")
         self.assertTrue((root / "files" / row["stored_name"]).exists())
 
+    def test_duplicate_upload_is_idempotent(self):
+        root = Path(self.temp.name); source = root / "notes.txt"; source.write_text("local", encoding="utf-8")
+        files = FileService(self.db, root / "files")
+        first = files.store(str(source)); second = files.store(str(source))
+        self.assertEqual(first["id"], second["id"])
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM files").fetchone()[0], 1)
+
     def test_database_serializes_concurrent_access(self):
         errors = []
 

@@ -22,6 +22,9 @@ class FileService:
         target = self.storage_dir / stored
         if not target.exists():
             shutil.copy2(path, target)
+        existing = self.db.execute("SELECT * FROM files WHERE stored_name = ?", (stored,)).fetchone()
+        if existing:
+            return dict(existing)
         row = self.db.execute("INSERT INTO files(original_name,stored_name,content_type,size,sha256) VALUES(?,?,?,?,?)",
                               (path.name, stored, mimetypes.guess_type(path.name)[0], path.stat().st_size, digest))
         return dict(self.db.execute("SELECT * FROM files WHERE id = ?", (row.lastrowid,)).fetchone())
