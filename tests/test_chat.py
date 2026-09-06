@@ -47,6 +47,18 @@ class ChatTests(unittest.TestCase):
             self.assertTrue((Path(directory) / "report.txt").exists())
             db.close()
 
+    def test_granted_folder_allows_requested_directory_creation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = Database(Path(directory) / "chat.db")
+            engine = TaskEngine(db, ChatProvider(), "fallback", knowledge=KnowledgeStub())
+            desktop = Path(directory) / "Desktop"
+            desktop.mkdir()
+            engine.tools.access_control.grant(desktop, "write")
+            result = engine.chat(f"Create a folder named reports at {desktop}")
+            self.assertEqual(result["status"], "completed")
+            self.assertTrue((desktop / "reports").is_dir())
+            db.close()
+
     def test_document_question_uses_friday_knowledge_and_citation(self):
         with tempfile.TemporaryDirectory() as directory:
             provider = ChatProvider()

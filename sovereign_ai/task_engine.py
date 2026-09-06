@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from datetime import datetime
+from pathlib import Path
 from .agents import agents_for
 from .router import ModelRouter
 from .tools import ToolRegistry
@@ -75,8 +76,25 @@ class TaskEngine:
             lowered = request.lower()
             file_match = re.search(r"create\s+(?:a\s+)?file\s+(?:named|called)\s+([\w.-]+)", request, re.I)
             folder_match = re.search(r"create\s+(?:a\s+)?(?:folder|directory)\s+(?:named|called)\s+([\w.-]+)", request, re.I)
-            if (file_match or folder_match) and "desktop" in lowered:
-                answer = "I can create files only inside the approved Sovereign workspace, not directly on the Desktop."
+            location_match = re.search(r"\s+(?:at|in)\s+(.+?)\s*$", request, re.I)
+            requested_location = location_match.group(1).strip().strip('"') if location_match else None
+            if (file_match or folder_match) and requested_location and self.knowledge is not None:
+                target = Path(requested_location).expanduser().resolve()
+                if folder_match:
+                    target = target / folder_match.group(1)
+                elif file_match:
+                    target = target / file_match.group(1)
+                granted = self.tools.access_control and self.tools.access_control.allows(target.parent, "write")
+                if granted:
+                    if folder_match:
+                        result = self.tools.execute_tool("create_directory", {"path": str(target)}, permission="write", task_id=task_id, agent="jarvis")
+                    else:
+                        result = self.tools.execute_tool("write_file", {"path": str(target), "content": ""}, permission="write", task_id=task_id, agent="jarvis")
+                    answer = "Created approved local path: " + str(result.get("result")) if result["success"] else "I could not create that path: " + result["error"]
+                else:
+                    answer = "I can create files only inside the approved Sovereign workspace or a folder granted Write access in Access Control."
+            elif (file_match or folder_match) and "desktop" in lowered:
+                answer = "I can create files only inside the approved Sovereign workspace or a folder granted Write access in Access Control."
             elif file_match:
                 result = self.tools.execute_tool("write_file", {"path": file_match.group(1), "content": ""}, permission="write", task_id=task_id, agent="jarvis")
                 answer = "Created local workspace file: " + str(result.get("result")) if result["success"] else "I could not create that file: " + result["error"]
