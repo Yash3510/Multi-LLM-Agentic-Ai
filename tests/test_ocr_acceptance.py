@@ -6,6 +6,23 @@ from sovereign_ai.knowledge import DocumentParser
 
 
 class OcrAcceptanceTests(unittest.TestCase):
+    def test_docker_ocr_fallback_when_host_binaries_are_missing(self):
+        if DocumentParser.ocr_available() or not shutil.which("docker"):
+            self.skipTest("host OCR is available or Docker CLI is unavailable")
+        try:
+            from PIL import Image, ImageDraw
+        except ImportError:
+            self.skipTest("Pillow unavailable")
+        temp = tempfile.TemporaryDirectory()
+        image = Image.new("RGB", (1400, 300), "white")
+        ImageDraw.Draw(image).text((30, 100), "DEMO TEST: Compressor C-101 requires inspection before startup.", fill="black")
+        pdf = Path(temp.name) / "scanned_docker_demo.pdf"
+        image.save(pdf, "PDF", resolution=150.0)
+        pages = DocumentParser().parse(pdf)
+        self.assertTrue(any("C-101" in page["content"] for page in pages))
+        self.assertEqual(pages[0]["page"], 1)
+        temp.cleanup()
+
     def test_native_ocr_tools_are_available(self):
         if not DocumentParser.ocr_available():
             self.skipTest("tesseract and pdfinfo are not installed in this runtime; Docker installs both")

@@ -8,6 +8,7 @@ import threading
 import uuid
 import zipfile
 import shutil
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -70,11 +71,24 @@ class DocumentParser:
             import pytesseract
             from pdf2image import convert_from_path
             if not shutil.which("tesseract") or not shutil.which("pdfinfo"):
-                return []
+                raise RuntimeError("native OCR unavailable")
             return [{"page": number, "section": "", "content": pytesseract.image_to_string(image)}
                     for number, image in enumerate(convert_from_path(str(path)), 1)]
         except Exception:
-            return []
+            pass
+        try:
+            if shutil.which("docker"):
+                command = ["docker", "run", "--rm", "--network", "none", "--read-only", "--cap-drop", "ALL",
+                           "--security-opt", "no-new-privileges", "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
+                           "-v", f"{path.resolve()}:/input.pdf:ro", "multi-llm-docs-sovereign-ai", "sh", "-lc",
+                           "pdftoppm -png -r 180 /input.pdf /tmp/page >/dev/null 2>&1; for image in /tmp/page-*.png; do echo '---PAGE---'; tesseract \"$image\" stdout 2>/dev/null; done"]
+                result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+                if result.returncode == 0 and result.stdout.strip():
+                    pages = [item.strip() for item in result.stdout.split("---PAGE---") if item.strip()]
+                    return [{"page": number, "section": "", "content": content} for number, content in enumerate(pages, 1)]
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        return []
 
     @staticmethod
     def ocr_available():
@@ -107,6 +121,15 @@ class KnowledgeService:
         checksum = hashlib.sha256(path.read_bytes()).hexdigest()
         current = self.db.execute("SELECT * FROM documents WHERE original_name=? AND version=(SELECT MAX(version) FROM documents WHERE original_name=?)", (path.name, path.name)).fetchone()
         if current and current["checksum"] == checksum:
+            if current["processing_status"] == "error":
+                self.db.execute("UPDATE documents SET processing_status='uploaded',processing_error=NULL WHERE id=?", (current["id"],))
+                self.db.execute("INSERT INTO knowledge_jobs(document_id,status,stage) VALUES(?,?,?)", (current["id"], "queued", "uploaded"))
+                self._audit("document_retry", current["id"], "queued")
+                process_source = str(self.storage_dir / current["stored_name"]) if (self.storage_dir / current["stored_name"]).exists() else str(path)
+                if asynchronous:
+                    self.executor.submit(self.process, current["id"], process_source)
+                else:
+                    self.process(current["id"], process_source)
             return dict(current)
         version = (current["version"] + 1) if current else 1
         document_id = uuid.uuid5(uuid.NAMESPACE_URL, checksum + ":" + str(version)).hex
