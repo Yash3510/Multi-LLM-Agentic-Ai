@@ -9,6 +9,7 @@ from sovereign_ai.knowledge import KnowledgeService
 class FakeProvider:
     def generate(self, prompt, model):
         self.last_prompt = prompt
+        self.last_model = model
         return "The procedure is described in the supplied evidence [1]."
 
     def vision(self, prompt, image, model):
@@ -38,8 +39,11 @@ class KnowledgeTests(unittest.TestCase):
         self.assertEqual(answer["citations"][0]["page"], 1)
         self.assertIn("supplied evidence", answer["answer"])
         self.assertIn("maintenance.txt", self.provider.last_prompt)
+        self.assertEqual(self.provider.last_model, "qwen/qwen3-vl-4b")
         metadata = self.db.execute("SELECT metadata_json FROM documents WHERE id=?", (document["id"],)).fetchone()[0]
-        self.assertEqual(__import__("json").loads(metadata)["generated_by"], "FRIDAY")
+        stored_metadata = __import__("json").loads(metadata)
+        self.assertEqual(stored_metadata["generated_by"], "FRIDAY")
+        self.assertEqual(stored_metadata["model"], "qwen/qwen3-vl-4b")
 
     def test_duplicate_is_not_reprocessed_and_delete_removes_results(self):
         source = Path(self.temp.name) / "sop.txt"

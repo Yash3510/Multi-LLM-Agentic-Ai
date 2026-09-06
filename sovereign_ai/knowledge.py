@@ -17,11 +17,13 @@ from xml.etree import ElementTree
 from .embeddings import LocalEmbedder
 from .vector_store import TurbovecVectorStore
 
+FRIDAY_DOCUMENT_MODEL = "qwen/qwen3-vl-4b"
+
 
 class DocumentParser:
     """Local parsers for common office/text formats; optional libraries extend PDF/OCR support."""
 
-    def __init__(self, provider=None, vision_model="local-vision"):
+    def __init__(self, provider=None, vision_model=FRIDAY_DOCUMENT_MODEL):
         self.provider, self.vision_model = provider, vision_model
 
     def parse(self, path: Path):
@@ -115,7 +117,8 @@ class KnowledgeService:
         self.config = config or {}
         self.top_k = self.config.get("top_k", 5)
         self.threshold = self.config.get("similarity_threshold", -1.0)
-        self.metadata_model = self.config.get("metadata_model")
+        # FRIDAY uses the document/vision model for consistent ingestion and RAG.
+        self.metadata_model = FRIDAY_DOCUMENT_MODEL
 
     def ingest(self, source: str, asynchronous=True, stored_name=None):
         path = Path(source)
@@ -183,9 +186,6 @@ class KnowledgeService:
             return fallback
         try:
             model = self.metadata_model
-            if not model:
-                models = list(self.provider.list_models())
-                model = next((item for item in models if "qwen" in item.lower()), models[0] if models else "local-model")
             prompt = ("You are FRIDAY. Generate compact document metadata as JSON only. "
                       "Use exactly these keys: title, document_type, summary, keywords, sections. "
                       "Do not invent facts; use only the supplied pages.\n\n" + text[:12000])
@@ -242,7 +242,7 @@ class KnowledgeService:
         latest = self.db.execute("SELECT MAX(version) FROM documents WHERE original_name=?", (row["original_name"],)).fetchone()[0]
         return version == latest
 
-    def answer(self, question: str, provider, model: str, filters=None):
+    def answer(self, question: str, provider, model: str = FRIDAY_DOCUMENT_MODEL, filters=None):
         evidence = self.search(question, filters)
         if not evidence:
             return {"answer": "I could not find sufficient evidence in the local knowledge base to answer this reliably.", "citations": [], "evidence": []}
@@ -250,7 +250,7 @@ class KnowledgeService:
         prompt = ("You are FRIDAY. Answer the question only from the supplied local evidence. "
                   "If it is insufficient, say so. Cite sources using [number] markers.\n\n"
                   "LOCAL EVIDENCE\n" + context + "\n\nQUESTION\n" + question)
-        answer = provider.generate(prompt, model)
+        answer = provider.generate(prompt, FRIDAY_DOCUMENT_MODEL)
         citations = [{"source": item["source_filename"], "page": item["page"], "section": item["section"], "evidence": item["content"]} for item in evidence]
         return {"answer": answer, "citations": citations, "evidence": evidence}
 
