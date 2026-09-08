@@ -4,6 +4,10 @@ Our sovereign agentic layer, kept as source here and loaded into the running app
 runtime. Everything under `4ce/` is ours; nothing upstream is modified, so the fork
 stays mergeable.
 
+See [`../deep-research.md`](../deep-research.md) for the full porting analysis this
+was built from, and [`Multi-LLM-Docs`](../../Multi-LLM-Docs/README.md) for the original
+STARK architecture spec and standalone prototype these plugins port over from.
+
 ## functions/orchestrator.py — the 4CE Orchestrator
 
 A **pipe function**: it registers itself as a selectable model and owns the whole turn.
@@ -22,16 +26,41 @@ No rebuild is needed — functions live in the database and are loaded per call.
 Open the function's **Valves** and set the model names to whatever your local server
 actually serves (check **Admin → Settings → Connections**, or the model dropdown):
 
+**Routing** — which model each *task type* goes to. This is what drives automatic
+model selection:
+
 | Valve | Purpose |
 |---|---|
 | `analysis_model` | General reasoning and document work |
 | `coding_model` | Code generation and debugging |
 | `vision_model` | Scanned documents, drawings, photographs |
-| `verifier_model` | ULTRON's challenge pass (blank = reuse the routed model) |
+
+**Agent assignment** — pin an individual agent to its own model. Blank means the
+agent follows whatever the router chose, so routing stays the default behaviour:
+
+| Valve | Purpose |
+|---|---|
+| `friday_model` | Grounding and analysis |
+| `jarvis_model` | Producing the deliverable |
+| `ultron_model` | Verification. Setting this to a *different* model from JARVIS is worth doing: otherwise a model is grading its own work. |
+
+**Behaviour and performance:**
+
+| Valve | Purpose |
+|---|---|
+| `vision_max_edge` | Longest edge an image is downscaled to before it reaches the vision model (default 900). A full-page 200 dpi scan costs minutes on a 6 GB GPU; downscaling is the single biggest win. 0 sends the image untouched. |
+| `max_tokens` | Upper bound per agent reply (default 900). A reasoning model left unbounded will happily run for minutes. |
 | `enable_verification` | Run the ULTRON pass |
-| `enable_replan` | Allow one TONY replan when ULTRON fails |
-| `require_approval` | Human approval dialog before release |
-| `show_trace` | Append the execution trace to the answer |
+| `enable_replan` | Allow one TONY replan when ULTRON fails. Roughly doubles worst-case turn time. |
+| `require_approval` | Require a human to type APPROVE before release |
+| `show_trace` / `show_reasoning` / `show_model_thinking` | How much provenance to append to the answer |
+
+### The approval gate fails closed
+
+Approval asks the reviewer to **type APPROVE**. An empty box, a different word, a
+cancel or a timeout all withhold the deliverable. This is deliberate: the confirm
+dialog treats a stray Enter as a "yes" unless focus happens to sit on a button, so
+a yes/no prompt could release unreviewed work by reflex.
 
 Model names are matched loosely — `qwen3-vl-4b` will resolve against something like
 `qwen/qwen3-vl-4b@q4_k_m`. If a configured model isn't served, the router falls back to

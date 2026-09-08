@@ -51,6 +51,14 @@ class Pipe:
             default="",
             description="AGENT OVERRIDE — model ULTRON uses to challenge the result. Blank follows the routed model. A different model here gives genuinely independent verification.",
         )
+        vision_max_edge: int = Field(
+            default=900,
+            description="Longest edge, in pixels, an image is downscaled to before it reaches the vision model. Smaller is markedly faster on modest GPUs. Set 0 to send images untouched.",
+        )
+        max_tokens: int = Field(
+            default=900,
+            description="Upper bound on each agent's reply. Keeps a single turn predictable on modest hardware; a reasoning model left unbounded can run for minutes. Set 0 for no limit.",
+        )
         enable_verification: bool = Field(
             default=True, description="Run the ULTRON verification pass."
         )
@@ -338,6 +346,8 @@ class Pipe:
         if pass_images:
             parts = [p for p in (messages[-1].get("content") or []) if isinstance(p, dict) and p.get("type") == "image_url"]
             if parts:
+                limit = self.valves.vision_max_edge
+                parts = [_shrink_image(p, limit) for p in parts] if limit else parts
                 content = [{"type": "text", "text": instruction}, *parts]
 
         payload = {
@@ -345,6 +355,8 @@ class Pipe:
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
             "stream": False,
         }
+        if self.valves.max_tokens:
+            payload["max_tokens"] = self.valves.max_tokens
         started = time.monotonic()
         try:
             response = await generate_chat_completion(request, form_data=payload, user=user, bypass_filter=True)
@@ -424,6 +436,31 @@ def _text_of(message: dict) -> str:
     if isinstance(content, list):
         return "\n".join(p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text")
     return ""
+
+
+def _shrink_image(part: dict, max_edge: int) -> dict:
+    """Downscale an inline image. A full-page scan costs minutes on a modest GPU."""
+    url = (part.get("image_url") or {}).get("url", "")
+    if not url.startswith("data:image") or "base64," not in url:
+        return part
+    try:
+        import base64
+        import io
+
+        from PIL import Image
+
+        header, encoded = url.split("base64,", 1)
+        image = Image.open(io.BytesIO(base64.b64decode(encoded)))
+        if max(image.size) <= max_edge:
+            return part
+        image.thumbnail((max_edge, max_edge), Image.LANCZOS)
+        buffer = io.BytesIO()
+        image.convert("RGB").save(buffer, "JPEG", quality=88)
+        shrunk = base64.b64encode(buffer.getvalue()).decode("ascii")
+        return {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + shrunk}}
+    except Exception:
+        # Never fail the turn over a resize; send the original instead.
+        return part
 
 
 def _has_image(message: dict) -> bool:
