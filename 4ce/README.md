@@ -133,6 +133,38 @@ Also disable the built-in interpreter (`ENABLE_CODE_INTERPRETER=false`,
 `ENABLE_CODE_EXECUTION=false`) so there is exactly one execution path to explain: the
 browser-side Pyodide default is weaker than this sandbox and muddies the story.
 
+## Verification status
+
+Verified against a running instance with LM Studio serving `qwen3-vl-4b`,
+`qwen3-1.7b` and `text-embedding-nomic-embed-text-v1.5`:
+
+| Capability | Status |
+|---|---|
+| Model auto-selection across task types | Verified — a coding request routes to `qwen3-1.7b`, a document request to `qwen3-vl-4b`, each with the rationale shown |
+| Per-agent model assignment | Verified — ULTRON runs on a different model from JARVIS |
+| Agentic chain end to end | Verified — FRIDAY → JARVIS → ULTRON with a TONY replan on failure |
+| Verification catches errors | Verified — ULTRON rejected fabricated inspection readings and forced a replan |
+| Human approval | Verified in the browser — approve releases, reject and empty-box both withhold |
+| Sandboxed code execution | Verified — 6/6 checks including blocked network, read-only workspace, enforced timeout |
+| Word deliverables | Verified — 7/7 checks, valid OOXML with content and classification banner |
+| Sovereignty audit | Verified — 6/6 checks, 11/11 surfaces pass on the demo configuration |
+| Local RAG | Verified — upload, embed, index and query in ~0.3 s, and a grounded answer citing SOP thresholds |
+| **Multimodal / vision** | **Not yet verified** — see below |
+
+### The vision path needs a model-server change
+
+On a 6 GB GPU the vision model is loaded with a 65k context window, so weights plus
+KV cache exceed VRAM and inference silently falls back to CPU: the server reports
+`GENERATING` at ~2% GPU utilisation and a single turn runs past twenty minutes.
+
+The same model answers the same document correctly in **19 seconds** at 760 px with a
+200-token cap, so this is a configuration problem, not a capability one. The
+`vision_max_edge` and `max_tokens` valves bound what this plugin controls. The rest is
+on the model server: **reload the vision model with a context length of around 8192**,
+which is ample for a page of text and leaves the KV cache inside VRAM.
+
+Re-run the vision check after that change before relying on the multimodal demo.
+
 ### Still open
 
 - Wiring the sandbox result back through ULTRON so verification covers *executed* output.
