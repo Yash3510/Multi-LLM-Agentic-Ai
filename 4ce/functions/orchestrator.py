@@ -232,19 +232,27 @@ class Pipe:
             )
         elif self.valves.require_approval:
             await _status(__event_emitter__, "approval", "Awaiting human approval")
-            approved = await __event_call__(
+            # An 'input' prompt rather than a yes/no confirmation, deliberately.
+            # The confirm dialog treats a stray Enter as approval, which would let
+            # an unreviewed deliverable through by reflex. Requiring the word to be
+            # typed makes the gate fail closed: anything else withholds the result.
+            response = await __event_call__(
                 {
-                    "type": "confirmation",
+                    "type": "input",
                     "data": {
                         "title": "4CE — human approval required",
                         "message": (
-                            f"ULTRON verdict: {verdict.get('status', 'UNKNOWN')}\n\n"
-                            "Approve this deliverable for release?"
+                            f"ULTRON verdict: {verdict.get('status', 'UNKNOWN')}"
+                            f" · {task_type} · {model_id}\n\n"
+                            "Type APPROVE to release this deliverable. "
+                            "Anything else, or an empty box, withholds it."
                         ),
+                        "placeholder": "APPROVE",
                     },
                 }
             )
-            approved = approved is True or (isinstance(approved, dict) and approved.get("confirmed") is True)
+            decision = response if isinstance(response, str) else ""
+            approved = decision.strip().lower() in ("approve", "approved")
             if approved:
                 approval = "approved"
                 trace.append("**HUMAN** approved the deliverable.")

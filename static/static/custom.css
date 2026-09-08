@@ -1,0 +1,91 @@
+/* ---------------------------------------------------------------------------
+   4CE theme
+
+   Loaded by app.html as an upstream-supported extension point, so the fork's
+   Svelte components stay untouched and mergeable.
+
+   Scope note: collapsible sections are NOT native <details> elements here -
+   the markdown renderer replaces them with a Svelte component built from
+   Tailwind utilities. Styling them would mean targeting utility classes that
+   change between releases, so this sheet deliberately covers only the stable
+   markdown output: the provenance table, quoted reasoning and rules.
+   --------------------------------------------------------------------------- */
+
+:root {
+	--4ce-accent: #f0a020;
+	--4ce-accent-soft: rgba(240, 160, 32, 0.28);
+	--4ce-border: rgba(148, 163, 184, 0.22);
+	--4ce-surface: rgba(148, 163, 184, 0.06);
+}
+
+/* --- Provenance table ---------------------------------------------------- */
+
+.markdown-prose table,
+.markdown-prose-sm table {
+	border: 1px solid var(--4ce-border);
+	border-radius: 10px;
+	border-collapse: separate;
+	border-spacing: 0;
+	overflow: hidden;
+	width: 100%;
+	font-size: 0.86rem;
+}
+
+.markdown-prose table th,
+.markdown-prose-sm table th {
+	background: var(--4ce-surface);
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	font-size: 0.7rem;
+	opacity: 0.7;
+	text-align: left;
+}
+
+.markdown-prose table th,
+.markdown-prose table td,
+.markdown-prose-sm table th,
+.markdown-prose-sm table td {
+	border: none;
+	border-bottom: 1px solid var(--4ce-border);
+	padding: 0.5rem 0.75rem;
+	vertical-align: top;
+}
+
+.markdown-prose table tr:last-child td,
+.markdown-prose-sm table tr:last-child td {
+	border-bottom: none;
+}
+
+/* The first column is a label, so keep it narrow and recessive. */
+.markdown-prose table td:first-child,
+.markdown-prose-sm table td:first-child {
+	white-space: nowrap;
+	opacity: 0.7;
+	width: 1%;
+}
+
+/* --- Quoted model reasoning ---------------------------------------------- */
+
+.markdown-prose blockquote,
+.markdown-prose-sm blockquote {
+	border-left: 2px solid var(--4ce-accent-soft);
+	opacity: 0.75;
+	font-size: 0.94em;
+	font-style: normal;
+	padding-left: 0.8rem;
+}
+
+/* --- Section rules ------------------------------------------------------- */
+
+.markdown-prose h4,
+.markdown-prose-sm h4 {
+	letter-spacing: 0.02em;
+	opacity: 0.9;
+}
+
+.markdown-prose hr,
+.markdown-prose-sm hr {
+	border-color: var(--4ce-border);
+	margin: 1.1rem 0 0.9rem;
+}
