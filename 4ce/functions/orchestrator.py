@@ -39,9 +39,17 @@ class Pipe:
             default="qwen/qwen3-vl-4b",
             description="Vision-capable model for scanned documents, drawings and photographs.",
         )
-        verifier_model: str = Field(
+        friday_model: str = Field(
             default="",
-            description="Model ULTRON uses to challenge results. Blank reuses the routed model.",
+            description="AGENT OVERRIDE — model FRIDAY uses to ground and analyse. Blank follows the routed model.",
+        )
+        jarvis_model: str = Field(
+            default="",
+            description="AGENT OVERRIDE — model JARVIS uses to produce the deliverable. Blank follows the routed model.",
+        )
+        ultron_model: str = Field(
+            default="",
+            description="AGENT OVERRIDE — model ULTRON uses to challenge the result. Blank follows the routed model. A different model here gives genuinely independent verification.",
         )
         enable_verification: bool = Field(
             default=True, description="Run the ULTRON verification pass."
@@ -138,7 +146,18 @@ class Pipe:
             ),
         })
 
-        verifier_model = self.valves.verifier_model.strip() or model_id
+        available = _available_models(__request__)
+        agent_models = {
+            "FRIDAY": self._agent_model(self.valves.friday_model, model_id, available),
+            "JARVIS": self._agent_model(self.valves.jarvis_model, model_id, available),
+            "ULTRON": self._agent_model(self.valves.ultron_model, model_id, available),
+        }
+        overrides = {a: m for a, m in agent_models.items() if m != model_id}
+        if overrides:
+            trace.append(
+                "**TONY** applied per-agent model overrides: "
+                + ", ".join(f"{a} → `{m}`" for a, m in overrides.items())
+            )
         challenge: str | None = None
         attempts = 0
         analysis = ""
@@ -152,7 +171,7 @@ class Pipe:
 
             await _status(__event_emitter__, "friday", "FRIDAY: grounding and analysing")
             friday = await self._agent_call(
-                __request__, user, model_id, messages,
+                __request__, user, agent_models["FRIDAY"], messages,
                 system=_FRIDAY_SYSTEM,
                 instruction=_with_challenge(
                     "Analyse the request below. State factual findings drawn only from the "
@@ -169,7 +188,7 @@ class Pipe:
 
             await _status(__event_emitter__, "jarvis", "JARVIS: producing the deliverable")
             jarvis = await self._agent_call(
-                __request__, user, model_id, messages,
+                __request__, user, agent_models["JARVIS"], messages,
                 system=_JARVIS_SYSTEM,
                 instruction=(
                     f"ORIGINAL REQUEST\n{prompt}\n\n"
@@ -191,7 +210,7 @@ class Pipe:
 
             await _status(__event_emitter__, "ultron", "ULTRON: challenging the result")
             ultron = await self._agent_call(
-                __request__, user, verifier_model, messages,
+                __request__, user, agent_models["ULTRON"], messages,
                 system=_ULTRON_SYSTEM,
                 instruction=(
                     f"ORIGINAL REQUEST\n{prompt}\n\n"
@@ -266,7 +285,7 @@ class Pipe:
                     + _provenance(
                         steps, task_type, signals, model_id, rationale, verdict, "rejected",
                         time.monotonic() - started, attempts, self.valves.show_model_thinking,
-                        trace if self.valves.show_trace else [],
+                        trace if self.valves.show_trace else [], agent_models,
                     )
                 )
 
@@ -277,8 +296,15 @@ class Pipe:
         return deliverable + "\n\n" + _provenance(
             steps, task_type, signals, model_id, rationale, verdict, approval,
             time.monotonic() - started, attempts, self.valves.show_model_thinking,
-            trace if self.valves.show_trace else [],
+            trace if self.valves.show_trace else [], agent_models,
         )
+
+    def _agent_model(self, override: str, routed: str, available: list[str]) -> str:
+        """An agent's assigned model, falling back to the routed one."""
+        wanted = (override or "").strip()
+        if not wanted:
+            return routed
+        return _match_model(wanted, available, "") or routed
 
     def _route(self, task_type: str, request: Any, current_model: str) -> tuple[str | None, str]:
         preference = {
@@ -450,7 +476,8 @@ def _split_thinking(raw: str) -> tuple[str, str]:
 
 def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id: str,
                 rationale: str, verdict: dict, approval: str, elapsed: float,
-                attempts: int, include_thinking: bool, trace: list[str]) -> str:
+                attempts: int, include_thinking: bool, trace: list[str],
+                agent_models: dict) -> str:
     """A compact provenance table plus the reasoning behind each decision."""
     timings = " · ".join(
         f"{s['agent'].title()} {s['seconds']:.0f}s" for s in steps if s.get("seconds")
@@ -459,6 +486,7 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
     rows = [
         ("Task type", f"`{task_type}`" + (f" — matched: {', '.join(signals)}" if signals else " — no strong signal")),
         ("Model routed", f"`{model_id}` — {rationale}"),
+        ("Agents", " · ".join(f"{a} `{m}`" for a, m in agent_models.items())),
         ("Verification", f"ULTRON **{status}**" + (f" after {attempts} attempts" if attempts > 1 else "")),
         ("Human approval", approval.capitalize()),
         ("Elapsed", f"{elapsed:.0f}s" + (f" · {timings}" if timings else "")),

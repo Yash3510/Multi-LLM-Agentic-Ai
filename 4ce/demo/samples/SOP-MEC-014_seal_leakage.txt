@@ -1,0 +1,30 @@
+SOP-MEC-014  Mechanical Seal Leakage — Assessment and Action
+
+1. Purpose
+   Defines the assessment thresholds and required actions for mechanical
+   seal leakage observed on centrifugal pumps in hydrocarbon service.
+
+2. Assessment thresholds
+   2.1  Below 5 drops per minute: acceptable for continued operation.
+        Record the observation and monitor at the next routine round.
+   2.2  Between 5 and 20 drops per minute: continued operation permitted
+        only with the area supervisor's written concurrence. Seal
+        replacement must be scheduled within 30 days.
+   2.3  Above 20 drops per minute, or any atomised or visible spray:
+        remove the equipment from service immediately.
+
+3. Vibration limits
+   3.1  ISO 10816 Zone A or B: acceptable for unrestricted operation.
+   3.2  Zone C: operation permitted for a limited period. Raise a
+        maintenance notification.
+   3.3  Zone D: not acceptable. Remove from service.
+
+4. Wall thickness
+   4.1  Equipment is fit for service while the minimum measured wall
+        thickness remains above the stated retirement thickness.
+   4.2  Where remaining margin is below 2.0 mm, shorten the inspection
+        interval to six months.
+
+5. Guarding
+   5.1  Rotating equipment must not be started with any coupling guard
+        fastener missing. Rectify before the next start.
