@@ -28,15 +28,15 @@ CALC_SIGNALS = ("calculate", "compute", "thickness", "pressure", "flow rate", "t
 class Pipe:
     class Valves(BaseModel):
         analysis_model: str = Field(
-            default="qwen3-vl-4b",
+            default="qwen/qwen3-vl-4b",
             description="Model for general reasoning, analysis and document work.",
         )
         coding_model: str = Field(
-            default="qwen2.5-coder-3b",
+            default="qwen/qwen3-1.7b",
             description="Model for code generation and debugging tasks.",
         )
         vision_model: str = Field(
-            default="qwen3-vl-4b",
+            default="qwen/qwen3-vl-4b",
             description="Vision-capable model for scanned documents, drawings and photographs.",
         )
         verifier_model: str = Field(
