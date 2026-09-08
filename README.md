@@ -21,6 +21,9 @@ Passionate about open-source AI? [Join our team →](https://careers.openwebui.c
 
 For more information, be sure to check out our [Open WebUI Documentation](https://docs.openwebui.com/).
 
+> [!NOTE]
+> **This checkout is the base for the SIH PS 26117 Sovereign AI submission.** For the project-specific layer, see [`deep-research.md`](./deep-research.md) (what we inherit from upstream, air-gap/sovereignty analysis, and how our agents port in) and [`4ce/README.md`](./4ce/README.md) (the TONY/FRIDAY/JARVIS/ULTRON plugins as installed, including the `sovereignty.py` audit tool). See also the top-level [project README](../README.md) and the original architecture spec in [`Multi-LLM-Docs`](../Multi-LLM-Docs/README.md).
+
 ## Key Features of Open WebUI ⭐
 
 - 🚀 **Effortless Setup**: Install seamlessly via pip, uv, Docker, or Kubernetes (kubectl, kustomize, or helm), with `:ollama` and `:cuda` tagged images available for container deployments.
@@ -194,7 +197,7 @@ We offer various installation alternatives, including non-Docker native installa
 
 ### Troubleshooting
 
-Encountering connection issues? Our [Open WebUI Documentation](https://docs.openwebui.com/troubleshooting/) has got you covered. For further assistance and to join our vibrant community, visit the [Open WebUI Discord](https://discord.gg/5rJgQTnV4s).
+Encountering connection issues? Our [Open WebUI Documentation](https://docs.openwebui.com/troubleshooting/) has got you covered, and the local [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) covers the same Ollama connection issues offline. For further assistance and to join our vibrant community, visit the [Open WebUI Discord](https://discord.gg/5rJgQTnV4s).
 
 #### Open WebUI: Server Connection Error
 
@@ -235,7 +238,7 @@ Discover upcoming features on our roadmap in the [Open WebUI Documentation](http
 
 ## License 📜
 
-This project contains code under multiple licenses. The current codebase includes components licensed under the Open WebUI License with an additional requirement to preserve the "Open WebUI" branding, as well as prior contributions under their respective original licenses. For a detailed record of license changes and the applicable terms for each section of the code, please refer to [LICENSE_HISTORY](./LICENSE_HISTORY). For complete and updated licensing details, please see the [LICENSE](./LICENSE) and [LICENSE_HISTORY](./LICENSE_HISTORY) files.
+This project contains code under multiple licenses. The current codebase includes components licensed under the Open WebUI License with an additional requirement to preserve the "Open WebUI" branding, as well as prior contributions under their respective original licenses. For a detailed record of license changes and the applicable terms for each section of the code, please refer to [LICENSE_HISTORY](./LICENSE_HISTORY). For complete and updated licensing details, please see the [LICENSE](./LICENSE) and [LICENSE_HISTORY](./LICENSE_HISTORY) files, and [`static/BRANDING.md`](./static/BRANDING.md) for what branding must be preserved. Community expectations are set out in [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md), and a full history of upstream changes is in [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Support 💬
 

@@ -5,6 +5,8 @@
 **Method:** Direct source reading of this checkout. Line references are to files in this repo and are accurate as of the cloned commit.
 **Status caveat:** This is *source-derived*, not runtime-verified. Section 17 lists what must be confirmed by actually running it.
 
+**Related:** [Project README](../README.md) · [Plugin sources](./4ce/README.md) · [Original architecture spec (`Multi-LLM-Docs`)](../Multi-LLM-Docs/docs/architecture/00_MASTER_ARCHITECTURE.md)
+
 ---
 
 ## 1. Executive summary
@@ -455,7 +457,7 @@ Roughly **~1,200 of 2,624 lines are replaced by platform features**, and the ~70
 | Two execution paths (Pyodide + our sandbox) confuses the sovereignty story | Low | Disable built-in code execution; demo only the hardened Docker tool |
 | Losing the tested Phase 1-6 behaviour in translation | Medium | Port the loop wholesale; keep the existing repo intact and runnable as a fallback demo |
 
-**Fallback worth preserving:** the existing `Multi-LLM-Docs` prototype is tested and works end to end. Do not delete or rewrite it. If the fork isn't demo-ready by day 5, that repo is the demo.
+**Fallback worth preserving:** the existing [`Multi-LLM-Docs`](../Multi-LLM-Docs/README.md) prototype is tested and works end to end. Do not delete or rewrite it. If the fork isn't demo-ready by day 5, that repo is the demo.
 
 ---
 
