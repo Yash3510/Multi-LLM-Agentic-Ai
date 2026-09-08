@@ -1,5 +1,8 @@
-Phase 3 — Industrial Document AI & Local RAG
-Objective
+# Phase 3 — Industrial Document AI & Local RAG
+
+**Series:** [Docs index](../README.md) · ← [Phase 2](02_PHASE_2_STARK_AGENTS.md) · **Phase 3** → [Phase 4](04_PHASE_4_TOOLS_SANDBOX.md) · [Verification](../verification/PHASE_1_3_VERIFICATION.md)
+
+## Objective
 
 Build the local multimodal document intelligence and organizational knowledge layer for the Sovereign AI system.
 

@@ -1,5 +1,7 @@
 # Phase 4 — Tools, Sandbox, Agent Workflow & Deliverables
 
+**Series:** [Docs index](../README.md) · ← [Phase 3](03_PHASE_3_INDUSTRIAL_AI.md) · **Phase 4** → [Phase 5](05_PHASE_5_VERIFICATION.md) · [Verification](../verification/PHASE_4_VERIFICATION.md)
+
 ## Objective
 
 Extend the existing Sovereign AI system with safe local tools, sandboxed execution, real deliverable generation, and reliable multi-step agent workflows.

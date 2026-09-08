@@ -1,5 +1,7 @@
 # Phase 2 — Stark Multi-Agent Runtime
 
+**Series:** [Docs index](../README.md) · ← [Phase 1](01_PHASE_1_FOUNDATION.md) · **Phase 2** → [Phase 3](03_PHASE_3_INDUSTRIAL_AI.md) · [Verification](../verification/PHASE_1_3_VERIFICATION.md) · [Legacy runtime notes](PHASE_2_LEGACY.md)
+
 ## Objective
 
 Turn the foundation into a real multi-agent execution system.

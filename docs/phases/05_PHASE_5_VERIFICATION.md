@@ -1,5 +1,7 @@
 # Phase 5 — Verification & Human-in-the-Loop
 
+**Series:** [Docs index](../README.md) · ← [Phase 4](04_PHASE_4_TOOLS_SANDBOX.md) · **Phase 5** → [Phase 6](06_PHASE_6_SOVEREIGN_SECURITY.md) · [Verification](../verification/PHASE_5_VERIFICATION.md)
+
 ## Objective
 
 Make verification a formal part of every appropriate agentic workflow.

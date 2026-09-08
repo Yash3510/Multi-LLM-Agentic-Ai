@@ -17,6 +17,8 @@ Demo and security runbooks: [Demo guide](docs/guides/DEMO.md) and [Sovereign sec
 
 Verification reports are grouped under [`docs/verification`](docs/verification/).
 
+Setup and run instructions: [RUNNING.md](RUNNING.md).
+
 ## Recommended Build Order
 
 ```text
@@ -36,3 +38,7 @@ Phase 7
 ```
 
 Each phase assumes the previous phase is implemented and tested. Do not rewrite completed phases unless a genuine architectural defect requires it.
+
+## Relationship to `4CE`
+
+This is the original architecture spec and a standalone, tested-end-to-end reference implementation (`sovereign_ai/`). The current implementation effort forks Open WebUI (see [`../4CE`](../4CE/README.md)) and ports the agent loop, sandbox, and citation-discipline guard in as plugins — see [`4CE/deep-research.md` §15](../4CE/deep-research.md#15-mapping-our-existing-sovereign_ai-work-onto-this-fork) for the mapping. **This repo is kept as the fallback demo** and should not be deleted or rewritten. See also the [top-level project README](../README.md).

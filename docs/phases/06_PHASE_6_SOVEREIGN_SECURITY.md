@@ -1,5 +1,7 @@
 # Phase 6 — Sovereign Security & Air-Gapped Runtime
 
+**Series:** [Docs index](../README.md) · ← [Phase 5](05_PHASE_5_VERIFICATION.md) · **Phase 6** → [Phase 7](07_PHASE_7_POLISH_DEMO.md) · [Verification](../verification/PHASE_6_VERIFICATION.md) · [Security guide](../guides/SECURITY.md)
+
 ## Objective
 
 Technically enforce and visibly demonstrate the sovereign claim.

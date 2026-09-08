@@ -1,5 +1,7 @@
 # Sovereign AI SIH Demo
 
+**Related:** [Phase 7](../phases/07_PHASE_7_POLISH_DEMO.md) · [Docs index](../README.md)
+
 ## Start
 
 1. Start Bionic Studio Local Model API at `http://localhost:1234/v1`.

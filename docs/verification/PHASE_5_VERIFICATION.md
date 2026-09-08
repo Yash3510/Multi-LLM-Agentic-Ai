@@ -1,5 +1,7 @@
 # Phase 5 Verification Report
 
+**Covers:** [Phase 5](../phases/05_PHASE_5_VERIFICATION.md) · [Docs index](../README.md)
+
 ## Implemented
 
 - ULTRON verification is normalized into status, confidence, issues, warnings, evidence, and recommendation fields.

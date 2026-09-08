@@ -1,5 +1,7 @@
 # Sovereign Security
 
+**Related:** [Phase 6](../phases/06_PHASE_6_SOVEREIGN_SECURITY.md) · [Verification](../verification/PHASE_6_VERIFICATION.md) · [Docs index](../README.md)
+
 - Model and embedding endpoints must be local when sovereign mode is enabled.
 - External endpoint rejection is audited as a `security_blocked` event.
 - Model and embedding audit records contain metadata, not prompts, responses, or document contents.

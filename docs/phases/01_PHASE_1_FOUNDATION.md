@@ -1,5 +1,7 @@
 # Phase 1 — Foundation
 
+**Series:** [Docs index](../README.md) · **Phase 1** → [Phase 2](02_PHASE_2_STARK_AGENTS.md) · [Verification](../verification/PHASE_1_3_VERIFICATION.md)
+
 ## Objective
 
 Build the stable local application foundation for Sovereign AI.

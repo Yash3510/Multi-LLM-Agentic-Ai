@@ -1,5 +1,7 @@
 # Phase 4 Verification Report
 
+**Covers:** [Phase 4](../phases/04_PHASE_4_TOOLS_SANDBOX.md) · [Docs index](../README.md)
+
 ## Implemented
 
 - Explicit `Tool` registry with schemas, permissions, risk levels, timeouts, structured results, and audit records.

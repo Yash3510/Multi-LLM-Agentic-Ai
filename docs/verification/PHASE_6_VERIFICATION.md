@@ -1,5 +1,7 @@
 # Phase 6 Verification Report
 
+**Covers:** [Phase 6](../phases/06_PHASE_6_SOVEREIGN_SECURITY.md) · [Security guide](../guides/SECURITY.md) · [Docs index](../README.md)
+
 ## Implemented
 
 - Sovereign mode rejects non-local model endpoints before any request is made.

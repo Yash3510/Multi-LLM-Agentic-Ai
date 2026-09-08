@@ -1,5 +1,7 @@
 # Running Phase 1
 
+**Related:** [Docs index](docs/README.md) · [Phase 1 spec](docs/phases/01_PHASE_1_FOUNDATION.md)
+
 ## Local desktop app
 
 Python 3.10+ and Tkinter are required. From this directory:

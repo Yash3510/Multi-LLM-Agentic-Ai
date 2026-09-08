@@ -1,4 +1,6 @@
-# Phase 2 Runtime
+# Phase 2 Runtime (legacy notes)
+
+**Related:** [Phase 2 spec](02_PHASE_2_STARK_AGENTS.md) · [Running instructions](../../RUNNING.md) · [Docs index](../README.md)
 
 Phase 2 adds the local Stark multi-agent execution loop:
 

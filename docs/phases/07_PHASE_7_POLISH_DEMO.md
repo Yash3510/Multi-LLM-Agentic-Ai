@@ -1,5 +1,7 @@
 # Phase 7 — Polish, Demo Mode & SIH Readiness
 
+**Series:** [Docs index](../README.md) · ← [Phase 6](06_PHASE_6_SOVEREIGN_SECURITY.md) · **Phase 7** (final) · [Demo guide](../guides/DEMO.md)
+
 ## Objective
 
 Turn the functional prototype into a reliable judge-ready industrial AI workbench.

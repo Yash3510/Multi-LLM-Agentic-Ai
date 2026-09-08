@@ -7,7 +7,7 @@
 ## Phase Plans
 
 - [Phase 1](phases/01_PHASE_1_FOUNDATION.md)
-- [Phase 2](phases/02_PHASE_2_STARK_AGENTS.md)
+- [Phase 2](phases/02_PHASE_2_STARK_AGENTS.md) — see also [legacy runtime notes](phases/PHASE_2_LEGACY.md)
 - [Phase 3](phases/03_PHASE_3_INDUSTRIAL_AI.md)
 - [Phase 4](phases/04_PHASE_4_TOOLS_SANDBOX.md)
 - [Phase 5](phases/05_PHASE_5_VERIFICATION.md)
@@ -23,5 +23,6 @@
 
 ## Guides
 
+- [Running the app](../RUNNING.md)
 - [SIH demo](guides/DEMO.md)
 - [Sovereign security](guides/SECURITY.md)

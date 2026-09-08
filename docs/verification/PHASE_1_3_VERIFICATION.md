@@ -1,5 +1,7 @@
 # Phase 1-3 Verification Report
 
+**Covers:** [Phase 1](../phases/01_PHASE_1_FOUNDATION.md) · [Phase 2](../phases/02_PHASE_2_STARK_AGENTS.md) · [Phase 3](../phases/03_PHASE_3_INDUSTRIAL_AI.md) · [Docs index](../README.md)
+
 Generated and verified on 2026-09-04 from the repository working tree.
 
 ## Commands and observed results
