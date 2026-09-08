@@ -104,11 +104,18 @@ class Tools:
             ))
 
         engine = (settings.get("rag.embedding_engine") or "").strip()
+        engine_endpoints = _as_list(settings.get("rag.openai.api_base_url")) if engine == "openai" else (
+            _as_list(settings.get("rag.ollama.base_url")) if engine == "ollama" else []
+        )
+        engine_local = all(self._is_local(u) for u in engine_endpoints) if engine_endpoints else engine == ""
         findings.append((
             "Embedding engine",
-            engine in ("", "ollama"),
+            engine_local,
             "local sentence-transformers (in-process)" if engine == ""
-            else f"'{engine}' — verify its endpoint is on-premise",
+            else f"'{engine}' via {', '.join(engine_endpoints)} — "
+                 + ("on-premise" if engine_local else "EXTERNAL ENDPOINT")
+            if engine_endpoints
+            else f"'{engine}' — no endpoint configured to verify",
         ))
 
         extraction = (settings.get("rag.content_extraction_engine") or "").strip()

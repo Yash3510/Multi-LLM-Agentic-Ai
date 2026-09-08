@@ -182,7 +182,16 @@ class Pipe:
             trace.append("**TONY** replanned once and re-ran FRIDAY and JARVIS with the challenge attached.")
 
         approval = "not required"
-        if self.valves.require_approval:
+        interactive = bool(__event_call__) and bool((__metadata__ or {}).get("session_id"))
+        if self.valves.require_approval and not interactive:
+            # Never record an approval nobody gave: without a live session there is
+            # no one to answer the prompt.
+            approval = "NOT OBTAINED — no interactive session to prompt"
+            trace.append(
+                "**HUMAN** approval is required but no interactive session was available, "
+                "so this result is unapproved and must not be treated as released."
+            )
+        elif self.valves.require_approval:
             await _status(__event_emitter__, "approval", "Awaiting human approval")
             approved = await __event_call__(
                 {
@@ -196,6 +205,7 @@ class Pipe:
                     },
                 }
             )
+            approved = approved is True or (isinstance(approved, dict) and approved.get("confirmed") is True)
             if approved:
                 approval = "approved"
                 trace.append("**HUMAN** approved the deliverable.")
