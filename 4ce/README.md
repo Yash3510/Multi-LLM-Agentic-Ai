@@ -53,6 +53,20 @@ HUMAN     approve or reject before release
 Progress is emitted as live status events, so the agent chain is visible in the UI as it
 runs — driven by real execution, never simulated.
 
+### Reasoning is visible, not hidden
+
+Every answer carries an **Agent reasoning** section with one expandable block per step:
+
+- **TONY** — the task type, the signals that matched, the model chosen, why, and the full
+  candidate routing table. This is the model-auto-selection criterion, shown rather than claimed.
+- **FRIDAY / JARVIS / ULTRON** — each agent's full output, with the model used and how long
+  it took.
+- **Model's internal reasoning** — a nested block holding the model's own `<think>` content.
+  Reasoning models such as qwen3 emit it, and it is stripped out of the deliverable and shown
+  here instead, so raw tags never leak into an approval note.
+
+`show_reasoning` and `show_model_thinking` valves turn these off if a cleaner answer is wanted.
+
 ### Mapping to the SIH criteria
 
 | Criterion (PS 26117) | Where it shows |

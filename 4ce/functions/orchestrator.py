@@ -55,6 +55,14 @@ class Pipe:
         show_trace: bool = Field(
             default=True, description="Append the execution trace to the delivered answer."
         )
+        show_reasoning: bool = Field(
+            default=True,
+            description="Expose each agent's full reasoning and output as expandable sections.",
+        )
+        show_model_thinking: bool = Field(
+            default=True,
+            description="Include the model's own <think> content in each agent's reasoning section.",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -83,6 +91,7 @@ class Pipe:
         prompt = _text_of(messages[-1])
         has_image = _has_image(messages[-1])
         trace: list[str] = []
+        steps: list[dict] = []
 
         user = await Users.get_user_by_id(__user__["id"])
         if user is None:
@@ -109,6 +118,25 @@ class Pipe:
             )
         await _status(__event_emitter__, "router", f"ROUTER: selected {model_id} — {rationale}")
         trace.append(f"**ROUTER** selected `{model_id}` — {rationale}")
+        steps.append({
+            "agent": "TONY",
+            "label": "classification and routing",
+            "model": "deterministic signal match",
+            "seconds": 0.0,
+            "thinking": "",
+            "text": (
+                f"**Task type:** `{task_type}`\n\n"
+                f"**Signals matched:** {', '.join(signals) if signals else 'none — used the default route'}\n\n"
+                f"**Model selected:** `{model_id}`\n\n"
+                f"**Reason:** {rationale}\n\n"
+                f"**Candidates considered:** "
+                + ", ".join(f"`{k}` → `{v}`" for k, v in {
+                    "code": self.valves.coding_model,
+                    "vision": self.valves.vision_model,
+                    "document/analysis": self.valves.analysis_model,
+                }.items())
+            ),
+        })
 
         verifier_model = self.valves.verifier_model.strip() or model_id
         challenge: str | None = None
@@ -120,8 +148,10 @@ class Pipe:
         while True:
             attempts += 1
 
+            round_label = "" if attempts == 1 else f" (attempt {attempts})"
+
             await _status(__event_emitter__, "friday", "FRIDAY: grounding and analysing")
-            analysis = await self._agent_call(
+            friday = await self._agent_call(
                 __request__, user, model_id, messages,
                 system=_FRIDAY_SYSTEM,
                 instruction=_with_challenge(
@@ -131,12 +161,14 @@ class Pipe:
                 ),
                 pass_images=has_image,
             )
+            analysis = friday["text"]
             if analysis.startswith(_ERR):
                 return analysis
-            trace.append(f"**FRIDAY** produced analysis ({len(analysis)} chars).")
+            steps.append({**friday, "agent": "FRIDAY", "label": f"analysis{round_label}"})
+            trace.append(f"**FRIDAY** analysed the request in {friday['seconds']:.1f}s.")
 
             await _status(__event_emitter__, "jarvis", "JARVIS: producing the deliverable")
-            deliverable = await self._agent_call(
+            jarvis = await self._agent_call(
                 __request__, user, model_id, messages,
                 system=_JARVIS_SYSTEM,
                 instruction=(
@@ -147,16 +179,18 @@ class Pipe:
                     "unless it is supported by the analysis above."
                 ),
             )
+            deliverable = jarvis["text"]
             if deliverable.startswith(_ERR):
                 return deliverable
-            trace.append(f"**JARVIS** produced the deliverable ({len(deliverable)} chars).")
+            steps.append({**jarvis, "agent": "JARVIS", "label": f"deliverable{round_label}"})
+            trace.append(f"**JARVIS** produced the deliverable in {jarvis['seconds']:.1f}s.")
 
             if not self.valves.enable_verification:
                 verdict = {"status": "SKIPPED", "passed": True, "detail": "Verification disabled in Valves."}
                 break
 
             await _status(__event_emitter__, "ultron", "ULTRON: challenging the result")
-            raw_verdict = await self._agent_call(
+            ultron = await self._agent_call(
                 __request__, user, verifier_model, messages,
                 system=_ULTRON_SYSTEM,
                 instruction=(
@@ -165,8 +199,13 @@ class Pipe:
                     "Reply with PASS or FAIL on the first line, then your concerns."
                 ),
             )
-            verdict = _parse_verdict(raw_verdict)
-            trace.append(f"**ULTRON** returned `{verdict['status']}` — {verdict['detail'][:200]}")
+            verdict = _parse_verdict(ultron["text"])
+            steps.append({
+                **ultron,
+                "agent": "ULTRON",
+                "label": f"verification{round_label} — {verdict['status']}",
+            })
+            trace.append(f"**ULTRON** returned `{verdict['status']}` in {ultron['seconds']:.1f}s.")
 
             if verdict["passed"]:
                 await _status(__event_emitter__, "ultron", "ULTRON: PASS")
@@ -213,17 +252,23 @@ class Pipe:
                 approval = "rejected"
                 trace.append("**HUMAN** rejected the deliverable; it was not released.")
                 await _status(__event_emitter__, "approval", "Rejected by reviewer", done=True)
-                return (
+                withheld = [
                     "### Deliverable withheld\n\n"
-                    "The reviewer rejected this result, so 4CE has not released it.\n\n"
-                    + _trace_block(trace, task_type, model_id, verdict, "rejected", started)
-                )
+                    "The reviewer rejected this result, so 4CE has not released it."
+                ]
+                if self.valves.show_reasoning:
+                    withheld.append(_reasoning_blocks(steps, self.valves.show_model_thinking))
+                withheld.append(_trace_block(trace, task_type, model_id, verdict, "rejected", started))
+                return "\n\n".join(part for part in withheld if part)
 
         await _status(__event_emitter__, "done", "Complete", done=True)
 
-        if not self.valves.show_trace:
-            return deliverable
-        return deliverable + "\n\n" + _trace_block(trace, task_type, model_id, verdict, approval, started)
+        sections = [deliverable]
+        if self.valves.show_reasoning:
+            sections.append(_reasoning_blocks(steps, self.valves.show_model_thinking))
+        if self.valves.show_trace:
+            sections.append(_trace_block(trace, task_type, model_id, verdict, approval, started))
+        return "\n\n".join(part for part in sections if part)
 
     def _route(self, task_type: str, request: Any, current_model: str) -> tuple[str | None, str]:
         preference = {
@@ -264,12 +309,17 @@ class Pipe:
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
             "stream": False,
         }
+        started = time.monotonic()
         try:
             response = await generate_chat_completion(request, form_data=payload, user=user, bypass_filter=True)
         except Exception as exc:
-            return f"{_ERR} local model call to '{model}' failed: {exc}"
-        text = _response_text(response).strip()
-        return text or f"{_ERR} local model '{model}' returned an empty response."
+            return _step(f"{_ERR} local model call to '{model}' failed: {exc}", "", model, started)
+        raw, separate_reasoning = _response_parts(response)
+        if not raw.strip() and not separate_reasoning.strip():
+            return _step(f"{_ERR} local model '{model}' returned an empty response.", "", model, started)
+        answer, inline_thinking = _split_thinking(raw.strip())
+        thinking = "\n\n".join(t for t in (separate_reasoning.strip(), inline_thinking) if t)
+        return _step(answer or raw.strip(), thinking, model, started)
 
 
 _ERR = "**4CE error:**"
@@ -366,6 +416,57 @@ def _parse_verdict(raw: str) -> dict:
     }
 
 
+def _step(text: str, thinking: str, model: str, started: float) -> dict:
+    return {"text": text, "thinking": thinking, "model": model, "seconds": time.monotonic() - started}
+
+
+def _split_thinking(raw: str) -> tuple[str, str]:
+    """Separate a reasoning model's <think> content from its actual answer."""
+    thoughts: list[str] = []
+    for open_tag, close_tag in (("<think>", "</think>"), ("<thinking>", "</thinking>")):
+        while open_tag in raw:
+            head, _, rest = raw.partition(open_tag)
+            thought, closed, tail = rest.partition(close_tag)
+            if not closed:
+                # Unterminated block: treat the remainder as thinking rather than
+                # letting a raw tag leak into the deliverable.
+                thoughts.append(thought.strip())
+                raw = head
+                break
+            thoughts.append(thought.strip())
+            raw = head + tail
+    return raw.strip(), "\n\n".join(t for t in thoughts if t).strip()
+
+
+def _reasoning_blocks(steps: list[dict], include_thinking: bool) -> str:
+    if not steps:
+        return ""
+    blocks = ["### Agent reasoning"]
+    for step in steps:
+        header = f"{step['agent']} — {step['label']}"
+        meta = f"`{step['model']}`"
+        if step.get("seconds"):
+            meta += f" · {step['seconds']:.1f}s"
+        body = [f"*{meta}*", "", step["text"].strip() or "_no output_"]
+        if include_thinking and step.get("thinking"):
+            body += [
+                "",
+                "<details>",
+                "<summary>Model's internal reasoning</summary>",
+                "",
+                step["thinking"],
+                "</details>",
+            ]
+        blocks.append(
+            "<details>\n<summary><b>"
+            + header
+            + "</b></summary>\n\n"
+            + "\n".join(body)
+            + "\n</details>"
+        )
+    return "\n\n".join(blocks)
+
+
 def _response_text(response: Any) -> str:
     if isinstance(response, list) and len(response) == 1:
         response = response[0]
@@ -383,6 +484,23 @@ def _response_text(response: Any) -> str:
         message = choices[0].get("message") or {}
         return message.get("content") or message.get("reasoning_content") or ""
     return ""
+
+
+def _response_parts(response: Any) -> tuple[str, str]:
+    """Return (content, reasoning) keeping any separately-reported reasoning."""
+    payload = response
+    if isinstance(payload, list) and len(payload) == 1:
+        payload = payload[0]
+    if isinstance(payload, dict):
+        choices = payload.get("choices") or []
+        if choices:
+            message = choices[0].get("message") or {}
+            reasoning = message.get("reasoning_content") or message.get("reasoning") or ""
+            content = message.get("content") or ""
+            if not content and reasoning:
+                return reasoning, ""
+            return content, reasoning
+    return _response_text(response), ""
 
 
 async def _status(emitter, action: str, description: str, done: bool = False) -> None:
