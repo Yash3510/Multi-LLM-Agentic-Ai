@@ -24,6 +24,22 @@ DOCUMENT_SIGNALS = (
 )
 CALC_SIGNALS = ("calculate", "compute", "thickness", "pressure", "flow rate", "tonnage")
 
+GREETINGS = {
+    "hi", "hello", "hey", "yo", "hiya", "howdy", "hola", "namaste",
+    "morning", "afternoon", "evening", "greetings",
+    "good morning", "good afternoon", "good evening", "good day",
+}
+COURTESIES = {
+    "thanks", "thank you", "thankyou", "ta", "cheers", "ok", "okay", "k", "cool",
+    "nice", "great", "perfect", "got it", "understood", "sure", "yes", "no",
+    "bye", "goodbye", "see you", "good night", "test", "testing",
+}
+META_QUESTIONS = (
+    "who are you", "what are you", "what can you do", "what do you do",
+    "how do you work", "what is 4ce", "who made you", "introduce yourself",
+    "what models do you", "which models do you", "are you online", "are you there",
+)
+
 
 class Pipe:
     class Valves(BaseModel):
@@ -38,6 +54,14 @@ class Pipe:
         vision_model: str = Field(
             default="qwen/qwen3-vl-4b",
             description="Vision-capable model for scanned documents, drawings and photographs.",
+        )
+        chat_model: str = Field(
+            default="qwen/qwen3-1.7b",
+            description="Small, fast model for greetings and questions about the assistant. These answer directly and never enter the agent chain.",
+        )
+        orchestrate_small_talk: bool = Field(
+            default=False,
+            description="Send greetings and small talk through the full agent chain as well. Off by default: verifying and seeking human approval for 'hello' wastes a minute and devalues the approval gate.",
         )
         friday_model: str = Field(
             default="",
@@ -153,6 +177,20 @@ class Pipe:
                 }.items())
             ),
         })
+
+        if task_type == "chat" and not self.valves.orchestrate_small_talk:
+            await _status(__event_emitter__, "chat", "Answering directly", done=True)
+            reply = await self._agent_call(
+                __request__, user, model_id, messages,
+                system=_TONY_CHAT_SYSTEM, instruction=prompt,
+            )
+            if reply["text"].startswith(_ERR):
+                return reply["text"]
+            note = (
+                f"\n\n<sub>4CE · direct reply · `{model_id}` · {reply['seconds']:.1f}s · "
+                "no agent chain, no approval needed for conversation</sub>"
+            )
+            return reply["text"] + (note if self.valves.show_trace else "")
 
         available = _available_models(__request__)
         agent_models = {
@@ -316,6 +354,7 @@ class Pipe:
 
     def _route(self, task_type: str, request: Any, current_model: str) -> tuple[str | None, str]:
         preference = {
+            "chat": (self.valves.chat_model, "conversational message answered directly by the small model"),
             "code": (self.valves.coding_model, "coding task routed to the code-specialised model"),
             "vision": (self.valves.vision_model, "image or scanned input requires a vision-capable model"),
             "document": (self.valves.analysis_model, "document work routed to the general reasoning model"),
@@ -383,6 +422,15 @@ _JARVIS_SYSTEM = (
     "You turn analysis into a finished, well-structured deliverable. Show your working for "
     "calculations. Never claim to have performed an action you have not actually performed."
 )
+_TONY_CHAT_SYSTEM = (
+    "You are TONY, the coordinator of 4CE — a sovereign, on-premise AI workbench for "
+    "confidential industrial work. You run entirely on local open-weight models with no "
+    "external connection. You coordinate three agents: FRIDAY grounds and analyses, "
+    "JARVIS produces deliverables, and ULTRON verifies them before a human approves. "
+    "This message is conversation rather than a work request, so answer it directly, "
+    "warmly and briefly. Do not invent capabilities and do not claim to have performed "
+    "any action."
+)
 _ULTRON_SYSTEM = (
     "You are ULTRON, a skeptical verification agent. Challenge the result you are given: "
     "look for unsupported claims, missing steps, arithmetic errors and fabricated detail. "
@@ -390,10 +438,39 @@ _ULTRON_SYSTEM = (
 )
 
 
+def _conversational(prompt: str) -> str | None:
+    """Identify small talk so it never enters the approval-controlled flow.
+
+    Deliberately strict: it only matches messages that are *entirely* social or
+    about the assistant itself. Anything that looks like work - even a short sum -
+    still earns the full agent chain, because that is what gets verified.
+    """
+    import re
+
+    text = re.sub(r"[^a-z0-9\s]", " ", prompt.lower())
+    text = " ".join(text.split())
+    if not text:
+        return None
+    words = text.split()
+    if len(words) > 8:
+        return None
+    if text in GREETINGS or text in COURTESIES:
+        return text
+    if words[0] in GREETINGS and len(words) <= 5:
+        return words[0]
+    for phrase in META_QUESTIONS:
+        if phrase in text:
+            return phrase
+    return None
+
+
 def _classify(prompt: str, has_image: bool) -> tuple[str, list[str]]:
     lowered = prompt.lower()
     if has_image:
         return "vision", ["image attached"]
+    small_talk = _conversational(prompt)
+    if small_talk:
+        return "chat", [f"conversational: '{small_talk}'"]
     hits = [w for w in CODE_SIGNALS if w in lowered]
     if hits:
         return "code", hits[:3]

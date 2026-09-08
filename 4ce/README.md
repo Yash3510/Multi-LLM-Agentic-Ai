@@ -50,6 +50,8 @@ agent follows whatever the router chose, so routing stays the default behaviour:
 |---|---|
 | `vision_max_edge` | Longest edge an image is downscaled to before it reaches the vision model (default 900). A full-page 200 dpi scan costs minutes on a 6 GB GPU; downscaling is the single biggest win. 0 sends the image untouched. |
 | `max_tokens` | Upper bound per agent reply (default 900). A reasoning model left unbounded will happily run for minutes. |
+| `chat_model` | Small, fast model for greetings and questions about the assistant |
+| `orchestrate_small_talk` | Send greetings through the full chain too. Off by default. |
 | `enable_verification` | Run the ULTRON pass |
 | `enable_replan` | Allow one TONY replan when ULTRON fails. Roughly doubles worst-case turn time. |
 | `require_approval` | Require a human to type APPROVE before release |
@@ -69,7 +71,8 @@ an available one and says so in the trace rather than failing silently.
 ### What it does per turn
 
 ```
-TONY      classify task (code | vision | document | analysis) + report the signals
+TONY      classify task (chat | code | vision | document | analysis) + report the signals
+          - a purely conversational message answers directly here and stops
 ROUTER    pick the local model for that task type + report why
 FRIDAY    ground and analyse (RAG context arrives already injected if a
           knowledge collection is attached to the model)
