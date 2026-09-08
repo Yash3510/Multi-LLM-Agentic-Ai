@@ -457,12 +457,9 @@ def _reasoning_blocks(steps: list[dict], include_thinking: bool) -> str:
                 step["thinking"],
                 "</details>",
             ]
+        # Markdown escapes HTML inside <summary>, so the label must be plain text.
         blocks.append(
-            "<details>\n<summary><b>"
-            + header
-            + "</b></summary>\n\n"
-            + "\n".join(body)
-            + "\n</details>"
+            "<details>\n<summary>" + header + "</summary>\n\n" + "\n".join(body) + "\n</details>"
         )
     return "\n\n".join(blocks)
 
@@ -511,7 +508,7 @@ async def _status(emitter, action: str, description: str, done: bool = False) ->
 def _trace_block(trace: list[str], task_type: str, model_id: str, verdict: dict, approval: str, started: float) -> str:
     lines = "\n".join(f"{i}. {step}" for i, step in enumerate(trace, 1))
     return (
-        "<details>\n<summary><b>4CE execution trace</b> — "
+        "<details>\n<summary>4CE execution trace — "
         f"{task_type} · {model_id} · ULTRON {verdict.get('status', 'n/a')} · {approval}</summary>\n\n"
         f"{lines}\n\n"
         f"- Elapsed: {time.monotonic() - started:.1f}s\n"
