@@ -252,23 +252,25 @@ class Pipe:
                 approval = "rejected"
                 trace.append("**HUMAN** rejected the deliverable; it was not released.")
                 await _status(__event_emitter__, "approval", "Rejected by reviewer", done=True)
-                withheld = [
+                return (
                     "### Deliverable withheld\n\n"
-                    "The reviewer rejected this result, so 4CE has not released it."
-                ]
-                if self.valves.show_reasoning:
-                    withheld.append(_reasoning_blocks(steps, self.valves.show_model_thinking))
-                withheld.append(_trace_block(trace, task_type, model_id, verdict, "rejected", started))
-                return "\n\n".join(part for part in withheld if part)
+                    "The reviewer rejected this result, so 4CE has not released it.\n\n"
+                    + _provenance(
+                        steps, task_type, signals, model_id, rationale, verdict, "rejected",
+                        time.monotonic() - started, attempts, self.valves.show_model_thinking,
+                        trace if self.valves.show_trace else [],
+                    )
+                )
 
         await _status(__event_emitter__, "done", "Complete", done=True)
 
-        sections = [deliverable]
-        if self.valves.show_reasoning:
-            sections.append(_reasoning_blocks(steps, self.valves.show_model_thinking))
-        if self.valves.show_trace:
-            sections.append(_trace_block(trace, task_type, model_id, verdict, approval, started))
-        return "\n\n".join(part for part in sections if part)
+        if not self.valves.show_reasoning:
+            return deliverable
+        return deliverable + "\n\n" + _provenance(
+            steps, task_type, signals, model_id, rationale, verdict, approval,
+            time.monotonic() - started, attempts, self.valves.show_model_thinking,
+            trace if self.valves.show_trace else [],
+        )
 
     def _route(self, task_type: str, request: Any, current_model: str) -> tuple[str | None, str]:
         preference = {
@@ -438,29 +440,44 @@ def _split_thinking(raw: str) -> tuple[str, str]:
     return raw.strip(), "\n\n".join(t for t in thoughts if t).strip()
 
 
-def _reasoning_blocks(steps: list[dict], include_thinking: bool) -> str:
-    if not steps:
-        return ""
-    blocks = ["### Agent reasoning"]
+def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id: str,
+                rationale: str, verdict: dict, approval: str, elapsed: float,
+                attempts: int, include_thinking: bool, trace: list[str]) -> str:
+    """A compact provenance table plus the reasoning behind each decision."""
+    timings = " · ".join(
+        f"{s['agent'].title()} {s['seconds']:.0f}s" for s in steps if s.get("seconds")
+    )
+    status = verdict.get("status", "n/a")
+    rows = [
+        ("Task type", f"`{task_type}`" + (f" — matched: {', '.join(signals)}" if signals else " — no strong signal")),
+        ("Model routed", f"`{model_id}` — {rationale}"),
+        ("Verification", f"ULTRON **{status}**" + (f" after {attempts} attempts" if attempts > 1 else "")),
+        ("Human approval", approval.capitalize()),
+        ("Elapsed", f"{elapsed:.0f}s" + (f" · {timings}" if timings else "")),
+        ("Inference", "Local open-weight models · 0 external API calls"),
+    ]
+    table = ["| Stage | Detail |", "|---|---|"] + [f"| {k} | {v} |" for k, v in rows]
+
+    blocks = ["---", "", "#### 4CE provenance", "", "\n".join(table)]
+
     for step in steps:
-        header = f"{step['agent']} — {step['label']}"
-        meta = f"`{step['model']}`"
-        if step.get("seconds"):
-            meta += f" · {step['seconds']:.1f}s"
-        body = [f"*{meta}*", "", step["text"].strip() or "_no output_"]
+        # JARVIS's output is the answer above; repeating it only adds noise unless
+        # a replan produced more than one version worth comparing.
+        if step["agent"] == "JARVIS" and attempts < 2:
+            continue
+        if step["agent"] == "TONY":
+            continue
+        body = [step["text"].strip() or "_no output_"]
         if include_thinking and step.get("thinking"):
-            body += [
-                "",
-                "<details>",
-                "<summary>Model's internal reasoning</summary>",
-                "",
-                step["thinking"],
-                "</details>",
-            ]
-        # Markdown escapes HTML inside <summary>, so the label must be plain text.
+            body += ["", "**Model's internal reasoning**", "", "> " + step["thinking"].replace("\n", "\n> ")]
+        label = f"{step['agent']} — {step['label']}  ·  {step['model']}"
         blocks.append(
-            "<details>\n<summary>" + header + "</summary>\n\n" + "\n".join(body) + "\n</details>"
+            "<details>\n<summary>" + label + "</summary>\n\n" + "\n".join(body) + "\n</details>"
         )
+
+    if trace:
+        timeline = "\n".join(f"{i}. {line}" for i, line in enumerate(trace, 1))
+        blocks.append("<details>\n<summary>Execution timeline</summary>\n\n" + timeline + "\n</details>")
     return "\n\n".join(blocks)
 
 
@@ -505,14 +522,3 @@ async def _status(emitter, action: str, description: str, done: bool = False) ->
         await emitter({"type": "status", "data": {"action": action, "description": description, "done": done}})
 
 
-def _trace_block(trace: list[str], task_type: str, model_id: str, verdict: dict, approval: str, started: float) -> str:
-    lines = "\n".join(f"{i}. {step}" for i, step in enumerate(trace, 1))
-    return (
-        "<details>\n<summary>4CE execution trace — "
-        f"{task_type} · {model_id} · ULTRON {verdict.get('status', 'n/a')} · {approval}</summary>\n\n"
-        f"{lines}\n\n"
-        f"- Elapsed: {time.monotonic() - started:.1f}s\n"
-        f"- Inference: local open-weight models only\n"
-        f"- External API calls this run: 0\n"
-        "</details>"
-    )
