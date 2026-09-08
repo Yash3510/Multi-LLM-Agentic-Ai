@@ -64,11 +64,34 @@ runs — driven by real execution, never simulated.
 | Multimodal | Image parts are detected and routed to the vision model |
 | Auditability | Execution trace appended to every answer |
 
-### Not yet wired
+## tools/ — capabilities the agents call
 
-- **Sandboxed code execution** — port `sovereign_ai/sandbox.py` as a Tool and have JARVIS
-  call it. The built-in Pyodide interpreter is browser-side and weaker; disable it so
-  there is only one execution story.
-- **DOCX/XLSX deliverables** — port `sovereign_ai/deliverables.py` as a Tool.
-- **Sovereignty counters** — a filter function writing to the audit log, surfaced on a
-  security page.
+Install each the same way, under **Workspace → Tools → +**, then enable them on the
+4CE model so JARVIS can call them.
+
+| Tool | What it does |
+|---|---|
+| `tools/sandbox.py` | Runs generated Python in a disposable container: no network, read-only root, all capabilities dropped, no privilege escalation, hard CPU/memory/PID/time caps. Says so plainly when Docker is unreachable instead of pretending the code ran. |
+| `tools/deliverables.py` | Renders agent output into a formatted `.docx` — classification banner, reference table, headings and bullets — stores it locally and returns a download link. |
+| `tools/sovereignty.py` | Audits live configuration for anything that could carry data off-premise and returns a pass/fail table. |
+
+### Sandbox deployment note
+
+The sandbox shells out to `docker`. If the 4CE backend itself runs inside a container it
+cannot spawn sibling containers unless the Docker socket is mounted, which hands that
+container full control of the host daemon. **For the demo, run the backend natively on the
+host** and let it drive Docker Desktop — simpler and safer. The tool reports the problem
+clearly rather than failing silently either way.
+
+Pre-pull the sandbox image (`docker pull python:3.12-alpine`) **before** going offline, or
+the first execution will fail with nothing to run.
+
+Also disable the built-in interpreter (`ENABLE_CODE_INTERPRETER=false`,
+`ENABLE_CODE_EXECUTION=false`) so there is exactly one execution path to explain: the
+browser-side Pyodide default is weaker than this sandbox and muddies the story.
+
+### Still open
+
+- Wiring the sandbox result back through ULTRON so verification covers *executed* output.
+- A dedicated security page in the UI; the sovereignty tool currently reports into chat.
+- Porting the citation-discipline guard from `sovereign_ai/knowledge.py`.
