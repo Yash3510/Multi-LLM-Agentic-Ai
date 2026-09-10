@@ -260,7 +260,14 @@ class Pipe:
                 system=_ULTRON_SYSTEM,
                 instruction=(
                     f"ORIGINAL REQUEST\n{prompt}\n\n"
-                    f"RESULT TO CHALLENGE\n{deliverable}\n\n"
+                    + (
+                        "SOURCE NOTE: the request carried a scanned document or image. FRIDAY "
+                        "read it; you cannot see it. Judge internal consistency, arithmetic and "
+                        "whether the result claims more than an extraction can support. Do NOT "
+                        "fail it merely because you cannot inspect the source yourself.\n\n"
+                        if has_image else ""
+                    )
+                    + f"RESULT TO CHALLENGE\n{deliverable}\n\n"
                     "Reply with PASS or FAIL on the first line, then your concerns."
                 ),
             )

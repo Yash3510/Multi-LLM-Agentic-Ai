@@ -106,6 +106,15 @@ def main() -> None:
     targets = {
         "static/favicon.png": tile(512),
         "static/static/favicon.png": tile(512),
+        # The backend serves its own copy from STATIC_DIR. A production build
+        # serves everything from here, so leaving it unbranded would quietly
+        # revert the application to the upstream mark.
+        "backend/open_webui/static/favicon.png": tile(512),
+        "backend/open_webui/static/favicon-96x96.png": tile(96),
+        "backend/open_webui/static/apple-touch-icon.png": tile(180),
+        "backend/open_webui/static/logo.png": tile(500),
+        "backend/open_webui/static/splash.png": glyph(500, GRAPHITE),
+        "backend/open_webui/static/splash-dark.png": glyph(500, WHITE),
         "static/static/favicon-96x96.png": tile(96),
         "static/static/apple-touch-icon.png": tile(180),
         "static/static/web-app-manifest-192x192.png": tile(192),
