@@ -382,9 +382,9 @@
 		};
 		setupKeyboardShortcuts();
 
-		if ($user?.role === 'admin' && ($settings?.showChangelog ?? true)) {
-			showChangelog.set($settings?.version !== $config.version);
-		}
+		// The changelog dialog renders the upstream release notes, which describe
+		// a different product than the one the user is looking at. 4CE keeps no
+		// changelog of its own, so nothing is surfaced on version change.
 
 		if ($user?.role === 'admin' || ($user?.permissions?.chat?.temporary ?? true)) {
 			if ($page.url.searchParams.get('temporary-chat') === 'true') {
