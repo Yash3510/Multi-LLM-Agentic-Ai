@@ -10,7 +10,7 @@
 	import Switch from '$lib/components/common/Switch.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import { WEBUI_BUILD_HASH, WEBUI_VERSION } from '$lib/constants';
-	import { banners as _banners, config, showChangelog } from '$lib/stores';
+	import { banners as _banners, config } from '$lib/stores';
 	import type { Banner } from '$lib/types';
 	import { compareVersion } from '$lib/utils';
 	import { onMount, getContext } from 'svelte';
@@ -126,15 +126,6 @@
 							{/if}
 						</div>
 
-						<button
-							class="mt-0.5 text-xs text-gray-400 transition-colors hover:text-gray-700 dark:text-gray-600 dark:hover:text-gray-300"
-							type="button"
-							on:click={() => {
-								showChangelog.set(true);
-							}}
-						>
-							{$i18n.t("See what's new")}
-						</button>
 					</div>
 
 					{#if $config?.features?.enable_version_update_check}
@@ -148,46 +139,6 @@
 							{$i18n.t('Check for updates')}
 						</button>
 					{/if}
-				</div>
-
-				<div class="text-xs">
-					<div class="flex items-start justify-between gap-4">
-						<div class="min-w-0">
-							<div class="text-gray-600 dark:text-gray-400">{$i18n.t('Help')}</div>
-							<div class="mt-0.5 text-gray-400 dark:text-gray-600">
-								<!-- LICENSE covers this Open WebUI wordmark.
-								Do not alter, remove, obscure, or replace it except as LICENSE permits:
-								https://docs.openwebui.com/license. -->
-								{$i18n.t('Discover how to use Open WebUI and seek support from the community.')}
-							</div>
-						</div>
-
-						<a
-							class="shrink-0 text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-500 dark:hover:text-white"
-							href="https://docs.openwebui.com/"
-							target="_blank"
-						>
-							{$i18n.t('Documentation')}
-						</a>
-					</div>
-
-					<div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-gray-400 dark:text-gray-600">
-						<a
-							class="hover:text-gray-700 dark:hover:text-gray-300"
-							href="https://discord.gg/5rJgQTnV4s"
-							target="_blank">Discord</a
-						>
-						<a
-							class="hover:text-gray-700 dark:hover:text-gray-300"
-							href="https://twitter.com/OpenWebUI"
-							target="_blank">X</a
-						>
-						<a
-							class="hover:text-gray-700 dark:hover:text-gray-300"
-							href="https://github.com/open-webui/open-webui"
-							target="_blank">GitHub</a
-						>
-					</div>
 				</div>
 
 				<div class="text-xs">
