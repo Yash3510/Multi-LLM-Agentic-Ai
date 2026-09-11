@@ -112,10 +112,3 @@ Verified against a running instance with LM Studio serving `qwen3-vl-4b`,
 
 ---
 
-## Built on Open WebUI
-
-4CE is a fork of [Open WebUI](https://github.com/open-webui/open-webui), which
-provides the underlying chat application, plugin runtime and RAG stack. That work is
-copyright Open WebUI Inc. and licensed under the terms in [`LICENSE`](LICENSE).
-
-The agent layer under [`4ce/`](4ce/) is this project's own contribution.
