@@ -6,24 +6,51 @@
 	export let show = true;
 	export let getStartedHandler = () => {};
 
-	// A still image rather than the upstream background video: it cannot fail to
-	// autoplay, it is a few hundred KB instead of ~2 MB, and it costs nothing on
-	// a machine that is about to spend its GPU on local inference.
+	// The video plays once rather than looping, and settles onto the 4CE still
+	// behind it. The still is also the poster, so a blocked autoplay degrades to
+	// it rather than to a blank frame.
 	const background = '/assets/onboarding-4ce.webp';
+
+	let videoElement;
+	let playOnInteractionRegistered = false;
+
+	function playBackgroundVideo() {
+		if (!videoElement) {
+			return;
+		}
+
+		videoElement.play().catch(() => {
+			if (playOnInteractionRegistered) {
+				return;
+			}
+
+			playOnInteractionRegistered = true;
+
+			const playOnInteraction = () => {
+				videoElement.play().catch(() => {});
+				document.removeEventListener('click', playOnInteraction);
+				document.removeEventListener('touchstart', playOnInteraction);
+				playOnInteractionRegistered = false;
+			};
+
+			document.addEventListener('click', playOnInteraction);
+			document.addEventListener('touchstart', playOnInteraction);
+		});
+	}
+
+	$: if (show && videoElement) {
+		playBackgroundVideo();
+	}
 </script>
 
 {#if show}
 	<div class="relative h-screen max-h-[100dvh] w-full overflow-hidden text-white">
-		<div class="fixed top-6 left-6 z-50 sm:top-10 sm:left-10">
-			<!-- LICENSE covers this Open WebUI onboarding logo.
-			Do not alter, remove, obscure, or replace it except as LICENSE permits:
-			https://docs.openwebui.com/license. -->
+		<div class="fixed top-6 right-6 z-50 sm:top-10 sm:right-10">
 			<img
-				id="logo"
 				crossorigin="anonymous"
-				src="/static/favicon.png"
-				class="size-6 rounded-full"
-				alt="logo"
+				src="/static/logo.png"
+				class="size-11 rounded-xl shadow-lg shadow-black/40 sm:size-12"
+				alt="{$WEBUI_NAME} logo"
 			/>
 		</div>
 
@@ -33,6 +60,18 @@
 			alt=""
 			aria-hidden="true"
 		/>
+
+		<video
+			bind:this={videoElement}
+			class="absolute inset-0 h-full w-full object-cover"
+			src="/assets/welcome.mp4"
+			poster={background}
+			autoplay
+			muted
+			playsinline
+			preload="auto"
+			aria-hidden="true"
+		></video>
 
 		<div class="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent"></div>
 		<div class="absolute inset-0 bg-linear-to-r from-black/50 via-black/10 to-transparent"></div>
