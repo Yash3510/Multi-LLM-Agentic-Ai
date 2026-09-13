@@ -1,7 +1,3 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="113" fill="#0D1117"/>
-  <text x="256" y="286" font-family="Segoe UI Black, Arial Black, Helvetica, sans-serif"
-        font-size="196" font-weight="900" fill="#FFFFFF"
-        text-anchor="middle" dominant-baseline="middle">4CE</text>
-  <rect x="105" y="352" width="302" height="23" rx="11" fill="#F0A020"/>
 </svg>
