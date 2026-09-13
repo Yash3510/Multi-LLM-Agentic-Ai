@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: 4CE — Sovereign On-Premise Agentic AI Workbench
+message: If you reference this work, please cite it as below.
+type: software
+authors:
+  - family-names: Singh
+    given-names: Yash Kumar
+    alias: Yash3510
+repository-code: https://github.com/Yash3510/Multi-LLM-Agentic-Ai
+abstract: >-
+  A self-hosted agentic AI workbench for confidential industrial knowledge work.
+  Tasks are routed across local open-weight models by type, grounded in the
+  organisation's own documents, produced as real deliverables, challenged by an
+  independent verification agent, and withheld until a person approves them.
+  Built on Open WebUI. Submitted to Smart India Hackathon, problem statement
+  26117 (Mangalore Refinery and Petrochemicals Limited).
+keywords:
+  - agentic-ai
+  - on-premise
+  - air-gapped
+  - open-weight-models
+  - retrieval-augmented-generation
+  - industrial-ai
+license-url: https://github.com/Yash3510/Multi-LLM-Agentic-Ai/blob/main/LICENSE

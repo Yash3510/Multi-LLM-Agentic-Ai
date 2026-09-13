@@ -10,6 +10,20 @@ Built for Smart India Hackathon PS 26117.
 
 ---
 
+## Contents
+
+- [What it is](#what-it-is)
+- [Why it matters](#why-it-matters)
+- [Quick start](#quick-start)
+- [The plugin set](#the-plugin-set)
+- [Verification status](#verification-status)
+- [Repository layout](#repository-layout)
+- [Security](#security)
+- [Contributing](#contributing)
+- [Attribution and licence](#attribution-and-licence)
+
+---
+
 ## What it is
 
 Most local-LLM front-ends give you a chat box. 4CE gives you an **agent chain with
@@ -109,5 +123,63 @@ Verified against a running instance with LM Studio serving `qwen3-vl-4b`,
 | Sovereignty audit | Verified — 11/11 surfaces pass on the demo configuration |
 | Local RAG | Verified — upload, embed, index and query in ~0.3 s |
 | Multimodal / vision | **Not yet verified** — needs the vision model reloaded at ~8192 context; see [`4ce/README.md`](4ce/README.md) |
+
+---
+
+## Repository layout
+
+Everything this project wrote lives under [`4ce/`](4ce/). The rest of the tree is the
+upstream application, whose paths are fixed by SvelteKit and the Python package and
+so are deliberately left alone.
+
+```
+4ce/
+├── README.md              valve reference and design notes
+├── install.py             deploys the plugin set into a running instance
+├── test_tools.py          tool test suite
+├── env.sovereign.example  the air-gapped configuration
+├── functions/             the agent chain (registers as a selectable model)
+├── tools/                 sandbox · deliverables · sovereignty · SOP thresholds
+├── branding/              asset generators and the logo sources
+├── demo/                  synthetic sample documents and their generator
+└── docs/                  setup, research notes, design notes, images
+```
+
+---
+
+## Security
+
+The threat model, the trust boundaries and what "sovereign" does and does not
+cover are documented in [`SECURITY.md`](SECURITY.md). It is worth reading before
+taking the air-gap claim at face value: the sovereignty audit checks
+configuration, not packets.
+
+---
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for how to add a plugin, run the test
+suite, and what is expected to stay true of a change.
+
+---
+
+## Attribution and licence
+
+4CE is a fork of **[Open WebUI](https://github.com/open-webui/open-webui)**
+(v0.11.3). The chat interface, RBAC, retrieval stack and plugin runtime are
+theirs; the agent chain, the tools, the sovereign configuration and the branding
+under [`4ce/`](4ce/) are this project's.
+
+Open WebUI is distributed under a BSD-3-style licence with an added branding
+clause, retained verbatim in [`LICENSE`](LICENSE) alongside
+[`LICENSE_HISTORY`](LICENSE_HISTORY) and [`LICENSE_NOTICE`](LICENSE_NOTICE).
+That clause permits replacing the Open WebUI name and marks for deployments
+under fifty users in a rolling thirty-day period, which is the basis on which
+this fork is rebranded. A larger deployment would need written permission or an
+enterprise licence before keeping the 4CE identity.
+
+The upstream copyright notice and disclaimer are retained as the licence
+requires. This project claims authorship only of what sits under `4ce/` and the
+configuration and interface changes recorded in its commit history.
 
 ---
