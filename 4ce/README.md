@@ -120,6 +120,7 @@ Install each the same way, under **Workspace → Tools → +**, then enable them
 | `tools/sandbox.py` | Runs generated Python in a disposable container: no network, read-only root, all capabilities dropped, no privilege escalation, hard CPU/memory/PID/time caps. Says so plainly when Docker is unreachable instead of pretending the code ran. |
 | `tools/deliverables.py` | Renders agent output into a formatted `.docx` — classification banner, reference table, headings and bullets — stores it locally and returns a download link. |
 | `tools/sovereignty.py` | Audits live configuration for anything that could carry data off-premise and returns a pass/fail table. |
+| `tools/sop_check.py` | Assesses inspection readings against the thresholds in an SOP and returns a clause-cited fit-for-service verdict. The comparisons are arithmetic done locally against an authored rule pack, so the accept/reject decision never rests on a model's judgement. See [`SOP_THRESHOLD_PLAN.md`](SOP_THRESHOLD_PLAN.md). |
 
 ### Sandbox deployment note
 

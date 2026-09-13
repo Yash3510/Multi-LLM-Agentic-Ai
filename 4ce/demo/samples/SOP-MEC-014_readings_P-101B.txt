@@ -1,0 +1,50 @@
+Readings for the 4CE SOP Threshold Check tool
+Equipment: P-101B - Crude Charge Pump (standby)
+SOP under test: SOP-MEC-014 - Mechanical Seal Leakage - Assessment and Action
+
+Paste the block below into the SOP Threshold Check tool (or ask JARVIS to run
+it) to see a clause-cited fit-for-service verdict without going through the
+vision/OCR path. It is the same set of readings that appear in
+inspection_report_P-101B.png/.pdf, so the tool's output can be checked
+directly against that report.
+
+---
+
+Mechanical seal exhibits intermittent weeping, approximately 3 to 4 drops per
+minute during sustained operation.
+Vibration measured at 4.1 mm/s RMS. ISO 10816 Zone B.
+Coupling guard fastener missing at position 3 of 4.
+Minimum measured wall thickness 11.2 mm (nominal 12.7 mm).
+Retirement thickness 9.5 mm.
+
+---
+
+Expected result when assessed against SOP-MEC-014:
+
+| Parameter                | Verdict | Clause |
+|--------------------------|---------|--------|
+| Seal leakage             | PASS    | 2.1    |
+| Seal atomisation / spray | PASS    | 2.3    |
+| Vibration                | PASS    | 3.1    |
+| Wall thickness           | PASS    | 4.1    |
+| Coupling guard           | FAIL    | 5.1    |
+
+Disposition: NOT FIT FOR START (blocked by the missing guard fastener), with
+an additional action raised under 4.2 because the wall-thickness margin
+(1.7 mm) is below the 2.0 mm threshold for shortening the inspection interval.
+
+---
+
+A second block to see a worse outcome - change the seal leakage and vibration
+readings and nothing else:
+
+Mechanical seal exhibits leakage of approximately 25 drops per minute, with
+visible spray from the gland.
+Vibration measured at 11.0 mm/s RMS. ISO 10816 Zone D.
+Coupling guard fastener missing at position 3 of 4.
+Minimum measured wall thickness 11.2 mm (nominal 12.7 mm).
+Retirement thickness 9.5 mm.
+
+Expected result: seal leakage and spray both FAIL under 2.3 (remove from
+service immediately), vibration FAILS under 3.3, guard still FAILS under 5.1.
+Only the wall thickness still passes. Disposition: REMOVE FROM SERVICE.

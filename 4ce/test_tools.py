@@ -12,6 +12,7 @@ and exits non-zero if anything fails, so it can gate a demo-day check.
 import asyncio
 import glob
 import importlib.util
+import json
 import os
 import sqlite3
 import sys
@@ -131,6 +132,83 @@ async def test_sovereignty() -> None:
     check("classifies public hosts as external", not tool._is_local("https://api.openai.com/v1"))
 
 
+DEMO_REPORT = """1.2  Mechanical seal exhibits intermittent weeping, approximately 3 to 4 drops
+     per minute during sustained operation.
+1.3  Bearing housing temperature recorded at 71 degrees C against an alarm limit of 80 degrees C.
+1.4  Vibration measured at 4.1 mm/s RMS. ISO 10816 Zone B.
+1.5  Coupling guard fastener missing at position 3 of 4.
+Minimum measured wall thickness: 11.2 mm (nominal 12.7 mm)
+Retirement thickness: 9.5 mm
+"""
+
+
+async def test_sop_check() -> None:
+    print("\n4CE SOP Threshold Check")
+    tool = load("sop_check")
+
+    out = await tool.check_sop_thresholds(DEMO_REPORT)
+    check("produces an assessment table", "SOP assessment" in out and "| Parameter |" in out)
+    check("seal leakage 3-4 dpm passes on 2.1", "| Seal leakage | 3 to 4 drops/min" in out and "§2.1 | PASS" in out)
+    check("vibration Zone B passes on 3.1", "| Zone B |" in out and "§3.1 | PASS" in out)
+    check("wall thickness margin computed", "1.7 mm margin" in out)
+    check("thin margin raises the 4.2 action", "**§4.2**" in out and "six months" in out)
+    check("missing guard fastener fails on 5.1", "§5.1 | FAIL" in out)
+    check("blocks the start on a 5.1 failure", "Disposition: NOT FIT FOR START" in out)
+    check("unassessed readings are listed", "Readings outside this SOP" in out and "Bearing housing" in out)
+
+    out = await tool.check_sop_thresholds("Seal leakage 12 drops per minute.")
+    check("12 dpm requires review under 2.2", "§2.2 | REVIEW" in out and "30 days" in out)
+
+    out = await tool.check_sop_thresholds("Seal leakage 25 drops per minute.")
+    check("25 dpm fails under 2.3", "§2.3 | FAIL" in out and "REMOVE FROM SERVICE" in out)
+
+    out = await tool.check_sop_thresholds("Seal leakage 3 to 25 drops per minute.")
+    check("a range is assessed at its worse end", "§2.3 | FAIL" in out)
+
+    out = await tool.check_sop_thresholds("Vibration ISO 10816 Zone D.")
+    check("Zone D fails under 3.3", "§3.3 | FAIL" in out)
+
+    out = await tool.check_sop_thresholds(
+        "Minimum measured wall thickness 9.1 mm. Retirement thickness 9.5 mm."
+    )
+    check("thickness below retirement fails under 4.1", "§4.1 | FAIL" in out and "-0.4 mm margin" in out)
+
+    out = await tool.check_sop_thresholds("Seal shows atomised spray at the gland.")
+    check("atomised spray fails under 2.3", "Seal atomisation" in out and "§2.3 | FAIL" in out)
+
+    out = await tool.check_sop_thresholds("Inspector attended site. Vibration ISO 10816 Zone A.")
+    check("an absent reading is NO DATA, not PASS", "| Seal leakage | not found" in out and "NO DATA" in out)
+    check("incomplete assessment does not read as fit", "Disposition: ASSESSMENT INCOMPLETE" in out)
+
+    out = await tool.check_sop_thresholds("   ")
+    check("empty input rejected", "No readings were supplied" in out)
+
+    broken = load("sop_check")
+    broken.valves.rule_pack = "{not json"
+    out = await broken.check_sop_thresholds("Seal leakage 3 drops per minute.")
+    check("malformed rule pack reported, not ignored", "could not be read" in out and "No assessment" in out)
+
+    custom = load("sop_check")
+    custom.valves.rule_pack = json.dumps({
+        "sop_id": "SOP-ELE-002",
+        "rules": [{
+            "id": "ir", "parameter": "Insulation resistance", "unit": "MOhm", "type": "band",
+            "limit": "above 50 MOhm",
+            "patterns": [r"insulation resistance[^0-9]{0,20}(\d+(?:\.\d+)?)"],
+            "bands": [
+                {"max": 50, "verdict": "FAIL", "clause": "3.1", "action": "Do not energise.",
+                 "disposition": "REMOVE FROM SERVICE"},
+                {"verdict": "PASS", "clause": "3.2", "disposition": "FIT FOR SERVICE"},
+            ],
+        }],
+    })
+    out = await custom.check_sop_thresholds("Insulation resistance 22 MOhm measured at 500 V.")
+    check("a custom rule pack drives the engine", "SOP-ELE-002" in out and "§3.1 | FAIL" in out)
+
+    out = await tool.check_sop_thresholds(DEMO_REPORT)
+    check("states its own limitation", "only for the parameters in its rule pack" in out)
+
+
 async def main() -> None:
     if not Path("data").exists():
         print("Run this from the backend/ directory so open_webui and its database resolve.")
@@ -139,6 +217,7 @@ async def main() -> None:
     await test_sandbox()
     await test_deliverables()
     await test_sovereignty()
+    await test_sop_check()
 
     failed = [label for label, ok, _ in RESULTS if not ok]
     print(f"\n{len(RESULTS) - len(failed)}/{len(RESULTS)} checks passed")

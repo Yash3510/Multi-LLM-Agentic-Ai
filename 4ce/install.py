@@ -30,6 +30,8 @@ TOOLS = [
      "Produces formatted .docx deliverables from agent output."),
     ("ace_sovereignty", "4CE Sovereignty Check", ROOT / "tools" / "sovereignty.py",
      "Audits live configuration for anything that could send data off-premise."),
+    ("ace_sop_check", "4CE SOP Threshold Check", ROOT / "tools" / "sop_check.py",
+     "Assesses inspection readings against SOP thresholds and cites the clause that decided each."),
 ]
 
 
