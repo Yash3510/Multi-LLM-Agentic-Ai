@@ -111,4 +111,3 @@ Verified against a running instance with LM Studio serving `qwen3-vl-4b`,
 | Multimodal / vision | **Not yet verified** — needs the vision model reloaded at ~8192 context; see [`4ce/README.md`](4ce/README.md) |
 
 ---
-;)
