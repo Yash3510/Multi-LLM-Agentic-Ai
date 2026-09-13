@@ -6,36 +6,10 @@
 	export let show = true;
 	export let getStartedHandler = () => {};
 
-	let videoElement;
-	let playOnInteractionRegistered = false;
-
-	function playBackgroundVideo() {
-		if (!videoElement) {
-			return;
-		}
-
-		videoElement.play().catch(() => {
-			if (playOnInteractionRegistered) {
-				return;
-			}
-
-			playOnInteractionRegistered = true;
-
-			const playOnInteraction = () => {
-				videoElement.play().catch(() => {});
-				document.removeEventListener('click', playOnInteraction);
-				document.removeEventListener('touchstart', playOnInteraction);
-				playOnInteractionRegistered = false;
-			};
-
-			document.addEventListener('click', playOnInteraction);
-			document.addEventListener('touchstart', playOnInteraction);
-		});
-	}
-
-	$: if (show && videoElement) {
-		playBackgroundVideo();
-	}
+	// A still image rather than the upstream background video: it cannot fail to
+	// autoplay, it is a few hundred KB instead of ~2 MB, and it costs nothing on
+	// a machine that is about to spend its GPU on local inference.
+	const background = '/assets/onboarding-4ce.webp';
 </script>
 
 {#if show}
@@ -53,18 +27,12 @@
 			/>
 		</div>
 
-		<video
-			bind:this={videoElement}
+		<img
 			class="absolute inset-0 h-full w-full object-cover"
-			src="/assets/welcome.mp4"
-			autoplay
-			muted
-			loop
-			playsinline
-			preload="auto"
-			poster="/assets/welcome.webp"
+			src={background}
+			alt=""
 			aria-hidden="true"
-		></video>
+		/>
 
 		<div class="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent"></div>
 		<div class="absolute inset-0 bg-linear-to-r from-black/50 via-black/10 to-transparent"></div>
@@ -80,12 +48,12 @@
 					</div>
 
 					<h1 class="m-0 max-w-3xl text-2xl leading-[1.15] font-light tracking-tight lg:text-4xl">
-						{$i18n.t('Welcome to your AI home.')}
+						{$i18n.t('Confidential work never leaves the premises.')}
 					</h1>
 
 					<p class="mt-6 max-w-xl text-sm leading-relaxed font-light text-white/60 lg:text-base">
 						{$i18n.t(
-							'Run AI on your own terms. Connect any model, extend with code, and protect what matters without compromise. Your models, your data, your machine, wherever you open it.'
+							'A sovereign agentic workbench for the knowledge work a plant cannot send to a cloud assistant. Inspection reports, approval notes, engineering calculations and internal code, handled by open-weight models running on your own hardware. Every task is planned, grounded in your own manuals, verified, and released only once a person approves it.'
 						)}
 					</p>
 
@@ -110,14 +78,15 @@
 							</svg>
 						</button>
 
-						<a
-							class="inline-flex items-center text-sm text-white/60 transition hover:text-white"
-							href="https://docs.openwebui.com/"
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							{$i18n.t('Read the docs')}
-						</a>
+						<!-- No outbound link here by design: the first screen of an
+						air-gapped workbench should not point off the machine. -->
+						<div class="text-xs leading-relaxed font-light text-white/40">
+							{$i18n.t('Local open-weight models')}
+							<span class="mx-2 text-white/20">·</span>
+							{$i18n.t('No external connections')}
+							<span class="mx-2 text-white/20">·</span>
+							{$i18n.t('Every action audited')}
+						</div>
 					</div>
 				</div>
 			</div>
