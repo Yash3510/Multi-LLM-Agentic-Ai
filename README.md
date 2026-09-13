@@ -6,7 +6,7 @@ telemetry, no data leaving the building.
 
 Built for Smart India Hackathon PS 26117.
 
-![4CE](4ce-screenshot.png) 
+![4CE](4ce/docs/images/4ce-screenshot.png) 
 
 ---
 
@@ -72,7 +72,7 @@ python 4ce/install.py
 Select **4CE / TONY (Orchestrator)** in the model picker, and enable the tools on
 that model under **Workspace → Models**.
 
-Full setup, configuration valves and troubleshooting: **[`4ce/HOW_TO_RUN.md`](4ce/HOW_TO_RUN.md)**
+Full setup, configuration valves and troubleshooting: **[`4ce/docs/HOW_TO_RUN.md`](4ce/docs/HOW_TO_RUN.md)**
 
 ---
 
