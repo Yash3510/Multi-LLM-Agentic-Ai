@@ -89,3 +89,21 @@
 	border-color: var(--4ce-border);
 	margin: 1.1rem 0 0.9rem;
 }
+
+/* --- Withdrawn settings surfaces -----------------------------------------
+
+   Integrations connects the app to third-party tool servers, which is the
+   one surface that can route a prompt off-premise - so it is withdrawn from
+   both the personal and the admin panes. About is dropped with it.
+
+   The tabs carry stable aria-controls hooks, so this needs no component
+   edit. "Services" is hidden too: Integrations is its only entry, and the
+   group header would otherwise be left behind with nothing under it.
+   ------------------------------------------------------------------------- */
+
+.tabs > button[role='tab'][aria-controls='tab-tools'],
+.tabs > button[role='tab'][aria-controls='tab-admin-integrations'],
+.tabs > button[role='tab'][aria-controls='tab-about'],
+.tabs > span:has(+ button[role='tab'][aria-controls='tab-tools']) {
+	display: none !important;
+}
