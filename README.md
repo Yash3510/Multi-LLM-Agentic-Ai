@@ -163,23 +163,3 @@ suite, and what is expected to stay true of a change.
 
 ---
 
-## Attribution and licence
-
-4CE is a fork of **[Open WebUI](https://github.com/open-webui/open-webui)**
-(v0.11.3). The chat interface, RBAC, retrieval stack and plugin runtime are
-theirs; the agent chain, the tools, the sovereign configuration and the branding
-under [`4ce/`](4ce/) are this project's.
-
-Open WebUI is distributed under a BSD-3-style licence with an added branding
-clause, retained verbatim in [`LICENSE`](LICENSE) alongside
-[`LICENSE_HISTORY`](LICENSE_HISTORY) and [`LICENSE_NOTICE`](LICENSE_NOTICE).
-That clause permits replacing the Open WebUI name and marks for deployments
-under fifty users in a rolling thirty-day period, which is the basis on which
-this fork is rebranded. A larger deployment would need written permission or an
-enterprise licence before keeping the 4CE identity.
-
-The upstream copyright notice and disclaimer are retained as the licence
-requires. This project claims authorship only of what sits under `4ce/` and the
-configuration and interface changes recorded in its commit history.
-
----
