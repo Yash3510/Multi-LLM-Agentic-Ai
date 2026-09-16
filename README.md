@@ -156,10 +156,4 @@ configuration, not packets.
 
 ---
 
-## Contributing
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for how to add a plugin, run the test
-suite, and what is expected to stay true of a change.
-
----
 
