@@ -38,7 +38,18 @@ Edit `.env` if needed (e.g. change `WEBUI_SECRET_KEY`).
 
 Open LM Studio and load your models. The config expects:
 - A chat/vision model (e.g. `qwen3-vl-4b`)
+- A small chat/coding model (e.g. `qwen3-1.7b`), which ULTRON uses so that
+  verification does not run on the same weights as the work it is checking
 - An embedding model (`text-embedding-nomic-embed-text-v1.5`)
+
+**Load them at 8192 context, not more.** LM Studio remembers a context length
+per model and will reload a 4B model at 65,536 tokens given the chance. On a
+6 GB card that key/value cache does not fit, the runtime spills it to system
+memory, and nothing reports an error - the system is simply slow. Measured on
+the same machine and the same prompt, a document task took 30 seconds at 8192
+and over 400 at 65,536; a vision task took 36 seconds against more than twenty
+minutes. Set the idle TTL to never, too, or an evicted model is reloaded
+mid-demo.
 
 Verify with:
 
@@ -72,7 +83,22 @@ Run this after every code change to the plugins:
 /opt/anaconda3/envs/owui/bin/python install.py
 ```
 
-This creates the admin account on first run and uploads the orchestrator + tools.
+This creates the admin account on first run, uploads the orchestrator and the
+tools, and attaches the tools to the orchestrator's model so the agent chain can
+call them. Without that last step the chain still answers, but it reasons
+unaided: no threshold arithmetic, no sandboxed execution and no `.docx`.
+
+### 4. Check the machine is actually ready
+
+```bash
+python 4ce/preflight.py          # report
+python 4ce/preflight.py --fix    # also load the models the way 4CE needs
+```
+
+It checks the models are loaded at a context length that fits, Docker is up
+with the sandbox image pulled, the backend answers, the plugins are installed
+and attached, the approval gate is on, and the speech weights are cached. Run
+it before demonstrating; every check in it exists because it failed once.
 
 ---
 

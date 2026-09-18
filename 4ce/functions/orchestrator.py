@@ -789,9 +789,22 @@ def _wants_audit(prompt: str) -> bool:
 
 
 def _extract_python(text: str) -> str:
-    """The first fenced Python block in a deliverable, if it has one."""
-    match = re.search("```(?:python|py)\s*\n(.*?)```", text, re.S | re.I)
-    return match.group(1).strip() if match else ""
+    """Every fenced Python block in a deliverable, joined in order.
+
+    Taking only the first block silently defeats the sandbox: a model typically
+    puts the definition in one block and the call that demonstrates it in the
+    next, so running the first alone defines a function and exits with no
+    output - which then reads as a result that proves nothing, and ULTRON fails
+    it. Interpreter transcripts and shell lines are skipped; they are
+    illustration, not a program.
+    """
+    blocks = re.findall("```(?:python|py)\s*\n(.*?)```", text, re.S | re.I)
+    usable = [
+        block.strip()
+        for block in blocks
+        if block.strip() and not block.lstrip().startswith((">>>", "$ "))
+    ]
+    return "\n\n".join(usable)
 
 
 def _document_title(prompt: str) -> str:
