@@ -19,8 +19,6 @@ Built for Smart India Hackathon PS 26117.
 - [Verification status](#verification-status)
 - [Repository layout](#repository-layout)
 - [Security](#security)
-- [Contributing](#contributing)
-- [Attribution and licence](#attribution-and-licence)
 
 ---
 
