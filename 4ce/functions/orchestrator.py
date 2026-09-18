@@ -424,6 +424,13 @@ class Pipe:
                     f"ORIGINAL REQUEST\n{prompt}\n\n"
                     f"FRIDAY'S ANALYSIS\n{analysis}"
                     + grounded
+                    + (
+                        "\n\nThis code will be executed. If the request calls for a file - "
+                        "a spreadsheet, a chart, an export - write it into the directory "
+                        "/output, which is returned to the user. Nowhere else is writable."
+                        if task_type == "code"
+                        else ""
+                    )
                     + "\n\nProduce the finished deliverable the request actually asked "
                     "for. Show working for any calculation. Do not claim you performed an "
                     "action unless it is supported by the analysis above. Where a section "
@@ -568,6 +575,20 @@ class Pipe:
                         trace if self.valves.show_trace else [], agent_models, tools_used,
                     )
                 )
+
+        # Whatever the request actually asked for, in the type it asked for: a .py
+        # for a script, a .csv for data, .sql for a query. Released on the same
+        # terms as any other deliverable - only once a person has approved it.
+        if task_type != "chat" and approval in ("approved", "not required"):
+            for name, body in _artifacts(deliverable, _document_title(prompt)):
+                written = await self._use_tool(
+                    __tools__, "save_artifact", filename=name, content=body
+                )
+                if written and not written.startswith(_ERR):
+                    if "save_artifact" not in tools_used:
+                        tools_used.append("save_artifact")
+                    trace.append(f"**TOOL** `save_artifact` wrote `{name}`.")
+                    deliverable += "\n\n" + written
 
         # PS 26117 asks for the approval note as a Word file. Produce it only once a
         # person has released the result, never before.
@@ -805,6 +826,40 @@ def _extract_python(text: str) -> str:
         if block.strip() and not block.lstrip().startswith((">>>", "$ "))
     ]
     return "\n\n".join(usable)
+
+
+_LANGUAGE_SUFFIX = {
+    "python": "py", "py": "py", "sql": "sql", "javascript": "js", "js": "js",
+    "typescript": "ts", "ts": "ts", "java": "java", "c": "c", "cpp": "cpp",
+    "c++": "cpp", "csharp": "cs", "cs": "cs", "go": "go", "golang": "go",
+    "rust": "rs", "rs": "rs", "ruby": "rb", "rb": "rb", "bash": "sh",
+    "sh": "sh", "shell": "sh", "powershell": "ps1", "ps1": "ps1", "r": "r",
+    "matlab": "m", "csv": "csv", "tsv": "tsv", "json": "json", "yaml": "yaml",
+    "yml": "yaml", "xml": "xml", "html": "html", "css": "css",
+    "markdown": "md", "md": "md", "ini": "ini", "toml": "toml",
+    "text": "txt", "txt": "txt", "plaintext": "txt",
+}
+
+
+def _artifacts(text: str, title: str) -> list[tuple[str, str]]:
+    """The files a deliverable is asking to become, named and typed.
+
+    A model asked for a script writes the definition in one fenced block and the
+    call in the next, so blocks of the same language are joined into one file
+    rather than scattered across several. Relying on the model to save its own
+    files does not work - told to write to a specific directory it will write to
+    one it invented instead - so the artefact is taken from what it actually
+    produced.
+    """
+    grouped: dict[str, list[str]] = {}
+    for language, block in re.findall("```(\w*)[^\S\n]*\n(.*?)```", text, re.S):
+        suffix = _LANGUAGE_SUFFIX.get(language.strip().lower())
+        body = block.strip()
+        if suffix and body:
+            grouped.setdefault(suffix, []).append(body)
+
+    stem = re.sub("[^A-Za-z0-9]+", "_", title).strip("_")[:50].lower() or "artifact"
+    return [(f"{stem}.{suffix}", "\n\n".join(parts)) for suffix, parts in grouped.items()]
 
 
 def _document_title(prompt: str) -> str:

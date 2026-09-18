@@ -16,6 +16,7 @@ import json
 import os
 import sqlite3
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -78,6 +79,33 @@ async def test_sandbox() -> None:
 
     out = await tool.run_python("   ")
     check("empty source rejected", "No code" in out)
+
+    # Files are how a run hands back a spreadsheet or a chart. /output is the only
+    # writable path that survives, and a configured directory keeps a copy on disk.
+    with tempfile.TemporaryDirectory(prefix="4ce-test-out-") as keep:
+        tool.valves.output_dir = keep
+        out = await tool.run_python(
+            "open('/output/readings.csv','w').write('a,b'); print('done')"
+        )
+        check(
+            "files written to /output are returned",
+            "completed" in out and "Files produced" in out and "readings.csv" in out,
+        )
+        landed = Path(keep) / "readings.csv"
+        check("returned files reach the configured directory", landed.is_file())
+        check(
+            "the returned file holds what the run wrote",
+            landed.is_file() and landed.read_text() == "a,b",
+        )
+
+    out = await tool.run_python("print('no files here')")
+    check("a run producing no files says so", "Files produced" not in out)
+
+    original_cap = tool.valves.max_output_file_mb
+    tool.valves.max_output_file_mb = 0
+    out = await tool.run_python("open('/output/big.bin','wb').write(b'x'*2048); print('ok')")
+    check("an oversized file is refused, not silently dropped", "Not returned" in out)
+    tool.valves.max_output_file_mb = original_cap
 
 
 async def test_deliverables() -> None:
