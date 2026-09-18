@@ -83,8 +83,8 @@ Start the backend, then load the plugin set:
 python 4ce/install.py
 ```
 
-Select **4CE / TONY (Orchestrator)** in the model picker, and enable the tools on
-that model under **Workspace → Models**.
+Select **4CE / TONY (Orchestrator)** in the model picker. The installer attaches
+the tool set to that model, so the agents can call it straight away.
 
 Full setup, configuration valves and troubleshooting: **[`4ce/docs/HOW_TO_RUN.md`](4ce/docs/HOW_TO_RUN.md)**
 
@@ -101,6 +101,12 @@ app at runtime.
 | [`tools/sandbox.py`](4ce/tools/sandbox.py) | Runs generated Python in a disposable container — no network, read-only root, all capabilities dropped, hard CPU/memory/PID/time caps. |
 | [`tools/deliverables.py`](4ce/tools/deliverables.py) | Renders agent output into a formatted `.docx` with a classification banner and reference table. |
 | [`tools/sovereignty.py`](4ce/tools/sovereignty.py) | Audits live configuration for anything that could carry data off-premise, and returns a pass/fail table. |
+| [`tools/sop_check.py`](4ce/tools/sop_check.py) | Compares readings against an authored rule pack and cites the clause that decided each one. Arithmetic, not inference. |
+
+The chain calls these itself: threshold comparisons go to `sop_check` rather than
+being reasoned out, generated code is executed before it is shown, an audit
+request reads the running configuration, and an approved document is written to
+`.docx`. Which tools ran is recorded in the provenance table of every answer.
 
 See [`4ce/README.md`](4ce/README.md) for the valve reference and design notes.
 
@@ -114,15 +120,17 @@ Verified against a running instance with LM Studio serving `qwen3-vl-4b`,
 | Capability | Status |
 |---|---|
 | Model auto-selection across task types | Verified — coding routes to `qwen3-1.7b`, documents to `qwen3-vl-4b`, rationale shown |
-| Per-agent model assignment | Verified — ULTRON runs on a different model from JARVIS |
+| Per-agent model assignment | Verified — ULTRON crosses to a different model from JARVIS by default, so nothing grades its own work |
 | Agentic chain end to end | Verified — FRIDAY → JARVIS → ULTRON with a TONY replan on failure |
 | Verification catches errors | Verified — ULTRON rejected fabricated inspection readings and forced a replan |
-| Human approval | Verified — approve releases; reject and empty-box both withhold |
+| Deterministic thresholds | Verified — `sop_check` cited `§2.2` for an 18 drops/min seal leak and returned NO DATA, not PASS, where a reading was absent |
+| Human approval | Verified — approve releases and writes the `.docx`; empty box and cancel both withhold, and no file is written |
 | Sandboxed code execution | Verified — 6/6 checks, including blocked network and enforced timeout |
 | Word deliverables | Verified — 7/7 checks, valid OOXML |
 | Sovereignty audit | Verified — 11/11 surfaces pass on the demo configuration |
 | Local RAG | Verified — upload, embed, index and query in ~0.3 s |
-| Multimodal / vision | **Not yet verified** — needs the vision model reloaded at ~8192 context; see [`4ce/README.md`](4ce/README.md) |
+| Multimodal / vision | Verified — read a scanned inspection report and extracted discharge pressure 18.6 bar g, wall thickness 11.2 mm against a 9.5 mm retirement thickness, bearing temperature 71 °C against an 80 °C alarm, and vibration 4.1 mm/s ISO 10816 Zone B |
+| Speech to text | Verified — `faster-whisper` runs locally from a pre-cached model, so the microphone needs no network |
 
 ---
 
