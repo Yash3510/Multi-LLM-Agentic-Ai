@@ -105,6 +105,46 @@ def deploy(base, token, kind, entries):
     return results
 
 
+def attach_tools(base, token):
+    """Give the orchestrator model the 4CE tools.
+
+    A pipe only receives the tools enabled on its own model record, so without
+    this the agent chain silently reasons unaided: no threshold arithmetic, no
+    sandboxed execution and no .docx. The record does not exist until something
+    writes it, which is why this creates as well as updates.
+    """
+    tool_ids = [plugin_id for plugin_id, *_ in TOOLS]
+
+    status, body = call(base, "/api/models", token)
+    if status != 200 or not body:
+        return "SKIPPED", "could not list models"
+    served = {m.get("id", ""): m for m in (body.get("data") or [])}
+    model_id = next((m for m in served if m.startswith(FUNCTIONS[0][0] + ".")), None)
+    if not model_id:
+        return "SKIPPED", "orchestrator model not served yet"
+
+    status, existing = call(base, f"/api/v1/models/model?id={model_id}", token)
+    existing = existing if status == 200 and isinstance(existing, dict) else {}
+    meta = dict(existing.get("meta") or {})
+    if sorted(meta.get("toolIds") or []) == sorted(tool_ids):
+        return "OK", f"{model_id} already has all {len(tool_ids)} tools"
+    meta["toolIds"] = tool_ids
+
+    payload = {
+        "id": model_id,
+        "name": existing.get("name") or served[model_id].get("name") or FUNCTIONS[0][1],
+        "meta": meta,
+        "params": existing.get("params") or {},
+        "is_active": True,
+    }
+    status, _ = call(base, "/api/v1/models/model/update", token, payload)
+    if status != 200:
+        status, _ = call(base, "/api/v1/models/create", token, payload)
+    if status != 200:
+        return "FAILED", f"could not attach tools (status {status})"
+    return "UPDATED", f"{model_id} -> {', '.join(tool_ids)}"
+
+
 def main():
     parser = argparse.ArgumentParser(description="Install the 4CE plugin set.")
     parser.add_argument("--base", default="http://127.0.0.1:8080")
@@ -131,8 +171,13 @@ def main():
     if failures:
         print(f"\n{failures} plugin(s) did not install.")
         sys.exit(1)
+    state, detail = attach_tools(args.base, token)
+    print(f"  {'tools -> model'.ljust(width)}  {state:<8} {detail}")
+    if state == "FAILED":
+        print("\nThe agent chain will reason unaided until the tools are attached.")
+        sys.exit(1)
+
     print("\nAll plugins installed. Select '4CE / TONY (Orchestrator)' in the model picker.")
-    print("Enable the tools on that model under Workspace -> Models to let JARVIS call them.")
 
 
 if __name__ == "__main__":

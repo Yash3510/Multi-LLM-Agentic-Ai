@@ -5,11 +5,15 @@ version: 0.1.0
 description: Sovereign multi-agent orchestrator. TONY classifies and routes, FRIDAY grounds, JARVIS executes, ULTRON verifies, a human approves. All inference stays on locally served open-weight models.
 """
 
+import asyncio
+import inspect
+import re
 import time
 from typing import Any, Awaitable, Callable
 
 from pydantic import BaseModel, Field
 
+from open_webui.models.chats import Chats
 from open_webui.models.users import Users
 from open_webui.utils.chat import generate_chat_completion
 
@@ -21,6 +25,12 @@ DOCUMENT_SIGNALS = (
     "report", "inspection", "sop", "manual", "approval note", "summarise",
     "summarize", "findings", "drawing", "correspondence", "note sheet",
     "tender", "specification", "procedure", "audit",
+)
+AUDIT_SIGNALS = (
+    "prove nothing leaves", "leaves the premises", "leave the premises",
+    "sovereignty", "sovereign", "audit the running", "audit the configuration",
+    "external call", "air gap", "air-gapped", "offline mode", "telemetry",
+    "data leaving", "phone home",
 )
 CALC_SIGNALS = ("calculate", "compute", "thickness", "pressure", "flow rate", "tonnage")
 
@@ -71,6 +81,13 @@ class Pipe:
             default="",
             description="AGENT OVERRIDE — model JARVIS uses to produce the deliverable. Blank follows the routed model.",
         )
+        independent_verification: bool = Field(
+            default=True,
+            description=(
+                "When ULTRON has no model of its own, give it a different model from "
+                "JARVIS. Verification on the same weights reproduces the same blind spot."
+            ),
+        )
         ultron_model: str = Field(
             default="",
             description="AGENT OVERRIDE — model ULTRON uses to challenge the result. Blank follows the routed model. A different model here gives genuinely independent verification.",
@@ -118,7 +135,95 @@ class Pipe:
         __event_emitter__: Callable[[dict], Awaitable[None]],
         __event_call__: Callable[[dict], Awaitable[Any]],
         __metadata__: dict,
+        __tools__: dict | None = None,
         __task__: str | None = None,
+    ) -> str:
+        """Run the chain, and leave a record behind if the reviewer stops it.
+
+        A pipe hands back a single string at the end, so a cancelled run has
+        nothing to persist: the bubble spins forever and the reply disappears
+        on reload. The stop is still honoured and the work is abandoned, but
+        the turn says so rather than vanishing.
+        """
+        trace: list[str] = []
+        steps: list[dict] = []
+        try:
+            return await self._run_chain(
+                body,
+                __user__,
+                __request__,
+                __event_emitter__,
+                __event_call__,
+                __metadata__,
+                __tools__,
+                __task__,
+                trace,
+                steps,
+            )
+        except asyncio.CancelledError:
+            await asyncio.shield(
+                self._record_stop(__metadata__, __event_emitter__, trace, steps)
+            )
+            raise
+
+    async def _record_stop(
+        self,
+        metadata: dict,
+        emitter: Callable[[dict], Awaitable[None]] | None,
+        trace: list[str],
+        steps: list[dict],
+    ) -> None:
+        """Write the turn a stopped reviewer would otherwise be left without."""
+        done = [s for s in steps if s.get("agent") not in (None, "TONY")]
+        lines = [
+            "### Stopped",
+            "",
+            "The run was stopped before it produced a deliverable. Nothing was "
+            "released and nothing was approved.",
+        ]
+        if done:
+            lines += [
+                "",
+                "Completed before the stop: "
+                + ", ".join(f"{s['agent']} ({s['label']})" for s in done)
+                + ".",
+            ]
+        if trace:
+            lines += ["", "<details>", "<summary>Execution timeline</summary>", ""]
+            lines += [f"{i}. {line}" for i, line in enumerate(trace, 1)]
+            lines += ["", "</details>"]
+        content = "\n".join(lines)
+
+        # Update the open bubble, then the stored chat, so the turn is right
+        # both on screen and after a reload. Either may fail mid-cancellation.
+        try:
+            if emitter:
+                await emitter({"type": "replace", "data": {"content": content}})
+        except Exception:
+            pass
+        chat_id = (metadata or {}).get("chat_id")
+        message_id = (metadata or {}).get("message_id")
+        if not chat_id or not message_id:
+            return
+        try:
+            await Chats.upsert_message_to_chat_by_id_and_message_id(
+                chat_id, message_id, {"content": content, "done": True}
+            )
+        except Exception:
+            pass
+
+    async def _run_chain(
+        self,
+        body: dict,
+        __user__: dict,
+        __request__: Any,
+        __event_emitter__: Callable[[dict], Awaitable[None]],
+        __event_call__: Callable[[dict], Awaitable[Any]],
+        __metadata__: dict,
+        __tools__: dict | None,
+        __task__: str | None,
+        trace: list[str],
+        steps: list[dict],
     ) -> str:
         if __task__:
             return ""
@@ -130,8 +235,6 @@ class Pipe:
 
         prompt = _text_of(messages[-1])
         has_image = _has_image(messages[-1])
-        trace: list[str] = []
-        steps: list[dict] = []
 
         user = await Users.get_user_by_id(__user__["id"])
         if user is None:
@@ -186,9 +289,11 @@ class Pipe:
             )
             if reply["text"].startswith(_ERR):
                 return reply["text"]
+            # Plain markdown, not HTML: the renderer special-cases only a handful
+            # of tags and prints every other one as literal text.
             note = (
-                f"\n\n<sub>4CE · direct reply · `{model_id}` · {reply['seconds']:.1f}s · "
-                "no agent chain, no approval needed for conversation</sub>"
+                f"\n\n*4CE · direct reply · `{model_id}` · {reply['seconds']:.1f}s · "
+                "no agent chain, no approval needed for conversation*"
             )
             return reply["text"] + (note if self.valves.show_trace else "")
 
@@ -196,7 +301,9 @@ class Pipe:
         agent_models = {
             "FRIDAY": self._agent_model(self.valves.friday_model, model_id, available),
             "JARVIS": self._agent_model(self.valves.jarvis_model, model_id, available),
-            "ULTRON": self._agent_model(self.valves.ultron_model, model_id, available),
+            "ULTRON": self._agent_model(
+                self.valves.ultron_model, model_id, available, independent=True
+            ),
         }
         overrides = {a: m for a, m in agent_models.items() if m != model_id}
         if overrides:
@@ -209,6 +316,38 @@ class Pipe:
         analysis = ""
         deliverable = ""
         verdict: dict = {}
+        tools_used: list[str] = []
+
+        if not __tools__:
+            trace.append(
+                "**TONY** found no tools attached to this model, so the agents reasoned "
+                "unaided. Attach the 4CE tools to this model under Workspace to ground "
+                "threshold checks, code execution and deliverables."
+            )
+
+        # Sovereignty is evidenced, not narrated: read the running configuration
+        # rather than letting a model describe the configuration it imagines.
+        audit = ""
+        if _wants_audit(prompt):
+            await _status(
+                __event_emitter__, "tool", "TOOL: auditing the running configuration"
+            )
+            audit = await self._use_tool(__tools__, "verify_sovereignty")
+            if audit and not audit.startswith(_ERR):
+                tools_used.append("verify_sovereignty")
+                steps.append({
+                    "agent": "TOOL",
+                    "label": "sovereignty audit",
+                    "model": "deterministic configuration read",
+                    "seconds": 0.0,
+                    "thinking": "",
+                    "text": audit,
+                })
+                trace.append(
+                    "**TOOL** `verify_sovereignty` read the live configuration."
+                )
+            else:
+                audit = ""
 
         while True:
             attempts += 1
@@ -232,16 +371,64 @@ class Pipe:
             steps.append({**friday, "agent": "FRIDAY", "label": f"analysis{round_label}"})
             trace.append(f"**FRIDAY** analysed the request in {friday['seconds']:.1f}s.")
 
+            # Threshold arithmetic belongs to the authored rule pack, not to a model.
+            # ULTRON reading 6.2 mm against a 6.0 mm retirement limit as a breach is
+            # precisely the failure this removes.
+            sop = ""
+            if task_type in ("document", "analysis", "vision"):
+                await _status(
+                    __event_emitter__,
+                    "tool",
+                    "TOOL: comparing readings against the SOP thresholds",
+                )
+                sop = await self._use_tool(
+                    __tools__,
+                    "check_sop_thresholds",
+                    readings=prompt + "\n\n" + analysis,
+                )
+                if sop and not sop.startswith(_ERR):
+                    if "check_sop_thresholds" not in tools_used:
+                        tools_used.append("check_sop_thresholds")
+                    steps.append({
+                        "agent": "TOOL",
+                        "label": f"SOP threshold check{round_label}",
+                        "model": "deterministic rule pack",
+                        "seconds": 0.0,
+                        "thinking": "",
+                        "text": sop,
+                    })
+                    trace.append(
+                        "**TOOL** `check_sop_thresholds` compared the readings against the "
+                        "authored rule pack and cited the deciding clause."
+                    )
+                else:
+                    sop = ""
+
+            grounded = ""
+            if audit:
+                grounded += (
+                    "\n\nSOVEREIGNTY AUDIT (read from the running configuration; "
+                    "authoritative)\n" + audit
+                )
+            if sop:
+                grounded += (
+                    "\n\nSOP THRESHOLD ASSESSMENT (deterministic rule pack; "
+                    "authoritative)\n" + sop
+                )
+
             await _status(__event_emitter__, "jarvis", "JARVIS: producing the deliverable")
             jarvis = await self._agent_call(
                 __request__, user, agent_models["JARVIS"], messages,
                 system=_JARVIS_SYSTEM,
                 instruction=(
                     f"ORIGINAL REQUEST\n{prompt}\n\n"
-                    f"FRIDAY'S ANALYSIS\n{analysis}\n\n"
-                    "Produce the finished deliverable the request actually asked for. "
-                    "Show working for any calculation. Do not claim you performed an action "
-                    "unless it is supported by the analysis above."
+                    f"FRIDAY'S ANALYSIS\n{analysis}"
+                    + grounded
+                    + "\n\nProduce the finished deliverable the request actually asked "
+                    "for. Show working for any calculation. Do not claim you performed an "
+                    "action unless it is supported by the analysis above. Where a section "
+                    "above is marked authoritative, quote its verdicts as they stand and "
+                    "do not recompute them."
                 ),
             )
             deliverable = jarvis["text"]
@@ -249,6 +436,37 @@ class Pipe:
                 return deliverable
             steps.append({**jarvis, "agent": "JARVIS", "label": f"deliverable{round_label}"})
             trace.append(f"**JARVIS** produced the deliverable in {jarvis['seconds']:.1f}s.")
+
+            # Generated code is run, not admired. The real output is appended so
+            # ULTRON and the reviewer judge what actually executed.
+            if task_type == "code":
+                code = _extract_python(deliverable)
+                if code:
+                    await _status(
+                        __event_emitter__,
+                        "tool",
+                        "TOOL: executing the generated code in the sandbox",
+                    )
+                    execution = await self._use_tool(__tools__, "run_python", code=code)
+                    if execution and not execution.startswith(_ERR):
+                        if "run_python" not in tools_used:
+                            tools_used.append("run_python")
+                        steps.append({
+                            "agent": "TOOL",
+                            "label": f"sandboxed execution{round_label}",
+                            "model": "container, no network",
+                            "seconds": 0.0,
+                            "thinking": "",
+                            "text": execution,
+                        })
+                        trace.append(
+                            "**TOOL** `run_python` executed the generated code in a "
+                            "network-less container and returned its real output."
+                        )
+                        deliverable += (
+                            "\n\n---\n\n**Sandboxed execution result**\n\n"
+                            + execution
+                        )
 
             if not self.valves.enable_verification:
                 verdict = {"status": "SKIPPED", "passed": True, "detail": "Verification disabled in Valves."}
@@ -266,6 +484,15 @@ class Pipe:
                         "whether the result claims more than an extraction can support. Do NOT "
                         "fail it merely because you cannot inspect the source yourself.\n\n"
                         if has_image else ""
+                    )
+                    + (
+                        "AUTHORITATIVE FINDINGS — produced by deterministic tools, not by "
+                        "a model. Treat them as correct. Do not re-derive them and do not "
+                        "fail the result for disagreeing with them."
+                        + grounded
+                        + "\n\n"
+                        if grounded
+                        else ""
                     )
                     + f"RESULT TO CHALLENGE\n{deliverable}\n\n"
                     "Reply with PASS or FAIL on the first line, then your concerns."
@@ -338,9 +565,29 @@ class Pipe:
                     + _provenance(
                         steps, task_type, signals, model_id, rationale, verdict, "rejected",
                         time.monotonic() - started, attempts, self.valves.show_model_thinking,
-                        trace if self.valves.show_trace else [], agent_models,
+                        trace if self.valves.show_trace else [], agent_models, tools_used,
                     )
                 )
+
+        # PS 26117 asks for the approval note as a Word file. Produce it only once a
+        # person has released the result, never before.
+        if task_type in ("document", "vision") and approval in ("approved", "not required"):
+            await _status(__event_emitter__, "tool", "TOOL: writing the Word deliverable")
+            docx = await self._use_tool(
+                __tools__,
+                "create_word_document",
+                title=_document_title(prompt),
+                body=deliverable,
+                reference="Produced by the 4CE agent chain; "
+                + (", ".join(tools_used) if tools_used else "no tools attached"),
+                __user__=__user__,
+            )
+            if docx and not docx.startswith(_ERR):
+                tools_used.append("create_word_document")
+                trace.append(
+                    "**TOOL** `create_word_document` wrote the released result to a .docx."
+                )
+                deliverable += "\n\n---\n\n" + docx
 
         await _status(__event_emitter__, "done", "Complete", done=True)
 
@@ -349,15 +596,60 @@ class Pipe:
         return deliverable + "\n\n" + _provenance(
             steps, task_type, signals, model_id, rationale, verdict, approval,
             time.monotonic() - started, attempts, self.valves.show_model_thinking,
-            trace if self.valves.show_trace else [], agent_models,
+            trace if self.valves.show_trace else [], agent_models, tools_used,
         )
 
-    def _agent_model(self, override: str, routed: str, available: list[str]) -> str:
+    async def _use_tool(self, tools: dict | None, name: str, **kwargs: Any) -> str:
+        """Call one deployed 4CE tool by its function name.
+
+        Returns "" when the tool is not attached to this model, so the chain
+        degrades to unaided reasoning instead of failing. The provenance records
+        which tools ran, so an absent tool is visible rather than silent.
+        """
+        entry = (tools or {}).get(name) or {}
+        fn = entry.get("callable")
+        if not callable(fn):
+            return ""
+        try:
+            result = fn(**kwargs)
+            if inspect.isawaitable(result):
+                result = await result
+        except Exception as exc:
+            return f"{_ERR} {name} failed: {exc}"
+        return str(result or "").strip()
+
+    def _agent_model(
+        self,
+        override: str,
+        routed: str,
+        available: list[str],
+        independent: bool = False,
+    ) -> str:
         """An agent's assigned model, falling back to the routed one."""
         wanted = (override or "").strip()
-        if not wanted:
-            return routed
-        return _match_model(wanted, available, "") or routed
+        if wanted:
+            return _match_model(wanted, available, "") or routed
+        if independent and self.valves.independent_verification:
+            return self._alternate_model(routed, available) or routed
+        return routed
+
+    def _alternate_model(self, routed: str, available: list[str]) -> str | None:
+        """Any served model that is not the routed one.
+
+        ULTRON grading JARVIS on the same weights reproduces the same blind spot,
+        so a blank ULTRON override crosses to a different model rather than
+        quietly agreeing with itself.
+        """
+        for wanted in (
+            self.valves.analysis_model,
+            self.valves.coding_model,
+            self.valves.chat_model,
+            self.valves.vision_model,
+        ):
+            candidate = _match_model((wanted or "").strip(), available, "")
+            if candidate and candidate != routed:
+                return candidate
+        return next((c for c in available if c != routed), None)
 
     def _route(self, task_type: str, request: Any, current_model: str) -> tuple[str | None, str]:
         preference = {
@@ -490,13 +782,37 @@ def _classify(prompt: str, has_image: bool) -> tuple[str, list[str]]:
     return "analysis", []
 
 
+def _wants_audit(prompt: str) -> bool:
+    """Whether the request is asking for the sovereignty claim to be evidenced."""
+    lowered = prompt.lower()
+    return any(signal in lowered for signal in AUDIT_SIGNALS)
+
+
+def _extract_python(text: str) -> str:
+    """The first fenced Python block in a deliverable, if it has one."""
+    match = re.search("```(?:python|py)\s*\n(.*?)```", text, re.S | re.I)
+    return match.group(1).strip() if match else ""
+
+
+def _document_title(prompt: str) -> str:
+    """A short, file-safe title taken from the request."""
+    cleaned = re.sub("\s+", " ", prompt).strip()
+    return cleaned[:70].rstrip(" ,.;:") or "4CE deliverable"
+
+
 def _available_models(request: Any) -> list[str]:
     try:
         models = request.app.state.MODELS
         keys = list(models.keys()) if hasattr(models, "keys") else []
     except Exception:
         return []
-    return [k for k in keys if "4ce" not in k.lower()]
+    # The orchestrator registers itself as a model. Its id is "ace_orchestrator.*",
+    # which the "4ce" test does not catch, and routing an agent to it would recurse.
+    return [
+        k
+        for k in keys
+        if "4ce" not in k.lower() and not k.lower().startswith("ace_orchestrator")
+    ]
 
 
 def _match_model(wanted: str, available: list[str], current: str) -> str | None:
@@ -598,7 +914,7 @@ def _split_thinking(raw: str) -> tuple[str, str]:
 def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id: str,
                 rationale: str, verdict: dict, approval: str, elapsed: float,
                 attempts: int, include_thinking: bool, trace: list[str],
-                agent_models: dict) -> str:
+                agent_models: dict, tools_used: list[str] | None = None) -> str:
     """A compact provenance table plus the reasoning behind each decision."""
     timings = " · ".join(
         f"{s['agent'].title()} {s['seconds']:.0f}s" for s in steps if s.get("seconds")
@@ -611,6 +927,12 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
         ("Verification", f"ULTRON **{status}**" + (f" after {attempts} attempts" if attempts > 1 else "")),
         ("Human approval", approval.capitalize()),
         ("Elapsed", f"{elapsed:.0f}s" + (f" · {timings}" if timings else "")),
+        (
+            "Tools run",
+            " · ".join(f"`{t}`" for t in tools_used)
+            if tools_used
+            else "none — the agents reasoned unaided",
+        ),
         ("Inference", "Local open-weight models · 0 external API calls"),
     ]
     table = ["| Stage | Detail |", "|---|---|"] + [f"| {k} | {v} |" for k, v in rows]
