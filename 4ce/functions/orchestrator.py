@@ -92,6 +92,10 @@ class Pipe:
             default="",
             description="AGENT OVERRIDE — model ULTRON uses to challenge the result. Blank follows the routed model. A different model here gives genuinely independent verification.",
         )
+        retrieval_k: int = Field(
+            default=4,
+            description="Passages retrieved from an attached knowledge base and given to FRIDAY.",
+        )
         vision_max_edge: int = Field(
             default=900,
             description="Longest edge, in pixels, an image is downscaled to before it reaches the vision model. Smaller is markedly faster on modest GPUs. Set 0 to send images untouched.",
@@ -235,10 +239,15 @@ class Pipe:
 
         prompt = _text_of(messages[-1])
         has_image = _has_image(messages[-1])
+        retrieved = _retrieved_context(messages)
 
         user = await Users.get_user_by_id(__user__["id"])
         if user is None:
             return "4CE could not resolve the requesting user."
+
+        passages = await self._retrieve(__request__, user, __metadata__, prompt)
+        if passages:
+            retrieved = f"{retrieved}\n\n{passages}".strip() if retrieved else passages
 
         task_type, signals = _classify(prompt, has_image)
         await _status(
@@ -360,7 +369,18 @@ class Pipe:
                 system=_FRIDAY_SYSTEM,
                 instruction=_with_challenge(
                     "Analyse the request below. State factual findings drawn only from the "
-                    "supplied context, and label every assumption explicitly.\n\n" + prompt,
+                    "supplied context, and label every assumption explicitly."
+                    + (
+                        "\n\nSUPPLIED CONTEXT - passages retrieved from the local "
+                        "knowledge base, and any standing instruction for this workspace. "
+                        "Treat this as the supplied context and cite it where you rely on "
+                        "it:\n"
+                        + retrieved
+                        if retrieved
+                        else ""
+                    )
+                    + "\n\nREQUEST\n"
+                    + prompt,
                     challenge,
                 ),
                 pass_images=has_image,
@@ -572,7 +592,7 @@ class Pipe:
                     + _provenance(
                         steps, task_type, signals, model_id, rationale, verdict, "rejected",
                         time.monotonic() - started, attempts, self.valves.show_model_thinking,
-                        trace if self.valves.show_trace else [], agent_models, tools_used,
+                        trace if self.valves.show_trace else [], agent_models, tools_used, retrieved,
                     )
                 )
 
@@ -617,8 +637,56 @@ class Pipe:
         return deliverable + "\n\n" + _provenance(
             steps, task_type, signals, model_id, rationale, verdict, approval,
             time.monotonic() - started, attempts, self.valves.show_model_thinking,
-            trace if self.valves.show_trace else [], agent_models, tools_used,
+            trace if self.valves.show_trace else [], agent_models, tools_used, retrieved,
         )
+
+    async def _retrieve(self, request: Any, user: Any, metadata: dict, query: str) -> str:
+        """Passages from any knowledge base attached to this request.
+
+        Retrieval is done here rather than taken from the platform. The platform
+        grounds an ordinary model by rewriting the system message, but every agent
+        in this chain is given a system prompt of its own, so that context never
+        survives to the agent that needs it. The failure is quiet: the answer
+        looks grounded and is not.
+        """
+        collections: list[str] = []
+        for item in (metadata or {}).get("files") or []:
+            if not isinstance(item, dict):
+                continue
+            names = (item.get("data") or {}).get("collection_names") or []
+            collections += [n for n in names if n]
+            if not names:
+                single = item.get("collection_name") or (
+                    item.get("id") if item.get("type") == "collection" else None
+                )
+                if single:
+                    collections.append(single)
+        collections = list(dict.fromkeys(collections))
+        if not collections:
+            return ""
+
+        try:
+            from open_webui.retrieval.utils import query_collection
+
+            found = await query_collection(
+                request,
+                collection_names=collections,
+                queries=[query],
+                embedding_function=lambda q, prefix: request.app.state.EMBEDDING_FUNCTION(
+                    q, prefix=prefix, user=user
+                ),
+                k=self.valves.retrieval_k,
+            )
+        except Exception:
+            return ""
+
+        passages = [
+            text
+            for group in ((found or {}).get("documents") or [])
+            for text in (group or [])
+            if text and text.strip()
+        ]
+        return "\n\n---\n\n".join(passages[: self.valves.retrieval_k])
 
     async def _use_tool(self, tools: dict | None, name: str, **kwargs: Any) -> str:
         """Call one deployed 4CE tool by its function name.
@@ -897,6 +965,23 @@ def _match_model(wanted: str, available: list[str], current: str) -> str | None:
     return None
 
 
+def _retrieved_context(messages: list[dict]) -> str:
+    """Whatever retrieval put in front of the chain.
+
+    The platform injects knowledge-base passages by rewriting the system
+    message. Each agent is then given its own system prompt, so unless that
+    injected text is carried across explicitly it is dropped on the floor and
+    the agents answer from the model's own memory while appearing to be
+    grounded - the worst of both, because nothing looks wrong.
+    """
+    parts = [
+        _text_of(m).strip()
+        for m in messages
+        if isinstance(m, dict) and m.get("role") == "system"
+    ]
+    return "\n\n".join(p for p in parts if p)
+
+
 def _text_of(message: dict) -> str:
     content = message.get("content")
     if isinstance(content, str):
@@ -982,7 +1067,8 @@ def _split_thinking(raw: str) -> tuple[str, str]:
 def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id: str,
                 rationale: str, verdict: dict, approval: str, elapsed: float,
                 attempts: int, include_thinking: bool, trace: list[str],
-                agent_models: dict, tools_used: list[str] | None = None) -> str:
+                agent_models: dict, tools_used: list[str] | None = None,
+                retrieved: str = "") -> str:
     """A compact provenance table plus the reasoning behind each decision."""
     timings = " · ".join(
         f"{s['agent'].title()} {s['seconds']:.0f}s" for s in steps if s.get("seconds")
@@ -995,6 +1081,12 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
         ("Verification", f"ULTRON **{status}**" + (f" after {attempts} attempts" if attempts > 1 else "")),
         ("Human approval", approval.capitalize()),
         ("Elapsed", f"{elapsed:.0f}s" + (f" · {timings}" if timings else "")),
+        (
+            "Grounding",
+            f"{len(retrieved):,} characters of supplied context reached FRIDAY"
+            if retrieved
+            else "none - no knowledge base attached, answered from the request alone",
+        ),
         (
             "Tools run",
             " · ".join(f"`{t}`" for t in tools_used)
