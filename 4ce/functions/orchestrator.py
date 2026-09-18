@@ -5,6 +5,7 @@ version: 0.1.0
 description: Sovereign multi-agent orchestrator. TONY classifies and routes, FRIDAY grounds, JARVIS executes, ULTRON verifies, a human approves. All inference stays on locally served open-weight models.
 """
 
+import ast
 import asyncio
 import inspect
 import re
@@ -445,7 +446,8 @@ class Pipe:
                     f"FRIDAY'S ANALYSIS\n{analysis}"
                     + grounded
                     + (
-                        "\n\nThis code will be executed. If the request calls for a file - "
+                        "\n\nPut every line of code inside a fenced ```python block. "
+                        "This code will be executed. If the request calls for a file - "
                         "a spreadsheet, a chart, an export - write it into the directory "
                         "/output, which is returned to the user. Nowhere else is writable."
                         if task_type == "code"
@@ -893,7 +895,42 @@ def _extract_python(text: str) -> str:
         for block in blocks
         if block.strip() and not block.lstrip().startswith((">>>", "$ "))
     ]
-    return "\n\n".join(usable)
+    if usable:
+        return "\n\n".join(usable)
+    return _unfenced_python(text)
+
+
+def _unfenced_python(text: str) -> str:
+    """Code a model wrote and forgot to fence.
+
+    Small models are inconsistent about code fences, and an unfenced answer left
+    the sandbox with nothing to run and produced no .py - the request looked
+    answered while nothing had been executed. The parser decides: the longest
+    run of leading lines Python accepts, provided it is a program rather than a
+    stray word, is the code.
+    """
+    program = (
+        ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign,
+        ast.AugAssign, ast.AnnAssign, ast.Import, ast.ImportFrom, ast.For,
+        ast.While, ast.If, ast.With, ast.Try,
+    )
+    lines = text.splitlines()
+    for end in range(len(lines), 0, -1):
+        candidate = "\n".join(lines[:end]).strip()
+        if not candidate:
+            continue
+        try:
+            tree = ast.parse(candidate)
+        except (SyntaxError, ValueError):
+            continue
+        looks_like_code = any(
+            isinstance(node, program)
+            or (isinstance(node, ast.Expr) and isinstance(node.value, ast.Call))
+            for node in tree.body
+        )
+        if looks_like_code:
+            return candidate
+    return ""
 
 
 _LANGUAGE_SUFFIX = {
@@ -925,6 +962,13 @@ def _artifacts(text: str, title: str) -> list[tuple[str, str]]:
         body = block.strip()
         if suffix and body:
             grouped.setdefault(suffix, []).append(body)
+
+    if not grouped:
+        # Same reason the sandbox needs it: an unfenced answer is still code, and
+        # without this it would be shown and never saved.
+        loose = _unfenced_python(text)
+        if loose:
+            grouped["py"] = [loose]
 
     stem = re.sub("[^A-Za-z0-9]+", "_", title).strip("_")[:50].lower() or "artifact"
     return [(f"{stem}.{suffix}", "\n\n".join(parts)) for suffix, parts in grouped.items()]
