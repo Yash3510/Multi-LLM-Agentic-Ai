@@ -357,6 +357,14 @@
 	};
 
 	const initChannels = async () => {
+		// 4CE: channels are disabled in this deployment, and the browser logs the
+		// resulting 403 on every page load no matter what the catch below does.
+		// Skip the request rather than paint the console red during a demo.
+		if (!$config?.features?.enable_channels) {
+			await channels.set([]);
+			return;
+		}
+
 		// default (none), group, dm type
 		const res = await getChannels(localStorage.token).catch((error) => {
 			return null;
