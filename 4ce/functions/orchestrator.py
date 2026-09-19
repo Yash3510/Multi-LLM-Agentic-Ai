@@ -437,8 +437,13 @@ class Pipe:
             # Threshold arithmetic belongs to the authored rule pack, not to a model.
             # ULTRON reading 6.2 mm against a 6.0 mm retirement limit as a breach is
             # precisely the failure this removes.
+            # Readings come from the request, or from the page in a vision task.
+            # Deciding from FRIDAY's prose instead makes it fire on anything that
+            # happens to mention a number - a sovereignty audit reporting "11 of
+            # 11" should not produce an SOP assessment row.
             sop = ""
-            if task_type in ("document", "analysis", "vision"):
+            assessable = task_type == "vision" or _has_readings(prompt)
+            if task_type in ("document", "analysis", "vision") and assessable:
                 await _status(
                     __event_emitter__,
                     "tool",
@@ -591,6 +596,7 @@ class Pipe:
             trace.append("**TONY** replanned once and re-ran FRIDAY and JARVIS with the challenge attached.")
 
         approval = "not required"
+        waited = 0.0
         interactive = bool(__event_call__) and bool((__metadata__ or {}).get("session_id"))
         if self.valves.require_approval and not interactive:
             # Never record an approval nobody gave: without a live session there is
@@ -602,6 +608,10 @@ class Pipe:
             )
         elif self.valves.require_approval:
             await _status(__event_emitter__, "approval", "Awaiting human approval")
+            # The reviewer's thinking time is not the system's running time.
+            # Counted together, a 40-second task reports two minutes because
+            # somebody read it before approving.
+            asked_at = time.monotonic()
             # An 'input' prompt rather than a yes/no confirmation, deliberately.
             # The confirm dialog treats a stray Enter as approval, which would let
             # an unreviewed deliverable through by reflex. Requiring the word to be
@@ -621,6 +631,7 @@ class Pipe:
                     },
                 }
             )
+            waited = time.monotonic() - asked_at
             decision = response if isinstance(response, str) else ""
             approved = decision.strip().lower() in ("approve", "approved")
             if approved:
@@ -635,7 +646,7 @@ class Pipe:
                     "The reviewer rejected this result, so 4CE has not released it.\n\n"
                     + _provenance(
                         steps, task_type, signals, model_id, rationale, verdict, "rejected",
-                        time.monotonic() - started, attempts, self.valves.show_model_thinking,
+                        time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
                         trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
                     )
                 )
@@ -680,7 +691,7 @@ class Pipe:
             return deliverable
         return deliverable + "\n\n" + _provenance(
             steps, task_type, signals, model_id, rationale, verdict, approval,
-            time.monotonic() - started, attempts, self.valves.show_model_thinking,
+            time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
             trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
         )
 
@@ -907,11 +918,14 @@ _TONY_CHAT_SYSTEM = (
     "JARVIS produces deliverables, and ULTRON verifies them before a human approves. "
     "This message is conversation rather than a work request, so answer it directly, "
     "warmly and briefly. Do not invent capabilities and do not claim to have performed "
-    "any action. Do not list the agents unless you are asked what they are; a greeting "
-    "deserves a greeting, not an architecture diagram. If you do name them, the names "
-    "are exactly TONY, FRIDAY, JARVIS and ULTRON - a small model reciting them from "
-    "memory tends to invent spellings, and a garbled name is the first thing a reader "
-    "sees."
+    "any action.\n\n"
+    "Answer only what was asked. A greeting gets a greeting back and nothing else: "
+    "reply to 'hello' with something like 'Hello. What can I help you with?' and stop "
+    "there. Describe the agents ONLY when the question is explicitly about what you "
+    "are or what you can do. Listing them in response to a greeting is wrong.\n\n"
+    "When you do name them, the names are exactly TONY, FRIDAY, JARVIS and ULTRON. "
+    "Copy those spellings character for character; do not reconstruct them from "
+    "memory, because an invented name is the first thing a reader notices."
 )
 _ULTRON_SYSTEM = (
     "You are ULTRON, a skeptical verification agent. Challenge the result you are given: "
@@ -963,6 +977,28 @@ def _classify(prompt: str, has_image: bool) -> tuple[str, list[str]]:
     if hits:
         return "analysis", hits[:3]
     return "analysis", []
+
+
+_READING_UNITS = (
+    r"drops?\s*(?:per\s*minute|/\s*min|pm)", r"mm\s*/\s*s", r"mm", r"microns?", r"µm", r"um",
+    r"bar(?:\s*g)?", r"kpa", r"mpa", r"psi", r"°\s*c", r"deg\s*c", r"\bc\b", r"rpm", r"hz",
+    r"%", r"litres?\s*/\s*min", r"l\s*/\s*min", r"m3\s*/\s*h",
+)
+_READING_PATTERN = re.compile(
+    r"\d+(?:\.\d+)?\s*(?:" + "|".join(_READING_UNITS) + r")\b", re.I
+)
+
+
+def _has_readings(text: str) -> bool:
+    """Whether there is anything for the threshold rule pack to assess.
+
+    The check is deterministic and cheap, but running it on a request that
+    carries no measurements puts a row in the provenance table claiming an SOP
+    comparison happened - on, say, a sovereignty audit, where there is nothing
+    to compare. A reviewer reading that table should see the tools that acted
+    on this request and no others.
+    """
+    return bool(_READING_PATTERN.search(text or ""))
 
 
 def _wants_audit(prompt: str) -> bool:
@@ -1062,14 +1098,67 @@ def _artifacts(text: str, title: str) -> list[tuple[str, str]]:
         if loose:
             grouped["py"] = [loose]
 
-    stem = re.sub("[^A-Za-z0-9]+", "_", title).strip("_")[:50].lower() or "artifact"
-    return [(f"{stem}.{suffix}", "\n\n".join(parts)) for suffix, parts in grouped.items()]
+    files = []
+    for suffix, parts in grouped.items():
+        body = "\n\n".join(parts)
+        files.append((f"{_artifact_stem(title, body, suffix)}.{suffix}", body))
+    return files
+
+
+def _artifact_stem(title: str, body: str, suffix: str) -> str:
+    """A short, recognisable filename for a produced artefact.
+
+    Naming the file after the whole request produces
+    `write_a_python_function_that_returns_the_median_of.py`, which is the
+    request rather than the thing, and unreadable in a download list. Code
+    names itself: the first definition in the file is what the reader is
+    looking for. Anything else falls back to the subject of the request with
+    the instruction to produce it removed.
+    """
+    if suffix == "py":
+        try:
+            for node in ast.parse(body).body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    return node.name.lower()
+        except SyntaxError:
+            pass
+    words = _subject_words(title)
+    stem = "_".join(words[:5]).lower()
+    return re.sub("[^a-z0-9_]+", "", stem).strip("_") or "artifact"
+
+
+# Openers that state what to do rather than what the result is about.
+_REQUEST_OPENERS = (
+    "write", "draft", "create", "produce", "generate", "make", "build", "give",
+    "show", "provide", "prepare", "compose", "summarise", "summarize", "list",
+    "me", "a", "an", "the", "some", "please", "us", "code", "for",
+)
+
+
+def _subject_words(title: str) -> list[str]:
+    """The words of a request that describe its subject, not its instruction."""
+    words = re.findall("[A-Za-z0-9-]+", title or "")
+    while words and words[0].lower() in _REQUEST_OPENERS:
+        words.pop(0)
+    return words or ["artifact"]
 
 
 def _document_title(prompt: str) -> str:
-    """A short, file-safe title taken from the request."""
-    cleaned = re.sub("\s+", " ", prompt).strip()
-    return cleaned[:70].rstrip(" ,.;:") or "4CE deliverable"
+    """A short title describing the deliverable, not the request for it.
+
+    The whole prompt used to become both the heading and the filename, which
+    gave documents called `What_is_the_acceptable_mechanical_seal_leakage_rate
+    _under_SO.docx` - truncated mid-word, and phrased as a question the
+    document answers rather than as its subject.
+    """
+    cleaned = re.sub("\s+", " ", prompt or "").strip()
+    if not cleaned:
+        return "4CE deliverable"
+    # A request often states its subject after a colon; prefer what precedes it.
+    head = cleaned.split(":", 1)[0]
+    words = _subject_words(head)[:8]
+    title = " ".join(words).rstrip(" ,.;:?")
+    return (title[:1].upper() + title[1:]) if title else "4CE deliverable"
 
 
 def _available_models(request: Any) -> list[str]:
@@ -1282,7 +1371,9 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
         ("Agents", " · ".join(f"{a} `{m}`" for a, m in agent_models.items())),
         ("Verification", f"ULTRON **{status}**" + (f" after {attempts} attempts" if attempts > 1 else "")),
         ("Human approval", approval.capitalize()),
-        ("Elapsed", f"{elapsed:.0f}s" + (f" · {timings}" if timings else "")),
+        # Working time, not wall clock: the reviewer's reading time belongs to
+        # the reviewer, and counting it makes a fast run look like a slow one.
+        ("Elapsed", f"{elapsed:.0f}s working" + (f" · {timings}" if timings else "")),
         (
             "Grounding",
             f"{len(grounding):,} characters of retrieved passages reached FRIDAY"
