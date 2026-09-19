@@ -34,6 +34,10 @@ TOOLS = [
      "Assesses inspection readings against SOP thresholds and cites the clause that decided each."),
 ]
 
+# The models the orchestrator routes between, and the only ones offered in the
+# chat picker. Keep in step with the model valves in functions/orchestrator.py.
+ROUTED_MODELS = ["qwen/qwen3-vl-4b", "qwen/qwen3-1.7b"]
+
 
 def call(base, path, token=None, payload=None, method=None):
     url = f"{base.rstrip('/')}{path}"
@@ -145,6 +149,60 @@ def attach_tools(base, token):
     return "UPDATED", f"{model_id} -> {', '.join(tool_ids)}"
 
 
+def restrict_models(base, token):
+    """Serve only the models 4CE routes to, and drop the evaluation arena.
+
+    Whatever the local server happens to have loaded is otherwise offered in
+    the chat model picker. On this hardware that has meant an embedding model
+    that errors the moment it is selected, and a 27B that will not fit in six
+    gigabytes and takes the machine with it. The demonstration also gains a
+    stock "Arena Model" that has nothing to do with this system. These live in
+    the application database rather than in the repository, so a rebuilt
+    database loses them unless this runs again.
+    """
+    wanted = sorted(ROUTED_MODELS)
+
+    status, config = call(base, "/openai/config", token)
+    if status != 200 or not isinstance(config, dict):
+        return "SKIPPED", "could not read the model connections"
+
+    configs = dict(config.get("OPENAI_API_CONFIGS") or {})
+    urls = config.get("OPENAI_API_BASE_URLS") or []
+    changed = False
+    for index in range(len(urls)):
+        entry = dict(configs.get(str(index)) or {})
+        if sorted(entry.get("model_ids") or []) != wanted:
+            entry["enable"] = entry.get("enable", True)
+            entry["model_ids"] = list(ROUTED_MODELS)
+            configs[str(index)] = entry
+            changed = True
+
+    if changed:
+        payload = dict(config)
+        payload["OPENAI_API_CONFIGS"] = configs
+        status, _ = call(base, "/openai/config/update", token, payload)
+        if status != 200:
+            return "FAILED", f"could not restrict the model list (status {status})"
+
+    status, evaluation = call(base, "/api/v1/evaluations/config", token)
+    if status == 200 and isinstance(evaluation, dict) and evaluation.get(
+        "ENABLE_EVALUATION_ARENA_MODELS"
+    ):
+        status, _ = call(
+            base,
+            "/api/v1/evaluations/config",
+            token,
+            {"ENABLE_EVALUATION_ARENA_MODELS": False},
+        )
+        if status != 200:
+            return "FAILED", f"could not disable the arena model (status {status})"
+        changed = True
+
+    if not changed:
+        return "OK", f"already serving only {', '.join(ROUTED_MODELS)}"
+    return "UPDATED", f"serving only {', '.join(ROUTED_MODELS)}, arena off"
+
+
 def main():
     parser = argparse.ArgumentParser(description="Install the 4CE plugin set.")
     parser.add_argument("--base", default="http://127.0.0.1:8080")
@@ -173,6 +231,8 @@ def main():
         sys.exit(1)
     state, detail = attach_tools(args.base, token)
     print(f"  {'tools -> model'.ljust(width)}  {state:<8} {detail}")
+    picker_state, picker_detail = restrict_models(args.base, token)
+    print(f"  {'model picker'.ljust(width)}  {picker_state:<8} {picker_detail}")
     if state == "FAILED":
         print("\nThe agent chain will reason unaided until the tools are attached.")
         sys.exit(1)
