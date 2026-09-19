@@ -35,6 +35,10 @@ AUDIT_SIGNALS = (
 )
 CALC_SIGNALS = ("calculate", "compute", "thickness", "pressure", "flow rate", "tonnage")
 
+# Task types a knowledge base can actually inform. Greetings and code do not
+# become better for having plant procedures pasted in front of them.
+RETRIEVING_TASKS = frozenset({"document", "vision", "analysis"})
+
 GREETINGS = {
     "hi", "hello", "hey", "yo", "hiya", "howdy", "hola", "namaste",
     "morning", "afternoon", "evening", "greetings",
@@ -153,7 +157,7 @@ class Pipe:
         trace: list[str] = []
         steps: list[dict] = []
         try:
-            return await self._run_chain(
+            answer = await self._run_chain(
                 body,
                 __user__,
                 __request__,
@@ -165,11 +169,37 @@ class Pipe:
                 trace,
                 steps,
             )
+            await self._report_usage(__metadata__, steps)
+            return answer
         except asyncio.CancelledError:
             await asyncio.shield(
                 self._record_stop(__metadata__, __event_emitter__, trace, steps)
             )
             raise
+
+    async def _report_usage(self, metadata: dict, steps: list[dict]) -> None:
+        """Record the turn's real token cost against the stored message.
+
+        Every agent call is made inside the pipe, so the platform only ever
+        sees one opaque turn. It reads usage off the pipe's return value, and a
+        pipe returns a string, so nothing is recorded: the usage and analytics
+        pages report zero tokens against a system that has just run several
+        models. Writing the total onto the message is the same route the
+        stopped-run record uses, and the platform's own later write omits the
+        key rather than clearing it.
+        """
+        usage = _usage_total(steps)
+        chat_id = (metadata or {}).get("chat_id")
+        message_id = (metadata or {}).get("message_id")
+        if not usage or not chat_id or not message_id:
+            return
+        try:
+            await Chats.upsert_message_to_chat_by_id_and_message_id(
+                chat_id, message_id, {"usage": usage}
+            )
+        except Exception:
+            # Accounting is not worth failing a delivered answer over.
+            pass
 
     async def _record_stop(
         self,
@@ -241,16 +271,25 @@ class Pipe:
         prompt = _text_of(messages[-1])
         has_image = _has_image(messages[-1])
         retrieved = _retrieved_context(messages)
+        grounding = _grounding_text(messages)
 
         user = await Users.get_user_by_id(__user__["id"])
         if user is None:
             return "4CE could not resolve the requesting user."
 
-        passages = await self._retrieve(__request__, user, __metadata__, prompt)
-        if passages:
-            retrieved = f"{retrieved}\n\n{passages}".strip() if retrieved else passages
-
         task_type, signals = _classify(prompt, has_image)
+
+        # Retrieve after classifying, and only where documents can help. An
+        # attached knowledge base is queried on every turn otherwise, so a
+        # greeting or a request for a median function arrives carrying several
+        # thousand characters of pump procedures: slower on a small card, and
+        # provenance that claims a median was grounded in plant SOPs.
+        if task_type in RETRIEVING_TASKS:
+            passages = await self._retrieve(__request__, user, __metadata__, prompt)
+            if passages:
+                retrieved = f"{retrieved}\n\n{passages}".strip() if retrieved else passages
+                grounding = f"{grounding}\n\n{passages}".strip() if grounding else passages
+
         await _status(
             __event_emitter__,
             "tony_plan",
@@ -299,6 +338,9 @@ class Pipe:
             )
             if reply["text"].startswith(_ERR):
                 return reply["text"]
+            # Recorded even though this path shows no provenance table: it is
+            # still a model call, and the turn's token accounting reads steps.
+            steps.append({**reply, "agent": "TONY", "label": "direct reply"})
             # Plain markdown, not HTML: the renderer special-cases only a handful
             # of tags and prints every other one as literal text.
             note = (
@@ -594,7 +636,7 @@ class Pipe:
                     + _provenance(
                         steps, task_type, signals, model_id, rationale, verdict, "rejected",
                         time.monotonic() - started, attempts, self.valves.show_model_thinking,
-                        trace if self.valves.show_trace else [], agent_models, tools_used, retrieved,
+                        trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
                     )
                 )
 
@@ -639,8 +681,51 @@ class Pipe:
         return deliverable + "\n\n" + _provenance(
             steps, task_type, signals, model_id, rationale, verdict, approval,
             time.monotonic() - started, attempts, self.valves.show_model_thinking,
-            trace if self.valves.show_trace else [], agent_models, tools_used, retrieved,
+            trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
         )
+
+    async def _model_collections(self, metadata: dict) -> list[str]:
+        """Knowledge bases attached to this model, read from the model itself.
+
+        The platform only folds a model's knowledge into the request when that
+        model is set to legacy function calling; a pipe is not, so `files`
+        arrives empty and the chain retrieves nothing while the workspace shows
+        a knowledge base confidently attached. Nothing errors - the answer just
+        quietly stops being grounded, which is the one failure this chain is
+        supposed to make visible. Reading the attachment from the model record
+        removes the dependency on a flag that has no bearing on retrieval.
+        """
+        model_id = (metadata or {}).get("model") or ""
+        if isinstance(model_id, dict):
+            model_id = model_id.get("id") or ""
+        if not model_id:
+            return []
+        try:
+            from open_webui.models.models import Models
+
+            record = await Models.get_model_by_id(model_id)
+        except Exception:
+            return []
+        if record is None:
+            return []
+
+        meta = getattr(record, "meta", None)
+        attached = getattr(meta, "knowledge", None) if meta is not None else None
+        if attached is None and isinstance(meta, dict):
+            attached = meta.get("knowledge")
+
+        collections: list[str] = []
+        for item in attached or []:
+            if not isinstance(item, dict):
+                continue
+            names = item.get("collection_names") or []
+            if names:
+                collections += [n for n in names if n]
+                continue
+            single = item.get("collection_name") or item.get("id")
+            if single:
+                collections.append(single)
+        return collections
 
     async def _retrieve(self, request: Any, user: Any, metadata: dict, query: str) -> str:
         """Passages from any knowledge base attached to this request.
@@ -663,6 +748,8 @@ class Pipe:
                 )
                 if single:
                     collections.append(single)
+        if not collections:
+            collections = await self._model_collections(metadata)
         collections = list(dict.fromkeys(collections))
         if not collections:
             return ""
@@ -791,12 +878,13 @@ class Pipe:
             response = await generate_chat_completion(request, form_data=payload, user=user, bypass_filter=True)
         except Exception as exc:
             return _step(f"{_ERR} local model call to '{model}' failed: {exc}", "", model, started)
+        usage = _usage_of(response)
         raw, separate_reasoning = _response_parts(response)
         if not raw.strip() and not separate_reasoning.strip():
-            return _step(f"{_ERR} local model '{model}' returned an empty response.", "", model, started)
+            return _step(f"{_ERR} local model '{model}' returned an empty response.", "", model, started, usage)
         answer, inline_thinking = _split_thinking(raw.strip())
         thinking = "\n\n".join(t for t in (separate_reasoning.strip(), inline_thinking) if t)
-        return _step(answer or raw.strip(), thinking, model, started)
+        return _step(answer or raw.strip(), thinking, model, started, usage)
 
 
 _ERR = "**4CE error:**"
@@ -1030,6 +1118,32 @@ def _retrieved_context(messages: list[dict]) -> str:
     return "\n\n".join(p for p in parts if p)
 
 
+def _grounding_text(messages: list[dict]) -> str:
+    """Only the passages retrieval actually put in front of the chain.
+
+    `_retrieved_context` returns every system message, because all of it has to
+    be carried across to the agents. That is the right input for the prompt and
+    the wrong number for the provenance table: a request with no knowledge base
+    still arrives with an ambient platform preamble, so counting system
+    characters reports grounding on every turn, including turns where nothing
+    was retrieved - the provenance row then asserts exactly the thing it exists
+    to disprove.
+
+    The platform wraps injected passages in the RAG template's `<context>`
+    block, so that block is the honest measure. No block means no retrieval.
+    """
+    found: list[str] = []
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") != "system":
+            continue
+        text = _text_of(message)
+        for chunk in re.findall(r"<context>(.*?)</context>", text, re.DOTALL):
+            chunk = chunk.strip()
+            if chunk:
+                found.append(chunk)
+    return "\n\n".join(found)
+
+
 def _text_of(message: dict) -> str:
     content = message.get("content")
     if isinstance(content, str):
@@ -1090,8 +1204,48 @@ def _parse_verdict(raw: str) -> dict:
     }
 
 
-def _step(text: str, thinking: str, model: str, started: float) -> dict:
-    return {"text": text, "thinking": thinking, "model": model, "seconds": time.monotonic() - started}
+def _step(text: str, thinking: str, model: str, started: float,
+          usage: dict | None = None) -> dict:
+    return {
+        "text": text,
+        "thinking": thinking,
+        "model": model,
+        "seconds": time.monotonic() - started,
+        "usage": usage or {},
+    }
+
+
+def _usage_of(response: Any) -> dict:
+    """The token counts the local model server reported for one agent call."""
+    payload = response
+    if isinstance(payload, list) and len(payload) == 1:
+        payload = payload[0]
+    if not isinstance(payload, dict):
+        return {}
+    usage = payload.get("usage")
+    return usage if isinstance(usage, dict) else {}
+
+
+def _usage_total(steps: list[dict]) -> dict:
+    """Add up a run's agent calls so the turn reports what it actually cost.
+
+    A pipe owns the whole turn, so the platform never sees the individual
+    completions and records nothing: every chat shows zero tokens, and the
+    usage and analytics pages report a system that apparently does no work.
+    The chain knows the real numbers - it just has to hand them back.
+    """
+    prompt = completion = 0
+    for step in steps:
+        usage = step.get("usage") or {}
+        prompt += int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
+        completion += int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
+    if not (prompt or completion):
+        return {}
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": prompt + completion,
+    }
 
 
 def _split_thinking(raw: str) -> tuple[str, str]:
@@ -1116,7 +1270,7 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
                 rationale: str, verdict: dict, approval: str, elapsed: float,
                 attempts: int, include_thinking: bool, trace: list[str],
                 agent_models: dict, tools_used: list[str] | None = None,
-                retrieved: str = "") -> str:
+                grounding: str = "") -> str:
     """A compact provenance table plus the reasoning behind each decision."""
     timings = " · ".join(
         f"{s['agent'].title()} {s['seconds']:.0f}s" for s in steps if s.get("seconds")
@@ -1131,9 +1285,9 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
         ("Elapsed", f"{elapsed:.0f}s" + (f" · {timings}" if timings else "")),
         (
             "Grounding",
-            f"{len(retrieved):,} characters of supplied context reached FRIDAY"
-            if retrieved
-            else "none - no knowledge base attached, answered from the request alone",
+            f"{len(grounding):,} characters of retrieved passages reached FRIDAY"
+            if grounding
+            else "none — nothing retrieved, answered from the request alone",
         ),
         (
             "Tools run",
