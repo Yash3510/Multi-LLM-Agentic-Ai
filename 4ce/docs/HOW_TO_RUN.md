@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **LM Studio** running with models loaded (serves on `http://localhost:1234`)
+- **Bionic** running with models loaded (serves on `http://localhost:1234`)
 - **Conda** (Anaconda/Miniconda) installed
 - The `owui` conda environment set up (one-time, see below)
 
@@ -34,15 +34,15 @@ Edit `.env` if needed (e.g. change `WEBUI_SECRET_KEY`).
 
 ## Starting the Server
 
-### 1. Make sure LM Studio is running
+### 1. Make sure Bionic is running
 
-Open LM Studio and load your models. The config expects:
+Open Bionic and load your models. The config expects:
 - A chat/vision model (e.g. `qwen3-vl-4b`)
 - A small chat/coding model (e.g. `qwen3-1.7b`), which ULTRON uses so that
   verification does not run on the same weights as the work it is checking
 - An embedding model (`text-embedding-nomic-embed-text-v1.5`)
 
-**Load them at 8192 context, not more.** LM Studio remembers a context length
+**Load them at 8192 context, not more.** Bionic remembers a context length
 per model and will reload a 4B model at 65,536 tokens given the chance. On a
 6 GB card that key/value cache does not fit, the runtime spills it to system
 memory, and nothing reports an error - the system is simply slow. Measured on
@@ -139,8 +139,8 @@ pkill -f "open-webui serve"
 | Problem | Fix |
 |---|---|
 | `curl http://127.0.0.1:8080/health` returns nothing | Server still starting — wait 20–30 s |
-| Models not showing in model picker | Check LM Studio is running and `OPENAI_API_BASE_URL` in `.env` points to `http://localhost:1234/v1` |
-| Vision requests time out | Reload the vision model in LM Studio with a context length of ~8192 (reduces VRAM usage) |
+| Models not showing in model picker | Check Bionic is running and `OPENAI_API_BASE_URL` in `.env` points to `http://localhost:1234/v1` |
+| Vision requests time out | Reload the vision model in Bionic with a context length of ~8192 (reduces VRAM usage) |
 | Plugin install fails | Make sure the server is up (`/health` returns 200) before running `install.py` |
 | Sandbox tool fails | Docker must be running on the host (not inside a container). Pre-pull: `docker pull python:3.12-alpine` |
 

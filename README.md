@@ -68,7 +68,7 @@ content stripped out of the deliverable and shown separately.
 
 ## Quick start
 
-Requires a local OpenAI-compatible model server (LM Studio, Bionic Studio) on
+Requires a local OpenAI-compatible model server (Bionic, or any equivalent) on
 `http://localhost:1234`.
 
 ```bash
@@ -112,7 +112,7 @@ See [`4ce/README.md`](4ce/README.md) for the valve reference and design notes.
 
 ## Verification status
 
-Verified against a running instance with LM Studio serving `qwen3-vl-4b`,
+Verified against a running instance with Bionic serving `qwen3-vl-4b`,
 `qwen3-1.7b` and `text-embedding-nomic-embed-text-v1.5`.
 
 | Capability | Status |

@@ -139,7 +139,7 @@ browser-side Pyodide default is weaker than this sandbox and muddies the story.
 
 ## Verification status
 
-Verified against a running instance with LM Studio serving `qwen3-vl-4b`,
+Verified against a running instance with Bionic serving `qwen3-vl-4b`,
 `qwen3-1.7b` and `text-embedding-nomic-embed-text-v1.5`:
 
 | Capability | Status |
