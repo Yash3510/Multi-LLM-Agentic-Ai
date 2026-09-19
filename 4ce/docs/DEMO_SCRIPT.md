@@ -34,15 +34,18 @@ shows the cost is being spent deliberately.
 
 > What is the acceptable mechanical seal leakage rate under SOP-MEC-014, and what must happen if it is exceeded?
 
-**~100 s. The slowest prompt — set expectations before pressing enter.**
+**~115 s. The slowest prompt — set expectations before pressing enter.**
 
 The answer quotes clause 2.1 and clause 2.2 verbatim, including the thirty-day
 replacement requirement, from a document indexed locally. Open the provenance
 table and point at **Grounding**: it reports the number of characters of
-retrieved context that actually reached the grounding agent.
+retrieved passages that actually reached the grounding agent - about 3,200 here.
 
 Say: that row exists because the honest failure mode here is an answer that
-looks grounded and is not. It is reported rather than assumed.
+looks grounded and is not. It is reported rather than assumed - and it reports
+**none** rather than a number when nothing was retrieved, which is what P4 shows.
+Retrieval only runs where documents can help, so a code prompt is not silently
+padded with plant procedures.
 
 If time is tight, skip this one — P3 covers document handling faster.
 
@@ -71,14 +74,19 @@ Say: the gate fails closed. An empty box, a wrong word or a cancel all withhold.
 
 > Write a Python function that returns the median of a list and print it for [5, 3, 9, 1, 7].
 
-**~20–50 s. Routes to `qwen3-1.7b` — a different model from P3.**
+**~30–60 s. Routes to `qwen3-1.7b` — a different model from P3.**
 
 Two things to point at. The sandbox block shows `--network none`, `--read-only`,
 `--cap-drop ALL`, and **stdout: 5** — real output from a container, not a claim.
 And after approval, a `.py` file you can download and run.
 
 Say: this is the multi-model criterion. Same request pipeline, different task
-type, different model, and the routing rationale is printed.
+type, different model, and the routing rationale is printed. Grounding on this
+one reads **none**, which is the same row as P2 telling the truth in the other
+direction.
+
+The saved file is named after what the code defines - `calculate_median.py` -
+rather than after the sentence that asked for it.
 
 Keep code prompts simple. The small model handles this reliably; asked for
 something like an ISO 10816 zone converter it produced prose and no code at all.
@@ -106,7 +114,8 @@ network cable and re-run the demo — it still works.
 
 > Give me the P-101B readings as a CSV file: seal leak 18 drops/min, vibration 7.1 mm/s, bearing temperature 71 C.
 
-**~30 s.** Produces a real `.csv`. Worth opening: the last column carries the SOP
+**~38 s.** Produces a real `.csv`, named `p101b_readings_as_a_csv.csv`. Worth
+opening: the last column carries the SOP
 verdict the deterministic tool decided, so the spreadsheet inherits the
 clause-cited assessment rather than the model's opinion.
 
@@ -149,3 +158,31 @@ done by an authored rule pack and not by a model.
 **"Can we see it fail safely?"** The withheld-deliverable path in P3, and the
 Stop button mid-run, which records what completed and states that nothing was
 released.
+
+---
+
+## Reading the provenance table
+
+Two rows say something specific, and a sharp reader will test them.
+
+**Elapsed** is *working* time. The wait while a reviewer reads the deliverable
+and types APPROVE is excluded, because that is the reviewer's time and counting
+it made a forty-second task report two minutes.
+
+**Tools run** lists only the tools that acted on this request. The SOP rule pack
+runs when the request carries measurements, or when a scanned page supplies
+them; it does not run on a sovereignty audit, which has nothing to compare.
+
+## If something looks wrong on the day
+
+`python 4ce/preflight.py --fix` restores the model loads. `python 4ce/install.py`
+restores the plugins, the tool attachment, and the restricted model picker - the
+last of those lives in the application database rather than in the repository,
+so a rebuilt database needs it.
+
+The one failure seen in rehearsal that neither command prevents is a code answer
+truncated mid-block: the per-agent token ceiling is `max_tokens` (900) in the
+orchestrator's valves, and a model that reasons at length before answering can
+run out of room. It shows as an unterminated code fence and an ULTRON failure.
+Re-running the prompt is usually enough; raising the valve trades speed for
+headroom.
