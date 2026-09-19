@@ -4,7 +4,6 @@
 
 	const i18n = getContext('i18n');
 
-	import { getGravatarUrl } from '$lib/apis/utils';
 	import { canvasPixelTest, generateInitialsImage } from '$lib/utils';
 
 	import { WEBUI_BASE_URL } from '$lib/constants';
@@ -158,16 +157,9 @@
 						}
 					}}>{$i18n.t('Initials')}</button
 				>
-				<span class="text-[0.6875rem] text-gray-300 dark:text-gray-700">·</span>
-				<button
-					class="text-[0.6875rem] text-gray-500 transition-colors duration-100 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
-					type="button"
-					on:click={async () => {
-						const url = await getGravatarUrl(localStorage.token, user?.email);
-
-						profileImageUrl = url;
-					}}>{$i18n.t('Gravatar')}</button
-				>
+				<!-- 4CE: Gravatar is not offered. It resolves an avatar by sending a
+				hash of the account's email address to a third-party service, which
+				is an outbound call this deployment does not make. -->
 			</div>
 		</div>
 	</div>
@@ -232,16 +224,7 @@
 					}
 				}}>{$i18n.t('Initials')}</button
 			>
-
-			<button
-				class="rounded-lg py-0.5 text-center text-xs text-gray-600 opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100 dark:text-gray-400"
-				type="button"
-				on:click={async () => {
-					const url = await getGravatarUrl(localStorage.token, user?.email);
-
-					profileImageUrl = url;
-				}}>{$i18n.t('Gravatar')}</button
-			>
+			<!-- 4CE: Gravatar is not offered here either; see the note above. -->
 		</div>
 	</div>
 {/if}

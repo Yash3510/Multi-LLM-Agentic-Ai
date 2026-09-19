@@ -196,7 +196,10 @@
 						placeholder={$i18n.t('Select an engine')}
 					>
 						<option value="">{$i18n.t('Default')}</option>
-						<option value="web">{$i18n.t('Web API')}</option>
+						<!-- 4CE: the browser Web Speech API is not offered. On Chromium it
+						streams microphone audio to a vendor speech service, which would
+						take confidential dictation off the premises from a settings menu.
+						Transcription stays on the local Whisper engine. -->
 					</SettingsSelect>
 				</UserSettingRow>
 
