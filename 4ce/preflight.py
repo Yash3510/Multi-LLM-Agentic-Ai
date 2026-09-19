@@ -7,7 +7,7 @@ Check that a machine is actually ready to run 4CE, and say what is not.
 Run this before a demo. Every check here exists because it failed once and cost
 real time to diagnose.
 
-The model context length is the one worth understanding. LM Studio remembers a
+The model context length is the one worth understanding. Bionic remembers a
 context length per model and will happily reload a 4B model at 65,536 tokens.
 On a 6 GB card that key/value cache does not fit, the runtime spills it to
 system memory, and generation drops to a crawl - a vision task that takes two
@@ -31,7 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 
-LM_STUDIO = "http://127.0.0.1:1234"
+MODEL_SERVER = "http://127.0.0.1:1234"
 BACKEND = "http://127.0.0.1:8080"
 SANDBOX_IMAGE = "python:3.12-alpine"
 
@@ -44,6 +44,11 @@ TOOL_IDS = ("ace_sandbox", "ace_deliverables", "ace_sovereignty", "ace_sop_check
 FUNCTION_ID = "ace_orchestrator"
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
+
+# Decode subprocess output as UTF-8 regardless of the console code page.
+# On a cp1252 console the default decode raises inside subprocess's reader
+# thread, printing a traceback above a report that otherwise passes.
+_TEXT = {"encoding": "utf-8", "errors": "replace"}
 
 
 class Report:
@@ -87,7 +92,11 @@ def post_json(url: str, payload: dict, token: str | None = None, timeout: int = 
 
 
 def find_lms() -> str | None:
-    """The LM Studio CLI, which is not usually on PATH."""
+    """The model server's CLI, which is not usually on PATH.
+
+    Bionic is the rebranded successor to LM Studio and kept the old names
+    on disk, so the binary is still `lms` under a `.lmstudio` directory.
+    """
     found = shutil.which("lms")
     if found:
         return found
@@ -103,7 +112,7 @@ def load_model(lms: str, model: str, context: int | None) -> tuple[bool, str]:
     command = [lms, "load", model, "--gpu", "max", "-y"]
     if context:
         command += ["-c", str(context)]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=600)
+    result = subprocess.run(command, capture_output=True, text=True, timeout=600, **_TEXT)
     if result.returncode != 0:
         return False, (result.stderr or result.stdout).strip().splitlines()[-1:][0] if (result.stderr or result.stdout).strip() else "load failed"
     return True, "loaded"
@@ -111,9 +120,9 @@ def load_model(lms: str, model: str, context: int | None) -> tuple[bool, str]:
 
 def check_models(report: Report, fix: bool) -> None:
     try:
-        models = get_json(f"{LM_STUDIO}/api/v0/models")["data"]
+        models = get_json(f"{MODEL_SERVER}/api/v0/models")["data"]
     except Exception as exc:
-        report.add(FAIL, "Model server", f"{LM_STUDIO} unreachable ({exc}). Start LM Studio's server.")
+        report.add(FAIL, "Model server", f"{MODEL_SERVER} unreachable ({exc}). Start Bionic's server.")
         return
 
     by_id = {m.get("id"): m for m in models}
@@ -124,7 +133,7 @@ def check_models(report: Report, fix: bool) -> None:
         wanted = None if model == EMBEDDING_MODEL else MAX_CONTEXT
 
         if entry is None:
-            report.add(FAIL, model, "not installed in LM Studio")
+            report.add(FAIL, model, "not installed in Bionic")
             continue
 
         loaded = entry.get("state") == "loaded"
@@ -137,15 +146,15 @@ def check_models(report: Report, fix: bool) -> None:
 
         why = f"loaded at {context}, which will not fit in VRAM" if too_big else "not loaded"
         if not fix:
-            hint = "re-run with --fix" if lms else "install the LM Studio CLI, or load it in the app"
+            hint = "re-run with --fix" if lms else "install the Bionic CLI, or load it in the app"
             report.add(FAIL, model, f"{why} - {hint}")
             continue
         if not lms:
-            report.add(FAIL, model, f"{why} - LM Studio CLI not found, load it in the app")
+            report.add(FAIL, model, f"{why} - Bionic CLI not found, load it in the app")
             continue
 
         if too_big:
-            subprocess.run([lms, "unload", model], capture_output=True, text=True)
+            subprocess.run([lms, "unload", model], capture_output=True, text=True, **_TEXT)
         ok, detail = load_model(lms, model, wanted)
         report.add(PASS if ok else FAIL, model, f"reloaded at {wanted}" if ok and wanted else detail)
 
@@ -154,7 +163,7 @@ def check_docker(report: Report) -> None:
     if not shutil.which("docker"):
         report.add(FAIL, "Docker", "not on PATH - the sandbox cannot run")
         return
-    probe = subprocess.run(["docker", "info", "--format", "{{.ServerVersion}}"], capture_output=True, text=True)
+    probe = subprocess.run(["docker", "info", "--format", "{{.ServerVersion}}"], capture_output=True, text=True, **_TEXT)
     if probe.returncode != 0:
         report.add(FAIL, "Docker", "daemon not responding - start Docker Desktop")
         return
@@ -162,7 +171,7 @@ def check_docker(report: Report) -> None:
 
     images = subprocess.run(
         ["docker", "images", SANDBOX_IMAGE, "--format", "{{.Repository}}:{{.Tag}}"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, **_TEXT,
     )
     if SANDBOX_IMAGE in images.stdout:
         report.add(PASS, "Sandbox image", SANDBOX_IMAGE)
