@@ -172,10 +172,25 @@ class Pipe:
             await self._report_usage(__metadata__, steps)
             return answer
         except asyncio.CancelledError:
+            # One shield around both writes, not two. Awaiting a shield in an
+            # already-cancelled task re-raises CancelledError as soon as the
+            # inner coroutine finishes, so a second shielded await after it is
+            # never reached and the stopped run records no token cost.
             await asyncio.shield(
-                self._record_stop(__metadata__, __event_emitter__, trace, steps)
+                self._record_stopped_turn(__metadata__, __event_emitter__, trace, steps)
             )
             raise
+
+    async def _record_stopped_turn(
+        self,
+        metadata: dict,
+        emitter: Callable[[dict], Awaitable[None]] | None,
+        trace: list[str],
+        steps: list[dict],
+    ) -> None:
+        """Everything a stopped run still owes: the record, and what it spent."""
+        await self._record_stop(metadata, emitter, trace, steps)
+        await self._report_usage(metadata, steps)
 
     async def _report_usage(self, metadata: dict, steps: list[dict]) -> None:
         """Record the turn's real token cost against the stored message.
@@ -233,6 +248,11 @@ class Pipe:
         # both on screen and after a reload. Either may fail mid-cancellation.
         try:
             if emitter:
+                # Close the status line first. It is left mid-sentence on the
+                # agent that was running, so without this the bubble reads
+                # "JARVIS: producing the deliverable" directly above a message
+                # saying the run was stopped and produced nothing.
+                await _status(emitter, "stopped", "Stopped by reviewer", done=True)
                 await emitter({"type": "replace", "data": {"content": content}})
         except Exception:
             pass
