@@ -100,8 +100,16 @@ something like an ISO 10816 zone converter it produced prose and no code at all.
 **~30 s.**
 
 `verify_sovereignty` reads the *running* configuration and returns a pass/fail
-table — 11 of 11 on this build. It is not the model describing what it imagines
+table — 18 of 18 on this build. It is not the model describing what it imagines
 the configuration to be.
+
+The eighteen cover the model and embedding endpoints, the extraction engine,
+telemetry, update checks, community sharing, web search, **web page fetching,
+image generation and editing, speech to text, text to speech, external tool
+servers and terminal servers**. The last seven were added after an audit that
+read 11 of 11 turned out not to be looking at them — the interface still offered
+"Attach Webpage", which hands the server a URL and has it fetch the page. That
+action is now withdrawn, and the audit checks that it is.
 
 Be ready for the obvious question, and answer it before it is asked: this reads
 configuration, not packets. A process could open a socket it never declared.

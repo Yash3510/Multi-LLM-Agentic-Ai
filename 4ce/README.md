@@ -151,7 +151,7 @@ Verified against a running instance with Bionic serving `qwen3-vl-4b`,
 | Human approval | Verified in the browser — approve releases, reject and empty-box both withhold |
 | Sandboxed code execution | Verified — 6/6 checks including blocked network, read-only workspace, enforced timeout |
 | Word deliverables | Verified — 7/7 checks, valid OOXML with content and classification banner |
-| Sovereignty audit | Verified — 6/6 checks, 11/11 surfaces pass on the demo configuration |
+| Sovereignty audit | Verified — 6/6 checks, 18/18 surfaces pass on the demo configuration |
 | Local RAG | Verified — upload, embed, index and query in ~0.3 s, and a grounded answer citing SOP thresholds |
 | **Multimodal / vision** | **Not yet verified** — see below |
 
