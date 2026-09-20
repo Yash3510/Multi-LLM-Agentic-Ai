@@ -8,6 +8,7 @@ description: Sovereign multi-agent orchestrator. TONY classifies and routes, FRI
 import ast
 import asyncio
 import inspect
+import json
 import re
 import time
 from typing import Any, Awaitable, Callable
@@ -367,6 +368,7 @@ class Pipe:
                 system=_TONY_CHAT_SYSTEM, instruction=prompt,
             )
             if reply["text"].startswith(_ERR):
+                await _status(__event_emitter__, "error", "Run failed", done=True)
                 return reply["text"]
             # Recorded even though this path shows no provenance table: it is
             # still a model call, and the turn's token accounting reads steps.
@@ -460,6 +462,7 @@ class Pipe:
             )
             analysis = friday["text"]
             if analysis.startswith(_ERR):
+                await _status(__event_emitter__, "error", "Run failed", done=True)
                 return analysis
             steps.append({**friday, "agent": "FRIDAY", "label": f"analysis{round_label}"})
             trace.append(f"**FRIDAY** analysed the request in {friday['seconds']:.1f}s.")
@@ -539,6 +542,7 @@ class Pipe:
             )
             deliverable = jarvis["text"]
             if deliverable.startswith(_ERR):
+                await _status(__event_emitter__, "error", "Run failed", done=True)
                 return deliverable
             steps.append({**jarvis, "agent": "JARVIS", "label": f"deliverable{round_label}"})
             trace.append(f"**JARVIS** produced the deliverable in {jarvis['seconds']:.1f}s.")
@@ -918,11 +922,23 @@ class Pipe:
         try:
             response = await generate_chat_completion(request, form_data=payload, user=user, bypass_filter=True)
         except Exception as exc:
-            return _step(f"{_ERR} local model call to '{model}' failed: {exc}", "", model, started)
+            return _step(
+                f"{_ERR} local model call to '{model}' failed: {_explain(exc)}",
+                "", model, started,
+            )
         usage = _usage_of(response)
         raw, separate_reasoning = _response_parts(response)
         if not raw.strip() and not separate_reasoning.strip():
-            return _step(f"{_ERR} local model '{model}' returned an empty response.", "", model, started, usage)
+            # An upstream refusal arrives here as a reply with no content, so
+            # reporting "empty response" sends the reader to restart the model
+            # server when the actual cause is in the payload - most often a
+            # prompt longer than the context the model was loaded at.
+            detail = _explain(response)
+            return _step(
+                f"{_ERR} local model '{model}' returned no content"
+                + (f" — {detail}" if detail else "."),
+                "", model, started, usage,
+            )
         answer, inline_thinking = _split_thinking(raw.strip())
         thinking = "\n\n".join(t for t in (separate_reasoning.strip(), inline_thinking) if t)
         return _step(answer or raw.strip(), thinking, model, started, usage)
@@ -1332,6 +1348,59 @@ def _step(text: str, thinking: str, model: str, started: float,
         "seconds": time.monotonic() - started,
         "usage": usage or {},
     }
+
+
+def _explain(payload: Any) -> str:
+    """The most useful sentence available about why a model call went wrong.
+
+    Bionic reports a refusal precisely - "request (10258 tokens) exceeds the
+    available context size (8192 tokens)" names the problem and the fix. That
+    text survives in the response or the exception, and is worth far more to
+    whoever is standing in front of the screen than a generic failure.
+    """
+    seen: list[str] = []
+
+    def dig(node: Any, depth: int = 0) -> None:
+        if depth > 4 or len(seen) > 3:
+            return
+        if isinstance(node, str):
+            text = node.strip()
+            if text and text not in seen:
+                seen.append(text)
+            return
+        if isinstance(node, dict):
+            for key in ("message", "detail", "error", "msg"):
+                if key in node:
+                    dig(node[key], depth + 1)
+            return
+        if isinstance(node, list):
+            for item in node[:2]:
+                dig(item, depth + 1)
+
+    if isinstance(payload, BaseException):
+        dig(getattr(payload, "detail", None))
+        if not seen:
+            seen.append(str(payload).strip())
+    else:
+        # A refused call comes back as a starlette JSONResponse rather than the
+        # usual dict, so the reason is in its encoded body and invisible to
+        # anything that only knows how to read a mapping.
+        body = getattr(payload, "body", None)
+        if isinstance(body, (bytes, bytearray)):
+            try:
+                dig(json.loads(body.decode("utf-8", "replace")))
+            except Exception:
+                dig(body.decode("utf-8", "replace"))
+        dig(payload)
+
+    best = next((t for t in seen if t), "")
+    # The upstream often nests its own JSON inside the message; the innermost
+    # human sentence is the one worth showing.
+    match = re.search(r'"message"\s*:\s*"([^"]{10,400})"', best)
+    if match:
+        best = match.group(1)
+    best = " ".join(best.split()).strip()
+    return best[:300]
 
 
 def _usage_of(response: Any) -> dict:

@@ -188,6 +188,12 @@ restores the plugins, the tool attachment, and the restricted model picker - the
 last of those lives in the application database rather than in the repository,
 so a rebuilt database needs it.
 
+If someone pastes a long document into the prompt, the turn fails and says so:
+*"returned no content — request (10258 tokens) exceeds the available context
+size (8192 tokens)"*. That is the models being loaded at 8192 on purpose, not a
+fault. Attach the file instead of pasting it — retrieval sends only the passages
+that matter, which is the whole point of P2.
+
 The one failure seen in rehearsal that neither command prevents is a code answer
 truncated mid-block: the per-agent token ceiling is `max_tokens` (900) in the
 orchestrator's valves, and a model that reasons at length before answering can
