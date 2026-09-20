@@ -48,6 +48,13 @@ COURTESIES = {
     "thanks", "thank you", "thankyou", "ta", "cheers", "ok", "okay", "k", "cool",
     "nice", "great", "perfect", "got it", "understood", "sure", "yes", "no",
     "bye", "goodbye", "see you", "good night", "test", "testing",
+    # Short fillers said out loud while presenting. Without these a throwaway
+    # remark is classified as work: it convenes the chain, spends a minute and
+    # then asks a human to approve whatever it invented from two words.
+    "and again", "again", "once more", "go on", "carry on", "continue",
+    "next", "same again", "one more", "and", "so", "right", "fine", "alright",
+    "indeed", "exactly", "correct", "wonderful", "excellent", "brilliant",
+    "lovely", "hmm", "hm", "ah", "oh", "i see", "makes sense", "noted",
 }
 META_QUESTIONS = (
     "who are you", "what are you", "what can you do", "what do you do",
@@ -127,7 +134,10 @@ class Pipe:
         )
         show_model_thinking: bool = Field(
             default=True,
-            description="Include the model's own <think> content in each agent's reasoning section.",
+            # No angle brackets: the valve panel renders descriptions as HTML,
+            # so a literal <think> is parsed as a tag and silently dropped,
+            # leaving "the model's own content" and no hint of what is meant.
+            description="Include the model's own think-block content in each agent's reasoning section.",
         )
 
     def __init__(self):
