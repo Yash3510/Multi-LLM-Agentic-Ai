@@ -32,7 +32,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 
 MODEL_SERVER = "http://127.0.0.1:1234"
-BACKEND = "http://127.0.0.1:8080"
+# Default only; --base overrides it, so a second instance can be checked
+# without editing this file.
+DEFAULT_BACKEND = "http://127.0.0.1:8080"
 SANDBOX_IMAGE = "python:3.12-alpine"
 
 # Context length 4CE loads these at. Larger is not better here: it is slower.
@@ -179,23 +181,23 @@ def check_docker(report: Report) -> None:
         report.add(FAIL, "Sandbox image", f"{SANDBOX_IMAGE} missing - run: docker pull {SANDBOX_IMAGE}")
 
 
-def check_backend(report: Report, email: str, password: str) -> None:
+def check_backend(report: Report, backend: str, email: str, password: str) -> None:
     try:
-        get_json(f"{BACKEND}/health")
+        get_json(f"{backend}/health")
     except Exception:
-        report.add(FAIL, "Backend", f"{BACKEND} unreachable - start it before demoing")
+        report.add(FAIL, "Backend", f"{backend} unreachable - start it before demoing")
         return
-    report.add(PASS, "Backend", BACKEND)
+    report.add(PASS, "Backend", backend)
 
     try:
-        token = post_json(f"{BACKEND}/api/v1/auths/signin", {"email": email, "password": password})["token"]
+        token = post_json(f"{backend}/api/v1/auths/signin", {"email": email, "password": password})["token"]
     except Exception:
         report.add(FAIL, "Admin sign-in", f"{email} rejected - run 4ce/install.py first")
         return
     report.add(PASS, "Admin sign-in", email)
 
     try:
-        installed = {t["id"] for t in get_json(f"{BACKEND}/api/v1/tools/", token)}
+        installed = {t["id"] for t in get_json(f"{backend}/api/v1/tools/", token)}
     except Exception:
         installed = set()
     missing = [t for t in TOOL_IDS if t not in installed]
@@ -204,14 +206,14 @@ def check_backend(report: Report, email: str, password: str) -> None:
     else:
         report.add(PASS, "Tools installed", f"{len(TOOL_IDS)} of {len(TOOL_IDS)}")
 
-    served = [m.get("id", "") for m in get_json(f"{BACKEND}/api/models", token).get("data", [])]
+    served = [m.get("id", "") for m in get_json(f"{backend}/api/models", token).get("data", [])]
     model_id = next((m for m in served if m.startswith(FUNCTION_ID + ".")), None)
     if not model_id:
         report.add(FAIL, "Orchestrator model", "not served - run 4ce/install.py")
         return
     report.add(PASS, "Orchestrator model", model_id)
 
-    record = get_json(f"{BACKEND}/api/v1/models/model?id={model_id}", token) or {}
+    record = get_json(f"{backend}/api/v1/models/model?id={model_id}", token) or {}
     attached = (record.get("meta") or {}).get("toolIds") or []
     if sorted(attached) == sorted(TOOL_IDS):
         report.add(PASS, "Tools attached", "the chain can call all four")
@@ -222,10 +224,10 @@ def check_backend(report: Report, email: str, password: str) -> None:
             "the chain will reason unaided - run 4ce/install.py",
         )
 
-    check_knowledge(report, record, token)
+    check_knowledge(report, backend, record, token)
 
     try:
-        valves = get_json(f"{BACKEND}/api/v1/functions/id/{FUNCTION_ID}/valves", token) or {}
+        valves = get_json(f"{backend}/api/v1/functions/id/{FUNCTION_ID}/valves", token) or {}
     except Exception:
         valves = {}
     if valves.get("require_approval") is False:
@@ -233,7 +235,7 @@ def check_backend(report: Report, email: str, password: str) -> None:
     else:
         report.add(PASS, "Approval gate", "on")
 
-    audio = get_json(f"{BACKEND}/api/v1/audio/config", token)
+    audio = get_json(f"{backend}/api/v1/audio/config", token)
     engine = (audio.get("stt") or {}).get("ENGINE") or ""
     if engine == "":
         cached = (ROOT.parent / "backend" / "data" / "cache" / "whisper" / "models").exists()
@@ -245,7 +247,7 @@ def check_backend(report: Report, email: str, password: str) -> None:
         report.add(WARN, "Speech to text", f"engine '{engine}' - check it does not leave the machine")
 
 
-def check_knowledge(report: Report, record: dict, token: str) -> None:
+def check_knowledge(report: Report, backend: str, record: dict, token: str) -> None:
     """Whether the chain can still be grounded in the plant's own documents.
 
     Nothing errors when this breaks. Retrieval returns nothing, the agents
@@ -274,7 +276,7 @@ def check_knowledge(report: Report, record: dict, token: str) -> None:
         name = item.get("name") or item.get("id") or "?"
         names.append(name)
         try:
-            detail = get_json(f"{BACKEND}/api/v1/knowledge/{item.get('id')}", token) or {}
+            detail = get_json(f"{backend}/api/v1/knowledge/{item.get('id')}", token) or {}
         except Exception:
             detail = {}
         if detail.get("name") is None:
@@ -293,6 +295,8 @@ def check_knowledge(report: Report, record: dict, token: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Check a machine is ready to run 4CE.")
     parser.add_argument("--fix", action="store_true", help="load the models 4CE needs, at the context length it needs")
+    parser.add_argument("--base", default=DEFAULT_BACKEND,
+                        help="the 4CE backend to check, e.g. http://127.0.0.1:8081")
     parser.add_argument("--email", default="admin@4ce.local")
     parser.add_argument("--password", default="4ce-demo-password")
     args = parser.parse_args()
@@ -301,7 +305,7 @@ def main() -> None:
     report = Report()
     check_models(report, args.fix)
     check_docker(report)
-    check_backend(report, args.email, args.password)
+    check_backend(report, args.base.rstrip("/"), args.email, args.password)
     sys.exit(report.render())
 
 

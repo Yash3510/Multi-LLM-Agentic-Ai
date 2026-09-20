@@ -93,6 +93,9 @@ unaided: no threshold arithmetic, no sandboxed execution and no `.docx`.
 ```bash
 python 4ce/preflight.py          # report
 python 4ce/preflight.py --fix    # also load the models the way 4CE needs
+
+# --base checks a different instance, matching install.py
+python 4ce/preflight.py --base http://127.0.0.1:8081
 ```
 
 It checks the models are loaded at a context length that fits, Docker is up
