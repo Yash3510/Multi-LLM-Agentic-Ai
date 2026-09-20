@@ -1,0 +1,16 @@
+{
+  "showUnsupportedFiles": false,
+  "userIgnoreFilters": [
+    "node_modules/",
+    "build/",
+    ".svelte-kit/",
+    "static/",
+    "src/",
+    "backend/",
+    "cypress/",
+    "test/",
+    "scripts/",
+    "kubernetes/",
+    "docs/apidocs/"
+  ]
+}
