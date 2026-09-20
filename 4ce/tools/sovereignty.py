@@ -20,6 +20,13 @@ LOCAL_HOSTNAMES = {
     "ollama", "tika", "docling", "chroma", "qdrant", "redis", "db", "postgres",
 }
 
+# Whether the interface still offers "Attach Webpage", which hands the server a
+# URL to retrieve. The built-in fetcher has no configuration switch, so this is
+# the only thing there is to check: it is governed by whether the action is
+# present in the input menu. Set from the fork's own frontend, and it must be
+# changed in step with `src/lib/components/chat/MessageInput/InputMenu.svelte`.
+WEB_PAGE_ATTACH_OFFERED = False
+
 
 class Tools:
     class Valves(BaseModel):
@@ -82,6 +89,13 @@ class Tools:
             "openai.api_base_urls", "ollama.base_urls", "rag.embedding_engine",
             "rag.content_extraction_engine", "rag.openai.api_base_url", "rag.ollama.base_url",
             "web.search.enable", "ui.enable_community_sharing",
+            "web.loader.engine", "web.loader.external_web_loader_url",
+            "image_generation.enable", "image_generation.engine",
+            "image_generation.openai.api_base_url", "image_generation.gemini.api_base_url",
+            "images.edit.enable", "images.edit.engine", "images.edit.openai.api_base_url",
+            "audio.stt.engine", "audio.stt.openai.api_base_url",
+            "audio.tts.engine", "audio.tts.openai.api_base_url",
+            "tool_server.connections", "terminal_server.connections",
         )
 
         for label, key in (
@@ -133,6 +147,72 @@ class Tools:
             not web_search,
             "disabled" if not web_search else "ENABLED — queries would leave the premises",
         ))
+
+        # Fetching a page is egress even when no search engine is configured:
+        # "Attach Webpage" hands the server a URL and it retrieves it. There is
+        # no switch for the built-in fetcher, so the honest check is whether the
+        # action has been withdrawn from the interface that reaches it.
+        loader_engine = (settings.get("web.loader.engine") or "").strip()
+        loader_external = (settings.get("web.loader.external_web_loader_url") or "").strip()
+        findings.append((
+            "Web page fetching",
+            not WEB_PAGE_ATTACH_OFFERED and not loader_external,
+            (
+                "OFFERED — 'Attach Webpage' would fetch a URL from this server"
+                if WEB_PAGE_ATTACH_OFFERED
+                else f"external loader configured: {loader_external}"
+                if loader_external
+                else "withdrawn from the interface"
+                + (f"; loader engine '{loader_engine}'" if loader_engine else "")
+            ),
+        ))
+
+        for label, enable_key, engine_key, url_keys in (
+            ("Image generation", "image_generation.enable", "image_generation.engine",
+             ("image_generation.openai.api_base_url", "image_generation.gemini.api_base_url")),
+            ("Image editing", "images.edit.enable", "images.edit.engine",
+             ("images.edit.openai.api_base_url",)),
+        ):
+            enabled = bool(settings.get(enable_key))
+            remote = [settings.get(k) for k in url_keys]
+            remote = [u for u in remote if u and not self._is_local(u)]
+            findings.append((
+                label,
+                not enabled and not remote,
+                "disabled, no endpoint configured" if not enabled and not remote
+                else f"ENABLED via '{settings.get(engine_key)}'" if enabled
+                else "disabled, but an external endpoint is configured: " + ", ".join(remote),
+            ))
+
+        for label, engine_key, url_key, local_meaning in (
+            ("Speech to text", "audio.stt.engine", "audio.stt.openai.api_base_url",
+             "local whisper, in-process"),
+            ("Text to speech", "audio.tts.engine", "audio.tts.openai.api_base_url",
+             "browser voices, nothing sent"),
+        ):
+            engine_name = (settings.get(engine_key) or "").strip()
+            url = (settings.get(url_key) or "").strip()
+            remote_url = bool(url) and not self._is_local(url)
+            local_engine = engine_name in ("", "browser-kokoro", "transformers")
+            findings.append((
+                label,
+                local_engine and not remote_url,
+                local_meaning if local_engine and not remote_url
+                else f"engine '{engine_name}' — LEAVES THE PREMISES" if not local_engine
+                else f"local engine, but an external endpoint is stored: {url}",
+            ))
+
+        for label, key in (
+            ("External tool servers", "tool_server.connections"),
+            ("Terminal servers", "terminal_server.connections"),
+        ):
+            connections = settings.get(key) or []
+            count = len(connections) if isinstance(connections, list) else 0
+            findings.append((
+                label,
+                count == 0,
+                "none configured" if count == 0 else f"{count} CONFIGURED — each is an outbound path",
+            ))
 
         sharing = settings.get("ui.enable_community_sharing")
         findings.append((

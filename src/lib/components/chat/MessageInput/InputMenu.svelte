@@ -25,8 +25,6 @@
 	import Files from './InputMenu/Files.svelte';
 	import Notes from './InputMenu/Notes.svelte';
 	import Knowledge from './InputMenu/Knowledge.svelte';
-	import AttachWebpageModal from './AttachWebpageModal.svelte';
-	import GlobeAlt from '$lib/components/icons/GlobeAlt.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -50,7 +48,6 @@
 	let show = false;
 	let tab = '';
 
-	let showAttachWebpageModal = false;
 	const toolApprovalModes = [
 		{
 			value: 'full',
@@ -69,8 +66,6 @@
 		fileUploadCapableModels.length === selectedModels.length &&
 		($user?.role === 'admin' || $user?.permissions?.chat?.file_upload);
 
-	let webUploadEnabled = true;
-	$: webUploadEnabled = $user?.role === 'admin' || ($user?.permissions?.chat?.web_upload ?? true);
 	$: toolPermissionsEnabled = $config?.features?.enable_tool_permissions ?? false;
 
 	$: if (!fileUploadEnabled && files.length > 0) {
@@ -105,13 +100,6 @@
 		show = false;
 	};
 </script>
-
-<AttachWebpageModal
-	bind:show={showAttachWebpageModal}
-	onSubmit={(e) => {
-		onUpload(e);
-	}}
-/>
 
 <!-- Hidden file input used to open the camera on mobile -->
 <input
@@ -243,28 +231,15 @@
 						</button>
 					</Tooltip>
 
-					<Tooltip
-						content={!webUploadEnabled
-							? $i18n.t('You do not have permission to upload web content.')
-							: ''}
-						className="w-full"
-					>
-						<button
-							class="flex w-full gap-2 items-center h-[1.6875rem] px-2 text-[0.8125rem] font-normal select-none cursor-pointer hover:bg-gray-50/40 dark:hover:bg-gray-800/40 rounded-xl {!webUploadEnabled
-								? 'opacity-50'
-								: ''}"
-							type="button"
-							on:click={() => {
-								if (webUploadEnabled) {
-									showAttachWebpageModal = true;
-									show = false;
-								}
-							}}
-						>
-							<GlobeAlt />
-							<div class="line-clamp-1">{$i18n.t('Attach Webpage')}</div>
-						</button>
-					</Tooltip>
+					<!-- 4CE: "Attach Webpage" is withdrawn. It hands the server a URL and
+					has it retrieve the page, which is egress regardless of whether web
+					search is configured, and the built-in fetcher has no off switch. The
+					permission that guards it (chat.web_upload) is bypassed for admins,
+					so it could not be withheld from the operator account either.
+
+					`WEB_PAGE_ATTACH_OFFERED` in 4ce/tools/sovereignty.py records that
+					this action is absent; change both together or the audit will report
+					something the interface does not match. -->
 
 					<Tooltip
 						content={fileUploadCapableModels.length !== selectedModels.length
