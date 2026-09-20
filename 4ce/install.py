@@ -38,6 +38,15 @@ TOOLS = [
 # chat picker. Keep in step with the model valves in functions/orchestrator.py.
 ROUTED_MODELS = ["qwen/qwen3-vl-4b", "qwen/qwen3-1.7b"]
 
+# Image endpoints Open WebUI ships pointing at a third party. Blanked on
+# install so the admin screens show no egress path this build does not use.
+CLOUD_IMAGE_URL_KEYS = (
+    "IMAGES_OPENAI_API_BASE_URL",
+    "IMAGES_EDIT_OPENAI_API_BASE_URL",
+    "IMAGES_GEMINI_API_BASE_URL",
+    "IMAGES_EDIT_GEMINI_API_BASE_URL",
+)
+
 
 def call(base, path, token=None, payload=None, method=None):
     url = f"{base.rstrip('/')}{path}"
@@ -203,6 +212,34 @@ def restrict_models(base, token):
     return "UPDATED", f"serving only {', '.join(ROUTED_MODELS)}, arena off"
 
 
+def clear_cloud_endpoints(base, token):
+    """Blank the third-party image endpoints Open WebUI ships configured.
+
+    Image generation arrives pointing at https://api.openai.com/v1, for both
+    generation and editing. Nothing calls it - the feature is disabled and
+    there is no key - but it sits in the admin settings of a system whose
+    whole claim is that nothing leaves the premises, and an auditor reading
+    that screen has no way to tell an unused default from an active egress
+    path. Like the model picker, it lives in the database rather than the
+    repository, so it comes back with a rebuild unless this runs.
+    """
+    status, config = call(base, "/api/v1/images/config", token)
+    if status != 200 or not isinstance(config, dict):
+        return "SKIPPED", "could not read the image configuration"
+
+    cloud = [k for k in CLOUD_IMAGE_URL_KEYS if config.get(k)]
+    if not cloud:
+        return "OK", "no third-party image endpoints configured"
+
+    payload = dict(config)
+    for key in cloud:
+        payload[key] = ""
+    status, _ = call(base, "/api/v1/images/config/update", token, payload)
+    if status != 200:
+        return "FAILED", f"could not clear {', '.join(cloud)} (status {status})"
+    return "UPDATED", f"cleared {len(cloud)} third-party image endpoint(s)"
+
+
 def main():
     parser = argparse.ArgumentParser(description="Install the 4CE plugin set.")
     parser.add_argument("--base", default="http://127.0.0.1:8080")
@@ -233,6 +270,8 @@ def main():
     print(f"  {'tools -> model'.ljust(width)}  {state:<8} {detail}")
     picker_state, picker_detail = restrict_models(args.base, token)
     print(f"  {'model picker'.ljust(width)}  {picker_state:<8} {picker_detail}")
+    egress_state, egress_detail = clear_cloud_endpoints(args.base, token)
+    print(f"  {'image endpoints'.ljust(width)}  {egress_state:<8} {egress_detail}")
     if state == "FAILED":
         print("\nThe agent chain will reason unaided until the tools are attached.")
         sys.exit(1)
