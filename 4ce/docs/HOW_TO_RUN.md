@@ -163,3 +163,40 @@ pkill -f "open-webui serve"
     ├── deliverables.py     ← .docx output generator
     └── sovereignty.py      ← off-premise audit
 ```
+
+---
+
+## Recovering retrieval
+
+`python 4ce/preflight.py` reports **Knowledge attached**. If that fails, the
+chain answers from the model's own memory and the provenance table says
+`Grounding: none` — the answer still reads like an informed one, which is why
+this is checked rather than assumed.
+
+The destructive admin actions were tested against a copy of the database, so
+what each one does is known rather than guessed:
+
+| Action | Effect | Recoverable |
+|---|---|---|
+| Data Controls → Archive All | archives every chat | yes, Unarchive All restores them |
+| Data Controls → Delete All | deletes chats and messages; **knowledge and uploads survive** | no, but retrieval is unaffected |
+| Documents → Reindex | re-embeds; retrieval verified identical afterwards | n/a, safe |
+| Documents → **Reset vector DB** | wipes every vector **and deletes every knowledge record** | only by the steps below |
+
+Reset is the dangerous one, and the obvious remedy does not work: reindexing
+afterwards returns success three times and rebuilds nothing, because the
+knowledge record it would reindex has itself been deleted. The uploaded files
+survive, so the collection has to be built again around them.
+
+1. **Workspace → Knowledge → Create**, named `Plant SOPs`.
+2. Add `SOP-MEC-014_seal_leakage.txt` and `SOP-MEC-014_readings_P-101B.txt`.
+   They are still in the file store; re-upload from `4ce/demo/samples/` only if
+   they are not offered.
+3. Attach the collection to the orchestrator: **Settings → Admin → Models →
+   4CE / TONY (Orchestrator)**, add it under Knowledge, and save. The new
+   collection has a new id, so the old attachment does not carry over.
+4. Re-run preflight, then ask the SOP question. Grounding should read a few
+   thousand characters and the answer should quote clause 2.1 and clause 2.2.
+
+Verified end to end on a copy: after a reset, these steps returned retrieval to
+3,244 characters with clauses 2.1 and 2.2 quoted, identical to before.

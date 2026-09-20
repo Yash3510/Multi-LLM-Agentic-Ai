@@ -222,6 +222,8 @@ def check_backend(report: Report, email: str, password: str) -> None:
             "the chain will reason unaided - run 4ce/install.py",
         )
 
+    check_knowledge(report, record, token)
+
     try:
         valves = get_json(f"{BACKEND}/api/v1/functions/id/{FUNCTION_ID}/valves", token) or {}
     except Exception:
@@ -241,6 +243,51 @@ def check_backend(report: Report, email: str, password: str) -> None:
             report.add(WARN, "Speech to text", "local whisper but no cached weights - the microphone will fail offline")
     else:
         report.add(WARN, "Speech to text", f"engine '{engine}' - check it does not leave the machine")
+
+
+def check_knowledge(report: Report, record: dict, token: str) -> None:
+    """Whether the chain can still be grounded in the plant's own documents.
+
+    Nothing errors when this breaks. Retrieval returns nothing, the agents
+    answer from the model's own memory, and the reply still reads like an
+    informed one - which is the failure this system exists to make visible, so
+    it is the last one that should go unnoticed until a demonstration.
+
+    Two ways it has broken here. The knowledge base can end up detached from
+    the model, and the admin "Reset vector DB" action deletes every knowledge
+    record along with the vectors - after which reindexing reports success and
+    rebuilds nothing, because there is no longer a record to reindex.
+    """
+    attached = (record.get("meta") or {}).get("knowledge") or []
+    if not attached:
+        report.add(
+            FAIL,
+            "Knowledge attached",
+            "no knowledge base on the model - the chain cannot be grounded",
+        )
+        return
+
+    names, broken = [], []
+    for item in attached:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name") or item.get("id") or "?"
+        names.append(name)
+        try:
+            detail = get_json(f"{BACKEND}/api/v1/knowledge/{item.get('id')}", token) or {}
+        except Exception:
+            detail = {}
+        if detail.get("name") is None:
+            broken.append(f"{name} (record missing)")
+
+    if broken:
+        report.add(
+            FAIL,
+            "Knowledge attached",
+            f"{', '.join(broken)} - see 'Recovering retrieval' in 4ce/docs/HOW_TO_RUN.md",
+        )
+    else:
+        report.add(PASS, "Knowledge attached", ", ".join(names))
 
 
 def main() -> None:
