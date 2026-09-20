@@ -795,8 +795,20 @@
 	let search = '';
 	let searchDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
+	// 4CE: settings surfaces withdrawn from this build. Integrations connects
+	// the app to third-party tool servers, which is the one surface that can
+	// route a prompt off-premise; About is dropped with it. Removing them here
+	// rather than hiding them in CSS keeps the panes genuinely unreachable and
+	// lets the group headings and the search count themselves correctly - a
+	// hidden tab still matched a search, leaving a heading with nothing under it.
+	const WITHDRAWN_SETTINGS = ['tools', 'about', 'admin:integrations'];
+
 	const getAvailableSettings = () => {
 		const personalSettings = allSettings.filter((tab) => {
+			if (WITHDRAWN_SETTINGS.includes(tab.id)) {
+				return false;
+			}
+
 			if (tab.id === 'connections') {
 				return $config?.features?.enable_direct_connections;
 			}
@@ -822,7 +834,13 @@
 			return true;
 		});
 
-		return $user?.role === 'admin' ? [...personalSettings, ...adminSettings] : personalSettings;
+		const availableAdminSettings = adminSettings.filter(
+			(tab) => !WITHDRAWN_SETTINGS.includes(tab.id)
+		);
+
+		return $user?.role === 'admin'
+			? [...personalSettings, ...availableAdminSettings]
+			: personalSettings;
 	};
 
 	const setFilteredSettings = () => {
