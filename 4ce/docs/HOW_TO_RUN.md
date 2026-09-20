@@ -111,16 +111,18 @@ it before demonstrating; every check in it exists because it failed once.
 
 ---
 
-## Enable Tools on the Model (one-time in UI)
+## Tools on the model
 
-1. Go to **Workspace → Models**
-2. Find **4CE / TONY (Orchestrator)**
-3. Enable these tools on it:
-   - `4CE Sovereign Sandbox`
-   - `4CE Deliverables`
-   - `4CE Sovereignty Check`
+Nothing to do: `install.py` attaches all four tools to the orchestrator, and
+preflight fails if they are missing. Without them the chain still answers, but
+it reasons unaided — no threshold arithmetic, no sandboxed execution, no `.docx`.
 
-Without this, JARVIS can classify and plan but cannot execute code or produce `.docx` files.
+To check, run `python 4ce/preflight.py` and look for **Tools attached**.
+
+Do not look for the orchestrator under **Workspace → Models**. That page lists
+only models derived from a base model, and the orchestrator is a pipe, so it is
+correctly absent there. It appears in the chat model picker and under
+**Settings → Admin → Models**.
 
 ---
 
