@@ -38,14 +38,26 @@ TOOLS = [
 # chat picker. Keep in step with the model valves in functions/orchestrator.py.
 ROUTED_MODELS = ["qwen/qwen3-vl-4b", "qwen/qwen3-1.7b"]
 
-# Image endpoints Open WebUI ships pointing at a third party. Blanked on
-# install so the admin screens show no egress path this build does not use.
-CLOUD_IMAGE_URL_KEYS = (
-    "IMAGES_OPENAI_API_BASE_URL",
-    "IMAGES_EDIT_OPENAI_API_BASE_URL",
-    "IMAGES_GEMINI_API_BASE_URL",
-    "IMAGES_EDIT_GEMINI_API_BASE_URL",
+# Endpoints Open WebUI ships pointing at a third party, on screens this build
+# does not use. Blanked on install: an auditor reading the admin settings
+# cannot tell an unused vendor default from a live egress path, and should not
+# have to. Each entry is (config endpoint, nested path to the URL).
+CLOUD_ENDPOINTS = (
+    ("/api/v1/images/config", ("IMAGES_OPENAI_API_BASE_URL",)),
+    ("/api/v1/images/config", ("IMAGES_EDIT_OPENAI_API_BASE_URL",)),
+    ("/api/v1/images/config", ("IMAGES_GEMINI_API_BASE_URL",)),
+    ("/api/v1/images/config", ("IMAGES_EDIT_GEMINI_API_BASE_URL",)),
+    ("/api/v1/audio/config", ("tts", "OPENAI_API_BASE_URL")),
+    ("/api/v1/audio/config", ("tts", "MISTRAL_API_BASE_URL")),
+    ("/api/v1/audio/config", ("stt", "OPENAI_API_BASE_URL")),
+    ("/api/v1/audio/config", ("stt", "MISTRAL_API_BASE_URL")),
 )
+
+# Where each config endpoint accepts its update.
+CONFIG_UPDATE_PATHS = {
+    "/api/v1/images/config": "/api/v1/images/config/update",
+    "/api/v1/audio/config": "/api/v1/audio/config/update",
+}
 
 
 def call(base, path, token=None, payload=None, method=None):
@@ -213,31 +225,52 @@ def restrict_models(base, token):
 
 
 def clear_cloud_endpoints(base, token):
-    """Blank the third-party image endpoints Open WebUI ships configured.
+    """Blank the third-party endpoints Open WebUI ships configured.
 
-    Image generation arrives pointing at https://api.openai.com/v1, for both
-    generation and editing. Nothing calls it - the feature is disabled and
-    there is no key - but it sits in the admin settings of a system whose
-    whole claim is that nothing leaves the premises, and an auditor reading
-    that screen has no way to tell an unused default from an active egress
-    path. Like the model picker, it lives in the database rather than the
-    repository, so it comes back with a rebuild unless this runs.
+    Image generation arrives pointing at api.openai.com; speech arrives
+    pointing at api.openai.com and api.mistral.ai. Nothing calls any of them -
+    the features are off or set to local engines, and there are no keys - but
+    they sit in the admin settings of a system whose whole claim is that
+    nothing leaves the premises, and an auditor reading that screen has no way
+    to tell an unused default from an active egress path. Like the model
+    picker, they live in the database rather than the repository, so they come
+    back with a rebuild unless this runs.
     """
-    status, config = call(base, "/api/v1/images/config", token)
-    if status != 200 or not isinstance(config, dict):
-        return "SKIPPED", "could not read the image configuration"
+    cleared, failed = 0, []
+    for endpoint in sorted({e for e, _ in CLOUD_ENDPOINTS}):
+        paths = [p for e, p in CLOUD_ENDPOINTS if e == endpoint]
 
-    cloud = [k for k in CLOUD_IMAGE_URL_KEYS if config.get(k)]
-    if not cloud:
-        return "OK", "no third-party image endpoints configured"
+        status, config = call(base, endpoint, token)
+        if status != 200 or not isinstance(config, dict):
+            failed.append(f"{endpoint} unreadable")
+            continue
 
-    payload = dict(config)
-    for key in cloud:
-        payload[key] = ""
-    status, _ = call(base, "/api/v1/images/config/update", token, payload)
-    if status != 200:
-        return "FAILED", f"could not clear {', '.join(cloud)} (status {status})"
-    return "UPDATED", f"cleared {len(cloud)} third-party image endpoint(s)"
+        payload = json.loads(json.dumps(config))
+        touched = 0
+        for path in paths:
+            node = payload
+            for key in path[:-1]:
+                node = node.get(key) if isinstance(node, dict) else None
+                if node is None:
+                    break
+            if isinstance(node, dict) and node.get(path[-1]):
+                node[path[-1]] = ""
+                touched += 1
+
+        if not touched:
+            continue
+        status, _ = call(base, CONFIG_UPDATE_PATHS[endpoint], token, payload)
+        if status != 200:
+            failed.append(f"{endpoint} rejected ({status})")
+            continue
+        cleared += touched
+
+    if failed:
+        return "FAILED", "; ".join(failed)
+    if not cleared:
+        return "OK", "no third-party endpoints configured"
+    return "UPDATED", f"cleared {cleared} third-party endpoint(s)"
+
 
 
 def main():
@@ -271,7 +304,7 @@ def main():
     picker_state, picker_detail = restrict_models(args.base, token)
     print(f"  {'model picker'.ljust(width)}  {picker_state:<8} {picker_detail}")
     egress_state, egress_detail = clear_cloud_endpoints(args.base, token)
-    print(f"  {'image endpoints'.ljust(width)}  {egress_state:<8} {egress_detail}")
+    print(f"  {'cloud endpoints'.ljust(width)}  {egress_state:<8} {egress_detail}")
     if state == "FAILED":
         print("\nThe agent chain will reason unaided until the tools are attached.")
         sys.exit(1)
