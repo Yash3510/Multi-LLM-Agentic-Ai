@@ -1,5 +1,10 @@
 # How to Run 4CE Locally
 
+On macOS, follow [SETUP_MACOS.md](SETUP_MACOS.md) instead — a clean first
+run from an empty machine, with the Docker and Bionic settings that differ
+there. This page assumes the environment already exists.
+
+
 ## Prerequisites
 
 - **Bionic** running with models loaded (serves on `http://localhost:1234`)

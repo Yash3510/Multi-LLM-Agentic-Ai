@@ -1,7 +1,8 @@
 """
 Exercise every 4CE tool against the real runtime.
 
-    cd backend && ../.venv/Scripts/python.exe ../4ce/test_tools.py
+    cd backend && ../.venv/bin/python ../4ce/test_tools.py           # macOS, Linux
+    cd backend && ../.venv/Scripts/python.exe ../4ce/test_tools.py   # Windows
 
 Run it from the backend directory so the open_webui package and its database
 resolve. Each tool is loaded from source the same way the application loads it,

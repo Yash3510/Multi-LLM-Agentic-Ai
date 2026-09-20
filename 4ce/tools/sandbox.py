@@ -220,7 +220,7 @@ class Tools:
                     *command,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
-                    env={"PATH": os.environ.get("PATH", "")},
+                    env=_docker_env(),
                 )
             except OSError as exc:
                 return _result(None, "", "", error=str(exc))
@@ -266,6 +266,29 @@ class Tools:
         if skipped:
             produced.append({"name": "", "bytes": b"", "size": 0, "skipped": skipped})
         return produced
+
+
+def _docker_env() -> dict:
+    """The smallest environment the docker client still works in.
+
+    The container is handed nothing from here - it gets PYTHONUNBUFFERED and
+    the read-only workspace, nothing else - so this is only about letting the
+    CLI find the daemon, and it stays a deliberate allowlist rather than a
+    copy of the operator's environment.
+
+    HOME matters more than it looks. Docker keeps the active context under
+    ~/.docker/contexts, so without it the client silently falls back to the
+    default endpoint. On Windows that happens to be a pipe Docker Desktop also
+    listens on, which is why this went unnoticed; on macOS the fallback is
+    /var/run/docker.sock, which Docker Desktop only creates when "Allow the
+    default Docker socket to be used" is enabled. Stripped of HOME, the
+    sandbox fails there with "Cannot connect to the Docker daemon" on a
+    machine where docker works perfectly from a terminal.
+    """
+    passthrough = ("PATH", "HOME", "USERPROFILE", "DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_CONFIG")
+    env = {name: os.environ[name] for name in passthrough if os.environ.get(name)}
+    env.setdefault("PATH", "")
+    return env
 
 
 def _result(exit_code, stdout: str, stderr: str, timed_out: bool = False, error: str | None = None,
