@@ -13,6 +13,7 @@ Standard library only, so it runs with any Python 3.11+ interpreter.
 import argparse
 import json
 import sys
+import uuid
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -37,6 +38,19 @@ TOOLS = [
 # The models the orchestrator routes between, and the only ones offered in the
 # chat picker. Keep in step with the model valves in functions/orchestrator.py.
 ROUTED_MODELS = ["qwen/qwen3-vl-4b", "qwen/qwen3-1.7b"]
+
+# The knowledge base the chain is grounded in, and the documents that make it
+# up. Held here so the collection can be rebuilt from the repository: the admin
+# "Reset vector DB" action deletes every knowledge record along with the
+# vectors, and reindexing afterwards reports success while rebuilding nothing.
+KNOWLEDGE_NAME = "Plant SOPs"
+KNOWLEDGE_DESCRIPTION = (
+    "Standard operating procedures and inspection readings for rotating equipment."
+)
+KNOWLEDGE_FILES = (
+    ROOT / "demo" / "samples" / "SOP-MEC-014_seal_leakage.txt",
+    ROOT / "demo" / "samples" / "SOP-MEC-014_readings_P-101B.txt",
+)
 
 # Endpoints Open WebUI ships pointing at a third party, on screens this build
 # does not use. Blanked on install: an auditor reading the admin settings
@@ -273,6 +287,142 @@ def clear_cloud_endpoints(base, token):
 
 
 
+def upload(base, token, path):
+    """POST a file as multipart/form-data, using only the standard library."""
+    boundary = "----4ce" + uuid.uuid4().hex
+    sep = chr(13) + chr(10)
+    head = (
+        "--" + boundary + sep
+        + 'Content-Disposition: form-data; name="file"; filename="'
+        + path.name + '"' + sep
+        + "Content-Type: text/plain" + sep + sep
+    )
+    tail = sep + "--" + boundary + "--" + sep
+    body = head.encode() + path.read_bytes() + tail.encode()
+    request = urllib.request.Request(f"{base.rstrip('/')}/api/v1/files/", data=body)
+    request.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    request.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            return response.status, json.loads(response.read() or b"null")
+    except urllib.error.HTTPError as exc:
+        return exc.code, {"detail": exc.read().decode("utf-8", "replace")[:300]}
+    except urllib.error.URLError as exc:
+        return 0, {"detail": str(exc.reason)}
+
+
+def ensure_knowledge(base, token):
+    """Rebuild the knowledge base the chain is grounded in, if it is gone.
+
+    Grounding is the one failure here that does not announce itself: retrieval
+    returns nothing, the agents answer from the model's own memory, and the
+    reply still reads like an informed one. It has broken twice - once because
+    the collection was never reaching the pipe, and once because "Reset vector
+    DB" deletes every knowledge record, after which reindexing reports success
+    and rebuilds nothing since there is no record left to reindex.
+
+    So the collection is reconstructible from the repository rather than only
+    from a runbook. Existing, intact knowledge is left alone.
+    """
+    status, body = call(base, "/api/models", token)
+    if status != 200 or not body:
+        return "SKIPPED", "could not list models"
+    model_id = next(
+        (m.get("id") for m in (body.get("data") or [])
+         if str(m.get("id", "")).startswith(FUNCTIONS[0][0] + ".")),
+        None,
+    )
+    if not model_id:
+        return "SKIPPED", "orchestrator model not served yet"
+
+    status, record = call(base, f"/api/v1/models/model?id={model_id}", token)
+    record = record if status == 200 and isinstance(record, dict) else {}
+    meta = dict(record.get("meta") or {})
+
+    for item in meta.get("knowledge") or []:
+        if not isinstance(item, dict):
+            continue
+        status, detail = call(base, f"/api/v1/knowledge/{item.get('id')}", token)
+        if status == 200 and isinstance(detail, dict) and detail.get("name"):
+            return "OK", f"'{detail.get('name')}' attached and intact"
+
+    # Reuse a collection that survived but came adrift from the model.
+    status, existing = call(base, "/api/v1/knowledge/list", token)
+    items = existing.get("items") if isinstance(existing, dict) else existing
+    collection = next(
+        (k for k in (items or []) if isinstance(k, dict) and k.get("name") == KNOWLEDGE_NAME),
+        None,
+    )
+    rebuilt = False
+
+    if collection is None:
+        status, collection = call(
+            base, "/api/v1/knowledge/create", token,
+            {"name": KNOWLEDGE_NAME, "description": KNOWLEDGE_DESCRIPTION},
+        )
+        if status != 200 or not isinstance(collection, dict) or not collection.get("id"):
+            return "FAILED", f"could not create '{KNOWLEDGE_NAME}' (status {status})"
+        rebuilt = True
+
+    knowledge_id = collection.get("id")
+
+    status, stored = call(base, "/api/v1/files/", token)
+    by_name = {
+        f.get("filename"): f.get("id")
+        for f in ((stored or {}).get("items") or [])
+        if isinstance(f, dict)
+    }
+
+    status, detail = call(base, f"/api/v1/knowledge/{knowledge_id}", token)
+    indexed = {
+        f.get("filename")
+        for f in ((detail or {}).get("files") or [])
+        if isinstance(f, dict)
+    }
+
+    added, failures = 0, []
+    for path in KNOWLEDGE_FILES:
+        if path.name in indexed:
+            continue
+        if not path.exists():
+            failures.append(f"{path.name} missing from the repository")
+            continue
+        file_id = by_name.get(path.name)
+        if not file_id:
+            status, uploaded = upload(base, token, path)
+            if status != 200 or not isinstance(uploaded, dict):
+                failures.append(f"{path.name} upload failed ({status})")
+                continue
+            file_id = uploaded.get("id")
+        status, _ = call(
+            base, f"/api/v1/knowledge/{knowledge_id}/file/add", token, {"file_id": file_id}
+        )
+        if status != 200:
+            failures.append(f"{path.name} index failed ({status})")
+            continue
+        added += 1
+
+    if failures:
+        return "FAILED", "; ".join(failures)
+
+    status, detail = call(base, f"/api/v1/knowledge/{knowledge_id}", token)
+    if status == 200 and isinstance(detail, dict):
+        meta["knowledge"] = [detail]
+        payload = {
+            "id": model_id,
+            "name": record.get("name") or FUNCTIONS[0][1],
+            "meta": meta,
+            "params": record.get("params") or {},
+            "is_active": True,
+        }
+        status, _ = call(base, "/api/v1/models/model/update", token, payload)
+        if status != 200:
+            return "FAILED", f"could not attach '{KNOWLEDGE_NAME}' (status {status})"
+
+    what = "rebuilt" if rebuilt else "reattached"
+    return "UPDATED", f"'{KNOWLEDGE_NAME}' {what}" + (f", {added} file(s) indexed" if added else "")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Install the 4CE plugin set.")
     parser.add_argument("--base", default="http://127.0.0.1:8080")
@@ -305,6 +455,8 @@ def main():
     print(f"  {'model picker'.ljust(width)}  {picker_state:<8} {picker_detail}")
     egress_state, egress_detail = clear_cloud_endpoints(args.base, token)
     print(f"  {'cloud endpoints'.ljust(width)}  {egress_state:<8} {egress_detail}")
+    knowledge_state, knowledge_detail = ensure_knowledge(args.base, token)
+    print(f"  {'knowledge base'.ljust(width)}  {knowledge_state:<8} {knowledge_detail}")
     if state == "FAILED":
         print("\nThe agent chain will reason unaided until the tools are attached.")
         sys.exit(1)

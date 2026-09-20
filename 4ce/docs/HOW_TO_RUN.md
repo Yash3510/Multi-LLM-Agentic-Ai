@@ -185,18 +185,22 @@ what each one does is known rather than guessed:
 
 Reset is the dangerous one, and the obvious remedy does not work: reindexing
 afterwards returns success three times and rebuilds nothing, because the
-knowledge record it would reindex has itself been deleted. The uploaded files
-survive, so the collection has to be built again around them.
+knowledge record it would reindex has itself been deleted.
 
-1. **Workspace → Knowledge → Create**, named `Plant SOPs`.
-2. Add `SOP-MEC-014_seal_leakage.txt` and `SOP-MEC-014_readings_P-101B.txt`.
-   They are still in the file store; re-upload from `4ce/demo/samples/` only if
-   they are not offered.
-3. Attach the collection to the orchestrator: **Settings → Admin → Models →
-   4CE / TONY (Orchestrator)**, add it under Knowledge, and save. The new
-   collection has a new id, so the old attachment does not carry over.
-4. Re-run preflight, then ask the SOP question. Grounding should read a few
-   thousand characters and the answer should quote clause 2.1 and clause 2.2.
+The uploaded files survive, and the collection is defined in the repository, so
+recovery is one command:
 
-Verified end to end on a copy: after a reset, these steps returned retrieval to
-3,244 characters with clauses 2.1 and 2.2 quoted, identical to before.
+```bash
+python 4ce/install.py
+```
+
+It recreates `Plant SOPs`, indexes `SOP-MEC-014_seal_leakage.txt` and
+`SOP-MEC-014_readings_P-101B.txt` from `4ce/demo/samples/`, and attaches the
+collection to the orchestrator - the rebuilt collection has a new id, so the
+old attachment does not carry over on its own. An intact knowledge base is left
+alone, so this is safe to run at any time.
+
+Verified on a copy of the database: after a reset left 0 knowledge records and
+0 vector collections, one run reported `'Plant SOPs' rebuilt, 2 file(s)
+indexed` and retrieval returned to 3,244 characters with clauses 2.1 and 2.2
+quoted, identical to before.
