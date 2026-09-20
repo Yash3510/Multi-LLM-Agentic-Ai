@@ -9,6 +9,10 @@
 
 	const i18n = getContext<Writable<i18nType>>('i18n');
 
+	// 4CE: see the note above the block these control. Kept as a named constant
+	// rather than deleting the markup, so restoring Ollama support is one edit.
+	const OLLAMA_PARAMS_OFFERED = false;
+
 	export let onChange: (params: any) => void = () => {};
 
 	export let admin = false;
@@ -1065,6 +1069,12 @@
 		</div>
 	{/if}
 
+	<!-- 4CE: the Ollama-only generation parameters are hidden. This build
+	talks to an OpenAI-compatible server (Bionic) and ships with
+	ENABLE_OLLAMA_API=false, so num_ctx, num_gpu, keep_alive and the rest
+	cannot take effect - they are a list of controls that do nothing, and an
+	invitation to ask why a sovereign build mentions Ollama at all. -->
+	{#if OLLAMA_PARAMS_OFFERED}
 	<div class=" py-0.5 w-full justify-between">
 		<Tooltip
 			content={$i18n.t(
@@ -1392,6 +1402,7 @@
 				</div>
 			{/if}
 		</div>
+	{/if}
 
 		{#if custom && admin}
 			<div class="flex flex-col justify-center">
