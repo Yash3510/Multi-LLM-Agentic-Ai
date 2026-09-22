@@ -11,6 +11,7 @@ import inspect
 import json
 import re
 import time
+from datetime import datetime
 from typing import Any, Awaitable, Callable
 
 from pydantic import BaseModel, Field
@@ -299,6 +300,12 @@ class Pipe:
         if not messages:
             return "No request received."
 
+        # Open TONY's stage the moment work starts. Classification and the
+        # retrieval that follows it both run before TONY's plan is announced,
+        # so without this the chat's stage rail could only measure the gap
+        # after them and showed TONY as "<0.1s".
+        await _status(__event_emitter__, "tony", "TONY: reading the request")
+
         prompt = _text_of(messages[-1])
         has_image = _has_image(messages[-1])
         retrieved = _retrieved_context(messages)
@@ -326,6 +333,11 @@ class Pipe:
             "tony_plan",
             f"TONY: classified as {task_type.upper()}"
             + (f" ({', '.join(signals)})" if signals else " (no strong signal, defaulting)"),
+            facts=[
+                f"Classified as a {task_type} task",
+                f"Matched on: {', '.join(signals)}" if signals else "No strong signal, so the default route",
+                f"{len(grounding):,} characters retrieved to work from" if grounding else "",
+            ],
         )
         trace.append(
             f"**TONY** classified the request as `{task_type}` "
@@ -339,7 +351,10 @@ class Pipe:
                 "Check the model names in this function's Valves against the models your "
                 "local server actually serves."
             )
-        await _status(__event_emitter__, "router", f"ROUTER: selected {model_id} — {rationale}")
+        await _status(
+            __event_emitter__, "router", f"ROUTER: selected {model_id} — {rationale}",
+            facts=[f"Routed to {model_id}", rationale[:1].upper() + rationale[1:] if rationale else ""],
+        )
         trace.append(f"**ROUTER** selected `{model_id}` — {rationale}")
         steps.append({
             "agent": "TONY",
@@ -362,7 +377,10 @@ class Pipe:
         })
 
         if task_type == "chat" and not self.valves.orchestrate_small_talk:
-            await _status(__event_emitter__, "chat", "Answering directly", done=True)
+            # Open while the model answers, closed once it has: marking it done up
+            # front left the status reading "Answering directly" on a finished
+            # reply, and meant nothing showed the model was working meanwhile.
+            await _status(__event_emitter__, "chat", "Answering directly")
             reply = await self._agent_call(
                 __request__, user, model_id, messages,
                 system=_TONY_CHAT_SYSTEM, instruction=prompt,
@@ -370,14 +388,15 @@ class Pipe:
             if reply["text"].startswith(_ERR):
                 await _status(__event_emitter__, "error", "Run failed", done=True)
                 return reply["text"]
+            await _status(__event_emitter__, "chat", "Answered directly", done=True)
             # Recorded even though this path shows no provenance table: it is
             # still a model call, and the turn's token accounting reads steps.
             steps.append({**reply, "agent": "TONY", "label": "direct reply"})
             # Plain markdown, not HTML: the renderer special-cases only a handful
             # of tags and prints every other one as literal text.
             note = (
-                f"\n\n*4CE · direct reply · `{model_id}` · {reply['seconds']:.1f}s · "
-                "no agent chain, no approval needed for conversation*"
+                f"\n\n*Direct reply \u00b7 `{model_id}` \u00b7 {reply['seconds']:.1f}s \u2014 "
+                "conversation needs no agent chain or approval*"
             )
             return reply["text"] + (note if self.valves.show_trace else "")
 
@@ -438,7 +457,15 @@ class Pipe:
 
             round_label = "" if attempts == 1 else f" (attempt {attempts})"
 
-            await _status(__event_emitter__, "friday", "FRIDAY: grounding and analysing")
+            await _status(
+                __event_emitter__, "friday", "FRIDAY: grounding and analysing",
+                facts=[
+                    f"Reading {len(grounding):,} characters of retrieved passages"
+                    if grounding else "No retrieved passages; working from the request alone",
+                    f"Running on {agent_models['FRIDAY']}",
+                    "Second try, with ULTRON's objections attached" if attempts > 1 else "",
+                ],
+            )
             friday = await self._agent_call(
                 __request__, user, agent_models["FRIDAY"], messages,
                 system=_FRIDAY_SYSTEM,
@@ -517,7 +544,15 @@ class Pipe:
                     "authoritative)\n" + sop
                 )
 
-            await _status(__event_emitter__, "jarvis", "JARVIS: producing the deliverable")
+            await _status(
+                __event_emitter__, "jarvis", "JARVIS: producing the deliverable",
+                facts=[
+                    f"Running on {agent_models['JARVIS']}",
+                    "Working from FRIDAY's analysis",
+                    "Its code will run in the sealed sandbox" if task_type == "code" else "",
+                    "Second try, with ULTRON's objections attached" if attempts > 1 else "",
+                ],
+            )
             jarvis = await self._agent_call(
                 __request__, user, agent_models["JARVIS"], messages,
                 system=_JARVIS_SYSTEM,
@@ -582,7 +617,14 @@ class Pipe:
                 verdict = {"status": "SKIPPED", "passed": True, "detail": "Verification disabled in Valves."}
                 break
 
-            await _status(__event_emitter__, "ultron", "ULTRON: challenging the result")
+            await _status(
+                __event_emitter__, "ultron", "ULTRON: challenging the result",
+                facts=[
+                    f"Checking on {agent_models['ULTRON']}"
+                    + (", not the model that drafted it" if agent_models["ULTRON"] != agent_models["JARVIS"] else ""),
+                    "Its verdict is PASS or FAIL, with reasons",
+                ],
+            )
             ultron = await self._agent_call(
                 __request__, user, agent_models["ULTRON"], messages,
                 system=_ULTRON_SYSTEM,
@@ -620,16 +662,23 @@ class Pipe:
                 await _status(__event_emitter__, "ultron", "ULTRON: PASS")
                 break
 
-            await _status(__event_emitter__, "ultron", f"ULTRON: FAIL — {verdict['detail'][:80]}")
+            await _status(
+                __event_emitter__, "ultron",
+                "ULTRON: FAIL" + (f" — {verdict['summary']}" if verdict.get("summary") else ""),
+            )
             if not self.valves.enable_replan or attempts > 1:
                 trace.append("**TONY** exhausted the replan budget; delivering with the failure recorded.")
                 break
 
             challenge = verdict["detail"]
-            await _status(__event_emitter__, "tony_replan", "TONY: replanning after ULTRON challenge")
+            await _status(
+                __event_emitter__, "tony_replan", "TONY: replanning after ULTRON challenge",
+                facts=["FRIDAY and JARVIS run again with ULTRON's objections attached"],
+            )
             trace.append("**TONY** replanned once and re-ran FRIDAY and JARVIS with the challenge attached.")
 
         approval = "not required"
+        approved_at: datetime | None = None
         waited = 0.0
         interactive = bool(__event_call__) and bool((__metadata__ or {}).get("session_id"))
         if self.valves.require_approval and not interactive:
@@ -641,7 +690,10 @@ class Pipe:
                 "so this result is unapproved and must not be treated as released."
             )
         elif self.valves.require_approval:
-            await _status(__event_emitter__, "approval", "Awaiting human approval")
+            await _status(
+                __event_emitter__, "approval", "Awaiting human approval",
+                facts=[f"ULTRON's verdict: {str(verdict.get('status', 'UNKNOWN')).upper()}"],
+            )
             # The reviewer's thinking time is not the system's running time.
             # Counted together, a 40-second task reports two minutes because
             # somebody read it before approving.
@@ -654,22 +706,57 @@ class Pipe:
                 {
                     "type": "input",
                     "data": {
-                        "title": "4CE — human approval required",
-                        "message": (
-                            f"ULTRON verdict: {verdict.get('status', 'UNKNOWN')}"
-                            f" · {task_type} · {model_id}\n\n"
-                            "Type APPROVE to release this deliverable. "
-                            "Anything else, or an empty box, withholds it."
-                        ),
-                        "placeholder": "APPROVE",
+                        "title": "Review before release",
+                        "message": _approval_message(deliverable, verdict, task_type, model_id),
+                        # Not the word itself: a grey "APPROVE" in an empty box reads
+                        # as already filled in, so people pressed Confirm on nothing
+                        # and were told the result was withheld.
+                        "placeholder": "Type approve to release",
+                        # Structured copy of the same decision for the 4CE sign-off
+                        # panel, which docks in place of the message box instead of
+                        # covering the conversation with a modal. `message` above is
+                        # kept, so a frontend without the panel still gets the dialog.
+                        # The decision is still made here, below: anything but
+                        # "approve" withholds.
+                        "kind": "4ce_approval",
+                        "draft": (deliverable or "").strip(),
+                        "verdict": str(verdict.get("status", "UNKNOWN")).upper(),
+                        "verdict_detail": _clip(str(verdict.get("detail") or ""), 240),
+                        "task_type": task_type,
+                        "model_id": model_id,
                     },
                 }
             )
             waited = time.monotonic() - asked_at
+            # No answer is not a "no". When the prompt cannot reach the reviewer's
+            # browser (the tab reloaded or closed) or nobody answers before the
+            # timeout, the platform returns {"error": ...} - measured: a page
+            # reload during a run came back in under 0.1s and was recorded as
+            # "Rejected by reviewer", putting a decision nobody made into the
+            # audit trail. The result is withheld either way; only the record
+            # differs, and the record is the point.
+            if isinstance(response, dict) and response.get("error"):
+                approval = "not obtained — no reviewer answered"
+                trace.append(
+                    f"**HUMAN** approval was not obtained ({response.get('error')}); "
+                    "the result was not released."
+                )
+                await _status(__event_emitter__, "approval", "No reviewer answered", done=True)
+                return (
+                    "### Deliverable withheld\n\n"
+                    "No reviewer answered the sign-off, so 4CE has not released this result. "
+                    "Nothing was approved or rejected; ask again to review it.\n\n"
+                    + _provenance(
+                        steps, task_type, signals, model_id, rationale, verdict, approval,
+                        time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
+                        trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
+                    )
+                )
             decision = response if isinstance(response, str) else ""
             approved = decision.strip().lower() in ("approve", "approved")
             if approved:
                 approval = "approved"
+                approved_at = datetime.now().astimezone()
                 trace.append("**HUMAN** approved the deliverable.")
             else:
                 approval = "rejected"
@@ -702,15 +789,43 @@ class Pipe:
         # PS 26117 asks for the approval note as a Word file. Produce it only once a
         # person has released the result, never before.
         if task_type in ("document", "vision") and approval in ("approved", "not required"):
-            await _status(__event_emitter__, "tool", "TOOL: writing the Word deliverable")
+            await _status(
+                __event_emitter__, "tool", "TOOL: writing the Word deliverable",
+                facts=["Writing a .docx of the approved result"],
+            )
+            # The report carries the same record the chat shows, and who
+            # approved it and when. Passed as "__" parameters, which the tool
+            # spec hides from models: only this code ran the approval gate,
+            # so only it may say that a person approved the document.
+            record = [
+                (label, re.sub(r"[`*]", "", value))
+                for label, value in _provenance_rows(
+                    task_type, signals, model_id, rationale, verdict, approval,
+                    time.monotonic() - started - waited, attempts, agent_models, tools_used, grounding,
+                )
+            ]
+            signoff = {
+                "verification": str(verdict.get("status", "n/a")).upper()
+                + (f" after {attempts} attempts" if attempts > 1 else ""),
+                "models": " · ".join(dict.fromkeys(m.rsplit("/", 1)[-1] for m in agent_models.values())),
+            }
+            if approval == "approved" and approved_at is not None:
+                approver = (getattr(user, "name", "") or getattr(user, "email", "") or "").strip() or "the reviewer"
+                when = f"{approved_at.day} {approved_at:%B %Y}, {approved_at:%H:%M} {approved_at.tzname() or ''}".strip()
+                signoff.update(approved_by=approver, approved_at=when)
+                record = [
+                    (label, f"Approved by {approver} on {when}" if label == "Human approval" else value)
+                    for label, value in record
+                ]
             docx = await self._use_tool(
                 __tools__,
                 "create_word_document",
                 title=_document_title(prompt),
                 body=deliverable,
-                reference="Produced by the 4CE agent chain; "
-                + (", ".join(tools_used) if tools_used else "no tools attached"),
+                document_type="Approved deliverable" if approval == "approved" else "Deliverable",
                 __user__=__user__,
+                __signoff__=signoff,
+                __record__=record,
             )
             if docx and not docx.startswith(_ERR):
                 tools_used.append("create_word_document")
@@ -923,7 +1038,7 @@ class Pipe:
             response = await generate_chat_completion(request, form_data=payload, user=user, bypass_filter=True)
         except Exception as exc:
             return _step(
-                f"{_ERR} local model call to '{model}' failed: {_explain(exc)}",
+                _failure(f"local model call to '{model}' failed", _explain(exc)),
                 "", model, started,
             )
         usage = _usage_of(response)
@@ -933,10 +1048,8 @@ class Pipe:
             # reporting "empty response" sends the reader to restart the model
             # server when the actual cause is in the payload - most often a
             # prompt longer than the context the model was loaded at.
-            detail = _explain(response)
             return _step(
-                f"{_ERR} local model '{model}' returned no content"
-                + (f" — {detail}" if detail else "."),
+                _failure(f"local model '{model}' returned no content", _explain(response)),
                 "", model, started, usage,
             )
         answer, inline_thinking = _split_thinking(raw.strip())
@@ -1189,21 +1302,43 @@ def _subject_words(title: str) -> list[str]:
     return words or ["artifact"]
 
 
+# A question names its subject between the question word and the verb it
+# asks about: "What does | clause 2.1 of SOP-MEC-014 | require?"
+_TITLE_ASK = re.compile(
+    r"^(?:what|which|how|why|when|where|who)\s+"
+    r"(?:(?:is|are|was|were|does|do|did|can|could|should|would|will|must)\s+)?"
+    r"(?:(?:the|a|an|we|i|you|it)\s+)?",
+    re.I,
+)
+_TITLE_VERB = re.compile(
+    r"\s+(?:require|requires|say|says|state|states|specify|specifies|mean|means|"
+    r"cover|covers|allow|allows|recommend|recommends)\b.*$",
+    re.I,
+)
+
+
 def _document_title(prompt: str) -> str:
     """A short title describing the deliverable, not the request for it.
 
     The whole prompt used to become both the heading and the filename, which
     gave documents called `What_is_the_acceptable_mechanical_seal_leakage_rate
     _under_SO.docx` - truncated mid-word, and phrased as a question the
-    document answers rather than as its subject.
+    document answers rather than as its subject. Numbers keep their dots, so
+    "clause 2.1" does not become "clause 2 1".
     """
-    cleaned = re.sub("\s+", " ", prompt or "").strip()
+    cleaned = re.sub(r"\s+", " ", prompt or "").strip()
     if not cleaned:
         return "4CE deliverable"
     # A request often states its subject after a colon; prefer what precedes it.
     head = cleaned.split(":", 1)[0]
-    words = _subject_words(head)[:8]
-    title = " ".join(words).rstrip(" ,.;:?")
+    first = re.split(r"(?<=[.?!])\s+", head)[0].rstrip(" ?.!")
+    asked = _TITLE_ASK.sub("", first)
+    if asked != first:
+        asked = _TITLE_VERB.sub("", asked)
+    words = re.findall(r"[A-Za-z0-9-]+(?:\.[0-9]+)*", asked)
+    while words and words[0].lower() in _REQUEST_OPENERS + ("and", "run", "execute"):
+        words.pop(0)
+    title = " ".join(words[:9]).rstrip(" ,.;:?")
     return (title[:1].upper() + title[1:]) if title else "4CE deliverable"
 
 
@@ -1326,17 +1461,55 @@ def _with_challenge(instruction: str, challenge: str | None) -> str:
     return instruction + "\n\nPREVIOUS ATTEMPT WAS REJECTED BY THE VERIFIER FOR:\n" + challenge
 
 
+# A verdict line: PASS or FAIL in capitals at the start of a line, allowing
+# the markdown a model wraps it in and a "Verdict:" label.
+_VERDICT_LINE = re.compile(r"^[\s>*#_`-]*(?:verdict\s*[:-]\s*)?[*_`]*(PASS|FAIL)\b", re.I)
+
+
 def _parse_verdict(raw: str) -> dict:
+    """ULTRON's verdict, its concerns, and a one-line summary of them.
+
+    ULTRON is told to put PASS or FAIL on the first line, and that line wins
+    when it is there. A small reasoning model often thinks out loud first
+    instead - "Okay, let me try to figure out what's going on here..." - and
+    ends with its verdict; that used to count as FAIL whatever it concluded,
+    sending the work round a replan for nothing, and its musing became the
+    objection shown to the reviewer. So: the first line's verdict, otherwise
+    the last one given. No verdict at all still fails closed, and says so.
+    """
     text = (raw or "").strip()
     if text.startswith(_ERR):
-        return {"status": "ERROR", "passed": False, "detail": text}
-    first = text.splitlines()[0].upper() if text else "FAIL"
-    passed = first.startswith("PASS")
+        return {"status": "ERROR", "passed": False, "detail": text, "summary": "the verifier could not run"}
+    lines = text.splitlines()
+    hits = [(i, m.group(1).upper()) for i, line in enumerate(lines) if (m := _VERDICT_LINE.match(line))]
+    if not hits:
+        return {
+            "status": "FAIL",
+            "passed": False,
+            "detail": text[:1500] or "Verifier returned nothing.",
+            "summary": "ULTRON gave no PASS or FAIL verdict",
+        }
+    index, word = hits[0] if hits[0][0] == 0 else hits[-1]
+    passed = word == "PASS"
+    # Whatever follows the verdict on its own line is the verdict's reason.
+    remainder = _VERDICT_LINE.sub("", lines[index], count=1).strip(" *_:-—–")
+    after = ([remainder] if remainder else []) + [l for l in lines[index + 1:] if l.strip()]
+    before = [l for l in lines[:index] if l.strip()]
+    concerns = "\n".join(after or before).strip()
     return {
-        "status": "PASS" if passed else "FAIL",
+        "status": word,
         "passed": passed,
-        "detail": text[:1500] or "Verifier returned nothing.",
+        "detail": (concerns or text)[:1500],
+        "summary": _clip(re.sub(r"^[\s>*#_`\-\d.)]+", "", after[0]).replace("**", "")) if after else "",
     }
+
+
+def _clip(text: str, limit: int = 90) -> str:
+    """A single line, cut at a word boundary."""
+    line = re.sub(r"\s+", " ", text or "").strip()
+    if len(line) <= limit:
+        return line
+    return line[: line.rfind(" ", 0, limit)].rstrip(" ,;:") + "…"
 
 
 def _step(text: str, thinking: str, model: str, started: float,
@@ -1403,6 +1576,88 @@ def _explain(payload: Any) -> str:
     return best[:300]
 
 
+def _approval_message(deliverable: str, verdict: dict, task_type: str, model_id: str) -> str:
+    """What the reviewer reads before deciding: the draft itself, then the ask.
+
+    The gate used to show only ULTRON's verdict and a model name, so the person
+    approving a deliverable could not see it - the answer is withheld until the
+    decision, and a modal hides the page behind it. A human gate is only a gate
+    if the human can read what they are releasing, so the full draft goes in.
+
+    It sits in its own scrolling box because the dialog has no overflow of its
+    own: a long draft would otherwise push the Confirm button off the screen.
+    The dialog renders this as markdown through DOMPurify, which keeps `class`
+    and `style`; the colour classes are ones the app already compiles.
+    """
+    status = str(verdict.get("status", "UNKNOWN")).upper()
+    detail = str(verdict.get("detail") or "").strip()
+    line = f"**ULTRON: {status}** \u00b7 {task_type} task \u00b7 drafted on `{model_id}`"
+    if status != "PASS" and detail:
+        line += f"\n\n*ULTRON's objection: {_clip(detail, 240)}*"
+    return (
+        f"{line}\n\n"
+        '<div class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900 '
+        'border border-gray-200 dark:border-gray-800" '
+        'style="max-height:42vh;overflow-y:auto;padding:12px 14px;margin:10px 0 12px;'
+        'border-radius:12px;font-size:13.5px;line-height:1.55">\n\n'
+        f"{(deliverable or '').strip() or '*(the draft is empty)*'}\n\n"
+        "</div>\n\n"
+        "This is exactly what will be released. Type **approve** to release it; "
+        "anything else, or an empty box, withholds it."
+    )
+
+
+# Known failures, in the order they are worth checking, each with the sentence
+# that tells the person at the screen what to do. The wording follows the
+# troubleshooting table in 4ce/docs, so the UI and the runbook agree.
+_REMEDIES: list[tuple[tuple[str, ...], str]] = [
+    (
+        ("connect call failed", "cannot connect to host", "connection refused",
+         "errno 61", "all connection attempts failed", "server connection error"),
+        "The model server isn't reachable on localhost:1234. Start Bionic and turn on "
+        "its server (Developer \u2192 Start Server), then send the message again.",
+    ),
+    (
+        ("exceeds the available context", "context size", "context length",
+         "maximum context", "too many tokens"),
+        "This request is longer than the model's context window. Attach long documents "
+        "instead of pasting them, so retrieval sends only the passages that matter.",
+    ),
+    (
+        ("timed out", "timeout"),
+        "The model took too long to answer. If answers are slow in general, a model is "
+        "probably loaded above 8192 context \u2014 run `python 4ce/preflight.py --fix`.",
+    ),
+    (
+        ("model not found", "no model", "not loaded", "does not exist"),
+        "The model this turn was routed to isn't loaded in Bionic. Load qwen3-vl-4b and "
+        "qwen3-1.7b, or run `python 4ce/preflight.py --fix`.",
+    ),
+]
+
+
+def _remedy(detail: str) -> str:
+    """Plain-language cause and fix for a known failure, or "" if unrecognised.
+
+    Leads the error rather than replacing it: the raw detail is still printed
+    underneath, so an unfamiliar failure is never hidden behind a guess.
+    """
+    text = (detail or "").lower()
+    for needles, advice in _REMEDIES:
+        if any(n in text for n in needles):
+            return advice
+    return ""
+
+
+def _failure(what: str, detail: str) -> str:
+    """An error line that leads with the fix when one is known."""
+    advice = _remedy(detail)
+    raw = f"{what}" + (f" \u2014 {detail}" if detail else ".")
+    if not advice:
+        return f"{_ERR} {raw}"
+    return f"{_ERR} {advice}\n\n*Detail: {raw}*"
+
+
 def _usage_of(response: Any) -> dict:
     """The token counts the local model server reported for one agent call."""
     payload = response
@@ -1463,6 +1718,19 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
     timings = " · ".join(
         f"{s['agent'].title()} {s['seconds']:.0f}s" for s in steps if s.get("seconds")
     )
+    rows = _provenance_rows(
+        task_type, signals, model_id, rationale, verdict, approval, elapsed, attempts,
+        agent_models, tools_used, grounding, timings,
+    )
+    table = ["| Stage | Detail |", "|---|---|"] + [f"| {k} | {v} |" for k, v in rows]
+    return _provenance_rest(steps, attempts, include_thinking, trace, table)
+
+
+def _provenance_rows(task_type: str, signals: list[str], model_id: str, rationale: str,
+                     verdict: dict, approval: str, elapsed: float, attempts: int,
+                     agent_models: dict, tools_used: list[str] | None, grounding: str,
+                     timings: str = "") -> list[tuple[str, str]]:
+    """The provenance rows, shared by the chat's table and the Word report."""
     status = verdict.get("status", "n/a")
     rows = [
         ("Task type", f"`{task_type}`" + (f" — matched: {', '.join(signals)}" if signals else " — no strong signal")),
@@ -1487,8 +1755,11 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
         ),
         ("Inference", "Local open-weight models · 0 external API calls"),
     ]
-    table = ["| Stage | Detail |", "|---|---|"] + [f"| {k} | {v} |" for k, v in rows]
+    return rows
 
+
+def _provenance_rest(steps: list[dict], attempts: int, include_thinking: bool,
+                     trace: list[str], table: list[str]) -> str:
     blocks = ["---", "", "#### 4CE provenance", "", "\n".join(table)]
 
     for step in steps:
@@ -1548,8 +1819,19 @@ def _response_parts(response: Any) -> tuple[str, str]:
     return _response_text(response), ""
 
 
-async def _status(emitter, action: str, description: str, done: bool = False) -> None:
+async def _status(emitter, action: str, description: str, done: bool = False,
+                  facts: list[str] | None = None) -> None:
+    # `ts` is the server's clock, so the chat's stage rail can show how long
+    # each agent actually took - measured, not estimated. The browser stores
+    # status entries with the message, so the timings survive a reload.
     if emitter:
-        await emitter({"type": "status", "data": {"action": action, "description": description, "done": done}})
+        data = {"action": action, "description": description, "done": done, "ts": round(time.time(), 3)}
+        # Real details of this stage, which the chat's live status line rolls
+        # in among its lines in the agent's voice. Only what this run actually
+        # knows - the voice lines are the chat's; the facts are ours.
+        facts = [f for f in (facts or []) if f]
+        if facts:
+            data["facts"] = facts
+        await emitter({"type": "status", "data": data})
 
 

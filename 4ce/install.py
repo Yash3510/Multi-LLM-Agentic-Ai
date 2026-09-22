@@ -184,6 +184,68 @@ def attach_tools(base, token):
     return "UPDATED", f"{model_id} -> {', '.join(tool_ids)}"
 
 
+# What the empty chat offers a new user. Upstream ships "help me study
+# vocabulary" and "ideas for my kids' art", which is the first thing anyone
+# sees after signing in to a confidential industrial workbench. Each of these
+# exercises a different verified capability instead: grounded retrieval, the
+# sandbox and the sovereignty audit.
+#
+# Three, not four: the suggestion list is capped at max-h-36 with its scrollbar
+# hidden, so a fourth is reachable only by scrolling a bar nobody can see - and
+# the list is shuffled on every load, so which one vanished would change too.
+SUGGESTIONS = [
+    {
+        "title": ["Check a threshold", "against SOP-MEC-014"],
+        "content": "What is the acceptable mechanical seal leakage rate under SOP-MEC-014, "
+        "and what must happen if it is exceeded?",
+    },
+    {
+        "title": ["Run code", "in the sealed sandbox"],
+        "content": "Write a Python function that returns the median of a list and print it "
+        "for [5, 3, 9, 1, 7].",
+    },
+    {
+        "title": ["Audit sovereignty", "of this deployment"],
+        "content": "Audit this deployment for anything that could send data off-premise.",
+    },
+]
+
+
+def ensure_suggestions(base, token):
+    """Put 4CE's own starting prompts on the orchestrator model.
+
+    The empty state reads a model's suggestions before the global defaults, so
+    setting them on the record the user actually chats with is enough, and it
+    survives restarts because it lives in the database rather than the env.
+    """
+    status, body = call(base, "/api/models", token)
+    if status != 200 or not body:
+        return "SKIPPED", "could not list models"
+    served = {m.get("id", ""): m for m in (body.get("data") or [])}
+    model_id = next((m for m in served if m.startswith(FUNCTIONS[0][0] + ".")), None)
+    if not model_id:
+        return "SKIPPED", "orchestrator model not served yet"
+
+    status, existing = call(base, f"/api/v1/models/model?id={model_id}", token)
+    existing = existing if status == 200 and isinstance(existing, dict) else {}
+    meta = dict(existing.get("meta") or {})
+    if meta.get("suggestion_prompts") == SUGGESTIONS:
+        return "OK", f"{len(SUGGESTIONS)} starting prompts already set"
+    meta["suggestion_prompts"] = SUGGESTIONS
+
+    payload = {
+        "id": model_id,
+        "name": existing.get("name") or served[model_id].get("name") or FUNCTIONS[0][1],
+        "meta": meta,
+        "params": existing.get("params") or {},
+        "is_active": True,
+    }
+    status, _ = call(base, "/api/v1/models/model/update", token, payload)
+    if status != 200:
+        return "FAILED", f"could not set starting prompts (status {status})"
+    return "UPDATED", f"{len(SUGGESTIONS)} starting prompts on {model_id}"
+
+
 def restrict_models(base, token):
     """Serve only the models 4CE routes to, and drop the evaluation arena.
 
@@ -453,6 +515,9 @@ def main():
     print(f"  {'tools -> model'.ljust(width)}  {state:<8} {detail}")
     picker_state, picker_detail = restrict_models(args.base, token)
     print(f"  {'model picker'.ljust(width)}  {picker_state:<8} {picker_detail}")
+
+    prompts_state, prompts_detail = ensure_suggestions(args.base, token)
+    print(f"  {'starting prompts'.ljust(width)}  {prompts_state:<8} {prompts_detail}")
     egress_state, egress_detail = clear_cloud_endpoints(args.base, token)
     print(f"  {'cloud endpoints'.ljust(width)}  {egress_state:<8} {egress_detail}")
     knowledge_state, knowledge_detail = ensure_knowledge(args.base, token)
