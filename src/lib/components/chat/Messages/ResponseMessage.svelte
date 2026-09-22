@@ -40,7 +40,8 @@
 	import equal from 'fast-deep-equal';
 
 	import Name from './Name.svelte';
-	import ProfileImage from './ProfileImage.svelte';
+	import ThinkingOrb from '$lib/components/common/ThinkingOrb.svelte';
+	import StageRail from './ResponseMessage/StageRail.svelte';
 	import Image from '$lib/components/common/Image.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import RateComment from './RateComment.svelte';
@@ -184,6 +185,102 @@
 	$: model = $models.find((m) => m.id === message.model);
 
 	$: statusEntries = message?.statusHistory ?? [...(message?.status ? [message?.status] : [])];
+
+	/* The avatar orb reads from the same status stream as the timeline below it,
+	   so the two can never disagree about what the chain is doing. */
+	/* Sphere states only. `breathing` is a face-on ring and `shaping` a dotted
+	   outline morphing between shapes: at avatar size both read as a thin line,
+	   not an orb - which is exactly what a short "hi" showed, because those were
+	   its two states. `composing` is a tilted band that reads as a broken bowl
+	   and `working` a loose scatter - drawn over 12s of their cycles, neither is
+	   ever a sphere - so JARVIS and tools use `weaving` instead. Planning,
+	   routing and a direct reply share one state, so a reply that lasts under a
+	   second never switches animation mid-way. */
+	const AVATAR_ORB_STATE = {
+		tony: 'solving',
+		tony_plan: 'solving',
+		router: 'solving',
+		chat: 'solving',
+		friday: 'searching', // grounding - a scan sweeping a globe
+		jarvis: 'weaving', // drafting the deliverable - threads drawn round the sphere
+		ultron: 'solving', // challenging - scramble, then click back
+		tony_replan: 'solving', // TONY again, replanning after a failed challenge
+		approval: 'listening', // waiting on a person
+		tool: 'weaving', // a tool producing the deliverable
+		knowledge_search: 'searching',
+		web_search: 'searching',
+		queries_generated: 'searching',
+		sources_retrieved: 'searching'
+	};
+
+	/* Upstream's retrieval step reports "sources retrieved" as done before the
+	   pipe has even started. That closes a step, not the run, so it must not
+	   count as finished. */
+	const INTERMEDIATE_STATUS = new Set([
+		'knowledge_search',
+		'queries_generated',
+		'sources_retrieved',
+		'web_search',
+		'web_search_queries_generated'
+	]);
+
+	/* A message that finished with its last status still open was cut off -
+	   most often the backend restarted mid-run. Shown as-is, that status keeps
+	   shimmering and claims something is still happening ("Awaiting human
+	   approval") when nothing is. Close it and say it was interrupted. */
+	$: displayStatusHistory = (() => {
+		const entries = message?.statusHistory;
+		if (!entries?.length || message?.done !== true) return entries;
+		const last = entries[entries.length - 1];
+		if (last?.done !== false) return entries;
+		return [
+			...entries.slice(0, -1),
+			{
+				...last,
+				done: true,
+				description: last.description ? `${last.description} — interrupted` : 'Interrupted'
+			}
+		];
+	})();
+
+	$: avatarStatus = statusEntries.at(-1) ?? null;
+	/* Running means: the latest message, not finished, and its last status not
+	   closed. All three matter.
+	   - Not waiting for a status. TONY classifies before emitting anything, so
+	     keying off an open status showed the finished-looking logo for the first
+	     second or more of every turn, then flashed the orb for a fraction of one.
+	   - `message.done`, because stopping a run sets it but leaves the last status
+	     open, which would otherwise keep the orb spinning after a pause.
+	   - The latest message only, so an old run that never closed cannot animate
+	     forever when its chat is reopened. */
+	$: avatarStatusClosed =
+		avatarStatus?.done === true && !INTERMEDIATE_STATUS.has(avatarStatus?.action);
+	$: avatarRunning = isLastMessage && message?.done !== true && !avatarStatusClosed;
+	/* No status yet means TONY is still classifying the request. */
+	$: avatarOrbState = avatarStatus
+		? (AVATAR_ORB_STATE[avatarStatus.action] ?? 'solving')
+		: 'solving';
+
+	/* Hysteresis on the way back to the logo: showing the orb is immediate,
+	   hiding it waits until the run has been idle for 160ms. A run can look
+	   finished for a few ms without being finished - measured once as upstream's
+	   "sources retrieved" arriving as done just before the pipe's first status
+	   (now excluded above), and a new chat's first message reloads history from
+	   the server mid-turn. The hold absorbs any such transient, and it is
+	   invisible at the real end of a run under the 180ms crossfade. */
+	let avatarShowOrb = false;
+	let avatarIdleTimer;
+	$: if (avatarRunning) {
+		clearTimeout(avatarIdleTimer);
+		avatarIdleTimer = null;
+		avatarShowOrb = true;
+	} else if (avatarShowOrb && !avatarIdleTimer) {
+		avatarIdleTimer = setTimeout(() => {
+			avatarIdleTimer = null;
+			avatarShowOrb = false;
+		}, 160);
+	}
+	onDestroy(() => clearTimeout(avatarIdleTimer));
 	$: hasVisibleStatus =
 		(model?.info?.meta?.capabilities?.status_updates ?? true) &&
 		statusEntries.length > 0 &&
@@ -662,11 +759,57 @@
 		dir={$settings.chatDirection}
 		style="scroll-margin-top: 3rem;"
 	>
-		<div class={`shrink-0 ltr:mr-2 rtl:ml-2 hidden @lg:flex mt-0.5 `}>
-			<ProfileImage
-				src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id}&lang=${$i18n.language}`}
-				className={'size-7 assistant-message-profile-image'}
-			/>
+		<!-- -mt-[9px] centres the 40px avatar on the 22.5px name line (it hung 12px
+		     low, beside the rail); without a name line it keeps upstream's mt-0.5. -->
+		<div
+			class={`shrink-0 ltr:mr-2.5 rtl:ml-2.5 hidden @lg:flex ${compactPreview ? 'mt-0.5' : '-mt-[9px]'}`}
+		>
+			<!-- The orb appears only while the chain is actually working, and
+			     animates through the stage it is in. The moment the run stops —
+			     finished, stopped by the reviewer, or failed — the mark returns.
+			     A frozen orb is a half-drawn shape, so it is never shown paused. -->
+			<!-- 40px orb, 30px mark. At 44/36 the solid mark outweighed the 15px name
+			     beside it; the orb is airy dots, so it stays a little larger than the
+			     mark to carry the same visual weight. -->
+			<div class="assistant-message-profile-image relative size-10">
+				{#if avatarShowOrb}
+					<div
+						class="absolute inset-0 flex items-center justify-center"
+						transition:fade={{ duration: 180 }}
+					>
+						<ThinkingOrb
+							state={avatarOrbState}
+							size={64}
+							display={40}
+							lightInk={2}
+							label={avatarStatus?.description ?? 'Working'}
+						/>
+					</div>
+				{:else}
+					<!-- The bare mark, not the model's avatar: that falls back to the app
+					     icon, a graphite tile that rounded-2xl crops into a dark disc.
+					     One per theme, since an <img> cannot inherit text colour. -->
+					<div
+						class="absolute inset-0 flex items-center justify-center"
+						transition:fade={{ duration: 180 }}
+					>
+						<img
+							src="/static/logo-mark-dark.svg"
+							class="size-7.5 dark:hidden"
+							alt=""
+							aria-hidden="true"
+							draggable="false"
+						/>
+						<img
+							src="/static/logo-mark-light.svg"
+							class="size-7.5 hidden dark:block"
+							alt=""
+							aria-hidden="true"
+							draggable="false"
+						/>
+					</div>
+				{/if}
+			</div>
 		</div>
 
 		<div class="flex-auto w-0 pl-1 relative">
@@ -684,7 +827,8 @@
 				<div class="chat-{message.role} w-full min-w-full">
 					<div>
 						{#if model?.info?.meta?.capabilities?.status_updates ?? true}
-							<StatusHistory statusHistory={message?.statusHistory} />
+							<StageRail statusHistory={message?.statusHistory} done={message?.done === true} />
+							<StatusHistory statusHistory={displayStatusHistory} />
 						{/if}
 
 						{#if message?.files && message.files?.filter( (f) => ['image', 'file'].includes(f.type) ).length > 0}
@@ -927,9 +1071,11 @@
 						</Tooltip>
 					</div>
 				{:else if !edit}
+					<!-- -ml-1.5 cancels the first button's padding, so the icons start on the
+					     text edge instead of 8px inside it; hover fills can overhang. -->
 					<div
 						bind:this={buttonsContainerElement}
-						class="flex items-center justify-start overflow-x-auto whitespace-nowrap buttons text-gray-600 dark:text-gray-500 mt-0.5 [&>*]:shrink-0"
+						class="flex items-center justify-start overflow-x-auto whitespace-nowrap buttons text-gray-600 dark:text-gray-500 mt-0.5 ltr:-ml-1.5 rtl:-mr-1.5 [&>*]:shrink-0"
 					>
 						{#if message.done || siblings.length > 1}
 							{#if siblings.length > 1}

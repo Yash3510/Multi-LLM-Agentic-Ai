@@ -158,4 +158,12 @@
 		content-visibility: auto;
 		contain-intrinsic-size: auto 150px;
 	}
+	/* The newest two messages are always on screen, so skipping them saves
+	   nothing - and a message that has never rendered is laid out at the 150px
+	   placeholder first. A new "hi" (68px) pushed the reply 82px down for a
+	   frame, then it snapped up: the answer's orb visibly jumped on every send.
+	   Older messages keep the virtualization and remember their real size. */
+	.message-listitem:nth-last-child(-n + 2) {
+		content-visibility: visible;
+	}
 </style>

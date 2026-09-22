@@ -111,6 +111,7 @@
 	import Navbar from '$lib/components/chat/Navbar.svelte';
 	import ChatControls from './ChatControls.svelte';
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
+	import ApprovalPanel, { pendingApprovals } from './ApprovalPanel.svelte';
 	import DeleteConfirmDialog from '../common/ConfirmDialog.svelte';
 	import WebSearchConfirmDialog from '../common/ConfirmDialog.svelte';
 	import Placeholder from './Placeholder.svelte';
@@ -162,6 +163,24 @@
 	let eventConfirmationTitle = '';
 	let eventConfirmationMessage = '';
 	let eventConfirmationInput = false;
+
+	/* 4CE's sign-off docks in place of the message box rather than opening a
+	   modal over the conversation. Pending requests live in a module-level store
+	   keyed by chat id (see ApprovalPanel.svelte), so leaving a chat and coming
+	   back finds the sign-off still waiting - tested, not assumed. Once the
+	   message is done - released, withheld, or timed out server-side - the
+	   request is cleared. */
+	const clearApproval = (id) =>
+		pendingApprovals.update((pending) => {
+			const next = { ...pending };
+			delete next[id];
+			return next;
+		});
+	$: approvalRequest = ($chatId && $pendingApprovals[$chatId]) || null;
+	$: showApproval = !!approvalRequest;
+	$: if (approvalRequest && history?.messages?.[approvalRequest.messageId]?.done) {
+		clearApproval($chatId);
+	}
 	let eventConfirmationInputPlaceholder = '';
 	let eventConfirmationInputValue = '';
 	let eventConfirmationInputType = '';
@@ -1365,6 +1384,11 @@
 					} catch (error) {
 						console.error('Error executing code:', error);
 					}
+				} else if (type === 'input' && data?.kind === '4ce_approval') {
+					pendingApprovals.update((pending) => ({
+						...pending,
+						[$chatId]: { data, callback: cb, messageId: event.message_id }
+					}));
 				} else if (type === 'input') {
 					eventCallback = cb;
 
@@ -4418,9 +4442,27 @@
 									</div>
 								</div>
 							{:else}
+								{#if showApproval}
+									<div class="pb-2 z-10">
+										<ApprovalPanel
+											request={approvalRequest}
+											on:release={(e) => {
+												approvalRequest?.callback(e.detail);
+												clearApproval($chatId);
+											}}
+											on:withhold={() => {
+												approvalRequest?.callback(false);
+												clearApproval($chatId);
+											}}
+										/>
+									</div>
+								{/if}
+								<!-- Hidden, not unmounted, while the sign-off is docked, so
+								     anything typed in the message box survives the review. -->
 								<div
 									id={embedded ? messageInputDropzoneId : undefined}
 									class=" pb-2 {dragged ? 'z-0' : 'z-10'}"
+									class:hidden={showApproval}
 								>
 									<MessageInput
 										bind:this={messageInput}
