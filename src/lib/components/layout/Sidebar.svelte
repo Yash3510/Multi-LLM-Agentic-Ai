@@ -974,11 +974,18 @@
 								<!-- LICENSE covers this Open WebUI sidebar logo.
 							Do not alter, remove, obscure, or replace it except as LICENSE permits:
 							https://docs.openwebui.com/license. -->
-								<img
-									src="{WEBUI_BASE_URL}/static/favicon.png"
-									class="sidebar-new-chat-icon size-5 rounded-full group-hover:hidden"
-									alt=""
-								/>
+								<span class="sidebar-new-chat-icon inline-flex group-hover:hidden">
+									<img
+										src="{WEBUI_BASE_URL}/static/logo-mark-dark.svg"
+										class="size-[22px] dark:hidden"
+										alt=""
+									/>
+									<img
+										src="{WEBUI_BASE_URL}/static/logo-mark-light.svg"
+										class="size-[22px] hidden dark:block"
+										alt=""
+									/>
+								</span>
 
 								<Sidebar className="size-4 hidden group-hover:flex" />
 							</div>
@@ -1160,12 +1167,20 @@
 						<!-- LICENSE covers this Open WebUI sidebar logo.
 					Do not alter, remove, obscure, or replace it except as LICENSE permits:
 					https://docs.openwebui.com/license. -->
-						<img
-							crossorigin="anonymous"
-							src="{WEBUI_BASE_URL}/static/favicon.png"
-							class="sidebar-new-chat-icon size-5 rounded-full"
-							alt=""
-						/>
+						<span class="sidebar-new-chat-icon inline-flex">
+							<img
+								crossorigin="anonymous"
+								src="{WEBUI_BASE_URL}/static/logo-mark-dark.svg"
+								class="size-[22px] dark:hidden"
+								alt=""
+							/>
+							<img
+								crossorigin="anonymous"
+								src="{WEBUI_BASE_URL}/static/logo-mark-light.svg"
+								class="size-[22px] hidden dark:block"
+								alt=""
+							/>
+						</span>
 					</a>
 
 					<a href="/" class="flex flex-1 px-0.5" on:click={newChatHandler}>

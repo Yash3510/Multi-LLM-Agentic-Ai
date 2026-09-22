@@ -146,17 +146,98 @@ def main() -> None:
         icon.save(ROOT / relative, sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
     print("wrote 2 multi-size .ico files")
 
-    # The SVG favicon cannot embed the raster mark without bloating every page
-    # that references it, so it carries the graphite tile and is paired with the
-    # PNG favicons the browser prefers at real sizes.
-    svg = (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">\n'
-        '  <rect width="512" height="512" rx="113" fill="#0D1117"/>\n'
+    write_vector_assets()
+    write_raster_mark()
+
+
+def write_vector_assets() -> None:
+    """The SVG favicon and the bare marks, from the traced vector source.
+
+    `logo-mark.svg` is the connection wheel traced from the supplied artwork,
+    2 KB of path data. Being vector it can finally sit inside the SVG favicon,
+    which until now could only carry an empty graphite square: embedding the
+    raster mark would have bloated every page that references it.
+
+    The bare marks exist for the UI's small logo slots. The app icon puts the
+    mark at 78% inside a tile, so a 20px slot showed it at about 15px, and a
+    rounded-full crop then cut the tile into a circle. A bare mark fills the
+    slot instead. An <img> cannot inherit text colour, hence one per theme.
+    """
+    import re
+
+    source = (HERE / "logo-mark.svg").read_text(encoding="utf-8")
+    view_box = re.search(r'viewBox="([^"]+)"', source).group(1)
+    path = re.search(r' d="([^"]+)"', source).group(1)
+    side = float(view_box.split()[2])
+
+    def bare(fill: str) -> str:
+        return (
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{view_box}">'
+            f'<path fill="{fill}" fill-rule="evenodd" d="{path}"/></svg>\n'
+        )
+
+    # Mark at 70% of the tile, matching the raster icons' visual weight.
+    inset = side * 0.70
+    scale = inset / side
+    offset = (512 - 512 * scale) / 2
+    favicon = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
+        '<rect width="512" height="512" rx="113" fill="#0D1117"/>'
+        f'<path fill="#FFFFFF" fill-rule="evenodd" '
+        f'transform="translate({offset:.2f} {offset:.2f}) scale({512 / side * scale:.5f})" d="{path}"/>'
         '</svg>\n'
     )
-    for relative in ("static/static/favicon.svg", "backend/open_webui/static/favicon.svg"):
-        (ROOT / relative).write_text(svg, encoding="utf-8")
-    print("wrote 2 .svg files")
+
+    outputs = {
+        "favicon.svg": favicon,
+        # graphite mark for light surfaces, white for dark ones
+        "logo-mark-dark.svg": bare("#0D1117"),
+        "logo-mark-light.svg": bare("#FFFFFF"),
+    }
+    written = 0
+    for name, body in outputs.items():
+        for tree in ("static/static", "backend/open_webui/static"):
+            (ROOT / tree / name).write_text(body, encoding="utf-8")
+            written += 1
+    print(f"wrote {written} .svg files")
+
+
+def write_raster_mark(size: int = 512) -> None:
+    """The bare mark as a PNG, drawn from the vector trace, for Word reports.
+
+    A .docx cannot embed SVG portably, and the raster pipeline above works
+    from the JPEG's luminance, whose strands come out soft - the edges that
+    read as a "flower" at larger sizes. The trace is plain polygons (only M
+    and Z) filled even-odd, so each ring is drawn onto its own mask and the
+    masks are XOR-ed, which is exactly the even-odd rule. Drawn at 8x and
+    reduced, so the edges are anti-aliased rather than stair-stepped.
+    """
+    import re
+
+    source = (HERE / "logo-mark.svg").read_text(encoding="utf-8")
+    side = float(re.search(r'viewBox="([^"]+)"', source).group(1).split()[2])
+    path = re.search(r' d="([^"]+)"', source).group(1)
+
+    scale = 8
+    big = size * scale
+    inset = big * 0.04  # a hair of margin so anti-aliasing is not clipped
+    k = (big - 2 * inset) / side
+    mask = Image.new("L", (big, big), 0)
+    for ring in re.findall(r"M([^MZ]+)Z", path):
+        numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", ring)]
+        points = [(inset + x * k, inset + y * k) for x, y in zip(numbers[0::2], numbers[1::2])]
+        if len(points) < 3:
+            continue
+        layer = Image.new("L", (big, big), 0)
+        ImageDraw.Draw(layer).polygon(points, fill=255)
+        mask = ImageChops.logical_xor(mask.convert("1"), layer.convert("1")).convert("L")
+
+    mask = mask.resize((size, size), Image.LANCZOS)
+    mark = Image.new("RGBA", (size, size), GRAPHITE)
+    mark.putalpha(mask)
+    for tree in ("static/static", "backend/open_webui/static"):
+        mark.save(ROOT / tree / "logo-mark.png", optimize=True)
+    print("wrote 2 logo-mark.png files")
 
 
 if __name__ == "__main__":

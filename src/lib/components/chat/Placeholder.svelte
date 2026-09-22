@@ -143,14 +143,23 @@
 										}}
 									>
 										<img
-											src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id}&lang=${$i18n.language}`}
-											class=" size-9 @sm:size-10 rounded-2xl"
+											src="/static/logo-mark-dark.svg"
+											class="size-9 @sm:size-10 dark:hidden"
 											aria-hidden="true"
 											draggable="false"
 											on:error={(e) => {
 												// LICENSE covers this Open WebUI fallback logo.
 												// Do not alter, remove, obscure, or replace it except as LICENSE permits:
 												// https://docs.openwebui.com/license.
+												e.currentTarget.src = '/favicon.png';
+											}}
+										/>
+										<img
+											src="/static/logo-mark-light.svg"
+											class="size-9 @sm:size-10 hidden dark:block"
+											aria-hidden="true"
+											draggable="false"
+											on:error={(e) => {
 												e.currentTarget.src = '/favicon.png';
 											}}
 										/>

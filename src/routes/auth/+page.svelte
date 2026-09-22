@@ -258,7 +258,7 @@
 										id="logo"
 										crossorigin="anonymous"
 										src="{WEBUI_BASE_URL}/static/favicon.png"
-										class="size-24 rounded-full"
+										class="size-24"
 										alt="{$WEBUI_NAME} logo"
 									/>
 								</div>
@@ -625,13 +625,20 @@
 						<!-- LICENSE covers this Open WebUI sign-in logo.
 						Do not alter, remove, obscure, or replace it except as LICENSE permits:
 						https://docs.openwebui.com/license. -->
-						<img
-							id="logo"
-							crossorigin="anonymous"
-							src="{WEBUI_BASE_URL}/static/favicon.png"
-							class=" w-6 rounded-full"
-							alt=""
-						/>
+						<span id="logo" class="inline-flex">
+							<img
+								crossorigin="anonymous"
+								src="{WEBUI_BASE_URL}/static/logo-mark-dark.svg"
+								class="size-6 dark:hidden"
+								alt=""
+							/>
+							<img
+								crossorigin="anonymous"
+								src="{WEBUI_BASE_URL}/static/logo-mark-light.svg"
+								class="size-6 hidden dark:block"
+								alt=""
+							/>
+						</span>
 					</div>
 				</div>
 			</div>
