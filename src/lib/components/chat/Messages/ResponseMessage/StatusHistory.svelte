@@ -40,7 +40,15 @@
 	   that agent's words start as the light lands. Once the run is over it is
 	   one quiet line into the full history. */
 	$: handover = status?.done === false && FOURCE_ACTIONS.has(status?.action) ? rail?.handover ?? null : null;
-	$: summary = status?.done === true && rail?.inChain ? { steps: history.length, worked: rail.worked } : null;
+	$: summary =
+		status?.done === true && rail?.inChain
+			? {
+					steps: history.length,
+					worked: rail.worked,
+					// A run that failed or was stopped says so, not how long it worked.
+					stopped: rail.outcome === 'interrupted' || ['error', 'stopped'].includes(status?.action)
+				}
+			: null;
 	const passingTo = (name) => (name === 'You' ? 'you for sign-off' : name);
 	// A change of stage crosses the line over; a new line within a stage is
 	// LiveStatusLine's own roll.
@@ -84,8 +92,12 @@
 								<span
 									class="inline-flex items-center gap-1 text-gray-600 transition-colors duration-200 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
 								>
-									{summary.steps}
-									{summary.steps === 1 ? 'step' : 'steps'}{#if summary.worked}&nbsp;in {summary.worked}{/if}
+									{#if summary.stopped}
+										Stopped after {summary.steps} {summary.steps === 1 ? 'step' : 'steps'}
+									{:else}
+										{summary.steps}
+										{summary.steps === 1 ? 'step' : 'steps'}{#if summary.worked}&nbsp;in {summary.worked}{/if}
+									{/if}
 									<svg
 										class="size-3 transition-transform duration-300 ease-out {showHistory ? 'rotate-90' : ''}"
 										viewBox="0 0 12 12"

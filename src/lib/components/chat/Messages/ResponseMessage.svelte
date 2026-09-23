@@ -43,6 +43,7 @@
 	import LogoMotion from '$lib/components/common/LogoMotion.svelte';
 	import { ALL_MOTIONS } from '$lib/components/common/logoMotion.js';
 	import StageRail from './ResponseMessage/StageRail.svelte';
+	import RunErrorCard, { parseRunError } from './ResponseMessage/RunErrorCard.svelte';
 	import Image from '$lib/components/common/Image.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import RateComment from './RateComment.svelte';
@@ -225,6 +226,8 @@
 
 	// Where the stage rail is, so the status line under it keeps its pace.
 	let railLive = null;
+	// A run that stopped: said as a card, with its fix, instead of raw text.
+	$: runError = message?.done ? parseRunError(message?.content) : null;
 
 	$: avatarStatus = statusEntries.at(-1) ?? null;
 	/* Running means: the latest message, not finished, and its last status not
@@ -961,7 +964,16 @@
 							class="w-full flex flex-col relative {edit ? 'hidden' : ''}"
 							id="response-content-container"
 						>
-							{#if hasResponseContent && message.error !== true}
+							{#if runError}
+								<RunErrorCard
+									error={runError}
+									who={railLive?.stoppedAt ?? ''}
+									canRetry={!readOnly &&
+										isLastMessage &&
+										($user?.role === 'admin' || ($user?.permissions?.chat?.regenerate_response ?? true))}
+									on:retry={() => regenerateResponse(message)}
+								/>
+							{:else if hasResponseContent && message.error !== true}
 								<!-- always show message contents even if there's an error -->
 								<!-- unless message.error === true which is legacy error handling, where the error message is stored in message.content -->
 								<ContentRenderer

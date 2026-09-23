@@ -325,6 +325,10 @@
 			!cascade && shown >= 0 && frontier > shown
 				? { from: view.stages[shown].name, to: view.stages[shown + 1]?.name }
 				: null,
+		// The agent a failed or stopped run ended at.
+		stoppedAt:
+			view.stages.find((s) => s.state === 'interrupted' && (s.note === 'failed' || s.note === 'stopped'))
+				?.name ?? null,
 		// The agents' working time, without your time reviewing.
 		worked: (() => {
 			const agents = view.stages.filter((s) => s.name !== 'You' && s.secs != null);
