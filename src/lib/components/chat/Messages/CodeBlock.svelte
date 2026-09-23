@@ -470,7 +470,7 @@
 
 				<div class="flex items-center gap-0.5 shrink-0">
 					<button
-						class="flex gap-1 items-center bg-none border-none transition rounded-md px-1.5 py-0.5 bg-white dark:bg-black"
+						class="flex gap-1 items-center bg-none border-none transition rounded-lg px-2 py-0.5 bg-white dark:bg-black"
 						on:click={collapseCodeBlock}
 					>
 						<div class=" -translate-y-[0.5px]">
@@ -491,7 +491,7 @@
 							</div>
 						{:else if run}
 							<button
-								class="flex gap-1 items-center run-code-button bg-none border-none transition rounded-md px-1.5 py-0.5 bg-white dark:bg-black"
+								class="flex gap-1 items-center run-code-button bg-none border-none transition rounded-lg px-2 py-0.5 bg-white dark:bg-black"
 								on:click={async () => {
 									code = _code;
 									await tick();
@@ -507,7 +507,7 @@
 
 					{#if save}
 						<button
-							class="save-code-button bg-none border-none transition rounded-md px-1.5 py-0.5 bg-white dark:bg-black"
+							class="save-code-button bg-none border-none transition rounded-lg px-2 py-0.5 bg-white dark:bg-black"
 							on:click={saveCode}
 						>
 							{saved ? $i18n.t('Saved') : $i18n.t('Save')}
@@ -515,13 +515,13 @@
 					{/if}
 
 					<button
-						class="copy-code-button bg-none border-none transition rounded-md px-1.5 py-0.5 bg-white dark:bg-black"
+						class="copy-code-button bg-none border-none transition rounded-lg px-2 py-0.5 bg-white dark:bg-black"
 						on:click={copyCode}>{copied ? $i18n.t('Copied') : $i18n.t('Copy')}</button
 					>
 
 					{#if preview && ['html', 'svg'].includes(lang)}
 						<button
-							class="flex gap-1 items-center run-code-button bg-none border-none transition rounded-md px-1.5 py-0.5 bg-white dark:bg-black"
+							class="flex gap-1 items-center run-code-button bg-none border-none transition rounded-lg px-2 py-0.5 bg-white dark:bg-black"
 							on:click={previewCode}
 						>
 							<div>

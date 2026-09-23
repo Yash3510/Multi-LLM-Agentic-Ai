@@ -31,7 +31,13 @@
 
 {#if history && history.length > 0}
 	{#if status?.hidden !== true}
-		<div class="text-[0.9375rem] flex flex-col w-full">
+		<!-- Once the run is over the line is a quiet way into the full history,
+		     at the size of the fold-outs under the answer, with room below. -->
+		<div
+			class="{status?.done === true
+				? 'mb-2 text-[13.5px]'
+				: 'text-[0.9375rem]'} flex flex-col w-full transition-[font-size,margin] duration-300"
+		>
 			<button
 				class="w-full"
 				aria-label={$i18n.t('Toggle status history')}

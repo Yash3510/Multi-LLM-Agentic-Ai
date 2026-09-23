@@ -405,7 +405,7 @@
 						type={done && s.state !== 'skipped' ? 'button' : undefined}
 						role={done && s.state !== 'skipped' ? 'button' : undefined}
 						on:click={() => done && s.state !== 'skipped' && openStage(s.name)}
-						class="group -mx-1 flex flex-col items-start rounded-md px-1 text-left outline-none focus-visible:ring-1 focus-visible:ring-gray-400"
+						class="group -mx-1 flex flex-col items-start rounded-lg px-1 text-left outline-none focus-visible:ring-1 focus-visible:ring-gray-400"
 						aria-label="{s.name}{s.runs > 1 ? `, ran ${s.runs} times` : ''}{s.time
 							? `, ${s.time}`
 							: ''}{s.note ? `, ${s.note}` : ''}"

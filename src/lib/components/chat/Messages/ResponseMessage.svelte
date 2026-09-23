@@ -296,8 +296,9 @@
 
 	const copyToClipboard = async (text) => {
 		text = removeAllDetails(text);
-		// The 4CE receipt is drawn from a block of JSON; a copy is the answer.
-		text = text.replace(/```4ce-receipt\n[\s\S]*?\n```\n?/g, '').trim();
+		// The 4CE receipt and file card are drawn from blocks of JSON; a copy
+		// is the answer.
+		text = text.replace(/```4ce-(?:receipt|file)\n[\s\S]*?\n```\n?/g, '').trim();
 
 		if (($config?.ui?.response_watermark ?? '').trim() !== '') {
 			text = `${text}\n\n${$config?.ui?.response_watermark}`;
@@ -305,9 +306,17 @@
 
 		const res = await _copyToClipboard(text, null, $settings?.copyFormatted ?? false);
 		if (res) {
-			toast.success($i18n.t('Copying to clipboard was successful!'));
+			// Said by the button itself - it turns into a tick for a moment -
+			// rather than by a toast across the screen.
+			copied = true;
+			clearTimeout(copiedTimer);
+			copiedTimer = setTimeout(() => (copied = false), 1500);
+		} else {
+			toast.error($i18n.t('Failed to copy to clipboard'));
 		}
 	};
+	let copied = false;
+	let copiedTimer: ReturnType<typeof setTimeout>;
 
 	const stopAudio = () => {
 		speakAbort?.abort();
@@ -1060,7 +1069,7 @@
 								<div class="flex self-center min-w-fit" dir="ltr">
 									<button
 										aria-label={$i18n.t('Previous message')}
-										class="self-center p-1 hover:bg-black/5 dark:hover:bg-white/5 dark:hover:text-white hover:text-black rounded-md transition"
+										class="self-center p-1 hover:bg-black/5 dark:hover:bg-white/5 dark:hover:text-white hover:text-black rounded-lg transition"
 										on:click={() => {
 											showPreviousMessage(message);
 										}}
@@ -1128,7 +1137,7 @@
 									{/if}
 
 									<button
-										class="self-center p-1 hover:bg-black/5 dark:hover:bg-white/5 dark:hover:text-white hover:text-black rounded-md transition"
+										class="self-center p-1 hover:bg-black/5 dark:hover:bg-white/5 dark:hover:text-white hover:text-black rounded-lg transition"
 										on:click={() => {
 											showNextMessage(message);
 										}}
@@ -1186,9 +1195,9 @@
 									{/if}
 								{/if}
 
-								<Tooltip content={$i18n.t('Copy')} placement="bottom">
+								<Tooltip content={copied ? $i18n.t('Copied') : $i18n.t('Copy')} placement="bottom">
 									<button
-										aria-label={$i18n.t('Copy')}
+										aria-label={copied ? $i18n.t('Copied') : $i18n.t('Copy')}
 										class="{isLastMessage || ($settings?.highContrastMode ?? false)
 											? 'visible'
 											: 'hover-reveal'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition copy-response-button"
@@ -1196,6 +1205,19 @@
 											copyToClipboard(visibleResponseContent);
 										}}
 									>
+										{#if copied}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												aria-hidden="true"
+												viewBox="0 0 24 24"
+												stroke-width="2.3"
+												stroke="currentColor"
+												class="copied-tick w-4 h-4 text-gray-900 dark:text-white"
+											>
+												<path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+											</svg>
+										{:else}
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											fill="none"
@@ -1211,6 +1233,7 @@
 												d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
 											/>
 										</svg>
+										{/if}
 									</button>
 								</Tooltip>
 
@@ -1755,5 +1778,31 @@
 	.buttons {
 		-ms-overflow-style: none; /* IE and Edge */
 		scrollbar-width: none; /* Firefox */
+	}
+
+	/* The tick that answers a copy: it draws itself in, no bounce. */
+	.copied-tick {
+		animation: copied-in 220ms ease-out both;
+	}
+	.copied-tick path {
+		stroke-dasharray: 24;
+		animation: copied-draw 260ms 40ms ease-out both;
+	}
+	@keyframes copied-in {
+		from {
+			opacity: 0;
+			scale: 0.8;
+		}
+	}
+	@keyframes copied-draw {
+		from {
+			stroke-dashoffset: 24;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.copied-tick,
+		.copied-tick path {
+			animation: none;
+		}
 	}
 </style>

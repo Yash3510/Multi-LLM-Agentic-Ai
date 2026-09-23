@@ -111,7 +111,7 @@
 							tippyOptions={{ duration: [500, 0] }}
 						>
 							<a
-								class="hover:text-gray-500 dark:hover:text-gray-100 underline grow line-clamp-1"
+								class="grow line-clamp-1 underline-offset-2 decoration-gray-300 hover:underline dark:decoration-gray-600"
 								href={document?.metadata?.file_id
 									? `${WEBUI_API_BASE_URL}/files/${document?.metadata?.file_id}/content${document?.metadata?.page !== undefined ? `#page=${document.metadata.page + 1}` : ''}`
 									: document.source?.url?.includes('http')
@@ -174,7 +174,10 @@
 										{$i18n.t('Content')}
 									{/if}
 								{:else}
-									{$i18n.t('Content')}
+									<!-- What was retrieved from a document in the knowledge base. -->
+									<span class="text-xs font-medium uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
+										>{$i18n.t('Passage')}</span
+									>
 								{/if}
 
 								{#if showRelevance && document.distance !== undefined}
@@ -190,9 +193,9 @@
 
 												{#if typeof percentage === 'number'}
 													<span
-														class={`px-1 rounded-sm font-normal ${getRelevanceColor(percentage)}`}
+														class={`px-1.5 rounded-full font-normal ${getRelevanceColor(percentage)}`}
 													>
-														{percentage.toFixed(2)}%
+														{Math.round(percentage)}% {$i18n.t('match')}
 													</span>
 												{/if}
 											{:else if typeof document?.distance === 'number'}

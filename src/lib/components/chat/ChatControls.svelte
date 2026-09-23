@@ -228,8 +228,8 @@
 									<button
 										class="px-2.5 py-1 text-sm rounded-lg transition whitespace-nowrap {activeTab ===
 										'controls'
-											? 'bg-gray-100/40 dark:bg-gray-800/25 font-normal text-gray-700 dark:text-gray-200'
-											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-100/30 dark:hover:bg-gray-800/20 hover:text-gray-600 dark:hover:text-gray-300'}"
+											? 'bg-gray-100 dark:bg-gray-800 font-medium text-gray-900 dark:text-white'
+											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-800 dark:hover:text-gray-200'}"
 										on:click={() => (activeTab = 'controls')}
 									>
 										{$i18n.t('Controls')}
@@ -239,8 +239,8 @@
 									<button
 										class="px-2.5 py-1 text-sm rounded-lg transition whitespace-nowrap {activeTab ===
 										'files'
-											? 'bg-gray-100/40 dark:bg-gray-800/25 font-normal text-gray-700 dark:text-gray-200'
-											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-100/30 dark:hover:bg-gray-800/20 hover:text-gray-600 dark:hover:text-gray-300'}"
+											? 'bg-gray-100 dark:bg-gray-800 font-medium text-gray-900 dark:text-white'
+											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-800 dark:hover:text-gray-200'}"
 										on:click={() => (activeTab = 'files')}
 									>
 										{$i18n.t('Files')}
@@ -250,8 +250,8 @@
 									<button
 										class="px-2.5 py-1 text-sm rounded-lg transition whitespace-nowrap {activeTab ===
 										'overview'
-											? 'bg-gray-100/40 dark:bg-gray-800/25 font-normal text-gray-700 dark:text-gray-200'
-											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-100/30 dark:hover:bg-gray-800/20 hover:text-gray-600 dark:hover:text-gray-300'}"
+											? 'bg-gray-100 dark:bg-gray-800 font-medium text-gray-900 dark:text-white'
+											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-800 dark:hover:text-gray-200'}"
 										on:click={() => (activeTab = 'overview')}
 									>
 										{$i18n.t('Overview')}
@@ -259,7 +259,7 @@
 								{/if}
 							</div>
 							<button
-								class="p-1 rounded-lg text-gray-500 dark:text-gray-400"
+								class="p-1 rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
 								on:click={() => showControls.set(false)}
 								aria-label={$i18n.t('Close')}
 							>
@@ -314,9 +314,14 @@
 		closeOnDragBelowMinWidth
 		onClose={() => showControls.set(false)}
 		storageKey="chatControlsSize"
-		className="h-full z-10 bg-white dark:bg-gray-900"
+		divider={false}
+		className="h-full z-10 py-2 pr-2"
 	>
-		<div class="flex h-full max-h-full min-h-full">
+		<!-- A card set in from the window's edge, with the corners of the message
+		     box and the sign-off panel, rather than a slab against it. -->
+		<div
+			class="flex h-full max-h-full min-h-full overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_1px_2px_-1px_rgba(16,24,40,0.05),0_12px_32px_-18px_rgba(16,24,40,0.18)] dark:border-gray-800/80 dark:bg-gray-900 dark:shadow-none"
+		>
 			<div
 				class="w-full {specialPanel && !$showCallOverlay
 					? ' '
@@ -351,8 +356,8 @@
 									<button
 										class="px-2.5 py-1 text-sm rounded-lg transition whitespace-nowrap {activeTab ===
 										'controls'
-											? 'bg-gray-100/40 dark:bg-gray-800/25 font-normal text-gray-700 dark:text-gray-200'
-											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-100/30 dark:hover:bg-gray-800/20 hover:text-gray-600 dark:hover:text-gray-300'}"
+											? 'bg-gray-100 dark:bg-gray-800 font-medium text-gray-900 dark:text-white'
+											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-800 dark:hover:text-gray-200'}"
 										on:click={() => (activeTab = 'controls')}
 									>
 										{$i18n.t('Controls')}
@@ -362,8 +367,8 @@
 									<button
 										class="px-2.5 py-1 text-sm rounded-lg transition whitespace-nowrap {activeTab ===
 										'files'
-											? 'bg-gray-100/40 dark:bg-gray-800/25 font-normal text-gray-700 dark:text-gray-200'
-											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-100/30 dark:hover:bg-gray-800/20 hover:text-gray-600 dark:hover:text-gray-300'}"
+											? 'bg-gray-100 dark:bg-gray-800 font-medium text-gray-900 dark:text-white'
+											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-800 dark:hover:text-gray-200'}"
 										on:click={() => (activeTab = 'files')}
 									>
 										{$i18n.t('Files')}
@@ -373,8 +378,8 @@
 									<button
 										class="px-2.5 py-1 text-sm rounded-lg transition whitespace-nowrap {activeTab ===
 										'overview'
-											? 'bg-gray-100/40 dark:bg-gray-800/25 font-normal text-gray-700 dark:text-gray-200'
-											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-100/30 dark:hover:bg-gray-800/20 hover:text-gray-600 dark:hover:text-gray-300'}"
+											? 'bg-gray-100 dark:bg-gray-800 font-medium text-gray-900 dark:text-white'
+											: 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-800 dark:hover:text-gray-200'}"
 										on:click={() => (activeTab = 'overview')}
 									>
 										{$i18n.t('Overview')}
@@ -382,7 +387,7 @@
 								{/if}
 							</div>
 							<button
-								class="p-1 rounded-lg text-gray-500 dark:text-gray-400"
+								class="p-1 rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
 								on:click={() => showControls.set(false)}
 								aria-label={$i18n.t('Close')}
 							>

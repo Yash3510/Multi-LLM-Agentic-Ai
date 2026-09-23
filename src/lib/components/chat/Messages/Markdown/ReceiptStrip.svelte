@@ -98,9 +98,10 @@
 
 <div class="receipt my-2 not-prose" role="group" aria-label="How this answer was produced">
 	<div class="flex flex-wrap gap-1.5">
-		{#each pills as pill}
+		{#each pills as pill, n}
 			<span
-				class="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-[11px] leading-4 dark:bg-gray-900 {TONE[
+				style="--n: {n}"
+				class="receipt-pill inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-[11px] leading-4 dark:bg-gray-900 {TONE[
 					pill.tone
 				]}"
 				title={pill.title}
@@ -112,7 +113,8 @@
 		{#if data.fingerprint}
 			<button
 				type="button"
-				class="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[11px] leading-4 text-gray-600 transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:text-white"
+				style="--n: {pills.length}"
+				class="receipt-pill inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[11px] leading-4 text-gray-600 transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:text-white"
 				title="SHA-256 of the released answer, {data.fingerprint}. The Word report carries the same fingerprint. Click to copy."
 				on:click={copyFingerprint}
 			>
@@ -123,15 +125,20 @@
 	</div>
 
 	{#if checks.length}
-		<div class="mt-2.5 rounded-xl border border-gray-100 px-3 py-2 dark:border-gray-850">
+		<div
+			class="receipt-checks mt-2.5 rounded-xl border border-gray-100 px-3 py-2 dark:border-gray-850"
+			style="--n: {pills.length + 1}"
+		>
 			<!-- 4CE's own mechanical check first, then ULTRON's; each line says
 			     which of them made it. -->
 			<div class="mb-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
 				What was checked
 			</div>
 			<ul class="space-y-1">
-				{#each checks as check}
-					<li class="flex items-start gap-2 text-[12.5px] leading-snug text-gray-700 dark:text-gray-300">
+				{#each checks as check, k}
+					<li
+						style="--k: {k}"
+						class="receipt-check flex items-start gap-2 text-[12.5px] leading-snug text-gray-700 dark:text-gray-300">
 						<svg
 							class="mt-[3px] size-3 shrink-0 {MARK[check.kind]?.tone ?? MARK.unverified.tone}"
 							viewBox="0 0 16 16"
@@ -158,3 +165,36 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	/* When a run finishes in front of the reader, its receipt is set down
+	   piece by piece: the pills in order, then the card of checks, line by
+	   line. An answer opened later (no .message-in round it) is drawn still. */
+	:global(.message-in) .receipt-pill {
+		animation: receipt-in 300ms calc(var(--n) * 45ms) cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+	}
+	:global(.message-in) .receipt-checks {
+		animation: receipt-in 360ms calc(var(--n) * 45ms) cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+	}
+	:global(.message-in) .receipt-check {
+		animation: receipt-line 300ms calc(var(--k) * 60ms + 420ms) ease-out backwards;
+	}
+	@keyframes receipt-in {
+		from {
+			opacity: 0;
+			translate: 0 3px;
+		}
+	}
+	@keyframes receipt-line {
+		from {
+			opacity: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		:global(.message-in) .receipt-pill,
+		:global(.message-in) .receipt-checks,
+		:global(.message-in) .receipt-check {
+			animation: none;
+		}
+	}
+</style>

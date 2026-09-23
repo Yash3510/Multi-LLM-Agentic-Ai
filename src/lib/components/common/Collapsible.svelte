@@ -32,7 +32,6 @@
 	import { slide } from 'svelte/transition';
 	import { quintOut } from 'svelte/easing';
 
-	import ChevronUp from '../icons/ChevronUp.svelte';
 	import ChevronDown from '../icons/ChevronDown.svelte';
 	import Spinner from './Spinner.svelte';
 
@@ -123,12 +122,13 @@
 				</div>
 
 				{#if !disabled}
-					<div class="flex self-center translate-y-[1px]">
-						{#if open}
-							<ChevronUp strokeWidth={chevronStrokeWidth} className={chevronClassName} />
-						{:else}
-							<ChevronDown strokeWidth={chevronStrokeWidth} className={chevronClassName} />
-						{/if}
+					<!-- One chevron that turns, rather than two that swap. -->
+					<div
+						class="flex self-center translate-y-[1px] transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.2,1)] {open
+							? 'rotate-180'
+							: ''}"
+					>
+						<ChevronDown strokeWidth={chevronStrokeWidth} className={chevronClassName} />
 					</div>
 				{/if}
 			</div>
@@ -148,12 +148,12 @@
 					<slot />
 
 					{#if chevron}
-						<div class="flex self-start translate-y-1">
-							{#if open}
-								<ChevronUp strokeWidth={chevronStrokeWidth} className={chevronClassName} />
-							{:else}
-								<ChevronDown strokeWidth={chevronStrokeWidth} className={chevronClassName} />
-							{/if}
+						<div
+							class="flex self-start translate-y-1 transition-transform duration-300 ease-[cubic-bezier(0.2,0.7,0.2,1)] {open
+								? 'rotate-180'
+								: ''}"
+						>
+							<ChevronDown strokeWidth={chevronStrokeWidth} className={chevronClassName} />
 						</div>
 					{/if}
 				</div>

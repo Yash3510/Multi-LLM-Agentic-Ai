@@ -12,6 +12,8 @@
 	export let className = '';
 	export let resizerId = 'controls-resizer';
 	export let onClose: () => void = () => {};
+	/** A hairline between the panel and its neighbour; without it, a grip shows on hover. */
+	export let divider = true;
 
 	let panelElement: HTMLDivElement | null = null;
 	let isResizing = false;
@@ -139,7 +141,9 @@
 	{#if side === 'right'}
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions, a11y_no_noninteractive_tabindex -->
 		<div
-			class="relative flex items-center justify-center group border-l border-gray-50 dark:border-gray-850/30 hover:border-gray-200 dark:hover:border-gray-800 transition z-20 bg-transparent p-0 appearance-none"
+			class="relative flex items-center justify-center group {divider
+				? 'border-l border-gray-50 dark:border-gray-850/30 hover:border-gray-200 dark:hover:border-gray-800'
+				: 'w-2 outline-none'} transition z-20 bg-transparent p-0 appearance-none"
 			id={resizerId}
 			on:pointerdown={resizeStartHandler}
 			on:keydown={resizeKeyHandler}
@@ -148,6 +152,16 @@
 			aria-label="Resize panel"
 			aria-orientation="vertical"
 		>
+			{#if !divider}
+				<!-- The grip: a short rounded bar, shown while the edge is hovered,
+				     focused or dragged. -->
+				<span
+					class="h-8 w-1 rounded-full bg-gray-300 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 dark:bg-gray-700 {isResizing
+						? 'opacity-100'
+						: ''}"
+					aria-hidden="true"
+				></span>
+			{/if}
 			<span
 				class="absolute -left-1.5 -right-1.5 -top-0 -bottom-0 z-20 cursor-col-resize bg-transparent"
 				style="touch-action: none;"

@@ -1,3 +1,9 @@
+<script lang="ts" context="module">
+	// When this page was opened, in the seconds messages are stamped with. Only
+	// a message newer than this rises in; opening an old chat draws it still.
+	const OPENED_AT = Math.floor(Date.now() / 1000);
+</script>
+
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 
@@ -59,6 +65,7 @@
 	class="flex flex-col justify-between px-3.5 mb-3 w-full {($settings?.widescreenMode ?? null)
 		? 'max-w-full'
 		: 'max-w-[58rem]'} mx-auto rounded-lg group {isSafari ? '' : 'message-listitem'}"
+	class:message-in={(history.messages[messageId]?.timestamp ?? 0) >= OPENED_AT}
 >
 	{#if history.messages[messageId]}
 		{#if history.messages[messageId].role === 'user'}
@@ -165,5 +172,21 @@
 	   Older messages keep the virtualization and remember their real size. */
 	.message-listitem:nth-last-child(-n + 2) {
 		content-visibility: visible;
+	}
+
+	/* A message sent or received now settles in from just below. */
+	.message-in {
+		animation: message-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+	}
+	@keyframes message-in {
+		from {
+			opacity: 0;
+			translate: 0 6px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.message-in {
+			animation: none;
+		}
 	}
 </style>
