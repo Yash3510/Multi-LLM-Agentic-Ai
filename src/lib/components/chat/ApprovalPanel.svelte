@@ -32,14 +32,13 @@
 	 * nothing enters the chat record until it is released. Withholding, closing
 	 * the panel, or a timeout all leave the record without it.
 	 *
-	 * Releasing takes a hold of the button (or of Enter), about a second: a
-	 * tap or a stray Enter does nothing, so nothing goes through by reflex -
-	 * the reason the old dialog made you type a word. The panel only reports
-	 * the decision: a completed hold sends "approve", withholding sends false,
-	 * the values the old dialog sent, and the orchestrator withholds anything
-	 * else regardless of what this component does.
+	 * Releasing takes the word: type "approve", then Approve (or Enter). A
+	 * stray Enter or click on an empty field does nothing, so nothing goes
+	 * through by reflex. The panel only reports the decision: Approve sends
+	 * what was typed, withholding sends false, and the orchestrator withholds
+	 * anything other than "approve" regardless of what this component does.
 	 */
-	import { createEventDispatcher, onDestroy, onMount, tick } from 'svelte';
+	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
@@ -165,74 +164,47 @@
 		}
 	}
 
-	/* ---- Hold to release ---- */
-	const HOLD = 900;
-	let holdEl;
-	let progress = 0;
-	let holding = false;
-	let released = false;
-	let startedAt = 0;
-	let frame = 0;
+	/* ---- Approve ---- */
+	let value = '';
 	let hint = '';
+	let inputEl;
+	let released = false;
 
-	function step() {
-		progress = Math.min(1, (performance.now() - startedAt) / HOLD);
-		if (progress >= 1) {
-			finish();
+	$: ready = /^\s*approved?\s*$/i.test(value);
+	$: if (value) hint = '';
+
+	const release = () => {
+		if (released) return;
+		if (!ready) {
+			// Say what is missing rather than sending a decision that will only
+			// come back as "withheld".
+			hint = 'Type approve to release it.';
+			inputEl?.focus();
 			return;
 		}
-		frame = requestAnimationFrame(step);
-	}
-	function begin() {
-		if (released || holding) return;
-		holding = true;
-		hint = '';
-		startedAt = performance.now();
-		cancelAnimationFrame(frame);
-		frame = requestAnimationFrame(step);
-	}
-	function end() {
-		if (released || !holding) return;
-		holding = false;
-		cancelAnimationFrame(frame);
-		if (progress > 0.04) hint = 'Keep holding to release.';
-		progress = 0;
-	}
-	function finish() {
-		holding = false;
 		released = true;
-		progress = 1;
-		// A beat to read "Released" before the panel gives way.
-		setTimeout(() => dispatch('release', 'approve'), 320);
-	}
+		// A beat to read "Approved" before the panel gives way.
+		setTimeout(() => dispatch('release', value.trim()), 260);
+	};
 
 	const withhold = () => {
 		if (!released) dispatch('withhold');
 	};
 
-	/* Enter held anywhere but a field or another button releases; Esc
-	   withholds. */
-	const busyTarget = (t) =>
-		t instanceof HTMLElement &&
-		(t.isContentEditable || t.closest('input, textarea, select') || (t.closest('button') && t.closest('button') !== holdEl));
-	function onKeydown(e) {
-		if (e.key === 'Escape') {
+	const onKey = (e) => {
+		if (e.key === 'Enter' && !e.isComposing) {
+			e.preventDefault();
+			release();
+		} else if (e.key === 'Escape') {
 			e.preventDefault();
 			withhold();
-		} else if (e.key === 'Enter' && !e.repeat && !e.isComposing && !busyTarget(e.target)) {
-			e.preventDefault();
-			begin();
 		}
-	}
-	function onKeyup(e) {
-		if (e.key === 'Enter') end();
-	}
+	};
 
 	onMount(async () => {
 		await tick();
-		holdEl?.focus({ preventScroll: true });
+		inputEl?.focus({ preventScroll: true });
 	});
-	onDestroy(() => cancelAnimationFrame(frame));
 
 	const CHECK_BY = (c) =>
 		c.by === '4CE'
@@ -243,8 +215,6 @@
 					? 'ULTRON · a problem'
 					: 'ULTRON';
 </script>
-
-<svelte:window on:keydown={onKeydown} on:keyup={onKeyup} />
 
 <!-- px-2, not px-3: the same inset as the message box it replaces, so the two
      cards swap edge for edge (with px-3 it sat 4px inside on each side). -->
@@ -398,56 +368,73 @@
 			{/if}
 		</div>
 
-		<div class="flex flex-wrap items-center gap-2 px-3 pb-3">
-			<p id="approval-hint" class="min-w-[12rem] flex-1 px-[17px] text-[11.5px] text-gray-600 dark:text-gray-400">
-				{#if hint}
-					<span class="text-gray-900 dark:text-gray-100">{hint}</span>
-				{:else}
-					Hold to release, or hold Enter. Esc withholds. Nothing enters the conversation until you
-					release it.
-				{/if}
-			</p>
+		<!-- On phones the field takes its own row: squeezed beside two buttons it
+		     truncated to "Type approve to r…". -->
+		<div class="flex flex-wrap items-center gap-2 px-3 pb-2">
+			<div class="relative min-w-0 w-full sm:w-auto sm:flex-1">
+				<input
+					bind:this={inputEl}
+					bind:value
+					on:keydown={onKey}
+					type="text"
+					autocomplete="off"
+					spellcheck="false"
+					placeholder="Type approve to release"
+					aria-label="Type approve to release"
+					aria-describedby="approval-hint"
+					class="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 pl-4 pr-10 text-sm text-gray-900 outline-none transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-gray-500 focus:border-gray-900 focus:bg-white focus:ring-4 focus:ring-gray-900/[0.06] dark:border-gray-800 dark:bg-gray-850 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-gray-300 dark:focus:bg-gray-900 dark:focus:ring-white/[0.07]"
+				/>
+				<!-- The word is right: a small tick at the end of the field. -->
+				<svg
+					class="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-emerald-600 transition duration-300 ease-out dark:text-emerald-400 {ready
+						? 'scale-100 opacity-100'
+						: 'scale-75 opacity-0'}"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg
+				>
+			</div>
 			<button
 				type="button"
 				on:click={withhold}
-				class="flex-1 sm:flex-none shrink-0 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-850"
+				class="flex-1 sm:flex-none shrink-0 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-gray-300 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-850"
 			>
 				Withhold
 			</button>
-			<!-- Hold, not click: the fill runs while it is held and drains back if
-			     it is let go early. -->
 			<button
-				bind:this={holdEl}
 				type="button"
+				on:click={release}
 				aria-describedby="approval-hint"
-				class="hold relative flex-1 sm:flex-none shrink-0 select-none overflow-hidden rounded-full bg-gray-900 px-5 py-2.5 text-sm font-medium text-white outline-none transition-colors hover:bg-gray-800 focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 dark:focus-visible:ring-offset-gray-900"
-				style="touch-action: none;"
-				on:pointerdown={(e) => {
-					holdEl.setPointerCapture?.(e.pointerId);
-					begin();
-				}}
-				on:pointerup={end}
-				on:pointercancel={end}
-				on:lostpointercapture={end}
-				on:contextmenu|preventDefault
+				class="flex-1 sm:flex-none inline-flex min-w-[7.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-medium outline-none transition-[background-color,color,box-shadow] duration-300 focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 {ready ||
+				released
+					? 'bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100'
+					: 'bg-gray-100 text-gray-500 hover:bg-gray-200/70 dark:bg-gray-850 dark:text-gray-400 dark:hover:bg-gray-800'}"
 			>
-				<span
-					class="hold-fill pointer-events-none absolute inset-0 origin-left bg-white/25 dark:bg-gray-900/15"
-					class:draining={!holding && !released}
-					style="transform: scaleX({progress});"
-					aria-hidden="true"
-				></span>
-				<span class="relative">{released ? 'Released' : holding ? 'Keep holding…' : 'Hold to release'}</span>
+				{#if released}
+					<svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+					Approved
+				{:else}
+					Approve
+				{/if}
 			</button>
 		</div>
+
+		<p id="approval-hint" class="px-[29px] pb-3.5 text-[11.5px] text-gray-600 dark:text-gray-400">
+			{#if hint}
+				<span class="text-amber-700 dark:text-amber-300">{hint}</span>
+			{:else}
+				Nothing enters the conversation until you approve it. Withhold, press Esc, or leave it -
+				anything other than approve keeps it back.
+			{/if}
+		</p>
 	</div>
 </div>
 
 <style>
-	.hold-fill.draining {
-		transition: transform 280ms ease;
-	}
-
 	/* The draft's chips, passages and marks, drawn into the rendered draft. */
 	.rv-draft :global(.rv-cite.rv-on) {
 		border-color: var(--color-gray-500, #9b9b9b);

@@ -13,24 +13,6 @@
 
 	let sortedPrompts = [];
 
-	/* The kind of work a suggestion starts, read from its words, as the
-	   label in front of it. */
-	const LABELS = {
-		code: 'Sandbox',
-		check: 'SOP check',
-		audit: 'Sovereignty',
-		document: 'Report',
-		ask: 'Question'
-	};
-	const kindOf = (text: string) => {
-		const t = (text ?? '').toLowerCase();
-		if (/\b(code|python|script|run|sandbox|plot|chart|spreadsheet)\b/.test(t)) return 'code';
-		if (/\b(threshold|limit|check|reading|sop|inspect|assess)/.test(t)) return 'check';
-		if (/\b(audit|sovereign|secur|egress|comply|compliance)/.test(t)) return 'audit';
-		if (/\b(report|document|summar|draft|note|write)/.test(t)) return 'document';
-		return 'ask';
-	};
-
 	const fuseOptions = {
 		keys: ['content', 'title'],
 		threshold: 0.5
@@ -82,7 +64,12 @@
 </script>
 
 <div class="mb-1 flex gap-1 text-xs font-normal items-center text-gray-600 dark:text-gray-400">
-	{#if filteredPrompts.length === 0}
+	{#if filteredPrompts.length > 0}
+		<!-- The list's name, in the rail's small capitals. -->
+		<span class="px-2.5 text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-600 dark:text-gray-400"
+			>{$i18n.t('Suggested')}</span
+		>
+	{:else}
 		<div
 			class="flex w-full {$settings?.landingPageMode === 'chat'
 				? ' -mt-1'
@@ -98,26 +85,29 @@
 
 <div class="w-full">
 	{#if filteredPrompts.length > 0}
-		<!-- Task lines: what kind of work, then the task itself. Read as a list
-		     of jobs, in the rail's small capitals. -->
-		<div role="list" class="max-h-56 overflow-auto scrollbar-none {className}">
+		<!-- Each suggestion on two lines: the task, then what it works on. A
+		     hairline between them; on hover the row lifts to a soft fill and an
+		     arrow slides in. -->
+		<div role="list" class="max-h-60 overflow-auto scrollbar-none {className}">
 			{#each filteredPrompts as prompt, idx (prompt.id || `${prompt.content}-${idx}`)}
 				{@const hasTitle = prompt.title && prompt.title[0] !== ''}
-				{@const task = hasTitle ? `${prompt.title[0]} ${prompt.title[1] ?? ''}`.trim() : prompt.content}
 				<!-- svelte-ignore a11y-no-interactive-element-to-noninteractive-role -->
 				<button
 					role="listitem"
-					class="waterfall group flex w-full items-center gap-4 border-b border-gray-100 px-2 py-2.5 text-left transition-colors last:border-b-0 hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-none dark:border-gray-850 dark:hover:bg-gray-850/60 dark:focus-visible:bg-gray-850/60 rounded-[10px]"
+					class="sug-row waterfall group relative flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left transition-colors hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200 dark:border-gray-850 dark:hover:bg-gray-850/60 dark:focus-visible:bg-gray-850/60 dark:focus-visible:ring-gray-800"
 					style="animation-delay: {idx * 45}ms"
 					on:click={() => onSelect({ type: 'prompt', data: prompt.content })}
 				>
-					<span
-						class="w-24 shrink-0 text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-600 dark:text-gray-400"
-						>{LABELS[kindOf(`${task} ${prompt.content}`)]}</span
-					>
-					<span class="min-w-0 flex-1 truncate text-[13.5px] text-gray-800 group-hover:text-gray-900 dark:text-gray-200 dark:group-hover:text-white"
-						>{task}</span
-					>
+					<span class="flex min-w-0 flex-1 flex-col leading-snug">
+						<span
+							class="line-clamp-1 text-[13.5px] text-gray-800 transition-colors group-hover:text-gray-900 dark:text-gray-200 dark:group-hover:text-white"
+							>{hasTitle ? prompt.title[0] : prompt.content}</span
+						>
+						<span
+							class="line-clamp-1 text-[12px] text-gray-600 transition-colors group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300"
+							>{hasTitle ? prompt.title[1] : $i18n.t('Prompt')}</span
+						>
+					</span>
 					<svg
 						class="size-3.5 shrink-0 -translate-x-1 text-gray-400 opacity-0 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 dark:text-gray-500"
 						viewBox="0 0 16 16"
@@ -150,8 +140,35 @@
 	.waterfall {
 		opacity: 0;
 		animation-name: fadeInUp;
-		animation-duration: 200ms;
+		animation-duration: 320ms;
 		animation-fill-mode: forwards;
-		animation-timing-function: ease;
+		animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+	}
+	/* Hairlines between rows, inset so they stop short of the rounded
+	   corners; the ones touching a hovered row step aside. */
+	.sug-row::after {
+		content: '';
+		position: absolute;
+		left: 10px;
+		right: 10px;
+		bottom: 0;
+		height: 1px;
+		background: var(--color-gray-100, #efefef);
+		transition: opacity 200ms ease;
+	}
+	:global(.dark) .sug-row::after {
+		background: var(--color-gray-850, #262626);
+	}
+	.sug-row:last-child::after,
+	.sug-row:hover::after,
+	.sug-row:has(+ .sug-row:hover)::after {
+		opacity: 0;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.waterfall {
+			opacity: 1;
+			animation: none;
+		}
 	}
 </style>
