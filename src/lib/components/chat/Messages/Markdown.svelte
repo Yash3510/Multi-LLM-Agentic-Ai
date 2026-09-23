@@ -66,11 +66,28 @@
 	let lastContent = '';
 	let lastParsedContent = '';
 
+	/* 4CE answers released before the report became a card end with its
+	   download as a line of text, after a rule; drawn as the same card. */
+	const REPORT_LINE =
+		/(?:\n---\n\n)?\*\*([^*\n]+)\*\* · ([^\n]+?) · (\d+) KB, stored on this machine · \[Download [^\]\n]*\]\((\/api\/v1\/files\/[^)\s]+)\)/g;
+	const reportCards = (text) =>
+		text.includes('stored on this machine')
+			? text.replace(
+					REPORT_LINE,
+					(_, kind, title, kb, url) =>
+						'\n```4ce-file\n' + JSON.stringify({ kind, title, kb: Number(kb), url }) + '\n```'
+				)
+			: text;
+
 	const parseTokens = () => {
 		if (content === lastContent) return;
 		lastContent = content;
 
-		const processed = replaceTokens(processResponseContent(content), model?.name, $user?.name);
+		const processed = replaceTokens(
+			processResponseContent(reportCards(content)),
+			model?.name,
+			$user?.name
+		);
 		if (processed === lastParsedContent) return;
 		lastParsedContent = processed;
 

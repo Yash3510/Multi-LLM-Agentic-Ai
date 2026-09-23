@@ -28,11 +28,13 @@
 	import Clipboard from '$lib/components/icons/Clipboard.svelte';
 	import ColonFenceBlock from './ColonFenceBlock.svelte';
 	import ReceiptStrip from './ReceiptStrip.svelte';
+	import FileCard from './FileCard.svelte';
 
-	/* A ```4ce-receipt block: the facts of a 4CE run, drawn as a strip rather
-	   than shown as JSON. Anything that does not parse falls back to code. */
-	const receiptOf = (token) => {
-		if (token?.lang !== '4ce-receipt') return null;
+	/* 4CE's own blocks of JSON, drawn rather than shown as code: ```4ce-receipt
+	   (the facts of a run, as a strip) and ```4ce-file (a document it wrote,
+	   as a card). Anything that does not parse falls back to code. */
+	const blockOf = (token, lang) => {
+		if (token?.lang !== lang) return null;
 		try {
 			const data = JSON.parse(token.text);
 			return data && typeof data === 'object' ? data : null;
@@ -40,6 +42,8 @@
 			return null;
 		}
 	};
+	const receiptOf = (token) => blockOf(token, '4ce-receipt');
+	const fileOf = (token) => blockOf(token, '4ce-file');
 
 	export let id: string;
 	export let chatId = '';
@@ -140,9 +144,11 @@
 		}
 	};
 
-	$: detailButtonClassName = `py-0.5 ${
-		compactPreview ? 'text-xs' : 'text-[0.9375rem]'
-	} text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition`;
+	// Fold-outs (the provenance, each agent's step, a model's thinking) read
+	// as quiet metadata under the answer, a size below its text.
+	$: detailButtonClassName = `py-[3px] ${
+		compactPreview ? 'text-xs' : 'text-[13.5px]'
+	} text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors`;
 
 	$: displayTokens = getDisplayTokens(tokens);
 	$: singlePlainBlock =
@@ -205,6 +211,8 @@
 	{:else if token.type === 'code'}
 		{#if receiptOf(token)}
 			<ReceiptStrip data={receiptOf(token)} />
+		{:else if fileOf(token)}
+			<FileCard data={fileOf(token)} />
 		{:else if token.raw.includes('```')}
 			<CodeBlock
 				id={`${id}-${tokenIdx}`}

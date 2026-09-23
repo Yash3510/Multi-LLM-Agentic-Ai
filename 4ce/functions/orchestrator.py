@@ -668,12 +668,14 @@ class Pipe:
                         else ""
                     )
                     + f"RESULT TO CHALLENGE\n{deliverable}\n\n"
-                    "Reply with PASS or FAIL on the first line. Then list what you checked, "
-                    "one line each, every line starting with OK:, PROBLEM: or UNVERIFIED: - "
-                    "for example \"OK: the 5 drops per minute limit matches source [1]\", "
-                    "\"PROBLEM: the 30-day deadline is not in any source\" or \"UNVERIFIED: "
-                    "whether the alarm was acknowledged; nothing supplied says\". Cover every "
-                    "claim the result makes. PROBLEM lines are your reasons for a FAIL."
+                    "Reply with PASS or FAIL on the first line. Then go through the result's "
+                    "claims in order and give each claim exactly one line - never two lines "
+                    "about the same claim. Start the line with OK: when the claim holds, "
+                    "PROBLEM: when the result contradicts itself, gets arithmetic wrong, or "
+                    "states something neither the request nor the result gives any basis for, "
+                    "or UNVERIFIED: when nothing supplied settles it. A difference of wording "
+                    "(\"below\" and \"less than\") is not a problem. After the label, name the "
+                    "claim in a few words and say why. PROBLEM lines are your reasons for a FAIL."
                 ),
             )
             verdict = _parse_verdict(ultron["text"])
@@ -893,7 +895,7 @@ class Pipe:
                 trace.append(
                     "**TOOL** `create_word_document` wrote the released result to a .docx."
                 )
-                deliverable += "\n\n---\n\n" + docx
+                deliverable += "\n\n" + _file_card(docx)
 
         await _status(__event_emitter__, "done", "Complete", done=True)
 
@@ -1759,7 +1761,24 @@ _CHECK_LINE = re.compile(
 
 
 _SOURCE_GUESS = re.compile(
-    r"\b(?:in|from|per|based on|supported by|found in|backed by)\s+(?:any|the|a|its)\s+(?:source|document|passage)s?\b",
+    r"\b(?:in|from|per|based on|supported by|found in|backed by)\s+(?:any|the|a|its)\s+(?:source|document|passage)s?\b"
+    # "... but the source says", "the source document [1] does not mention"
+    r"|\bthe (?:original )?(?:source|document|passage|SOP(?:-[\w-]+)?)s?(?: document)?(?:\s*\[\d+\])?\s+"
+    r"(?:says|say|states|state|does not|do not|doesn't|only|mentions|lists|defines|uses)\b",
+    re.I,
+)
+# A PROBLEM the verifier takes back in the same line ("... so there is no
+# issue here") is not a problem; one that only says the answer leaves
+# something open ("does not specify whether") is a question, not an error.
+_CONCEDED = re.compile(
+    r"\b(?:no (?:issue|problem|contradiction)s?\b|not (?:a )?(?:problem|contradict\w*|an issue)|"
+    r"(?:is|are) (?:technically )?(?:correct|valid|consistent|equivalent|accurate)\b|"
+    r"technically correct|both are equivalent|clear and explicit|which is correct)",
+    re.I,
+)
+_OPEN_QUESTION = re.compile(
+    r"\b(?:does not (?:specify|define|say|state|indicate|clarify)|not specified|unclear whether|"
+    r"no indication (?:of )?whether|without clarification)\b",
     re.I,
 )
 _NEGATION = re.compile(
@@ -1848,6 +1867,13 @@ def _parse_checks(detail: str) -> list[dict]:
         # a fragment says nothing, so it is not shown as a check.
         if len(text.split()) < 4:
             continue
+        if kind == "problem" and _CONCEDED.search(text):
+            continue
+        if kind == "problem" and _OPEN_QUESTION.search(text):
+            kind = "unverified"
+        # The same line twice says nothing new.
+        if any(c["text"] == text for c in checks):
+            continue
         # "PROBLEM: none" on a PASS is not a problem.
         if not text or text.lower().strip(" .!") in ("none", "nothing", "n/a", "no problems", "no issues", "no concerns", "none found"):
             continue
@@ -1889,6 +1915,31 @@ def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapse
         "fingerprint": fingerprint,
     }
     return "```4ce-receipt\n" + json.dumps(data, ensure_ascii=False) + "\n```"
+
+
+_REPORT_LINE = re.compile(
+    r"^\*\*(?P<kind>[^*]+)\*\* · (?P<title>.+?) · (?P<kb>\d+) KB, stored on this machine · "
+    r"\[Download [^\]]*\]\((?P<url>[^)\s]+)\)(?P<rest>[\s\S]*)$"
+)
+
+
+def _file_card(line: str) -> str:
+    """The report tool's download line as a ```4ce-file block, which the chat
+    draws as a card with a download button. A line in any other shape - an
+    older tool, or an error - is kept as it is."""
+    found = _REPORT_LINE.match(line.strip())
+    if not found:
+        return line
+    card = {
+        "kind": found["kind"].strip(),
+        "title": found["title"].strip(),
+        "kb": int(found["kb"]),
+        "url": found["url"],
+    }
+    rest = found["rest"].strip()
+    if rest:
+        card["note"] = rest
+    return "```4ce-file\n" + json.dumps(card, ensure_ascii=False) + "\n```"
 
 
 def _objection(verdict: dict) -> str:
