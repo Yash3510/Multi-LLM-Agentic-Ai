@@ -24,7 +24,7 @@
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import OnBoarding from '$lib/components/OnBoarding.svelte';
-	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
+	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import { redirect } from '@sveltejs/kit';
 
 	const i18n = getContext('i18n');
@@ -44,10 +44,44 @@
 
 	let submitting = false;
 
+	/* What went wrong, said under the fields rather than in a toast, and the
+	   field it is about. Cleared as soon as you type again. */
+	let formError = '';
+	let badField = '';
+	let caps = false;
+	let emailInput;
+	let passwordInput;
+	let usernameInput;
+	let nameInput;
+	$: name, email, password, confirmPassword, ldapUsername, (formError = ''), (badField = '');
+
+	const say = (message, field = '') => {
+		formError = message;
+		badField = field;
+		const input = { email: emailInput, password: passwordInput, username: usernameInput, name: nameInput }[field];
+		if (input) {
+			input.focus();
+			if (field === 'password') input.select();
+		}
+	};
+	/* The server's words for a wrong password are long and generic; say it
+	   plainly. Anything else is shown as the server put it. */
+	const refused = (error, field = 'password') => {
+		const text = `${error ?? ''}`.trim();
+		if (/incorrect|invalid|typos|credentials/i.test(text)) {
+			say(
+				mode === 'ldap'
+					? $i18n.t("That username and password don't match.")
+					: $i18n.t("That email and password don't match."),
+				field
+			);
+		} else {
+			say(text || $i18n.t('Something went wrong. Try again.'), '');
+		}
+	};
+
 	const setSessionUser = async (sessionUser, redirectPath: string | null = null) => {
 		if (sessionUser) {
-			console.log(sessionUser);
-			toast.success($i18n.t(`You're now logged in.`));
 			if (sessionUser.token) {
 				localStorage.token = sessionUser.token;
 			}
@@ -75,7 +109,7 @@
 
 	const signInHandler = async () => {
 		const sessionUser = await userSignIn(email, password).catch((error) => {
-			toast.error(`${error}`);
+			refused(error);
 			return null;
 		});
 
@@ -85,14 +119,14 @@
 	const signUpHandler = async () => {
 		if ($config?.features?.enable_signup_password_confirmation) {
 			if (password !== confirmPassword) {
-				toast.error($i18n.t('Passwords do not match.'));
+				say($i18n.t("The passwords don't match."), 'password');
 				return;
 			}
 		}
 
 		const sessionUser = await userSignUp(name, email, password, generateInitialsImage(name)).catch(
 			(error) => {
-				toast.error(`${error}`);
+				say(`${error ?? ''}`.trim() || $i18n.t('Something went wrong. Try again.'));
 				return null;
 			}
 		);
@@ -102,7 +136,7 @@
 
 	const ldapSignInHandler = async () => {
 		const sessionUser = await ldapUserSignIn(ldapUsername, password).catch((error) => {
-			toast.error(`${error}`);
+			refused(error);
 			return null;
 		});
 		await setSessionUser(sessionUser);
@@ -112,6 +146,11 @@
 		if (submitting) {
 			return;
 		}
+		// Say what is missing before asking the server.
+		if (mode === 'signup' && !name.trim()) return say($i18n.t('Enter your name.'), 'name');
+		if (mode === 'ldap' && !ldapUsername.trim()) return say($i18n.t('Enter your username.'), 'username');
+		if (mode !== 'ldap' && !email.trim()) return say($i18n.t('Enter your email.'), 'email');
+		if (!password) return say($i18n.t('Enter your password.'), 'password');
 
 		submitting = true;
 		try {
@@ -170,7 +209,7 @@
 
 		const error = $page.url.searchParams.get('error');
 		if (error) {
-			toast.error(error);
+			formError = error;
 		}
 
 		await oauthCallbackHandler();
@@ -198,6 +237,7 @@
 		}
 
 		loaded = true;
+		setTimeout(() => (mode === 'ldap' ? usernameInput : emailInput)?.focus(), 60);
 
 		if (($config?.features?.auth_trusted_header ?? false) || $config?.features?.auth === false) {
 			await signInHandler();
@@ -251,7 +291,7 @@
 					</div>
 				{:else}
 					<div class="my-auto flex flex-col justify-center items-center">
-						<div id="auth-login-card" class=" sm:max-w-md my-auto pb-10 w-full dark:text-gray-100">
+						<div id="auth-login-card" class="my-auto w-full max-w-[21.5rem] pb-10 dark:text-gray-100">
 							{#if $config?.metadata?.auth_logo_position === 'center'}
 								<div class="flex justify-center mb-6">
 									<!-- LICENSE covers this Open WebUI sign-in logo.
@@ -267,206 +307,175 @@
 								</div>
 							{/if}
 							<form
-								class=" flex flex-col justify-center"
+								class="flex flex-col text-left"
+								novalidate
 								on:submit={(e) => {
 									e.preventDefault();
 									submitHandler();
 								}}
 							>
-								<div class="mb-1">
-									<div class=" text-2xl font-normal">
-										{#if $config?.onboarding ?? false}
-											{$i18n.t(`Get started with {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
-										{:else if mode === 'ldap'}
-											{$i18n.t(`Sign in to {{WEBUI_NAME}} with LDAP`, { WEBUI_NAME: $WEBUI_NAME })}
-										{:else if mode === 'signin'}
-											{$i18n.t(`Sign in to {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
-										{:else}
-											{$i18n.t(`Sign up to {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
-										{/if}
-									</div>
-
+								<h1 class="mb-6 text-[26px] font-medium leading-tight tracking-[-0.01em] text-gray-900 dark:text-gray-50">
 									{#if $config?.onboarding ?? false}
-										<div class="mt-1 text-xs font-normal text-gray-600 dark:text-gray-500">
-											ⓘ {$WEBUI_NAME}
-											{$i18n.t(
-												'does not make any external connections, and your data stays securely on your locally hosted server.'
-											)}
-										</div>
+										{$i18n.t(`Get started with {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
+									{:else if mode === 'ldap'}
+										{$i18n.t(`Sign in to {{WEBUI_NAME}} with LDAP`, { WEBUI_NAME: $WEBUI_NAME })}
+									{:else if mode === 'signin'}
+										{$i18n.t(`Sign in to {{WEBUI_NAME}}`, { WEBUI_NAME: $WEBUI_NAME })}
+									{:else}
+										{$i18n.t(`Create your {{WEBUI_NAME}} account`, { WEBUI_NAME: $WEBUI_NAME })}
 									{/if}
-								</div>
+								</h1>
+
+								{#if $config?.onboarding ?? false}
+									<p class="-mt-3 mb-5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-400">
+										{$i18n.t('This first account is the admin. Everything stays on this machine.')}
+									</p>
+								{/if}
 
 								{#if $config?.features.enable_login_form || $config?.features.enable_ldap || form}
-									<div class="flex flex-col mt-4">
+									<div class="flex flex-col gap-2.5">
 										{#if mode === 'signup'}
-											<div class="mb-2">
-												<label for="name" class="text-sm font-normal text-left mb-1 block"
-													>{$i18n.t('Name')}</label
-												>
-												<input
-													bind:value={name}
-													type="text"
-													id="name"
-													class="my-0.5 w-full text-sm outline-hidden bg-transparent placeholder:text-gray-300 dark:placeholder:text-gray-600"
-													autocomplete="name"
-													placeholder={$i18n.t('Enter Your Full Name')}
-													required
-												/>
-											</div>
+											<AuthField
+												id="name"
+												name="name"
+												label={$i18n.t('Name')}
+												autocomplete="name"
+												invalid={badField === 'name'}
+												bind:value={name}
+												bind:input={nameInput}
+											/>
 										{/if}
 
 										{#if mode === 'ldap'}
-											<div class="mb-2">
-												<label for="username" class="text-sm font-normal text-left mb-1 block"
-													>{$i18n.t('Username')}</label
-												>
-												<input
-													bind:value={ldapUsername}
-													type="text"
-													class="my-0.5 w-full text-sm outline-hidden bg-transparent placeholder:text-gray-300 dark:placeholder:text-gray-600"
-													autocomplete="username"
-													name="username"
-													id="username"
-													placeholder={$i18n.t('Enter Your Username')}
-													required
-												/>
-											</div>
+											<AuthField
+												id="username"
+												name="username"
+												label={$i18n.t('Username')}
+												autocomplete="username"
+												invalid={badField === 'username'}
+												bind:value={ldapUsername}
+												bind:input={usernameInput}
+											/>
 										{:else}
-											<div class="mb-2">
-												<label for="email" class="text-sm font-normal text-left mb-1 block"
-													>{$i18n.t('Email')}</label
-												>
-												<input
-													bind:value={email}
-													type="email"
-													id="email"
-													class="my-0.5 w-full text-sm outline-hidden bg-transparent placeholder:text-gray-300 dark:placeholder:text-gray-600"
-													autocomplete="email"
-													name="email"
-													placeholder={$i18n.t('Enter Your Email')}
-													required
-												/>
-											</div>
+											<AuthField
+												id="email"
+												name="email"
+												type="email"
+												label={$i18n.t('Email')}
+												autocomplete="email"
+												invalid={badField === 'email'}
+												bind:value={email}
+												bind:input={emailInput}
+											/>
 										{/if}
 
-										<div>
-											<label for="password" class="text-sm font-normal text-left mb-1 block"
-												>{$i18n.t('Password')}</label
-											>
-											<SensitiveInput
-												bind:value={password}
-												type="password"
-												id="password"
-												class="my-0.5 w-full text-sm outline-hidden bg-transparent placeholder:text-gray-300 dark:placeholder:text-gray-600"
-												placeholder={$i18n.t('Enter Your Password')}
-												autocomplete={mode === 'signup' ? 'new-password' : 'current-password'}
-												name="password"
-												screenReader={true}
-												required
-												aria-required="true"
-											/>
-										</div>
+										<AuthField
+											id="password"
+											name="password"
+											type="password"
+											label={$i18n.t('Password')}
+											autocomplete={mode === 'signup' ? 'new-password' : 'current-password'}
+											invalid={badField === 'password'}
+											bind:value={password}
+											bind:input={passwordInput}
+											bind:caps
+										/>
 
 										{#if mode === 'signup' && $config?.features?.enable_signup_password_confirmation}
-											<div class="mt-2">
-												<label
-													for="confirm-password"
-													class="text-sm font-normal text-left mb-1 block"
-													>{$i18n.t('Confirm Password')}</label
-												>
-												<SensitiveInput
-													bind:value={confirmPassword}
-													type="password"
-													id="confirm-password"
-													class="my-0.5 w-full text-sm outline-hidden bg-transparent"
-													placeholder={$i18n.t('Confirm Your Password')}
-													autocomplete="new-password"
-													name="confirm-password"
-													required
-												/>
-											</div>
+											<AuthField
+												id="confirm-password"
+												name="confirm-password"
+												type="password"
+												label={$i18n.t('Confirm password')}
+												autocomplete="new-password"
+												bind:value={confirmPassword}
+											/>
 										{/if}
 									</div>
-								{/if}
-								<div class="mt-5">
-									{#if $config?.features.enable_login_form || $config?.features.enable_ldap || form}
-										{#if mode === 'ldap'}
-											<button
-												class="bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-normal text-sm py-2.5 disabled:opacity-50 flex justify-center"
-												type="submit"
-												disabled={submitting}
-											>
-												<div class="self-center">{$i18n.t('Authenticate')}</div>
 
-												{#if submitting}
-													<div class="ml-1.5 self-center">
-														<Spinner />
-													</div>
-												{/if}
-											</button>
-										{:else}
-											<button
-												class="bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-normal text-sm py-2.5 disabled:opacity-50 flex justify-center"
-												type="submit"
-												disabled={submitting}
-											>
-												<div class="self-center">
-													{mode === 'signin'
-														? $i18n.t('Sign in')
-														: ($config?.onboarding ?? false)
-															? $i18n.t('Create Admin Account')
-															: $i18n.t('Create Account')}
-												</div>
+									<!-- Notes under the fields: open and close in place, so the
+									     button below moves smoothly rather than jumping. -->
+									<div class="auth-note" class:open={caps && !formError}>
+										<p class="flex items-center gap-1.5 pt-2.5 text-[12.5px] text-gray-600 dark:text-gray-400">
+											<svg class="size-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 4 12h4v6h8v-6h4Z" /></svg>
+											{$i18n.t('Caps Lock is on')}
+										</p>
+									</div>
+									<div class="auth-note" class:open={!!formError} role="alert">
+										<p class="flex items-start gap-1.5 pt-2.5 text-[12.5px] leading-snug text-red-700 dark:text-red-300">
+											<svg class="mt-px size-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5v.01" /></svg>
+											<span>{formError}</span>
+										</p>
+									</div>
 
-												{#if submitting}
-													<div class="ml-1.5 self-center">
-														<Spinner />
-													</div>
-												{/if}
-											</button>
+									<button
+										class="auth-go relative mt-4 flex h-[46px] w-full items-center justify-center overflow-hidden rounded-full bg-gray-900 text-[14.5px] font-medium text-white transition hover:bg-gray-800 active:scale-[0.99] disabled:cursor-default dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+										type="submit"
+										disabled={submitting}
+									>
+										<span class="auth-go-label" class:away={submitting}>
+											{mode === 'ldap'
+												? $i18n.t('Authenticate')
+												: mode === 'signin'
+													? $i18n.t('Sign in')
+													: ($config?.onboarding ?? false)
+														? $i18n.t('Create admin account')
+														: $i18n.t('Create account')}
+										</span>
+										<!-- Working: the rail's six dots, while the server checks. -->
+										<span class="auth-go-busy" class:here={submitting} aria-hidden={!submitting}>
+											<svg class="auth-dots size-3.5" viewBox="0 0 14 14" aria-hidden="true">
+												{#each [0, 1, 2, 3, 4, 5] as i}
+													<circle
+														cx={7 + 5.2 * Math.cos(((-90 + 60 * i) * Math.PI) / 180)}
+														cy={7 + 5.2 * Math.sin(((-90 + 60 * i) * Math.PI) / 180)}
+														r="1.2"
+														style="animation-delay: {((i * 1.7) / 6).toFixed(2)}s"
+													/>
+												{/each}
+												<circle class="hub" cx="7" cy="7" r="1" />
+											</svg>
+											{mode === 'signup' ? $i18n.t('Creating your account') : $i18n.t('Signing in')}
+										</span>
+									</button>
 
-											{#if $config?.features.enable_signup && !($config?.onboarding ?? false)}
-												<div class=" mt-4 text-sm text-center">
-													{mode === 'signin'
-														? $i18n.t("Don't have an account?")
-														: $i18n.t('Already have an account?')}
-
-													<button
-														class=" font-normal underline"
-														type="button"
-														on:click={() => {
-															if (mode === 'signin') {
-																mode = 'signup';
-															} else {
-																mode = 'signin';
-															}
-														}}
-													>
-														{mode === 'signin' ? $i18n.t('Sign up') : $i18n.t('Sign in')}
-													</button>
-												</div>
-											{/if}
-										{/if}
+									{#if mode === 'signin'}
+										<p class="mt-3 text-center text-[12px] text-gray-500 dark:text-gray-400">
+											{$i18n.t('Forgot your password? Your admin can reset it.')}
+										</p>
 									{/if}
-								</div>
+
+									{#if $config?.features.enable_signup && !($config?.onboarding ?? false) && mode !== 'ldap'}
+										<p class="mt-5 text-center text-[13px] text-gray-600 dark:text-gray-400">
+											{mode === 'signin' ? $i18n.t('New here?') : $i18n.t('Already have an account?')}
+											<button
+												class="auth-link"
+												type="button"
+												on:click={() => {
+													mode = mode === 'signin' ? 'signup' : 'signin';
+													formError = '';
+												}}
+											>
+												{mode === 'signin' ? $i18n.t('Create an account') : $i18n.t('Sign in')}
+											</button>
+										</p>
+									{/if}
+								{/if}
 							</form>
 
 							{#if Object.keys($config?.oauth?.providers ?? {}).length > 0}
-								<div class="inline-flex items-center justify-center w-full">
-									<hr class="w-32 h-px my-4 border-0 dark:bg-gray-100/10 bg-gray-700/10" />
+								<div class="my-5 flex w-full items-center gap-3">
+									<hr class="h-px flex-1 border-0 bg-gray-200 dark:bg-gray-800" />
 									{#if $config?.features.enable_login_form || $config?.features.enable_ldap || form}
-										<span
-											class="px-3 text-sm font-normal text-gray-900 dark:text-white bg-transparent"
-											>{$i18n.t('or')}</span
-										>
+										<span class="text-[12px] text-gray-500 dark:text-gray-400">{$i18n.t('or')}</span>
 									{/if}
 
-									<hr class="w-32 h-px my-4 border-0 dark:bg-gray-100/10 bg-gray-700/10" />
+									<hr class="h-px flex-1 border-0 bg-gray-200 dark:bg-gray-800" />
 								</div>
-								<div class="flex flex-col space-y-2">
+								<div class="flex flex-col gap-2">
 									{#if $config?.oauth?.providers?.google}
 										<button
-											class="flex justify-center items-center bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-normal text-sm py-2.5"
+											class="flex h-[46px] w-full items-center justify-center rounded-full border border-gray-200 text-[14px] font-medium text-gray-800 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:border-gray-700 dark:hover:bg-gray-900"
 											on:click={() => {
 												window.location.href = `${WEBUI_BASE_URL}/oauth/google/login`;
 											}}
@@ -496,7 +505,7 @@
 									{/if}
 									{#if $config?.oauth?.providers?.microsoft}
 										<button
-											class="flex justify-center items-center bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-normal text-sm py-2.5"
+											class="flex h-[46px] w-full items-center justify-center rounded-full border border-gray-200 text-[14px] font-medium text-gray-800 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:border-gray-700 dark:hover:bg-gray-900"
 											on:click={() => {
 												window.location.href = `${WEBUI_BASE_URL}/oauth/microsoft/login`;
 											}}
@@ -527,7 +536,7 @@
 									{/if}
 									{#if $config?.oauth?.providers?.github}
 										<button
-											class="flex justify-center items-center bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-normal text-sm py-2.5"
+											class="flex h-[46px] w-full items-center justify-center rounded-full border border-gray-200 text-[14px] font-medium text-gray-800 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:border-gray-700 dark:hover:bg-gray-900"
 											on:click={() => {
 												window.location.href = `${WEBUI_BASE_URL}/oauth/github/login`;
 											}}
@@ -548,7 +557,7 @@
 									{/if}
 									{#if $config?.oauth?.providers?.oidc}
 										<button
-											class="flex justify-center items-center bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-normal text-sm py-2.5"
+											class="flex h-[46px] w-full items-center justify-center rounded-full border border-gray-200 text-[14px] font-medium text-gray-800 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:border-gray-700 dark:hover:bg-gray-900"
 											on:click={() => {
 												window.location.href = `${WEBUI_BASE_URL}/oauth/oidc/login`;
 											}}
@@ -578,7 +587,7 @@
 									{/if}
 									{#if $config?.oauth?.providers?.feishu}
 										<button
-											class="flex justify-center items-center bg-gray-700/5 hover:bg-gray-700/10 dark:bg-gray-100/5 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition w-full rounded-full font-normal text-sm py-2.5"
+											class="flex h-[46px] w-full items-center justify-center rounded-full border border-gray-200 text-[14px] font-medium text-gray-800 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:border-gray-700 dark:hover:bg-gray-900"
 											on:click={() => {
 												window.location.href = `${WEBUI_BASE_URL}/oauth/feishu/login`;
 											}}
@@ -590,9 +599,9 @@
 							{/if}
 
 							{#if $config?.features.enable_ldap && $config?.features.enable_login_form}
-								<div class="mt-2">
+								<div class="mt-4">
 									<button
-										class="flex justify-center items-center text-xs w-full text-center underline"
+										class="auth-link mx-auto flex text-[13px] text-gray-600 dark:text-gray-400"
 										type="button"
 										on:click={() => {
 											if (mode === 'ldap')
@@ -648,3 +657,100 @@
 		{/if}
 	{/if}
 </div>
+
+<style>
+	/* A note under the fields opens and closes in place (a grid row from 0
+	   to its height), so what is below it slides rather than jumps. */
+	.auth-note {
+		display: grid;
+		grid-template-rows: 0fr;
+		opacity: 0;
+		transition:
+			grid-template-rows 300ms cubic-bezier(0.22, 1, 0.36, 1),
+			opacity 220ms ease;
+	}
+	.auth-note > * {
+		overflow: hidden;
+	}
+	.auth-note.open {
+		grid-template-rows: 1fr;
+		opacity: 1;
+	}
+
+	/* The button's label gives way to the working dots, and back. */
+	.auth-go-label,
+	.auth-go-busy {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		transition:
+			opacity 280ms ease,
+			transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+	.auth-go-label.away {
+		opacity: 0;
+		transform: translateY(-6px);
+	}
+	.auth-go-busy {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	.auth-go-busy.here {
+		opacity: 1;
+		transform: none;
+	}
+	.auth-dots circle {
+		fill: #c4b5fd;
+		opacity: 0.35;
+		animation: auth-dot 1.7s ease-in-out infinite;
+	}
+	.auth-dots .hub {
+		opacity: 1;
+		animation: none;
+	}
+	:global(.dark) .auth-dots circle {
+		fill: #7c3aed;
+	}
+	@keyframes auth-dot {
+		0% {
+			opacity: 1;
+		}
+		35% {
+			opacity: 0.7;
+		}
+		70%,
+		100% {
+			opacity: 0.35;
+		}
+	}
+
+	.auth-link {
+		color: var(--color-gray-900, #1c1c1c);
+		text-decoration: underline;
+		text-decoration-color: var(--color-gray-300, #cdcdcd);
+		text-underline-offset: 3px;
+		transition: text-decoration-color 200ms ease;
+	}
+	.auth-link:hover {
+		text-decoration-color: currentColor;
+	}
+	:global(.dark) .auth-link {
+		color: #fff;
+		text-decoration-color: var(--color-gray-700, #525252);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.auth-note,
+		.auth-go-label,
+		.auth-go-busy {
+			transition: none;
+		}
+		.auth-dots circle {
+			animation: none;
+			opacity: 0.8;
+		}
+	}
+</style>
