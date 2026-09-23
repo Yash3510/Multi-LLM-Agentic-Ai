@@ -44,6 +44,7 @@
 	import { ALL_MOTIONS } from '$lib/components/common/logoMotion.js';
 	import StageRail from './ResponseMessage/StageRail.svelte';
 	import RunErrorCard, { parseRunError } from './ResponseMessage/RunErrorCard.svelte';
+	import { trustView } from './trustView';
 	import Image from '$lib/components/common/Image.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import RateComment from './RateComment.svelte';
@@ -963,6 +964,12 @@
 							bind:this={contentContainerElement}
 							class="w-full flex flex-col relative {edit ? 'hidden' : ''}"
 							id="response-content-container"
+							use:trustView={{
+								content: message?.content,
+								sources: message?.sources,
+								done: message?.done === true,
+								enabled: $settings?.trustView ?? true
+							}}
 						>
 							{#if runError}
 								<RunErrorCard

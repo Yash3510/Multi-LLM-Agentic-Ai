@@ -61,6 +61,10 @@
 	let insertFollowUpPrompt = false;
 
 	let regenerateMenu = true;
+	// 4CE: underlines in answers showing what each sentence rests on, and the
+	// route a request will take, shown under the message box as you type.
+	let trustView = true;
+	let routePreview = true;
 	let enableMessageQueue = true;
 
 	let landingPageMode = '';
@@ -342,6 +346,8 @@
 		insertFollowUpPrompt = currentSettings?.insertFollowUpPrompt ?? false;
 
 		regenerateMenu = currentSettings?.regenerateMenu ?? true;
+		trustView = currentSettings?.trustView ?? true;
+		routePreview = currentSettings?.routePreview ?? true;
 		enableMessageQueue = currentSettings?.enableMessageQueue ?? true;
 
 		largeTextAsFile = currentSettings?.largeTextAsFile ?? false;
@@ -458,7 +464,53 @@
 />
 
 <div class="flex flex-col gap-2.5">
-	<h3 class={firstSectionHeadingClass}>{$i18n.t('UI')}</h3>
+	<h3 class={firstSectionHeadingClass}>4CE</h3>
+
+	<div>
+		<div class={settingRowClass}>
+			<div id="trust-view-label" class={settingLabelClass}>{$i18n.t('Trust view in answers')}</div>
+			<div class={settingControlClass}>
+				<Switch
+					ariaLabelledbyId="trust-view-label"
+					tooltip={true}
+					bind:state={trustView}
+					inherited={isDefaultSetting('trustView')}
+					on:change={() => {
+						saveSettings({ trustView });
+					}}
+				/>
+			</div>
+		</div>
+		<p class={settingDescriptionClass}>
+			{$i18n.t(
+				'Underline each sentence of an answer by what it rests on: a source, a figure 4CE checked, or nothing that could be checked. Hover a sentence to see why.'
+			)}
+		</p>
+	</div>
+
+	<div>
+		<div class={settingRowClass}>
+			<div id="route-preview-label" class={settingLabelClass}>{$i18n.t('Show the route as you type')}</div>
+			<div class={settingControlClass}>
+				<Switch
+					ariaLabelledbyId="route-preview-label"
+					tooltip={true}
+					bind:state={routePreview}
+					inherited={isDefaultSetting('routePreview')}
+					on:change={() => {
+						saveSettings({ routePreview });
+					}}
+				/>
+			</div>
+		</div>
+		<p class={settingDescriptionClass}>
+			{$i18n.t(
+				'Under the message box, show which agents a request will go through before you send it.'
+			)}
+		</p>
+	</div>
+
+	<h3 class={sectionHeadingClass}>{$i18n.t('UI')}</h3>
 
 	<div>
 		<div class={settingRowClass}>

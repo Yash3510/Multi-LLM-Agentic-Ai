@@ -1,4 +1,5 @@
 <script lang="ts">
+	import RoutePreview from './MessageInput/RoutePreview.svelte';
 	import DOMPurify from 'dompurify';
 	import { toast } from 'svelte-sonner';
 
@@ -180,6 +181,16 @@
 
 	export let prompt = '';
 	export let files: any[] = [];
+
+	/* 4CE: the route a request will take, shown under the box as you type -
+	   only for the 4CE model, and only while the setting is on. */
+	$: routeModelId = String(atSelectedModel?.id ?? selectedModels?.[0] ?? '');
+	$: showRoute = ($settings?.routePreview ?? true) && routeModelId.startsWith('ace_orchestrator');
+	$: routeKnowledge =
+		($models ?? [])
+			.find((m) => m?.id === routeModelId)
+			?.info?.meta?.knowledge?.map((k) => k?.name)
+			.filter(Boolean)[0] ?? 'your documents';
 
 	export let selectedToolIds: string[] = [];
 	export let selectedSkillIds: string[] = [];
@@ -2717,6 +2728,10 @@
 								</div>
 							</div>
 						</div>
+
+						{#if showRoute}
+							<RoutePreview {prompt} {files} knowledge={routeKnowledge} />
+						{/if}
 
 						{#if $config?.license_metadata?.input_footer}
 							<div class=" text-xs text-gray-500 text-center line-clamp-1 marked">
