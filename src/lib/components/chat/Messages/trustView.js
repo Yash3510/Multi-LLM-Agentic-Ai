@@ -16,7 +16,7 @@
  * answer itself - its ```4ce-receipt block (checks, sources, what was cited)
  * and the passages retrieved for it (`message.sources`).
  */
-import { chipTitle } from './Markdown/evidence';
+import { chipTitle, usableChecks } from './Markdown/evidence';
 
 const NAMES = { src: 'trust-src', un: 'trust-un', fig: 'trust-fig', hover: 'trust-hover' };
 const supported = () => typeof CSS !== 'undefined' && 'highlights' in CSS && typeof Highlight !== 'undefined';
@@ -202,7 +202,7 @@ export function trustView(node, params) {
 		const root = node.querySelector('.markdown-prose') ?? node;
 		const names = receipt.sources ?? [];
 		const sourceByName = new Map((p.sources ?? []).map((s) => [s?.source?.name, s]));
-		const checks = receipt.checks ?? [];
+		const checks = usableChecks(receipt.checks);
 		const figOk = new Set(
 			checks
 				.filter((c) => c.by === '4CE' && c.kind === 'ok')

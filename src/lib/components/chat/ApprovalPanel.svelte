@@ -43,7 +43,7 @@
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
 	import { settings } from '$lib/stores';
-	import { chipTitle } from './Messages/Markdown/evidence';
+	import { chipTitle, usableChecks } from './Messages/Markdown/evidence';
 	import { chipCitations, matchChecks, findChanges } from './approvalReview';
 
 	export let request = null;
@@ -52,7 +52,7 @@
 
 	$: data = request?.data ?? {};
 	$: pass = data.verdict === 'PASS';
-	$: checks = data.checks ?? [];
+	$: checks = usableChecks(data.checks);
 	$: sources = data.sources ?? [];
 	$: revision = data.revision?.changes?.length ? data.revision : null;
 	$: names = sources.map((s) => s.name);

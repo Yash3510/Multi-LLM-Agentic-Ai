@@ -8,6 +8,7 @@
 	 */
 	import RevisionCard from './RevisionCard.svelte';
 	import AuditSheet from './AuditSheet.svelte';
+	import { usableChecks } from './evidence';
 
 	let showAudit = false;
 
@@ -43,7 +44,7 @@
 	};
 
 	$: sources = data.sources ?? [];
-	$: checks = data.checks ?? [];
+	$: checks = usableChecks(data.checks);
 	$: verdict = (data.verdict ?? '').toUpperCase();
 	$: tries = (data.attempts ?? 1) > 1 ? ` after ${data.attempts} tries` : '';
 
