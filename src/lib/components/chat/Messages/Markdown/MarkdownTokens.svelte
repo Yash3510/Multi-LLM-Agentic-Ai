@@ -239,18 +239,24 @@
 			{token.text}
 		{/if}
 	{:else if token.type === 'table'}
-		<div class="relative w-full group mb-2">
-			<div class="scrollbar-hidden relative overflow-x-auto max-w-full">
+		<!-- A table in a frame: a quiet header row, readable cells, the row under
+		     the pointer lit. -->
+		<div class="relative w-full group my-3">
+			<div
+				class="scrollbar-hidden relative overflow-x-auto max-w-full rounded-xl border border-gray-200/80 dark:border-gray-800"
+			>
 				<table
-					class=" w-full text-sm text-start text-gray-500 dark:text-gray-400 max-w-full rounded-xl"
+					class="!my-0 w-full text-start text-[13.5px] text-gray-800 dark:text-gray-200 max-w-full"
 					dir="auto"
 				>
-					<thead class="text-xs text-gray-700 uppercase dark:text-gray-400 border-none">
+					<thead
+						class="bg-gray-50 text-[12.5px] font-medium text-gray-700 dark:bg-gray-850 dark:text-gray-300 border-none"
+					>
 						<tr class="">
 							{#each token.header as header, headerIdx}
 								<th
 									scope="col"
-									class="px-2.5! py-2! cursor-pointer border-b border-gray-100! dark:border-gray-800!"
+									class="px-3! py-2! cursor-pointer border-b border-gray-200/80! dark:border-gray-800! font-medium"
 									style={token.align[headerIdx] ? `text-align: ${token.align[headerIdx]}` : ''}
 								>
 									<div class="gap-1.5 text-start">
@@ -270,14 +276,14 @@
 					</thead>
 					<tbody>
 						{#each token.rows as row, rowIdx}
-							<tr class="text-xs">
+							<tr class="transition-colors hover:bg-gray-50/70 dark:hover:bg-gray-850/60">
 								{#each row ?? [] as cell, cellIdx}
 									<td
-										class="px-3! py-2! text-gray-900 dark:text-white w-max {token.rows.length -
+										class="px-3! py-2! align-top text-gray-800 dark:text-gray-100 w-max {token.rows.length -
 											1 ===
 										rowIdx
 											? ''
-											: 'border-b border-gray-50! dark:border-gray-850!'}"
+											: 'border-b border-gray-100! dark:border-gray-850!'}"
 										style={token.align[cellIdx] ? `text-align: ${token.align[cellIdx]}` : ''}
 									>
 										<div class="break-normal">
@@ -297,7 +303,9 @@
 				</table>
 			</div>
 
-			<div class=" absolute top-1 right-1.5 z-20 hover-reveal flex gap-0.5">
+			<div
+				class=" absolute top-1 right-1.5 z-20 hover-reveal flex gap-0.5 rounded-lg bg-gray-50/90 backdrop-blur-sm dark:bg-gray-850/90"
+			>
 				<Tooltip content={$i18n.t('Copy')}>
 					<button
 						class="p-1 rounded-lg bg-transparent transition"

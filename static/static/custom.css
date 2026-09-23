@@ -22,23 +22,22 @@
 
 .markdown-prose table,
 .markdown-prose-sm table {
-	border: 1px solid var(--4ce-border);
-	border-radius: 10px;
+	/* The frame is the rounded box round the table (MarkdownTokens), not the
+	   table itself, so there is one border, not two. */
+	border: none;
 	border-collapse: separate;
 	border-spacing: 0;
-	overflow: hidden;
 	width: 100%;
 	font-size: 0.86rem;
 }
 
 .markdown-prose table th,
 .markdown-prose-sm table th {
+	/* A header row that reads as one: sentence case at full strength. Small
+	   capitals at 70% opacity measured under 3:1. */
 	background: var(--4ce-surface);
-	font-weight: 600;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-	font-size: 0.7rem;
-	opacity: 0.7;
+	font-weight: 500;
+	font-size: 0.8rem;
 	text-align: left;
 }
 
@@ -57,12 +56,18 @@
 	border-bottom: none;
 }
 
-/* The first column is a label, so keep it narrow and recessive. */
-.markdown-prose table td:first-child,
-.markdown-prose-sm table td:first-child {
+/* In a two-column table - the provenance table, "Stage | Detail" - the
+   first column is a label: narrow and a shade quieter. Wider tables are data,
+   and their first column reads like the rest. */
+.markdown-prose table td:first-child:nth-last-child(2),
+.markdown-prose-sm table td:first-child:nth-last-child(2) {
 	white-space: nowrap;
-	opacity: 0.7;
 	width: 1%;
+	color: rgb(75 85 99);
+}
+.dark .markdown-prose table td:first-child:nth-last-child(2),
+.dark .markdown-prose-sm table td:first-child:nth-last-child(2) {
+	color: rgb(180 180 180);
 }
 
 /* --- Quoted model reasoning ---------------------------------------------- */
@@ -70,10 +75,14 @@
 .markdown-prose blockquote,
 .markdown-prose-sm blockquote {
 	border-left: 2px solid var(--4ce-accent-soft);
-	opacity: 0.75;
+	color: rgb(55 65 81);
 	font-size: 0.94em;
 	font-style: normal;
 	padding-left: 0.8rem;
+}
+.dark .markdown-prose blockquote,
+.dark .markdown-prose-sm blockquote {
+	color: rgb(209 213 219);
 }
 
 /* --- Section rules ------------------------------------------------------- */
