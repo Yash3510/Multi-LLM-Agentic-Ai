@@ -4,9 +4,10 @@
  * construction lines draw in from their own sides, the star core traces and
  * fills, the six cubes dock along the lines and settle into the mark; then the
  * mark glides, upright and in a gentle arc, to the sidebar's own logo and
- * lands exactly on it as the app appears behind. With no sidebar logo on
- * screen (a narrow window), the cubes leave one pair at a time instead, in the
- * order they came, and the core fades last.
+ * lands exactly on it as the app appears behind. In a narrow window, where the
+ * sidebar is folded away, it takes the same arc to the button that opens the
+ * sidebar and settles into it. Only with neither on screen do the cubes leave
+ * one pair at a time instead, and the core fades last.
  *
  * Every piece on screen is the traced 4CE artwork (4ce/branding/logo-mark.svg)
  * clipped along its own geometry: a six-point star core plus six cubes around
@@ -155,14 +156,22 @@
 		// the intro: undefined until then, null if none is showing. The collapsed
 		// rail and the open sidebar each draw one, stacked in the same corner, so
 		// every visible copy is held back until the mark lands.
-		var target, marks = [];
+		var target, marks = [], dock = false;
+		function shown(el) {
+			var r = el.getBoundingClientRect();
+			return r.width > 4 && r.right > 0 && r.bottom > 0 && getComputedStyle(el).display !== 'none';
+		}
 		function findTarget() {
 			var imgs = document.querySelectorAll('.sidebar-new-chat-icon img');
-			for (var i = 0; i < imgs.length; i++) {
-				var r = imgs[i].getBoundingClientRect();
-				if (r.width > 4 && r.right > 0 && r.bottom > 0 && getComputedStyle(imgs[i]).display !== 'none') marks.push(imgs[i]);
+			for (var i = 0; i < imgs.length; i++) if (shown(imgs[i])) marks.push(imgs[i]);
+			if (marks.length) return marks[0];
+			// Narrow window: the sidebar, and its logo, sit behind this button.
+			var open = document.querySelector('button[aria-label="Open Sidebar"]');
+			if (open && shown(open)) {
+				dock = true;
+				return open;
 			}
-			return marks[0] || null;
+			return null;
 		}
 		function holdMarks(hidden) {
 			marks.forEach(function (m) { m.style.visibility = hidden ? 'hidden' : ''; });
@@ -182,7 +191,10 @@
 			var x = W / 2, y = H / 2, sc = s0, tr = null;
 			if (glide) {
 				tr = target.getBoundingClientRect();
-				var tx = tr.left + tr.width / 2, ty = tr.top + tr.height / 2, ts = tr.width / 278.71;
+				// Onto a logo: its exact size. Into the sidebar button: a mark the
+				// size of its icon, which fades as it settles.
+				var tx = tr.left + tr.width / 2, ty = tr.top + tr.height / 2;
+				var ts = (dock ? Math.min(tr.width, tr.height) * 0.72 : tr.width) / 278.71;
 				var e = GLIDE(P(t, FLY0, FLY1)), vx = tx - W / 2, vy = ty - H / 2;
 				// A clear arc, not a straight line: it launches upward, then glides left.
 				var qx = W / 2 + vx * 0.5 - vy * 0.17, qy = H / 2 + vy * 0.5 + vx * 0.17;
@@ -192,6 +204,11 @@
 				if (t >= FLY1) {
 					mg.style.display = 'none';
 					holdMarks(false);
+				}
+				if (dock) {
+					// The mark hands over to the button: one fades out as the other fades in.
+					mg.setAttribute('opacity', 1 - SOFT(P(t, FLY1 - 320, FLY1 - 40)));
+					target.style.opacity = SOFT(P(t, FLY1 - 140, FLY1 + 220));
 				}
 				var lp = P(t, FLY1, FLY1 + 750), lk = 1 + OUT(lp);
 				land.setAttribute('transform', 'translate(' + tx + ' ' + ty + ') scale(' + ts * lk + ') translate(' + -C + ' ' + -C + ')');
@@ -257,6 +274,7 @@
 		function finish() {
 			cancelAnimationFrame(raf);
 			holdMarks(false);
+			if (dock) target.style.opacity = '';
 			window.removeEventListener('resize', onResize);
 			window.removeEventListener('keydown', onSkip, true);
 			ov.removeEventListener('pointerdown', onSkip);
