@@ -1001,3 +1001,35 @@ html.high-contrast:not(.dark) .shimmer {
 	color: var(--color-gray-800);
 	-webkit-text-fill-color: var(--color-gray-800);
 }
+
+/* A Word report coming up (the report card's preview and full view): the
+   sheet rises into place, then its lines settle in one after another, top to
+   bottom, on one soft deceleration. --i is each line's place, set once the
+   page is drawn; the stagger stops growing after the first screenful. */
+.docx-reveal section.docx {
+	animation: docx-sheet-in 640ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.docx-reveal section.docx > header,
+.docx-reveal section.docx > article > * {
+	animation: docx-line-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+	animation-delay: calc(140ms + min(var(--i, 0), 18) * 26ms);
+}
+@keyframes docx-sheet-in {
+	from {
+		opacity: 0;
+		transform: translateY(14px) scale(0.985);
+	}
+}
+@keyframes docx-line-in {
+	from {
+		opacity: 0;
+		transform: translateY(5px);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.docx-reveal section.docx,
+	.docx-reveal section.docx > header,
+	.docx-reveal section.docx > article > * {
+		animation: none;
+	}
+}

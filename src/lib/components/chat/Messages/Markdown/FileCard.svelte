@@ -13,6 +13,18 @@
 	import Modal from '$lib/components/common/Modal.svelte';
 	import DocxPreview from '$lib/components/common/DocxPreview.svelte';
 	import ReportThumb from './ReportThumb.svelte';
+	import { fade } from 'svelte/transition';
+	import { expoOut } from 'svelte/easing';
+	import { docxReveal } from '$lib/utils/docxReveal';
+
+	/* The preview grows out of the page icon: a soft deceleration, a touch of
+	   scale and a 2px blur that clears as it lands. */
+	const lift = (_node: Element, { duration = 460 } = {}) => ({
+		duration,
+		easing: expoOut,
+		css: (t: number, u: number) =>
+			`opacity: ${Math.min(1, t * 1.6)}; transform: translateY(${-8 * u}px) scale(${0.94 + 0.06 * t}); filter: blur(${2 * u}px);`
+	});
 
 	export let data: { kind?: string; title?: string; kb?: number; url?: string; note?: string };
 
@@ -87,8 +99,8 @@
 			<!-- The page, folded at the corner, in the chat's ink: the report is
 			     4CE's own document, not a link out. -->
 			<span
-				class="flex size-10 shrink-0 items-center justify-center rounded-[10px] border bg-gray-50 text-gray-800 transition-colors dark:bg-gray-850 dark:text-gray-100 {peek
-					? 'border-gray-300 dark:border-gray-600'
+				class="flex size-10 shrink-0 items-center justify-center rounded-[10px] border bg-gray-50 text-gray-800 transition-[border-color,transform] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] dark:bg-gray-850 dark:text-gray-100 {peek
+					? '-translate-y-0.5 -rotate-3 border-gray-300 dark:border-gray-600'
 					: 'border-gray-100 dark:border-gray-800'}"
 				aria-hidden="true"
 			>
@@ -135,7 +147,9 @@
 	{#if peek && fileId}
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
 		<div
-			class="report-peek absolute left-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_24px_60px_-24px_rgba(16,24,40,0.45)] dark:border-gray-700 dark:bg-gray-900"
+			class="report-peek absolute left-0 top-full z-30 mt-2 origin-[22px_-10px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_24px_60px_-24px_rgba(16,24,40,0.45)] dark:border-gray-700 dark:bg-gray-900"
+			in:lift
+			out:fade={{ duration: 140 }}
 			on:mouseenter={enter}
 			on:mouseleave={leave}
 		>
@@ -148,7 +162,7 @@
 					<ReportThumb data={file} width={300} />
 				</button>
 				<div
-					class="flex items-center justify-between border-t border-gray-100 px-3 py-2 text-[11px] text-gray-600 dark:border-gray-800 dark:text-gray-400"
+					class="report-peek-foot flex items-center justify-between border-t border-gray-100 px-3 py-2 text-[11px] text-gray-600 dark:border-gray-800 dark:text-gray-400"
 				>
 					<span>Page 1</span>
 					<span>Click to read the whole report</span>
@@ -182,7 +196,7 @@
 				<svg class="size-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
 			</button>
 		</div>
-		<div class="h-[75vh] bg-gray-50 dark:bg-gray-950">
+		<div class="h-[75vh] bg-gray-50 dark:bg-gray-950" use:docxReveal>
 			{#if failed}
 				<p class="p-6 text-center text-sm text-gray-600 dark:text-gray-400">
 					The report could not be loaded. It can still be downloaded.
@@ -206,20 +220,18 @@
 			transform: translateY(4px);
 		}
 	}
-	/* The preview lifts out of the card. */
-	.report-peek {
-		animation: report-peek-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
-		transform-origin: top left;
+	/* The preview's footer comes last, once the page is up. */
+	.report-peek-foot {
+		animation: report-foot-in 420ms 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
 	}
-	@keyframes report-peek-in {
+	@keyframes report-foot-in {
 		from {
 			opacity: 0;
-			transform: translateY(-4px) scale(0.98);
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
 		:global(.message-in) .file-card,
-		.report-peek {
+		.report-peek-foot {
 			animation: none;
 		}
 	}

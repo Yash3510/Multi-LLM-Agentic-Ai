@@ -5,7 +5,9 @@
 	 * Used for the hover preview on the report card.
 	 */
 	import { onDestroy, tick } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { fixDocxBullets } from '$lib/utils/docxBullets';
+	import { docxReveal } from '$lib/utils/docxReveal';
 
 	export let data: ArrayBuffer | null = null;
 	export let width = 300;
@@ -61,14 +63,19 @@
 
 <div class="report-thumb relative overflow-hidden bg-white text-left" style="width: {width}px; height: {Math.round(width * 1.294)}px;">
 	<div bind:this={styles}></div>
+	<!-- Hidden until drawn; then the sheet rises and its lines settle in
+	     (docxReveal, app.css). -->
 	<div
 		bind:this={pages}
-		class="origin-top-left transition-opacity duration-300 {ready ? 'opacity-100' : 'opacity-0'}"
+		use:docxReveal
+		class="origin-top-left"
+		class:invisible={!ready}
 		style="zoom: {scale};"
 	></div>
 	{#if !ready}
-		<!-- Lines where the page will be, while it is drawn. -->
-		<div class="absolute inset-0 space-y-2 p-5" aria-hidden="true">
+		<!-- Lines where the page will be, while it is drawn; they fade as it
+		     comes up. -->
+		<div class="absolute inset-0 space-y-2 p-5" aria-hidden="true" out:fade={{ duration: 260 }}>
 			{#if failed}
 				<p class="pt-10 text-center text-xs text-gray-500">The preview could not be drawn.</p>
 			{:else}
