@@ -14,6 +14,24 @@
 
 	let sortedPrompts = [];
 
+	/* An icon for the kind of work a suggestion starts, read from its words;
+	   fixed markup, never taken from the prompt itself. */
+	const ICONS = {
+		code: '<path d="M5 5.5 2.5 8 5 10.5M11 5.5 13.5 8 11 10.5M9.25 3.5l-2.5 9" />',
+		check: '<path d="M2.75 11a5.25 5.25 0 1 1 10.5 0" /><path d="M8 11l2.5-3.5" /><path d="M2.75 13.5h10.5" />',
+		audit: '<path d="M8 1.75 13 3.75v3.9c0 3-2.1 5.4-5 6.6-2.9-1.2-5-3.6-5-6.6v-3.9z" /><path d="m5.75 8 1.6 1.6L10.5 6.5" />',
+		document: '<path d="M4 1.75h5.25L12.5 5v9.25H4z" /><path d="M9 1.75V5h3.5M6 8.25h4M6 10.75h4" />',
+		ask: '<path d="M2.75 3.75h10.5v7h-6L4 13.5v-2.75H2.75z" />'
+	};
+	const iconFor = (text: string) => {
+		const t = (text ?? '').toLowerCase();
+		if (/\b(code|python|script|run|sandbox|plot|chart|spreadsheet)\b/.test(t)) return 'code';
+		if (/\b(threshold|limit|check|reading|sop|inspect|assess)/.test(t)) return 'check';
+		if (/\b(audit|sovereign|secur|egress|comply|compliance)/.test(t)) return 'audit';
+		if (/\b(report|document|summar|draft|note|write)/.test(t)) return 'document';
+		return 'ask';
+	};
+
 	const fuseOptions = {
 		keys: ['content', 'title'],
 		threshold: 0.5
@@ -84,44 +102,43 @@
 	{/if}
 </div>
 
-<div class="h-36 w-full">
+<div class="min-h-[4.5rem] w-full">
 	{#if filteredPrompts.length > 0}
-		<div role="list" class="max-h-36 overflow-auto scrollbar-none items-start {className}">
+		<!-- Each suggestion a card: what it does and on what, with an icon for
+		     the kind of work. They fall into a row when there is room. -->
+		<div
+			role="list"
+			class="grid max-h-60 grid-cols-[repeat(auto-fit,minmax(11.5rem,1fr))] gap-2 overflow-auto scrollbar-none pb-1 {className}"
+		>
 			{#each filteredPrompts as prompt, idx (prompt.id || `${prompt.content}-${idx}`)}
+				{@const title = prompt.title && prompt.title[0] !== '' ? prompt.title[0] : prompt.content}
+				{@const detail = prompt.title && prompt.title[0] !== '' ? prompt.title[1] : $i18n.t('Prompt')}
+				{@const icon = iconFor(`${title} ${detail} ${prompt.content}`)}
 				<!-- svelte-ignore a11y-no-interactive-element-to-noninteractive-role -->
 				<button
 					role="listitem"
-					class="waterfall flex flex-col flex-1 shrink-0 w-full justify-between
-				       px-2.5 py-1.5 rounded-lg bg-transparent transition-colors
-				       hover:text-gray-950 dark:hover:text-white group"
+					class="waterfall group flex items-start gap-2.5 rounded-xl border border-gray-200/80 bg-white px-3 py-2.5 text-left transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-gray-300 hover:shadow-[0_8px_20px_-14px_rgba(16,24,40,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/15 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
 					style="animation-delay: {idx * 45}ms"
 					on:click={() => onSelect({ type: 'prompt', data: prompt.content })}
 				>
-					<div class="flex flex-col text-left leading-snug">
-						{#if prompt.title && prompt.title[0] !== ''}
-							<div
-								class="text-sm font-normal group-hover:text-gray-950 dark:text-gray-300 dark:group-hover:text-white transition line-clamp-1"
-							>
-								{prompt.title[0]}
-							</div>
-							<div
-								class="text-xs text-gray-600 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-gray-100 font-normal line-clamp-1"
-							>
-								{prompt.title[1]}
-							</div>
-						{:else}
-							<div
-								class="text-sm font-normal group-hover:text-gray-950 dark:text-gray-300 dark:group-hover:text-white transition line-clamp-1"
-							>
-								{prompt.content}
-							</div>
-							<div
-								class="text-xs text-gray-600 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-gray-100 font-normal line-clamp-1"
-							>
-								{$i18n.t('Prompt')}
-							</div>
-						{/if}
-					</div>
+					<span
+						class="mt-px flex size-7 shrink-0 items-center justify-center rounded-lg border border-gray-100 bg-gray-50 text-gray-700 transition-colors group-hover:text-gray-900 dark:border-gray-800 dark:bg-gray-850 dark:text-gray-300 dark:group-hover:text-white"
+						aria-hidden="true"
+					>
+						<svg
+							class="size-3.5"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.5"
+							stroke-linecap="round"
+							stroke-linejoin="round">{@html ICONS[icon]}</svg
+						>
+					</span>
+					<span class="min-w-0 leading-snug">
+						<span class="line-clamp-1 text-[13.5px] font-medium text-gray-900 dark:text-gray-100">{title}</span>
+						<span class="line-clamp-1 text-[12px] text-gray-600 dark:text-gray-400">{detail}</span>
+					</span>
 				</button>
 			{/each}
 		</div>

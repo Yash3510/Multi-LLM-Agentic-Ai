@@ -23,6 +23,8 @@
 
 	import Suggestions from './Suggestions.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import LogoMotion from '$lib/components/common/LogoMotion.svelte';
+	import { ALL_MOTIONS } from '$lib/components/common/logoMotion.js';
 	import EyeSlash from '$lib/components/icons/EyeSlash.svelte';
 	import MessageInput from './MessageInput.svelte';
 	import FolderPlaceholder from './Placeholder/FolderPlaceholder.svelte';
@@ -127,6 +129,29 @@
 					}}
 				/>
 			{:else}
+				<!-- 4CE's welcome: the mark, moving through its motions while the box
+				     is empty and still once you type; what to ask; and in one line
+				     what the workbench is. -->
+				<div class="fource-welcome mb-6 flex flex-col items-center px-5">
+					<LogoMotion motion={prompt ? null : ALL_MOTIONS} randomStart size={46} label="4CE" />
+					<h1 class="mt-5 text-[26px] font-medium leading-tight tracking-tight text-gray-900 dark:text-white">
+						{$i18n.t('What should 4CE work on?')}
+					</h1>
+					<p
+						class="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[13px] leading-5 text-gray-600 dark:text-gray-400"
+					>
+						<span>{$i18n.t('Local models')}</span><span aria-hidden="true" class="text-gray-300 dark:text-gray-600"
+							>·</span
+						><span>{$i18n.t('your documents')}</span><span
+							aria-hidden="true"
+							class="text-gray-300 dark:text-gray-600">·</span
+						><span>{$i18n.t('checked by ULTRON')}</span><span
+							aria-hidden="true"
+							class="text-gray-300 dark:text-gray-600">·</span
+						><span>{$i18n.t('released only by you')}</span>
+					</p>
+				</div>
+
 				<div
 					class="flex flex-row justify-center gap-2.5 @sm:gap-3 w-fit px-5 max-w-xl"
 					class:hidden={!showModelHeading}
@@ -268,7 +293,7 @@
 						{onToolApprovalModeChange}
 						{stopResponse}
 						{createMessagePair}
-						placeholder={$i18n.t('How can I help you today?')}
+						placeholder={$i18n.t('Ask about your documents, or give 4CE a task')}
 						{onChange}
 						{onUpload}
 						{onUpdate}
