@@ -101,6 +101,7 @@ class Tools:
         __event_emitter__: Callable[[dict], Awaitable[None]] | None = None,
         __signoff__: dict | None = None,
         __record__: list | None = None,
+        __sources__: list | None = None,
     ) -> str:
         """
         Create a formatted Word (.docx) document from the supplied content and return a download link.
@@ -129,7 +130,8 @@ class Tools:
 
         try:
             payload = await asyncio.to_thread(
-                self._build_docx, title, body, reference, document_type, __signoff__, __record__
+                self._build_docx, title, body, reference, document_type, __signoff__, __record__,
+                __sources__,
             )
         except ImportError:
             return (
@@ -184,8 +186,11 @@ class Tools:
 
         await _emit(__event_emitter__, "deliverable", "Document ready", done=True)
         return (
-            f"Generated **{filename}** ({len(payload) // 1024 or 1} KB), stored locally.\n\n"
-            f"[Download {filename}](/api/v1/files/{file_id}/content)"
+            # One readable line: what it is, its size, where it lives, and the
+            # link. The file name alone ran two lines, underlined, and said
+            # less than the title does.
+            f"**Word report** · {title.strip()} · {len(payload) // 1024 or 1} KB, stored on this "
+            f"machine · [Download .docx](/api/v1/files/{file_id}/content)"
             + saved
         )
 
@@ -259,8 +264,8 @@ class Tools:
 
         await _emit(__event_emitter__, "artifact", f"{safe} ready", done=True)
         return (
-            f"Saved **{safe}** ({len(payload) // 1024 or 1} KB)."
-            f" [Download {safe}](/api/v1/files/{file_id}/content){saved}"
+            f"**{safe}** · {len(payload) // 1024 or 1} KB, stored on this machine · "
+            f"[Download](/api/v1/files/{file_id}/content){saved}"
         )
 
     def _build_docx(
@@ -271,9 +276,10 @@ class Tools:
         document_type: str = "",
         signoff: dict | None = None,
         record: list | None = None,
+        sources: list | None = None,
     ) -> bytes:
         return _Report(
-            self.valves, title, body, reference, document_type, signoff or {}, record or []
+            self.valves, title, body, reference, document_type, signoff or {}, record or [], sources
         ).build()
 
 
@@ -284,9 +290,9 @@ class Tools:
 # warm paper panels and a single deep-orange accent. A .docx can only use the
 # fonts installed on the reader's machine, and Office's own fonts are not on a
 # Mac without Office: Calibri and Consolas fell back to Times in Pages and
-# Quick Look. So only fonts every Mac and Windows machine has: Georgia for the
-# site's Canela and Newsreader, Arial for Inter, Courier New for JetBrains
-# Mono. A4, because that is what Indian plants print on.
+# Quick Look. So only fonts every Mac and Windows machine has: Arial for Inter
+# (text, headings and the wordmark) and Courier New for JetBrains Mono. A4,
+# because that is what Indian plants print on.
 #
 # Layout that survives simple readers: Quick Look and TextEdit ignore table
 # widths, cell padding and paragraph shading. So spacing inside cells comes
@@ -304,8 +310,11 @@ PAPER = "F6F4EE"  # panels
 FILL = "F4F2EC"  # table header row
 RULE = "E8E3D7"  # table hairlines
 LINE = "D9D3C6"  # rules between sections: a shade darker, so they survive on screen
-SERIF = "Georgia"
 SANS = "Arial"
+# Headings, the title and the wordmark are in the sans face too. Georgia set
+# them before, and its old-style figures drop below the line: the wordmark
+# read "4CE" with a sunken 4, and "SOP-MEC-014" in a title read as "o14".
+HEAD = SANS
 MONO = "Courier New"
 
 PAGE_W, PAGE_H, MARGIN = 21.0, 29.7, 2.2  # cm
@@ -492,6 +501,7 @@ def _run(
     track: float | None = None,
     underline: bool = False,
     fill: str | None = None,
+    sup: bool = False,
 ) -> Any:
     from docx.shared import Pt, RGBColor
 
@@ -514,6 +524,8 @@ def _run(
         _tracking(run, track)
     if fill:
         _put(run._r.get_or_add_rPr(), _el("w:shd", val="clear", color="auto", fill=fill))
+    if sup:
+        run.font.superscript = True
     return run
 
 
@@ -552,6 +564,7 @@ _INLINE = re.compile(
     r"|(?<![\w*])\*(?=\S)(?P<i>.+?)(?<=\S)\*(?![\w*])"
     r"|(?<!\w)_(?=\S)(?P<i2>.+?)(?<=\S)_(?!\w)"
     r"|`(?P<code>[^`]+)`"
+    r"|\s*\[(?P<cite>\d+(?:\s*,\s*\d+)*)\](?!\()"
     r"|\[(?P<link>[^\]]+)\]\((?P<url>[^)\s]+)\)"
 )
 
@@ -566,8 +579,10 @@ class _Report:
         document_type: str,
         signoff: dict,
         record: list,
+        sources: list | None = None,
     ):
         self.valves = valves
+        self.sources = [str(name) for name in (sources or []) if str(name).strip()]
         self.title = title.strip()
         self.body = body
         self.issued = datetime.now().astimezone()
@@ -597,6 +612,8 @@ class _Report:
         self._header_footer()
         self._masthead()
         self._markdown(self.body)
+        if self.sources:
+            self._sources()
         if self.record:
             self._record()
         if self.signoff.get("approved_by"):
@@ -630,8 +647,8 @@ class _Report:
         _spacing_style(normal, 0, 7, 1.22)
 
         for name, font, size, colour, bold, before, after in (
-            ("Heading 1", SERIF, 17, INK, False, 20, 6),
-            ("Heading 2", SERIF, 13.5, INK, False, 16, 5),
+            ("Heading 1", HEAD, 15, INK, True, 20, 6),
+            ("Heading 2", HEAD, 12.5, INK, True, 16, 5),
             ("Heading 3", SANS, 11, INK, True, 12, 3),
             ("Heading 4", SANS, 10.5, MUTED, True, 10, 2),
         ):
@@ -677,7 +694,7 @@ class _Report:
         if self.logo:
             head.add_run().add_picture(io.BytesIO(self.logo), height=Cm(0.42))
             _run(head, "  ")
-        _run(head, "4CE", font=SERIF, size=9.5, colour=INK)
+        _run(head, "4CE", font=HEAD, size=9.5, colour=INK, bold=True, track=-0.1)
         short = self.title if len(self.title) <= 64 else self.title[:61].rstrip() + "…"
         _run(head, f"   ·   {short}", size=8.5, colour=MUTED)
         if classification:
@@ -719,7 +736,8 @@ class _Report:
         if self.logo:
             mark.paragraphs[0].add_run().add_picture(io.BytesIO(self.logo), height=Cm(1.2))
         word = name.paragraphs[0]
-        _run(word, "4CE", font=SERIF, size=17, colour=INK)
+        # The wordmark, set like the app's: heavy sans, closed up.
+        _run(word, "4CE", font=HEAD, size=18, colour=INK, bold=True, track=-0.4)
         _pad(word, 0.1, 0, 0, 1.0)
         tagline = name.add_paragraph()
         _run(tagline, "Sovereign AI Workbench", size=8.5, colour=MUTED, track=0.3)
@@ -745,7 +763,7 @@ class _Report:
         heading = doc.add_paragraph()
         _spacing(heading, 0, 10, 1.05)
         heading.paragraph_format.keep_with_next = True
-        _run(heading, self.title, font=SERIF, size=26, colour=INK)
+        _run(heading, self.title, font=HEAD, size=24, colour=INK, track=-0.4)
 
         accent = doc.add_paragraph()
         _spacing(accent, 0, 18, 1.0)
@@ -1003,6 +1021,11 @@ class _Report:
             elif group == "code":
                 size = base.get("size") or (None if heading else 9.5)
                 _run(paragraph, value, **{**base, "font": MONO, "size": size, "fill": None if heading else PAPER})
+            elif group == "cite":
+                # A source number from the chat's [n]: a superscript that points
+                # at the Sources list at the end of the document.
+                numbers = ",".join(n.strip() for n in value.split(","))
+                _run(paragraph, numbers, **{**base, "colour": INDIGO, "bold": True, "sup": True})
             elif group == "link":
                 _run(paragraph, _unescape(value), **{**base, "colour": INDIGO, "underline": True})
                 url = match.group("url")
@@ -1013,6 +1036,24 @@ class _Report:
             _run(paragraph, _unescape(text[position:]), **base)
 
     # -- end matter --------------------------------------------------------
+
+    def _sources(self) -> None:
+        self._heading("Sources", 2)
+        note = self.doc.add_paragraph()
+        _spacing(note, 0, 8, 1.2)
+        _run(
+            note,
+            "The documents 4CE retrieved from the local knowledge base. Each raised "
+            "number in the text refers to one of them.",
+            size=9,
+            colour=MUTED,
+        )
+        for n, name in enumerate(self.sources, 1):
+            line = self.doc.add_paragraph()
+            _spacing(line, 0, 3, 1.2)
+            _run(line, f"{n}", size=9.5, colour=INDIGO, bold=True)
+            _run(line, f"\u2003{name}", size=10, colour=INK)
+        self._gap(6)
 
     def _record(self) -> None:
         self._heading("Verification record", 2)
