@@ -1213,6 +1213,17 @@
 	const chatEventHandler = async (event, cb) => {
 		console.log(event);
 
+		// A 4CE sign-off is kept for its own chat even when this tab shows
+		// another: it can be asked again here after the tab it first went to
+		// lost its connection, and the panel docks once that chat is opened.
+		if (event?.data?.type === 'input' && event?.data?.data?.kind === '4ce_approval') {
+			pendingApprovals.update((pending) => ({
+				...pending,
+				[event.chat_id]: { data: event.data.data, callback: cb, messageId: event.message_id }
+			}));
+			return;
+		}
+
 		if (event.chat_id === $chatId) {
 			await tick();
 			const type = event?.data?.type ?? null;
@@ -1384,11 +1395,6 @@
 					} catch (error) {
 						console.error('Error executing code:', error);
 					}
-				} else if (type === 'input' && data?.kind === '4ce_approval') {
-					pendingApprovals.update((pending) => ({
-						...pending,
-						[$chatId]: { data, callback: cb, messageId: event.message_id }
-					}));
 				} else if (type === 'input') {
 					eventCallback = cb;
 

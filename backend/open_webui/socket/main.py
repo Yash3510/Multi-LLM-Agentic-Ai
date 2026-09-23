@@ -1181,27 +1181,52 @@ async def get_event_emitter(request_info, update_db=True):
 async def get_event_call(request_info):
     async def __event_caller__(event_data):
         session_id = request_info['session_id']
+        user_id = request_info.get('user_id')
 
         # session_id is client-supplied; only the requesting user's own live session may be targeted.
         session = SESSION_POOL.get(session_id)
-        if session is None or session.get('id') != request_info.get('user_id'):
+        if session is None or session.get('id') != user_id:
             log.warning(f'Event caller: session {session_id} not owned by requesting user or disconnected')
             return {'error': 'Client session disconnected.'}
 
-        try:
-            return await sio.call(
-                'events',
-                {
-                    'chat_id': request_info.get('chat_id', None),
-                    'message_id': request_info.get('message_id', None),
-                    'data': event_data,
-                },
-                to=session_id,
-                timeout=WEBSOCKET_EVENT_CALLER_TIMEOUT,
+        payload = {
+            'chat_id': request_info.get('chat_id', None),
+            'message_id': request_info.get('message_id', None),
+            'data': event_data,
+        }
+
+        def ask(sid):
+            return asyncio.ensure_future(
+                sio.call('events', payload, to=sid, timeout=WEBSOCKET_EVENT_CALLER_TIMEOUT)
             )
+
+        # A tab that loses its connection while a call waits on it takes the
+        # call with it: it reconnects under a new session id, the answer can
+        # never arrive, and with no timeout the caller waits forever. So once
+        # every session asked has gone, the call is put again to the same
+        # user's live sessions; the tab showing this chat answers it and the
+        # first answer wins. Nothing goes beyond the requesting user's own.
+        asked = {session_id: ask(session_id)}
+        try:
+            while True:
+                done, _ = await asyncio.wait(
+                    asked.values(), timeout=2, return_when=asyncio.FIRST_COMPLETED
+                )
+                if done:
+                    return done.pop().result()
+                if any(sid in SESSION_POOL for sid in asked):
+                    continue
+                for sid in get_session_ids_by_user_id(user_id):
+                    live = SESSION_POOL.get(sid)
+                    if sid not in asked and live and live.get('id') == user_id:
+                        log.info(f'Event caller: session {session_id} disconnected; asking {sid} instead')
+                        asked[sid] = ask(sid)
         except (TimeoutError, socketio.exceptions.TimeoutError):
             log.warning(f'Event caller timed out for session {session_id}')
             return {'error': 'Event call timed out. The browser tab may be inactive or closed.'}
+        finally:
+            for task in asked.values():
+                task.cancel()
 
     if 'session_id' in request_info and 'chat_id' in request_info and 'message_id' in request_info:
         return __event_caller__
