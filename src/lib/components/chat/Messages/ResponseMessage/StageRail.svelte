@@ -1,17 +1,18 @@
 <script>
 	/*
 	 * StageRail - the 4CE agent chain as a node path at the top of each answer:
-	 *   TONY ● ╌╌ ● FRIDAY ╌╌ ● JARVIS ╌╌ ● ULTRON ╌╌ ○ You
-	 * One dot for every stage, the human gate included: a ring while it waits
-	 * on you, filled with a tick when you release and a dash when you
-	 * withhold - one shape and ink only, so the rail ends as it began. The wires are short cut lines that
-	 * carry energy cut by cut:
-	 * - after the live agent, pulses run toward the next node - indeterminate
-	 *   motion, never a fake percentage;
-	 * - when a stage hands over, a spark charges the wire into the next node,
-	 *   and that node lands as the spark reaches it;
-	 * - the gate's wire charges in ink once you decide, either way;
-	 * - a finished chat charges its chain once, left to right, when it opens.
+	 *   TONY ◉ ╌╌ ◉ FRIDAY ╌╌ ⁘ JARVIS ╌╌ ◌ ULTRON ╌╌ ◌ You
+	 * Every node is one ring (NodeGlyph): dotted before its stage runs, six
+	 * violet dots while it works, closed with a centre dot once it is done,
+	 * and at the gate a ring with a tick when you release or a dash when you
+	 * withhold. The wires are dashed hairlines.
+	 *
+	 * A live run hands over one stage at a time, never in a hurry: the
+	 * finished node closes its ring, then a soft light leaves it and glides
+	 * along the wire, filling it as it goes, and stops at the next node. Only
+	 * when it lands does that node start working. The rail can trail the run
+	 * by a handover (about three seconds); a replan jumps straight back, with
+	 * the arc from ULTRON showing the way.
 	 *
 	 * Built only from the status stream the orchestrator already sends, so it
 	 * shows what actually happened rather than a canned animation:
@@ -24,13 +25,17 @@
 	 *   stage summed across passes;
 	 * - "You" is the human gate: reviewing, released, or withheld.
 	 *
-	 * Direct replies ("hi") never reach the chain, so they get no rail. There
-	 * is no orb here on purpose: the avatar carries the one orb.
+	 * Direct replies ("hi") never reach the chain, so they get no rail. An
+	 * opened chat draws its rail finished, without motion.
 	 */
 	import { onDestroy } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
+	import NodeGlyph from './NodeGlyph.svelte';
 
 	export let statusHistory = [];
 	export let done = false;
+	/** Where the rail is, for the status line under it (bound by the message). */
+	export let live = null;
 
 	const STAGE_OF = {
 		tony_plan: 'TONY',
@@ -46,15 +51,17 @@
 	// Statuses that end whatever stage is running.
 	const CLOSING = new Set(['done', 'stopped', 'error', 'tool']);
 
-	/* A rail that mounts already finished (an opened chat) charges its chain
-	   once, left to right: wire i starts STEP ms after wire i - 1, and node j
-	   lands as the charge reaches it. A live run animates each handover as it
-	   happens instead, so it never waits on a cascade. */
+	// Mounted finished (an opened chat): drawn as it ended, with no motion.
 	const cascade = done;
-	const STEP = 120;
-	const CHARGE = 380;
-	const wireDelay = (i) => (cascade ? 80 + i * STEP : 0);
-	const nodeDelay = (j) => (cascade && j > 0 ? 80 + (j - 1) * STEP + CHARGE - 60 : 0);
+	const reduced =
+		typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+	const motion = !cascade && !reduced;
+
+	// The handover, in ms: the finished node closes its ring, then the light
+	// leaves, glides the wire, and fades into the next node as it lands.
+	const LEAVE = 950;
+	const TRAVEL = 1900;
+	const FADE = 550;
 
 	let root;
 	let now = Date.now();
@@ -171,7 +178,7 @@
 			// Passes through this stage: after a replan FRIDAY, JARVIS and ULTRON
 			// each run again, and their times above are totals across passes.
 			const runs = RERUN.has(name) ? mine.length : 1;
-			return { name, state, time: known ? fmt(secs) : null, note, runs };
+			return { name, state, time: known ? fmt(secs) : null, secs: known ? secs : null, note, runs };
 		});
 
 		const inChain = segs.some((s) => ['FRIDAY', 'JARVIS', 'ULTRON'].includes(s.stage));
@@ -205,15 +212,74 @@
 		}
 	}
 	$: syncTimer(view.running);
-	onDestroy(() => {
-		timer && clearInterval(timer);
-		clearTimeout(sweepTimer);
-	});
+
+	/* The handover. `shown` is the stage the rail has reached; it chases the
+	   run's frontier (the working stage, or the last one reached) one wire at
+	   a time. Stages past it still look unreached, whatever the run says. */
+	const UNREACHED = new Set(['pending', 'skipped', 'requeued']);
+	function frontierOf(stages) {
+		const working = stages.findIndex((s) => s.state === 'active');
+		if (working >= 0) return working;
+		let last = -1;
+		stages.forEach((s, i) => {
+			if (!UNREACHED.has(s.state)) last = i;
+		});
+		return last;
+	}
+	$: frontier = frontierOf(view.stages);
+
+	let shown = -1;
+	let travelling = -1; // the wire carrying the light
+	let landings = ORDER.map(() => 0);
+	let busy = false;
+	let pending = [];
+	const after = (ms, fn) => pending.push(setTimeout(fn, ms));
+	function cancel() {
+		pending.forEach(clearTimeout);
+		pending = [];
+		busy = false;
+		travelling = -1;
+	}
+
+	function chase(target) {
+		if (cascade || target < 0) return;
+		// First sight of a run (a new answer, or a run already under way when
+		// the chat was opened): start where it is, without replaying it.
+		if (shown < 0 || !motion) {
+			shown = target;
+			return;
+		}
+		// Sent back by a replan: straight there; the arc shows the way back.
+		if (target < shown) {
+			cancel();
+			shown = target;
+			landings[shown] += 1;
+			return;
+		}
+		if (busy || target === shown) return;
+		busy = true;
+		const from = shown;
+		after(LEAVE, () => (travelling = from));
+		after(LEAVE + TRAVEL, () => {
+			shown = from + 1;
+			landings[shown] += 1;
+			busy = false;
+			chase(frontier);
+		});
+		after(LEAVE + TRAVEL + FADE, () => {
+			if (travelling === from) travelling = -1;
+		});
+	}
+	$: chase(frontier);
+
+	$: looks = view.stages.map((s, i) =>
+		cascade || i <= shown ? s.state : UNREACHED.has(s.state) ? s.state : 'pending'
+	);
 
 	/* One-shot moments of a live run. A replan fires a spark back along the arc
 	   to FRIDAY - its own event, because on a real run FRIDAY starts again
 	   within milliseconds of the replan, so there is no replan stage long
-	   enough to animate. A release sends one green charge down the whole rail. */
+	   enough to animate. A release sends one light across the names. */
 	let arcWidth = 0;
 	let sparkKey = 0;
 	let seenReplans = cascade ? Infinity : 0;
@@ -226,13 +292,52 @@
 	let sweeping = false;
 	let sweepTimer = null;
 	let swept = cascade;
-	function syncSweep(stages) {
-		if (swept || stages[stages.length - 1]?.state !== 'released') return;
+	function syncSweep(gate) {
+		if (swept || gate !== 'released') return;
 		swept = true;
 		sweeping = true;
-		sweepTimer = setTimeout(() => (sweeping = false), 1400);
+		// The ring closes, the tick draws, then the light crosses the names.
+		sweepTimer = setTimeout(() => (sweeping = false), 5000);
 	}
-	$: syncSweep(view.stages);
+	$: syncSweep(looks[looks.length - 1]);
+
+	onDestroy(() => {
+		timer && clearInterval(timer);
+		clearTimeout(sweepTimer);
+		cancel();
+	});
+
+	/* For the status line: the stage the rail is on, the handover while the
+	   light travels, how the run ended and the agents' working time. Passed on only when it changes:
+	   the rail re-derives on every streamed token, and a fresh object each
+	   time would update the line under it just as often. */
+	let liveKey = '';
+	function report(next) {
+		const key = JSON.stringify(next);
+		if (key === liveKey) return;
+		liveKey = key;
+		live = next;
+	}
+	$: report({
+		stage: shown >= 0 ? view.stages[shown]?.name : null,
+		working: shown >= 0 && looks[shown] === 'active',
+		handover:
+			!cascade && shown >= 0 && frontier > shown
+				? { from: view.stages[shown].name, to: view.stages[shown + 1]?.name }
+				: null,
+		// The agents' working time, without your time reviewing.
+		worked: (() => {
+			const agents = view.stages.filter((s) => s.name !== 'You' && s.secs != null);
+			return agents.length ? fmt(agents.reduce((sum, s) => sum + s.secs, 0)) : null;
+		})(),
+		outcome: view.stages.some((s) => s.state === 'interrupted')
+			? 'interrupted'
+			: ['released', 'withheld'].includes(view.stages[view.stages.length - 1].state)
+				? view.stages[view.stages.length - 1].state
+				: null,
+		inChain: view.inChain
+	});
+
 	/* The arc's width, read straight away and then on resize. bind:clientWidth
 	   waits for the first ResizeObserver report, which only comes with a drawn
 	   frame, so the arc appeared a frame late (or never, in a hidden tab). */
@@ -267,26 +372,15 @@
 		prov?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
-	/* Node and label colour per state. */
-	const DOT = {
-		done: 'bg-gray-400 dark:bg-gray-500',
-		active: 'bg-gray-900 dark:bg-white',
-		pending: 'border border-gray-300 dark:border-gray-600',
-		requeued: 'border border-gray-400 dark:border-gray-500',
-		skipped: 'border border-dashed border-gray-200 dark:border-gray-700',
-		fail: 'bg-amber-500',
-		withheld: 'bg-gray-900 dark:bg-white',
-		interrupted: 'bg-amber-500',
-		released: 'bg-gray-900 dark:bg-white'
-	};
+	/* Label colour per state. */
 	const LABEL = {
-		done: 'text-gray-600 dark:text-gray-300',
+		done: 'text-gray-800 dark:text-gray-100',
 		active: 'text-gray-900 dark:text-white',
-		pending: 'text-gray-400 dark:text-gray-500',
+		pending: 'text-gray-500 dark:text-gray-500',
 		requeued: 'text-gray-500 dark:text-gray-400',
 		skipped: 'text-gray-300 dark:text-gray-600',
 		fail: 'text-amber-700 dark:text-amber-300',
-		withheld: 'text-gray-600 dark:text-gray-300',
+		withheld: 'text-gray-800 dark:text-gray-100',
 		interrupted: 'text-amber-700 dark:text-amber-300',
 		released: 'text-gray-900 dark:text-white'
 	};
@@ -295,31 +389,32 @@
 	function wire(stages, i) {
 		const from = stages[i];
 		const to = stages[i + 1];
-		if (from.state === 'active') return 'flow';
+		if (from.state === 'active') return 'future';
 		if (to.name === 'You') {
-			// Your decision, either way, charges the wire in ink; only a run cut
-			// off before you decided stays amber.
+			// Your decision, either way, fills the wire in ink; only a run cut
+			// off before you decided turns it amber.
 			if (to.state === 'released' || to.state === 'withheld') return 'released';
 			if (to.state === 'interrupted') return 'held';
 		}
-		if (['pending', 'skipped', 'requeued'].includes(to.state)) return 'future';
+		if (UNREACHED.has(to.state)) return 'future';
 		return 'done';
 	}
-	$: wires = view.stages.slice(0, -1).map((_, i) => wire(view.stages, i));
-	// Kinds whose wire is charged; each has its own animation name, so a wire
-	// that turns from charged to amber or green charges again in its colour.
-	const CHARGED = new Set(['done', 'held', 'released']);
+	// A wire the rail has not crossed yet stays dashed.
+	$: wires = view.stages
+		.slice(0, -1)
+		.map((_, i) => (cascade || i < shown ? wire(view.stages, i) : 'future'));
 </script>
 
 {#if view.inChain}
-	<!-- Flush with the text column: TONY's dot sits on the same left edge as
-	     the model name and the answer, and each label starts under its dot.
+	<!-- Flush with the text column: TONY's node sits on the same left edge as
+	     the model name and the answer, and each label starts under its node.
 	     The four agents share the width; YOU takes what its label needs, so
 	     the gate always ends the rail. -->
 	<div
 		bind:this={root}
 		class="rail relative mb-3 w-full max-w-[34rem] {view.replans > 0 ? 'pt-9' : 'pt-2.5'}"
 		class:sweeping
+		in:fade={{ duration: motion ? 420 : 0 }}
 	>
 		{#if view.replans > 0}
 			<span class="sr-only">
@@ -336,10 +431,10 @@
 			{#if view.replans > 0}
 				<!-- One faint arc from ULTRON back to FRIDAY: the self-correction,
 				     visible without crowding the path. Placed on the grid itself,
-				     FRIDAY's column to ULTRON's, so it meets both dots at any width.
-				     While the run is live its cuts travel back toward FRIDAY. -->
+				     FRIDAY's column to ULTRON's, so it meets both nodes at any
+				     width. While the run is live a spark travels it back once. -->
 				<div
-					class="pointer-events-none absolute col-start-2 col-end-4 row-start-1 -top-[22px] left-[5px] right-[-5px] h-[22px]"
+					class="pointer-events-none absolute col-start-2 col-end-4 row-start-1 -top-[22px] left-[7px] right-[-7px] h-[22px]"
 					use:measure
 					aria-hidden="true"
 				>
@@ -381,105 +476,66 @@
 			{/if}
 
 			{#each view.stages as s, i (s.name)}
+				{@const look = looks[i]}
+				{@const reached = cascade || i <= shown}
 				<div class="relative flex flex-col items-start" role="listitem">
 					{#if i < view.stages.length - 1}
-						<span
-							class="wire w-{wires[i]}"
-							class:charged={CHARGED.has(wires[i])}
-							style="--d: {wireDelay(i)}ms"
-							aria-hidden="true"
-						>
-							<span class="cuts">
-								<span class="fill"></span>
-								<span class="spark"></span>
-								<span class="packet"></span>
-								<span class="sweep" style="--sd: {i * 110}ms"></span>
-							</span>
+						<span class="wire w-{wires[i]}" class:go={i === travelling} aria-hidden="true">
+							<span class="base"></span>
+							<span class="fill"></span>
+							<span class="light"></span>
 						</span>
 					{/if}
 
-					<!-- -mx-1 px-1: the focus ring gets room while the dot stays on the
-					     column's edge. -->
-					<svelte:element
-						this={done && s.state !== 'skipped' ? 'button' : 'span'}
-						type={done && s.state !== 'skipped' ? 'button' : undefined}
-						role={done && s.state !== 'skipped' ? 'button' : undefined}
-						on:click={() => done && s.state !== 'skipped' && openStage(s.name)}
-						class="group -mx-1 flex flex-col items-start rounded-lg px-1 text-left outline-none focus-visible:ring-1 focus-visible:ring-gray-400"
-						aria-label="{s.name}{s.runs > 1 ? `, ran ${s.runs} times` : ''}{s.time
+					<!-- -mx-1 px-1: the focus ring gets room while the node stays on
+					     the column's edge. Always a button, enabled once the run is
+					     over: switching the element rebuilt every node as the run
+					     finished and replayed their closing mid-release. -->
+					<button
+						type="button"
+						disabled={!done || s.state === 'skipped'}
+						on:click={() => openStage(s.name)}
+						class="group -mx-1 flex flex-col items-start rounded-lg px-1 text-left outline-none focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-default"
+						aria-label="{s.name}{s.runs > 1 ? `, ran ${s.runs} times` : ''}{reached && s.time
 							? `, ${s.time}`
-							: ''}{s.note ? `, ${s.note}` : ''}"
+							: ''}{reached && s.note ? `, ${s.note}` : ''}"
 					>
-						<!-- `go` / `settle` land a node when the charge reaches it live;
-						     separate names so active -> outcome lands again. -->
-						<span
-							class="node relative flex size-2.5 items-center justify-center"
-							class:go={!cascade && s.state === 'active'}
-							class:settle={!cascade && (s.state === 'released' || s.state === 'withheld')}
-							class:cascade-in={cascade && s.state !== 'skipped'}
-							style="--nd: {nodeDelay(i)}ms"
-							aria-hidden="true"
-						>
-							{#if s.state === 'active'}
-								<!-- A soft glow that beats with the pulses leaving along the
-								     wire (same 1.1s period, same start), in place of the
-								     generic ping ring. -->
-								<span class="halo absolute inset-0 rounded-full"></span>
-							{/if}
-							{#if s.state === 'released'}
-								<span class="burst rounded-full"></span>
-							{/if}
-							{#if s.name === 'You' && (s.state === 'released' || s.state === 'withheld')}
-								<!-- Your decision: the gate fills, with a tick or a dash. -->
-								<span
-									class="relative inline-flex size-3 shrink-0 items-center justify-center rounded-full {DOT[
-										s.state
-									]} transition-all duration-300 {done ? 'group-hover:scale-125' : ''}"
-								>
-									<svg
-										class="size-2 text-white dark:text-gray-900"
-										viewBox="0 0 8 8"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="1.4"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										><path d={s.state === 'released' ? 'M1.6 4.2l1.6 1.6 3.2-3.5' : 'M2 4h4'} /></svg
-									>
-								</span>
-							{:else}
-								<span
-									class="relative inline-flex size-2.5 rounded-full {s.name === 'You' &&
-									s.state === 'active'
-										? 'border-[1.5px] border-gray-900 bg-white dark:border-white dark:bg-gray-900'
-										: DOT[s.state]} transition-all duration-300 {done && s.state !== 'skipped'
-										? 'group-hover:scale-125'
-										: ''}"
-								></span>
-							{/if}
+						<!-- Hover darkens a finished node's ring rather than growing it. -->
+						<span class="node flex size-3.5 items-center justify-center" aria-hidden="true">
+							<NodeGlyph kind={look} {motion} bloom={landings[i]} />
 						</span>
 						<span
-							class="mt-2 text-[10.5px] font-medium tracking-[0.08em] {LABEL[s.state]} transition-colors duration-500"
+							class="mt-2 text-[10.5px] font-medium tracking-[0.08em] {LABEL[look]} transition-colors duration-700"
 						>
-							{s.name === 'You' ? 'YOU' : s.name}{#if s.runs > 1}<span
-									class="ml-1 font-normal tracking-normal opacity-70">×{s.runs}</span
+							<span class="name" class:live-name={look === 'active'} style="--i: {i}"
+								>{s.name === 'You' ? 'YOU' : s.name}</span
+							>{#if s.runs > 1}<span class="ml-1 font-normal tracking-normal opacity-70">×{s.runs}</span
 								>{/if}
 						</span>
 						<!-- Time and note on their own lines: on a phone a column is ~70px,
 						     and "3.7s · reviewing" broke as "3.7s ·" over a stray word.
 						     Faded in dark mode only: at 75% on white it measured 3.35:1, under
 						     AA for text this small; full strength is 5.3:1. -->
-						<span class="text-[10.5px] tabular-nums leading-tight {LABEL[s.state]} dark:opacity-75">
-							<!-- Your time is waiting, not work: said so once the decision is in. -->
-							{#if s.time}<span class="block"
-									>{s.name === 'You' && (s.state === 'released' || s.state === 'withheld')
-										? `waited ${s.time}`
-										: s.time}</span
-								>{/if}
-							{#if s.note}<span class="block">{s.note}</span>{/if}
-							{#if !s.time && !s.note}&nbsp;{/if}
+						<span class="text-[10.5px] tabular-nums leading-tight {LABEL[look]} dark:opacity-75">
+							{#if reached}
+								<!-- Your time is waiting, not work: said so once the decision is in.
+								     Each line settles in as the stage is reached. -->
+								{#if s.time}<span
+										class="block"
+										in:fly={{ y: motion ? 3 : 0, duration: motion ? 500 : 0, opacity: 0 }}
+										>{s.name === 'You' && (s.state === 'released' || s.state === 'withheld')
+											? `waited ${s.time}`
+											: s.time}</span
+									>{/if}
+								{#if s.note}<span
+										class="block"
+										in:fly={{ y: motion ? 3 : 0, duration: motion ? 500 : 0, delay: motion ? 80 : 0, opacity: 0 }}
+										>{s.note}</span
+									>{/if}
+							{/if}
+							{#if !reached || (!s.time && !s.note)}&nbsp;{/if}
 						</span>
-					</svelte:element>
+					</button>
 				</div>
 			{/each}
 		</div>
@@ -488,54 +544,57 @@
 
 <style>
 	.rail {
-		--ink: var(--color-gray-900, #1c1c1c);
-		--cut: var(--color-gray-200, #e5e5e5);
+		--wire: var(--color-gray-300, #cdcdcd);
 		--charged: var(--color-gray-400, #b4b4b4);
 		--held: #fbbf24; /* amber-400: a run cut off */
-		--released: var(--ink); /* your decision, either way */
-		--glow: none;
+		--released: var(--color-gray-900, #1c1c1c); /* your decision, either way */
+		--name: var(--color-gray-600, #676767);
+		--vt: #a78bfa; /* violet-400: the light's tail */
+		--vh: #7c3aed; /* violet-600: its head */
+		--glow: rgba(124, 58, 237, 0.26);
 	}
 	:global(.dark) .rail {
-		--ink: #fff;
-		--cut: var(--color-gray-800, #3b3b3b);
-		--charged: var(--color-gray-600, #6a6a6a);
+		--wire: var(--color-gray-700, #525252);
+		--charged: var(--color-gray-600, #676767);
 		--held: #d97706; /* amber-600 */
-		--released: var(--ink);
-		--glow: drop-shadow(0 0 1px rgba(255, 255, 255, 0.45));
+		--released: #fff;
+		--name: var(--color-gray-300, #cdcdcd);
+		--vt: #8b5cf6;
+		--vh: #ddd6fe;
+		--glow: rgba(167, 139, 250, 0.36);
 	}
 
-	/* A wire is a row of short cuts - 4px on, 3px off. The mask on .cuts
-	   applies to every layer inside it (resting colour, charge, spark,
-	   pulses), so anything moving along the wire moves cut by cut. */
+	/* A wire: a dashed hairline from one ring to the next, filled once the
+	   light has crossed it. */
 	.wire {
 		position: absolute;
-		top: 4px;
-		left: 15px; /* the 10px dot, then a 5px gap */
-		right: 5px; /* a 5px gap before the next dot, on the next column's edge */
-		height: 2px;
+		top: 7px; /* the node's centre */
+		left: 18px; /* the 14px node, then a gap */
+		right: 4px; /* a gap before the next node, on the next column's edge */
+		height: 0;
 	}
-	.cuts {
+	.wire > span {
 		position: absolute;
-		inset: 0;
-		overflow: hidden;
-		background: var(--cut);
-		-webkit-mask-image: repeating-linear-gradient(90deg, #000 0 4px, transparent 4px 7px);
-		mask-image: repeating-linear-gradient(90deg, #000 0 4px, transparent 4px 7px);
-	}
-	.cuts > span {
-		position: absolute;
-		top: 0;
-		bottom: 0;
 		left: 0;
 	}
-
-	/* Resting colour of the wire. */
+	.base {
+		right: 0;
+		top: -0.5px;
+		border-top: 1px dashed var(--wire);
+	}
 	.fill {
 		right: 0;
-		transform-origin: left center;
-	}
-	.w-done .fill {
+		top: -0.5px;
+		height: 1px;
 		background: var(--charged);
+		transform: scaleX(0);
+		transform-origin: left center;
+		transition: background-color 800ms ease;
+	}
+	.w-done .fill,
+	.w-held .fill,
+	.w-released .fill {
+		transform: none;
 	}
 	.w-held .fill {
 		background: var(--held);
@@ -543,70 +602,97 @@
 	.w-released .fill {
 		background: var(--released);
 	}
-	.w-flow .fill {
-		background: var(--ink);
-		opacity: 0.16;
-	}
 
-	/* The handover: the wire charges from the left while a spark rides the
-	   front of the charge into the next node. */
-	.charged .fill {
-		animation: charge var(--charge, 380ms) var(--d) cubic-bezier(0.4, 0, 0.2, 1) backwards;
-	}
-	.w-held .fill {
-		animation-name: charge-held;
-	}
-	.w-released .fill {
-		animation-name: charge-released;
-	}
-	.spark {
-		width: 18px;
+	/* The light: a soft violet streak with a bright head. It fades in as it
+	   leaves, glides with a long ease into the next node, stops short of it,
+	   and fades there as that node starts. The fill follows just behind. */
+	.light {
+		top: -0.75px;
+		width: 26px;
+		height: 1.5px;
+		border-radius: 2px;
 		opacity: 0;
-		background: linear-gradient(90deg, transparent, var(--ink));
-	}
-	.charged .spark {
-		animation: spark 380ms var(--d) cubic-bezier(0.4, 0, 0.2, 1) backwards;
-	}
-	.w-held .spark {
-		animation-name: spark-held;
-	}
-	.w-released .spark {
-		animation-name: spark-released;
-	}
-
-	/* The live stage: pulses of energy leave it toward the next node, lit
-	   cut by cut, starting once the node itself has landed. */
-	.w-flow {
-		filter: var(--glow);
-	}
-	.packet {
-		display: none;
-		width: 40%;
-		background: linear-gradient(90deg, transparent, var(--ink) 80%, transparent);
-	}
-	.w-flow .packet {
-		display: block;
-		animation: packet 1.1s 300ms linear infinite backwards;
-	}
-
-	/* A node lands - a small overshoot - as the charge reaches it. */
-	.node.go {
-		animation: land-live 360ms 300ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-	}
-	.node.settle {
-		animation: land-outcome 360ms 300ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-	}
-	.node.cascade-in {
-		animation: land-live 320ms var(--nd) cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-	}
-	/* Released: one soft ring off the gate, once. */
-	.burst {
-		position: absolute;
-		inset: 0;
-		border: 1px solid var(--released);
-		opacity: 0;
+		background: linear-gradient(90deg, transparent, var(--vt) 55%, var(--vh));
+		box-shadow: 0 0 4px var(--glow);
 		pointer-events: none;
-		animation: burst 900ms calc(var(--nd) + 420ms) ease-out backwards;
+	}
+	/* The head: a round point, a touch brighter than the streak. */
+	.light::after {
+		content: '';
+		position: absolute;
+		right: -2px;
+		top: -1.5px;
+		width: 4.5px;
+		height: 4.5px;
+		border-radius: 50%;
+		background: var(--vh);
+		box-shadow: 0 0 3px var(--glow);
+	}
+	.go .light {
+		animation:
+			light-glide 1900ms cubic-bezier(0.45, 0, 0.2, 1) both,
+			light-fade 2450ms linear both;
+	}
+	/* The wire fills behind the light still faintly violet, and cools to grey
+	   as the light fades into the next node. */
+	.go .fill {
+		animation:
+			wire-fill 1900ms cubic-bezier(0.45, 0, 0.2, 1) both,
+			wire-cool 2450ms ease both;
+	}
+
+	/* Hover on a finished run: the node's ring darkens to ink. */
+	.group:enabled:hover .node :global(.node-glyph) {
+		--done: var(--color-gray-900, #1c1c1c);
+	}
+	:global(.dark) .group:enabled:hover .node :global(.node-glyph) {
+		--done: #fff;
+	}
+	.group:enabled:hover .name {
+		color: var(--color-gray-900, #1c1c1c);
+	}
+	:global(.dark) .group:enabled:hover .name {
+		color: #fff;
+	}
+	.name {
+		transition: color 300ms ease;
+	}
+
+	/* The working stage's name: a violet light runs through it. */
+	.live-name {
+		background: linear-gradient(
+			90deg,
+			var(--name) 0%,
+			var(--name) 36%,
+			var(--vt) 45%,
+			var(--vh) 51%,
+			var(--vt) 57%,
+			var(--name) 66%,
+			var(--name) 100%
+		);
+		background-size: 280% 100%;
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+		animation: name-light 3.2s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+	}
+	/* Released: once the tick is in, one light crosses the names, left to right. */
+	.sweeping .name {
+		background: linear-gradient(
+			90deg,
+			currentColor 0%,
+			currentColor 36%,
+			var(--vt) 45%,
+			var(--vh) 51%,
+			var(--vt) 57%,
+			currentColor 66%,
+			currentColor 100%
+		);
+		background-size: 300% 100%;
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+		animation: name-sweep 2.3s cubic-bezier(0.45, 0, 0.25, 1) calc(1800ms + var(--i) * 160ms) both;
 	}
 
 	/* The arc draws itself in from ULTRON's side, then the spark rides it back. */
@@ -618,109 +704,58 @@
 		animation: arc-spark 900ms 380ms cubic-bezier(0.45, 0, 0.3, 1) both;
 	}
 
-	/* The live node's glow, in time with its wire's pulses. */
-	.rail {
-		--halo: rgba(30, 27, 51, 0.3);
+	@keyframes light-glide {
+		from {
+			left: 0;
+		}
+		to {
+			left: calc(100% - 24px);
+		}
 	}
-	:global(.dark) .rail {
-		--halo: rgba(255, 255, 255, 0.34);
+	@keyframes light-fade {
+		0% {
+			opacity: 0;
+		}
+		24%,
+		77.5% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+		}
 	}
-	.halo {
-		animation: halo 1.1s 300ms cubic-bezier(0.2, 0.6, 0.35, 1) infinite backwards;
-	}
-
-	/* Release: one green charge down the whole rail, wire after wire. */
-	.sweep {
-		width: 22px;
-		opacity: 0;
-		background: linear-gradient(90deg, transparent, var(--released));
-	}
-	.sweeping .sweep {
-		animation: sweep 460ms var(--sd) cubic-bezier(0.4, 0, 0.2, 1) backwards;
-	}
-
-	@keyframes charge {
+	@keyframes wire-fill {
 		from {
 			transform: scaleX(0);
 		}
-	}
-	@keyframes charge-held {
-		from {
-			transform: scaleX(0);
+		to {
+			transform: scaleX(1);
 		}
 	}
-	@keyframes charge-released {
-		from {
-			transform: scaleX(0);
+	@keyframes wire-cool {
+		0%,
+		70% {
+			background-color: color-mix(in srgb, var(--vt) 70%, var(--charged));
+		}
+		100% {
+			background-color: var(--charged);
 		}
 	}
-	@keyframes spark {
-		from {
-			left: -18px;
-			opacity: 1;
+	@keyframes name-light {
+		0% {
+			background-position: 100% 0;
 		}
-		85% {
-			opacity: 1;
+		70%,
+		100% {
+			background-position: -180% 0;
+		}
+	}
+	@keyframes name-sweep {
+		from {
+			background-position: 100% 0;
 		}
 		to {
-			left: 100%;
-			opacity: 0;
-		}
-	}
-	@keyframes spark-held {
-		from {
-			left: -18px;
-			opacity: 1;
-		}
-		85% {
-			opacity: 1;
-		}
-		to {
-			left: 100%;
-			opacity: 0;
-		}
-	}
-	@keyframes spark-released {
-		from {
-			left: -18px;
-			opacity: 1;
-		}
-		85% {
-			opacity: 1;
-		}
-		to {
-			left: 100%;
-			opacity: 0;
-		}
-	}
-	@keyframes packet {
-		from {
-			transform: translateX(-100%);
-		}
-		to {
-			transform: translateX(250%);
-		}
-	}
-	@keyframes land-live {
-		from {
-			scale: 0.4;
-			opacity: 0.35;
-		}
-	}
-	@keyframes land-outcome {
-		from {
-			scale: 0.4;
-			opacity: 0.35;
-		}
-	}
-	@keyframes burst {
-		from {
-			opacity: 0.9;
-			scale: 1;
-		}
-		to {
-			opacity: 0;
-			scale: 3;
+			background-position: 0% 0;
 		}
 	}
 	@keyframes arc-draw {
@@ -744,46 +779,18 @@
 			opacity: 0;
 		}
 	}
-	@keyframes halo {
-		from {
-			box-shadow: 0 0 0 0 var(--halo);
-		}
-		to {
-			box-shadow: 0 0 0 7px transparent;
-		}
-	}
-	@keyframes sweep {
-		from {
-			left: -22px;
-			opacity: 1;
-		}
-		85% {
-			opacity: 1;
-		}
-		to {
-			left: 100%;
-			opacity: 0;
-		}
-	}
 
 	@media (prefers-reduced-motion: reduce) {
+		.light,
 		.fill,
-		.spark,
-		.packet,
-		.node,
-		.burst,
+		.name,
+		.live-name,
 		.replan,
-		.arc-spark,
-		.halo,
-		.sweep {
+		.arc-spark {
 			animation: none !important;
 		}
 		.arc-spark {
 			opacity: 0;
-		}
-		/* Still say which wire is live, without motion. */
-		.w-flow .fill {
-			opacity: 0.45;
 		}
 	}
 </style>

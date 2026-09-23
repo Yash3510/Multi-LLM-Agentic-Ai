@@ -223,6 +223,9 @@
 		];
 	})();
 
+	// Where the stage rail is, so the status line under it keeps its pace.
+	let railLive = null;
+
 	$: avatarStatus = statusEntries.at(-1) ?? null;
 	/* Running means: the latest message, not finished, and its last status not
 	   closed. All three matter.
@@ -817,8 +820,12 @@
 				<div class="chat-{message.role} w-full min-w-full">
 					<div>
 						{#if model?.info?.meta?.capabilities?.status_updates ?? true}
-							<StageRail statusHistory={message?.statusHistory} done={message?.done === true} />
-							<StatusHistory statusHistory={displayStatusHistory} />
+							<StageRail
+								statusHistory={message?.statusHistory}
+								done={message?.done === true}
+								bind:live={railLive}
+							/>
+							<StatusHistory statusHistory={displayStatusHistory} rail={railLive} />
 						{/if}
 
 						{#if message?.files && message.files?.filter( (f) => ['image', 'file'].includes(f.type) ).length > 0}

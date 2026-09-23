@@ -98,6 +98,14 @@
 
 	$: live = status?.done === false;
 
+	/* The orchestrator's own words name the agent ("FRIDAY: grounding and
+	   analysing"); the rail above already says who, so the line drops the
+	   name. The history list keeps the statuses word for word. */
+	const plain = (text) => {
+		const rest = text.replace(/^(TONY|FRIDAY|JARVIS|ULTRON|ROUTER|TOOL):\s*/, '');
+		return rest.charAt(0).toUpperCase() + rest.slice(1);
+	};
+
 	function show(text) {
 		if (!text || text === line) return;
 		line = text;
@@ -127,7 +135,7 @@
 		timer = null;
 		step = 0;
 		factAt = 0;
-		show(status?.description ?? '');
+		show(plain(status?.description ?? ''));
 		if (status?.done === false && (LINES[VOICE[status?.action]] || status?.facts?.length)) {
 			timer = setInterval(next, EVERY);
 		}
@@ -149,8 +157,8 @@
 	{#key serial}
 		<div
 			class="[grid-area:1/1] text-[0.9375rem] line-clamp-1 text-left {live
-				? 'shimmer'
-				: 'text-gray-500 dark:text-gray-500'}"
+				? 'line-light'
+				: 'text-gray-600 dark:text-gray-400'}"
 			in:fly={{ y: reduced ? 0 : 10, duration: reduced ? 0 : 340, opacity: 0 }}
 			out:fly={{ y: reduced ? 0 : -10, duration: reduced ? 0 : 260, opacity: 0 }}
 		>
@@ -158,3 +166,47 @@
 		</div>
 	{/key}
 </div>
+
+<style>
+	/* A violet light runs through the working line, as through the working
+	   stage's name on the rail. */
+	.line-light {
+		--base: var(--color-gray-600, #676767);
+		--vt: #a78bfa;
+		--vh: #7c3aed;
+		background: linear-gradient(
+			90deg,
+			var(--base) 0%,
+			var(--base) 36%,
+			var(--vt) 45%,
+			var(--vh) 51%,
+			var(--vt) 57%,
+			var(--base) 66%,
+			var(--base) 100%
+		);
+		background-size: 280% 100%;
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+		animation: line-light 3.2s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+	}
+	:global(.dark) .line-light {
+		--base: var(--color-gray-400, #b4b4b4);
+		--vt: #8b5cf6;
+		--vh: #ddd6fe;
+	}
+	@keyframes line-light {
+		0% {
+			background-position: 100% 0;
+		}
+		70%,
+		100% {
+			background-position: -180% 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.line-light {
+			animation: none;
+		}
+	}
+</style>
