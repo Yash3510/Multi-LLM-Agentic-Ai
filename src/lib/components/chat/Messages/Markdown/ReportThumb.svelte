@@ -11,6 +11,51 @@
 
 	export let data: ArrayBuffer | null = null;
 	export let width = 300;
+	/** Read off the drawn report for a readable summary beside the page. */
+	export let summary: {
+		kind: string;
+		opening: string;
+		sections: string[];
+		approvedBy: string;
+		issued: string;
+		pages: number;
+	} | null = null;
+
+	const text = (el: Element | null | undefined) => (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
+	// Running text without its raised citation numbers ("per minute¹" reads
+	// "per minute1" as plain text).
+	const prose = (el: Element | null | undefined) => {
+		if (!el) return '';
+		const copy = el.cloneNode(true) as Element;
+		copy.querySelectorAll('sup, [style*="super"]').forEach((n) => n.remove());
+		return text(copy);
+	};
+	/* The report's own layout (4ce/tools/deliverables.py): a masthead table,
+	   the document type, the title, a table of details in label and value
+	   pairs, then the body with its headings. */
+	const summarise = (root: HTMLElement) => {
+		const sheets = root.querySelectorAll('section.docx');
+		const blocks = [...(sheets[0]?.querySelector('article')?.children ?? [])];
+		const paras = blocks.filter((b) => b.tagName === 'P' && text(b));
+		const details: Record<string, string> = {};
+		const table = blocks.filter((b) => b.tagName === 'TABLE')[1];
+		for (const cell of table?.querySelectorAll('td') ?? []) {
+			const [label, value] = [...cell.querySelectorAll('p')].map(text);
+			if (label && value) details[label.toLowerCase()] = value;
+		}
+		const afterTable = table ? blocks.slice(blocks.indexOf(table) + 1) : blocks;
+		const opening = afterTable.find(
+			(b) => b.tagName === 'P' && !/heading/i.test(b.className) && text(b).length > 40
+		);
+		return {
+			kind: text(paras[0]).length < 40 ? text(paras[0]) : '',
+			opening: prose(opening),
+			sections: [...root.querySelectorAll('section.docx p[class*="heading"]')].map(text).filter(Boolean),
+			approvedBy: details['approved by'] ?? '',
+			issued: details['issued'] ?? '',
+			pages: sheets.length
+		};
+	};
 
 	let pages: HTMLDivElement;
 	let styles: HTMLDivElement;
@@ -47,6 +92,7 @@
 			const first = pages.querySelector('section.docx') as HTMLElement | null;
 			const pageWidth = first ? parseFloat(getComputedStyle(first).width) : 794;
 			scale = width / (Number.isFinite(pageWidth) && pageWidth > 0 ? pageWidth : 794);
+			summary = summarise(pages);
 			ready = mine === run;
 		} catch (error) {
 			console.error('Report thumbnail:', error);
@@ -75,15 +121,19 @@
 	{#if !ready}
 		<!-- Lines where the page will be, while it is drawn; they fade as it
 		     comes up. -->
-		<div class="absolute inset-0 space-y-2 p-5" aria-hidden="true" out:fade={{ duration: 260 }}>
+		<div
+			class="absolute inset-0 {width < 160 ? 'space-y-1 p-2' : 'space-y-2 p-5'}"
+			aria-hidden="true"
+			out:fade={{ duration: 260 }}
+		>
 			{#if failed}
-				<p class="pt-10 text-center text-xs text-gray-500">The preview could not be drawn.</p>
+				<p class="pt-6 text-center text-[10px] text-gray-500">No preview</p>
 			{:else}
-				<div class="report-shimmer h-2.5 w-1/3 rounded bg-gray-100"></div>
-				<div class="report-shimmer h-4 w-3/4 rounded bg-gray-100"></div>
-				<div class="report-shimmer mt-4 h-10 w-full rounded bg-gray-50"></div>
+				<div class="report-shimmer {width < 160 ? 'h-1' : 'h-2.5'} w-1/3 rounded bg-gray-100"></div>
+				<div class="report-shimmer {width < 160 ? 'h-1.5' : 'h-4'} w-3/4 rounded bg-gray-100"></div>
+				<div class="report-shimmer {width < 160 ? 'mt-1 h-3' : 'mt-4 h-10'} w-full rounded bg-gray-50"></div>
 				{#each [1, 0.9, 0.95, 0.7, 1, 0.85] as w}
-					<div class="report-shimmer h-2 rounded bg-gray-100" style="width: {w * 100}%"></div>
+					<div class="report-shimmer {width < 160 ? 'h-1' : 'h-2'} rounded bg-gray-100" style="width: {w * 100}%"></div>
 				{/each}
 			{/if}
 		</div>

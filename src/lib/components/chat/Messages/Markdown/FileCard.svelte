@@ -34,6 +34,7 @@
 
 	/* The file is fetched once, the first time it is looked at, and kept. */
 	let file: ArrayBuffer | null = null;
+	let summary = null;
 	let loading: Promise<void> | null = null;
 	let failed = false;
 	const load = () =>
@@ -158,14 +159,61 @@
 					The report could not be loaded for a preview. It can still be downloaded.
 				</p>
 			{:else}
-				<button type="button" class="block" aria-label="Open the full report" on:click={read}>
-					<ReportThumb data={file} width={300} />
-				</button>
+				<!-- The page for its look, beside what it says in type you can read. -->
+				<div class="flex w-[26rem] max-w-[calc(100vw-3rem)] gap-3.5 p-3.5">
+					<button
+						type="button"
+						class="shrink-0 self-start overflow-hidden rounded-lg border border-gray-200 shadow-[0_6px_16px_-10px_rgba(16,24,40,0.35)] dark:border-gray-700"
+						aria-label="Open the full report"
+						on:click={read}
+					>
+						<ReportThumb data={file} width={104} bind:summary />
+					</button>
+					<div class="min-w-0 flex-1">
+						<div class="peek-line text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-600 dark:text-gray-400" style="--i: 0">
+							{summary?.kind || kind}
+						</div>
+						<div
+							class="peek-line mt-0.5 line-clamp-2 text-[14px] font-semibold leading-snug text-gray-900 dark:text-white"
+							style="--i: 1"
+						>
+							{data.title || kind}
+						</div>
+						{#if summary?.opening}
+							<p class="peek-line mt-1.5 line-clamp-4 text-[12.5px] leading-[1.55] text-gray-700 dark:text-gray-300" style="--i: 2">
+								{summary.opening}
+							</p>
+						{:else}
+							<div class="mt-2 space-y-1.5" aria-hidden="true">
+								{#each [1, 0.92, 0.7] as w}
+									<div class="report-bar h-2 rounded bg-gray-100 dark:bg-gray-800" style="width: {w * 100}%"></div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+				{#if summary?.sections?.length}
+					<div class="flex flex-wrap gap-1.5 px-3.5 pb-3">
+						{#each summary.sections.slice(0, 6) as section, k}
+							<span
+								class="peek-line rounded-full border border-gray-200 px-2 py-0.5 text-[11px] leading-4 text-gray-700 dark:border-gray-700 dark:text-gray-300"
+								style="--i: {3 + k}">{section}</span
+							>
+						{/each}
+					</div>
+				{/if}
 				<div
-					class="report-peek-foot flex items-center justify-between border-t border-gray-100 px-3 py-2 text-[11px] text-gray-600 dark:border-gray-800 dark:text-gray-400"
+					class="report-peek-foot flex items-center justify-between gap-3 border-t border-gray-100 px-3.5 py-2 text-[11.5px] text-gray-600 dark:border-gray-800 dark:text-gray-400"
 				>
-					<span>Page 1</span>
-					<span>Click to read the whole report</span>
+					<span class="min-w-0 truncate"
+						>{[
+							summary?.approvedBy ? `Approved by ${summary.approvedBy}` : '',
+							`${summary?.pages ?? 1} ${(summary?.pages ?? 1) === 1 ? 'page' : 'pages'}`
+						]
+							.filter(Boolean)
+							.join(' · ')}</span
+					>
+					<span class="shrink-0 font-medium text-gray-900 dark:text-gray-100">Click to read</span>
 				</div>
 			{/if}
 		</div>
@@ -220,6 +268,24 @@
 			transform: translateY(4px);
 		}
 	}
+	/* The summary's lines settle in one after another, like the page's. */
+	.peek-line {
+		animation: peek-line-in 520ms calc(120ms + var(--i, 0) * 45ms) cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+	@keyframes peek-line-in {
+		from {
+			opacity: 0;
+			transform: translateY(4px);
+		}
+	}
+	.report-bar {
+		animation: report-bar 1.2s ease-in-out infinite;
+	}
+	@keyframes report-bar {
+		50% {
+			opacity: 0.5;
+		}
+	}
 	/* The preview's footer comes last, once the page is up. */
 	.report-peek-foot {
 		animation: report-foot-in 420ms 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -231,7 +297,9 @@
 	}
 	@media (prefers-reduced-motion: reduce) {
 		:global(.message-in) .file-card,
-		.report-peek-foot {
+		.report-peek-foot,
+		.peek-line,
+		.report-bar {
 			animation: none;
 		}
 	}
