@@ -200,6 +200,9 @@
 				Footer content
 			</span> -->
 		</div>
+
+		<!-- 4CE intro: defines window.__fourceIntro, which the sign-in page plays. -->
+		<script src="/static/4ce-intro.js"></script>
 	</body>
 
 	<style type="text/css" nonce="">
@@ -212,8 +215,10 @@
 			background: #fff;
 		}
 
+		/* The app's own dark background (black under the OLED theme), so the
+		   splash, the 4CE intro and the app share one ground with no flash. */
 		html.dark #splash-screen {
-			background: #000;
+			background: var(--color-gray-900, #161616);
 		}
 
 		html.her #splash-screen {

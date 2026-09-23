@@ -40,7 +40,8 @@
 	import equal from 'fast-deep-equal';
 
 	import Name from './Name.svelte';
-	import ThinkingOrb from '$lib/components/common/ThinkingOrb.svelte';
+	import LogoMotion from '$lib/components/common/LogoMotion.svelte';
+	import { ALL_MOTIONS } from '$lib/components/common/logoMotion.js';
 	import StageRail from './ResponseMessage/StageRail.svelte';
 	import Image from '$lib/components/common/Image.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -186,32 +187,11 @@
 
 	$: statusEntries = message?.statusHistory ?? [...(message?.status ? [message?.status] : [])];
 
-	/* The avatar orb reads from the same status stream as the timeline below it,
-	   so the two can never disagree about what the chain is doing. */
-	/* Sphere states only. `breathing` is a face-on ring and `shaping` a dotted
-	   outline morphing between shapes: at avatar size both read as a thin line,
-	   not an orb - which is exactly what a short "hi" showed, because those were
-	   its two states. `composing` is a tilted band that reads as a broken bowl
-	   and `working` a loose scatter - drawn over 12s of their cycles, neither is
-	   ever a sphere - so JARVIS and tools use `weaving` instead. Planning,
-	   routing and a direct reply share one state, so a reply that lasts under a
-	   second never switches animation mid-way. */
-	const AVATAR_ORB_STATE = {
-		tony: 'solving',
-		tony_plan: 'solving',
-		router: 'solving',
-		chat: 'solving',
-		friday: 'searching', // grounding - a scan sweeping a globe
-		jarvis: 'weaving', // drafting the deliverable - threads drawn round the sphere
-		ultron: 'solving', // challenging - scramble, then click back
-		tony_replan: 'solving', // TONY again, replanning after a failed challenge
-		approval: 'listening', // waiting on a person
-		tool: 'weaving', // a tool producing the deliverable
-		knowledge_search: 'searching',
-		web_search: 'searching',
-		queries_generated: 'searching',
-		sources_retrieved: 'searching'
-	};
+	/* While the chain works the avatar mark plays through every motion
+	   (ALL_MOTIONS in logoMotion.js), a loop each, starting somewhere random -
+	   not tied to the agent, since the stage rail and status line say who is
+	   working. It reads the same status stream as the timeline below it, so the
+	   two agree on when the run is live. */
 
 	/* Upstream's retrieval step reports "sources retrieved" as done before the
 	   pipe has even started. That closes a step, not the run, so it must not
@@ -257,30 +237,40 @@
 		avatarStatus?.done === true && !INTERMEDIATE_STATUS.has(avatarStatus?.action);
 	$: avatarRunning = isLastMessage && message?.done !== true && !avatarStatusClosed;
 	/* No status yet means TONY is still classifying the request. */
-	$: avatarOrbState = avatarStatus
-		? (AVATAR_ORB_STATE[avatarStatus.action] ?? 'solving')
-		: 'solving';
 
-	/* Hysteresis on the way back to the logo: showing the orb is immediate,
-	   hiding it waits until the run has been idle for 160ms. A run can look
+	/* Hysteresis on the way back to the still mark: the motion starts at once,
+	   but stops only after the run has been idle for 160ms. A run can look
 	   finished for a few ms without being finished - measured once as upstream's
 	   "sources retrieved" arriving as done just before the pipe's first status
 	   (now excluded above), and a new chat's first message reloads history from
-	   the server mid-turn. The hold absorbs any such transient, and it is
-	   invisible at the real end of a run under the 180ms crossfade. */
-	let avatarShowOrb = false;
+	   the server mid-turn. Once stopped, the motion eases back to the mark and
+	   only then gives way to the plain logo image, which it matches pixel for
+	   pixel, so the handover is invisible. */
+	let avatarLive = false; // animating
+	let avatarShowOrb = false; // the animated mark is mounted
 	let avatarIdleTimer;
+	let avatarRestTimer;
 	$: if (avatarRunning) {
 		clearTimeout(avatarIdleTimer);
+		clearTimeout(avatarRestTimer);
 		avatarIdleTimer = null;
+		avatarRestTimer = null;
+		avatarLive = true;
 		avatarShowOrb = true;
-	} else if (avatarShowOrb && !avatarIdleTimer) {
+	} else if (avatarLive && !avatarIdleTimer) {
 		avatarIdleTimer = setTimeout(() => {
 			avatarIdleTimer = null;
-			avatarShowOrb = false;
+			avatarLive = false;
+			avatarRestTimer = setTimeout(() => {
+				avatarRestTimer = null;
+				avatarShowOrb = false;
+			}, 400);
 		}, 160);
 	}
-	onDestroy(() => clearTimeout(avatarIdleTimer));
+	onDestroy(() => {
+		clearTimeout(avatarIdleTimer);
+		clearTimeout(avatarRestTimer);
+	});
 	$: hasVisibleStatus =
 		(model?.info?.meta?.capabilities?.status_updates ?? true) &&
 		statusEntries.length > 0 &&
@@ -764,35 +754,21 @@
 		<div
 			class={`shrink-0 ltr:mr-2.5 rtl:ml-2.5 hidden @lg:flex ${compactPreview ? 'mt-0.5' : '-mt-[9px]'}`}
 		>
-			<!-- The orb appears only while the chain is actually working, and
-			     animates through the stage it is in. The moment the run stops —
-			     finished, stopped by the reviewer, or failed — the mark returns.
-			     A frozen orb is a half-drawn shape, so it is never shown paused. -->
-			<!-- 40px orb, 30px mark. At 44/36 the solid mark outweighed the 15px name
-			     beside it; the orb is airy dots, so it stays a little larger than the
-			     mark to carry the same visual weight. -->
+			<!-- While the chain is working the mark moves with the stage it is in;
+			     the moment the run stops it eases back to the still logo. -->
 			<div class="assistant-message-profile-image relative size-10">
-				{#if avatarShowOrb}
-					<div
-						class="absolute inset-0 flex items-center justify-center"
-						transition:fade={{ duration: 180 }}
-					>
-						<ThinkingOrb
-							state={avatarOrbState}
-							size={64}
-							display={40}
-							lightInk={2}
+				<div class="absolute inset-0 flex items-center justify-center">
+					{#if avatarShowOrb}
+						<LogoMotion
+							motion={avatarLive ? ALL_MOTIONS : null}
+							randomStart
+							size={30}
 							label={avatarStatus?.description ?? 'Working'}
 						/>
-					</div>
-				{:else}
-					<!-- The bare mark, not the model's avatar: that falls back to the app
-					     icon, a graphite tile that rounded-2xl crops into a dark disc.
-					     One per theme, since an <img> cannot inherit text colour. -->
-					<div
-						class="absolute inset-0 flex items-center justify-center"
-						transition:fade={{ duration: 180 }}
-					>
+					{:else}
+						<!-- The bare mark, not the model's avatar: that falls back to the app
+						     icon, a graphite tile that rounded-2xl crops into a dark disc.
+						     One per theme, since an <img> cannot inherit text colour. -->
 						<img
 							src="/static/logo-mark-dark.svg"
 							class="size-7.5 dark:hidden"
@@ -807,8 +783,8 @@
 							aria-hidden="true"
 							draggable="false"
 						/>
-					</div>
-				{/if}
+					{/if}
+				</div>
 			</div>
 		</div>
 

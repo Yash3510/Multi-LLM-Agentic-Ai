@@ -81,6 +81,10 @@
 	let models = [];
 	let selectedModelIdx = 0;
 
+	// 4CE introduces itself with the opening intro (static/4ce-intro.js), so the
+	// new-chat screen leaves out the model's logo-and-name heading.
+	const showModelHeading = false;
+
 	$: if (selectedModels.length > 0) {
 		selectedModelIdx = models.length - 1;
 	}
@@ -123,7 +127,10 @@
 					}}
 				/>
 			{:else}
-				<div class="flex flex-row justify-center gap-2.5 @sm:gap-3 w-fit px-5 max-w-xl">
+				<div
+					class="flex flex-row justify-center gap-2.5 @sm:gap-3 w-fit px-5 max-w-xl"
+					class:hidden={!showModelHeading}
+				>
 					<div class="flex shrink-0 justify-center">
 						<div class="flex -space-x-4 mb-0.5" in:fade={{ duration: 100 }}>
 							{#each models as model, modelIdx}

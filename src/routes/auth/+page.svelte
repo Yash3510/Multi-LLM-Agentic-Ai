@@ -65,6 +65,9 @@
 				redirectPath = $page.url.searchParams.get('redirect') || '/';
 			}
 
+			// Signing in stays inside the app, so the 4CE intro (static/4ce-intro.js)
+			// would not otherwise run; it covers the switch into the chat.
+			(window as any).__fourceIntro?.play();
 			goto(redirectPath);
 			localStorage.removeItem('redirectPath');
 		}
