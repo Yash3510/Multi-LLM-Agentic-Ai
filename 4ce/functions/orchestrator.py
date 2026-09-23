@@ -7,6 +7,7 @@ description: Sovereign multi-agent orchestrator. TONY classifies and routes, FRI
 
 import ast
 import asyncio
+import hashlib
 import inspect
 import json
 import re
@@ -591,12 +592,16 @@ class Pipe:
                     "action unless it is supported by the analysis above. Where a section "
                     "above is marked authoritative, quote its verdicts as they stand and "
                     "do not recompute them."
+                    + _ANSWER_SHAPE
                 ),
             )
             deliverable = _check_citations(jarvis["text"], len(sources))
             if deliverable.startswith(_ERR):
                 await _status(__event_emitter__, "error", "Run failed", done=True)
                 return deliverable
+            # Tidied before ULTRON reads it, so the text it checks is the text
+            # that is released, fingerprinted and written into the report.
+            deliverable = _tidy(deliverable)
             steps.append({**jarvis, "agent": "JARVIS", "label": f"deliverable{round_label}"})
             trace.append(f"**JARVIS** produced the deliverable in {jarvis['seconds']:.1f}s.")
 
@@ -626,10 +631,7 @@ class Pipe:
                             "**TOOL** `run_python` executed the generated code in a "
                             "network-less container and returned its real output."
                         )
-                        deliverable += (
-                            "\n\n---\n\n**Sandboxed execution result**\n\n"
-                            + execution
-                        )
+                        deliverable += "\n\n### Sandboxed execution result\n\n" + execution
 
             if not self.valves.enable_verification:
                 verdict = {"status": "SKIPPED", "passed": True, "detail": "Verification disabled in Valves."}
@@ -646,6 +648,7 @@ class Pipe:
             ultron = await self._agent_call(
                 __request__, user, agent_models["ULTRON"], messages,
                 system=_ULTRON_SYSTEM,
+                think=False,
                 instruction=(
                     f"ORIGINAL REQUEST\n{prompt}\n\n"
                     + (
@@ -677,6 +680,18 @@ class Pipe:
             # The card under the answer: what 4CE confirmed mechanically, then
             # ULTRON's own checks.
             verdict["checks"] = _figure_checks(deliverable, sources) + _parse_checks(verdict["detail"])
+            verdict["cited_text"] = deliverable
+            # A figure cited to a document that does not contain it is wrong
+            # whatever ULTRON concluded: the answer fails and goes round again.
+            mismatched = [c["text"] for c in verdict["checks"] if c.get("by") == "4CE" and c["kind"] == "problem"]
+            if mismatched and verdict["passed"]:
+                verdict.update(
+                    status="FAIL",
+                    passed=False,
+                    failed_by="4CE",
+                    summary=_clip(mismatched[0]),
+                    detail="\n".join(f"PROBLEM: {m}" for m in mismatched) + "\n" + verdict["detail"],
+                )
             steps.append({
                 **ultron,
                 "agent": "ULTRON",
@@ -749,7 +764,7 @@ class Pipe:
                         "kind": "4ce_approval",
                         "draft": (deliverable or "").strip(),
                         "verdict": str(verdict.get("status", "UNKNOWN")).upper(),
-                        "verdict_detail": _clip(str(verdict.get("detail") or ""), 240),
+                        "verdict_detail": _objection(verdict),
                         "task_type": task_type,
                         "model_id": model_id,
                     },
@@ -802,6 +817,17 @@ class Pipe:
                     )
                 )
 
+        # The released answer's fingerprint: SHA-256 of its exact text, taken
+        # before any file links are added. The receipt, the provenance and the
+        # Word report all carry it, so a copy can be checked against the
+        # record - one changed character gives a different fingerprint.
+        verdict["cited_text"] = deliverable
+        fingerprint = (
+            hashlib.sha256(deliverable.strip().encode("utf-8")).hexdigest()
+            if approval in ("approved", "not required")
+            else ""
+        )
+
         # Whatever the request actually asked for, in the type it asked for: a .py
         # for a script, a .csv for data, .sql for a query. Released on the same
         # terms as any other deliverable - only once a person has approved it.
@@ -834,7 +860,10 @@ class Pipe:
                     time.monotonic() - started - waited, attempts, agent_models, tools_used, grounding,
                 )
             ]
+            if fingerprint:
+                record.append(("Fingerprint", f"SHA-256 {fingerprint} of the released answer"))
             signoff = {
+                "fingerprint": fingerprint,
                 "verification": str(verdict.get("status", "n/a")).upper()
                 + (f" after {attempts} attempts" if attempts > 1 else ""),
                 "models": " · ".join(dict.fromkeys(m.rsplit("/", 1)[-1] for m in agent_models.values())),
@@ -878,7 +907,7 @@ class Pipe:
             steps, task_type, signals, model_id, rationale, verdict, approval,
             time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
             trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
-            sources=sources, approver=approver, approved_at=when,
+            sources=sources, approver=approver, approved_at=when, fingerprint=fingerprint,
         )
 
     async def _model_collections(self, metadata: dict) -> list[str]:
@@ -1065,8 +1094,13 @@ class Pipe:
 
     async def _agent_call(
         self, request: Any, user: Any, model: str, messages: list[dict],
-        system: str, instruction: str, pass_images: bool = False,
+        system: str, instruction: str, pass_images: bool = False, think: bool = True,
     ) -> str:
+        if not think:
+            # Qwen3's switch for answering without a reasoning pass. ULTRON's
+            # 1.7B model otherwise spent most of its reply budget thinking out
+            # loud and was cut off mid-line, or never reached its verdict.
+            instruction += "\n\n/no_think"
         content: Any = instruction
         if pass_images:
             parts = [p for p in (messages[-1].get("content") or []) if isinstance(p, dict) and p.get("type") == "image_url"]
@@ -1213,6 +1247,79 @@ def _wants_audit(prompt: str) -> bool:
     """Whether the request is asking for the sovereignty claim to be evidenced."""
     lowered = prompt.lower()
     return any(signal in lowered for signal in AUDIT_SIGNALS)
+
+
+# One shape for every answer, in the chat and in the Word report alike: the
+# answer itself first, then only the sections the request needs, always in
+# this order.
+_ANSWER_SHAPE = (
+    "\n\nFORMAT\n"
+    "Open with the direct answer to the request in one to three plain sentences: no "
+    "title, no heading, and no preamble such as \"Deliverable:\" or \"Here is\". Then add "
+    "only the sections the request needs, as ### headings, in this order:\n"
+    "### Details - the supporting facts, figures and working\n"
+    "### What to do - the actions, as a numbered list\n"
+    "### Limits - assumptions, and anything the sources do not settle\n"
+    "Use short paragraphs and lists, and a table only for three or more comparable rows. "
+    "No horizontal rules, no closing summary and no sign-off such as \"End of deliverable\"."
+)
+
+_RULE_LINE = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,})\s*$")
+_HEADING_LINE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+# A line that is nothing but bold text: a heading in all but name.
+_BOLD_LINE = re.compile(r"^\s*(?:\*\*|__)\s*(.+?)\s*(?:\*\*|__)\s*:?\s*$")
+_TITLE_LINE = re.compile(r"^[*_\s]*(?:final\s+)?deliverable\b\s*[:\-\u2013\u2014]", re.I)
+_SIGN_OFF = re.compile(
+    r"^[*_\s]*(?:end of (?:the )?(?:deliverable|report|document|response)\b"
+    r"|(?:this|the above) (?:deliverable|document|report|response) (?:was|has been|is) "
+    r"(?:prepared|produced|generated|compiled)\b"
+    r"|(?:prepared|produced|generated) by (?:jarvis|4ce)\b)",
+    re.I,
+)
+
+
+def _tidy(text: str) -> str:
+    """The answer with the clutter a small model adds taken out.
+
+    What goes: a title line ("**Deliverable: ...**", or an opening # heading),
+    horizontal rules, and sign-offs ("End of deliverable.", "This report was
+    prepared by ..."). What changes: # and ## headings become ###, and a line
+    that is only bold text becomes the ### heading it stands for, unless it
+    reads as a label and value ("**Verdict: FAIL**") or a sentence. Blank
+    lines are collapsed. Fenced code is left exactly as written.
+    """
+    parts = re.split(r"(```[\s\S]*?```)", text.strip())
+    opening = True  # nothing but blank lines so far
+    for i in range(0, len(parts), 2):
+        kept = []
+        for line in parts[i].split("\n"):
+            bare = line.strip()
+            if not bare:
+                kept.append("")
+                continue
+            if _RULE_LINE.match(bare) or _SIGN_OFF.match(bare):
+                continue
+            heading = _HEADING_LINE.match(bare)
+            bold = None if heading else _BOLD_LINE.match(bare)
+            if opening:
+                opening = False
+                if _TITLE_LINE.match(bare) or (heading and len(heading.group(1)) <= 2) or bold:
+                    continue  # a title: the question above, or the report's cover, names it
+            if heading:
+                level = max(3, len(heading.group(1)))
+                words = re.sub(r"^\d+(?:\.\d+)*[.)]?\s+", "", heading.group(2).strip("*_ "))
+                line = "#" * level + " " + words.rstrip(":")
+            elif bold:
+                words = re.sub(r"^\d+(?:\.\d+)*[.)]?\s+", "", bold.group(1).strip("*_ "))
+                label = re.search(r"\S:\s+\S", words)
+                if not label and not words.endswith((".", "!", "?")) and len(words) <= 70:
+                    line = "### " + words.rstrip(":")
+            kept.append(line.rstrip())
+        parts[i] = "\n".join(kept)
+        if i + 1 < len(parts):
+            opening = False
+    out = "".join(parts)
+    return re.sub(r"\n{3,}", "\n\n", out).strip()
 
 
 _CITE_RULE = (
@@ -1750,7 +1857,8 @@ def _parse_checks(detail: str) -> list[dict]:
 
 def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapsed: float,
              attempts: int, agent_models: dict, tools_used: list[str] | None,
-             sources: list[dict], approver: str = "", approved_at: str = "") -> str:
+             sources: list[dict], approver: str = "", approved_at: str = "",
+             fingerprint: str = "") -> str:
     """One line the chat draws as a strip of facts under the answer - where it
     ran, what it stood on, how it was checked, who released it - with ULTRON's
     checks beneath. A fenced block, so any other client shows readable JSON."""
@@ -1760,7 +1868,16 @@ def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapse
         "model": model_id.rsplit("/", 1)[-1],
         "agents": {agent: model.rsplit("/", 1)[-1] for agent, model in agent_models.items()},
         "sources": [source["name"] for source in sources],
+        # Which of them the answer actually cites: two retrieved and one
+        # cited should not read as "grounded in 2 sources".
+        "cited": sorted({
+            int(n)
+            for group in _CITATION.findall(verdict.get("cited_text", ""))
+            for n in re.split(r"\s*,\s*", group[1])
+            if 1 <= int(n) <= len(sources)
+        }),
         "verdict": str(verdict.get("status", "n/a")).upper(),
+        "failed_by": verdict.get("failed_by", ""),
         "attempts": attempts,
         "checks": verdict.get("checks") or _parse_checks(verdict.get("detail", "")),
         "approval": approval,
@@ -1769,8 +1886,23 @@ def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapse
         "seconds": round(elapsed),
         "tools": list(tools_used or []),
         "external_calls": 0,
+        "fingerprint": fingerprint,
     }
     return "```4ce-receipt\n" + json.dumps(data, ensure_ascii=False) + "\n```"
+
+
+def _objection(verdict: dict) -> str:
+    """What the reviewer is told when a draft failed its check: the problems
+    as stated, not the verifier's raw text - which, from a small model, could
+    open with "Okay, let me try to figure this out..."."""
+    problems = [c for c in verdict.get("checks") or [] if c["kind"] == "problem"]
+    who = "4CE's figure check" if verdict.get("failed_by") == "4CE" else "ULTRON"
+    if problems:
+        return f"{who} objected: " + "; ".join(c["text"].rstrip(".") for c in problems[:3]) + "."
+    summary = (verdict.get("summary") or "").strip()
+    if summary and not re.match(r"(?i)(okay|ok|so|let me|let's|hmm|first|alright)\b", summary):
+        return f"{who} objected: {summary}"
+    return f"{who} failed it without stating a usable reason."
 
 
 def _clip(text: str, limit: int = 90) -> str:
@@ -1859,10 +1991,10 @@ def _approval_message(deliverable: str, verdict: dict, task_type: str, model_id:
     and `style`; the colour classes are ones the app already compiles.
     """
     status = str(verdict.get("status", "UNKNOWN")).upper()
-    detail = str(verdict.get("detail") or "").strip()
     line = f"**ULTRON: {status}** \u00b7 {task_type} task \u00b7 drafted on `{model_id}`"
-    if status != "PASS" and detail:
-        line += f"\n\n*ULTRON's objection: {_clip(detail, 240)}*"
+    objection = _objection(verdict)
+    if status != "PASS" and objection:
+        line += f"\n\n*{objection}*"
     return (
         f"{line}\n\n"
         '<div class="text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900 '
@@ -1983,7 +2115,7 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
                 attempts: int, include_thinking: bool, trace: list[str],
                 agent_models: dict, tools_used: list[str] | None = None,
                 grounding: str = "", sources: list[dict] | None = None,
-                approver: str = "", approved_at: str = "") -> str:
+                approver: str = "", approved_at: str = "", fingerprint: str = "") -> str:
     """The receipt the chat shows under an answer, then the full provenance
     table and the reasoning behind each decision, folded away."""
     timings = " · ".join(
@@ -1993,10 +2125,12 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
         task_type, signals, model_id, rationale, verdict, approval, elapsed, attempts,
         agent_models, tools_used, grounding, timings,
     )
+    if fingerprint:
+        rows.append(("Fingerprint", f"SHA-256 `{fingerprint}` of the released answer"))
     table = ["| Stage | Detail |", "|---|---|"] + [f"| {k} | {v} |" for k, v in rows]
     receipt = _receipt(
         task_type, model_id, verdict, approval, elapsed, attempts, agent_models,
-        tools_used, sources or [], approver, approved_at,
+        tools_used, sources or [], approver, approved_at, fingerprint,
     )
     return _provenance_rest(steps, attempts, include_thinking, trace, table, receipt)
 

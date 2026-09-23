@@ -8,6 +8,9 @@
 
 	export let title: string = 'N/A';
 
+	/** Every source the answer can cite, to tell apart two that share a code. */
+	export let siblings: string[] = [];
+
 	export let onClick: Function = () => {};
 
 	// Helper function to return only the domain from a URL
@@ -39,13 +42,23 @@
 
 	/* An evidence chip names the document, not the file: a document code such
 	   as "SOP-MEC-014" when the name starts with one, otherwise the name
-	   without its extension or underscores. The full file name is on hover
-	   and in the passage panel. */
-	const chipTitle = (title: string) => {
+	   without its extension or underscores. When another source shares the
+	   code (the SOP and a log of readings against it), the rest of the name
+	   follows it, so the two chips never read the same. The full file name
+	   is on hover and in the passage panel. */
+	const bare = (title: string) => title.replace(/\.(pdf|docx?|md|txt|csv|xlsx?|pptx?|html?)$/i, '');
+	const codeOf = (name: string) => name.match(/^[A-Z]{2,}(?:-[A-Z0-9]+)*-\d+/)?.[0] ?? null;
+	const chipTitle = (title: string, others: string[]) => {
 		if (title.startsWith('http')) return getDomain(title);
-		const name = title.replace(/\.(pdf|docx?|md|txt|csv|xlsx?|pptx?|html?)$/i, '');
-		const code = name.match(/^[A-Z]{2,}(?:-[A-Z0-9]+)*-\d+/);
-		return code ? code[0] : name.replace(/_+/g, ' ');
+		const name = bare(title);
+		const code = codeOf(name);
+		if (!code) return name.replace(/_+/g, ' ');
+		const shared = others
+			.filter(Boolean)
+			.map((other) => decodeString(other))
+			.some((other) => other !== title && codeOf(bare(other)) === code);
+		const rest = name.slice(code.length).replace(/^[\s_\-\u2013\u2014.]+/, '').replace(/_+/g, ' ').trim();
+		return shared && rest ? `${code} · ${rest}` : code;
 	};
 </script>
 
@@ -72,7 +85,7 @@
 			><path d="M4 1.75h5.25L12.5 5v9.25H4z" /><path d="M9 1.75V5h3.5M6 8.25h4M6 10.75h4" /></svg
 		>
 		<span class="line-clamp-1">
-			{getDisplayTitle(chipTitle(decodeString(title)))}
+			{getDisplayTitle(chipTitle(decodeString(title), siblings))}
 		</span>
 	</button>
 {/if}

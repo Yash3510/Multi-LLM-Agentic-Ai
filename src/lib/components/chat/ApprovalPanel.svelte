@@ -116,7 +116,9 @@
 
 		{#if !pass && data.verdict_detail}
 			<div class="px-[29px] pb-3 text-xs text-amber-700 dark:text-amber-300">
-				ULTRON's objection: {data.verdict_detail}
+				<!-- A full sentence from the orchestrator (`_objection()`), naming who
+				     objected - ULTRON, or 4CE's own figure check. -->
+				{data.verdict_detail}
 			</div>
 		{/if}
 

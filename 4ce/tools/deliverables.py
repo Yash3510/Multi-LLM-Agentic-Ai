@@ -772,7 +772,14 @@ class _Report:
         fields = [
             ("Reference", self.reference),
             ("Issued", f"{self.issued.day} {self.issued:%B %Y}, {self.issued:%H:%M} {self.issued.tzname() or ''}".strip()),
-            ("Prepared by", (self.valves.prepared_by or "").strip() or "4CE"),
+            # The answer's fingerprint in place of "Prepared by", which only
+            # repeated the masthead. Grouped for reading aloud; the full hash
+            # is in the verification record.
+            (
+                ("Fingerprint", " ".join(self.signoff["fingerprint"][i:i + 4] for i in range(0, 16, 4)))
+                if self.signoff.get("fingerprint")
+                else ("Prepared by", (self.valves.prepared_by or "").strip() or "4CE")
+            ),
         ]
         if self.signoff.get("verification"):
             fields.append(("Verification", self.signoff["verification"]))
@@ -808,6 +815,18 @@ class _Report:
         lines = text.replace("\r\n", "\n").replace("\t", "    ").split("\n")
         prose: list[str] = []
 
+        # The body's top headings sit at Heading 2, level with the report's own
+        # Sources and Verification record, so the outline in Word reads as one
+        # list of sections. An answer's sections are ### in the chat.
+        levels, fenced = [], False
+        for line in lines:
+            if _FENCE.match(line):
+                fenced = not fenced
+            elif not fenced and _HEADING.match(line):
+                levels.append(len(_HEADING.match(line).group(1)))
+        # With no headings at all, a bold label line is a top section too.
+        self._shift = 2 - min(levels) if levels else -1
+
         def flush() -> None:
             if prose:
                 self._paragraph(" ".join(s.strip() for s in prose))
@@ -837,7 +856,7 @@ class _Report:
             elif _HEADING.match(line):
                 flush()
                 marks, words = _HEADING.match(line).groups()
-                self._heading(words, min(len(marks), 4))
+                self._heading(words, max(2, min(len(marks) + self._shift, 4)))
                 i += 1
             elif _RULE_LINE.match(line):
                 flush()
@@ -876,7 +895,7 @@ class _Report:
         if label:
             # "**Working:**" alone on a line is a section label the model wrote
             # as bold text; it reads as the heading it is.
-            self._heading(label.group(1).rstrip(" :"), 3)
+            self._heading(label.group(1).rstrip(" :"), max(2, min(3 + getattr(self, "_shift", 0), 4)))
             return
         paragraph = self.doc.add_paragraph()
         self._inline(paragraph, text)

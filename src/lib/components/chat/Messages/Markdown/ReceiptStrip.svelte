@@ -9,7 +9,9 @@
 	export let data: {
 		model?: string;
 		sources?: string[];
+		cited?: number[];
 		verdict?: string;
+		failed_by?: string;
 		attempts?: number;
 		checks?: { kind: 'ok' | 'problem' | 'unverified'; text: string; by?: string }[];
 		approval?: string;
@@ -17,6 +19,20 @@
 		approved_at?: string;
 		seconds?: number;
 		external_calls?: number;
+		fingerprint?: string;
+	};
+
+	/* The fingerprint: SHA-256 of the released answer's exact text. Clicking
+	   copies it, so a copy of the answer can be checked against the record. */
+	let copied = false;
+	const copyFingerprint = async () => {
+		try {
+			await navigator.clipboard.writeText(data.fingerprint ?? '');
+			copied = true;
+			setTimeout(() => (copied = false), 1600);
+		} catch {
+			// Clipboard refused (an insecure origin, say): the title still shows it.
+		}
 	};
 
 	$: sources = data.sources ?? [];
@@ -30,15 +46,27 @@
 		sources.length
 			? {
 					label: 'Grounded',
-					detail: `${sources.length} source${sources.length > 1 ? 's' : ''}`,
+					detail:
+						data.cited && data.cited.length !== sources.length
+							? `${sources.length} retrieved · ${data.cited.length} cited`
+							: `${sources.length} source${sources.length > 1 ? 's' : ''}`,
 					tone: 'plain',
-					title: sources.join('\n')
+					title: sources
+						.map((name, i) => `${data.cited?.includes(i + 1) ? 'Cited' : 'Retrieved'}: ${name}`)
+						.join('\n')
 				}
 			: { label: 'Not grounded', detail: 'no documents used', tone: 'muted' },
 		verdict === 'PASS'
 			? { label: 'Checked', detail: `ULTRON passed it${tries}`, tone: 'good' }
 			: verdict === 'FAIL'
-				? { label: 'Checked', detail: `ULTRON failed it${tries}`, tone: 'warn' }
+				? {
+						label: 'Checked',
+						detail:
+							data.failed_by === '4CE'
+								? `failed on a cited figure${tries}`
+								: `ULTRON failed it${tries}`,
+						tone: 'warn'
+					}
 				: { label: 'Not checked', detail: 'verification off', tone: 'muted' },
 		data.approval === 'approved'
 			? {
@@ -81,6 +109,17 @@
 				<span class="opacity-75">{pill.detail}</span>
 			</span>
 		{/each}
+		{#if data.fingerprint}
+			<button
+				type="button"
+				class="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[11px] leading-4 text-gray-600 transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:text-white"
+				title="SHA-256 of the released answer, {data.fingerprint}. The Word report carries the same fingerprint. Click to copy."
+				on:click={copyFingerprint}
+			>
+				<span class="font-medium">{copied ? 'Copied' : 'Fingerprint'}</span>
+				<span class="font-mono text-[10.5px] opacity-75">{data.fingerprint.slice(0, 8)}</span>
+			</button>
+		{/if}
 	</div>
 
 	{#if checks.length}

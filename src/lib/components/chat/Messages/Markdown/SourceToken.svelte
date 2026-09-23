@@ -43,7 +43,7 @@
 	{#if (token?.ids ?? []).length == 1}
 		{@const id = token.ids[0]}
 		{@const identifier = token.citationIdentifiers ? token.citationIdentifiers[0] : id - 1}
-		<Source id={identifier} title={sourceIds[id - 1]} {onClick} />
+		<Source id={identifier} title={sourceIds[id - 1]} siblings={sourceIds} {onClick} />
 	{:else}
 		<LinkPreview.Root openDelay={0} bind:open={openPreview}>
 			<LinkPreview.Trigger>
@@ -67,7 +67,7 @@
 							{@const id =
 								typeof identifier === 'string' ? parseInt(identifier.split('#')[0]) : identifier}
 							<div class="">
-								<Source id={identifier} title={sourceIds[id - 1]} {onClick} />
+								<Source id={identifier} title={sourceIds[id - 1]} siblings={sourceIds} {onClick} />
 							</div>
 						{/each}
 					</div>

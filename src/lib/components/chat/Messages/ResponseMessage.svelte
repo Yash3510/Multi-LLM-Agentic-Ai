@@ -296,6 +296,8 @@
 
 	const copyToClipboard = async (text) => {
 		text = removeAllDetails(text);
+		// The 4CE receipt is drawn from a block of JSON; a copy is the answer.
+		text = text.replace(/```4ce-receipt\n[\s\S]*?\n```\n?/g, '').trim();
 
 		if (($config?.ui?.response_watermark ?? '').trim() !== '') {
 			text = `${text}\n\n${$config?.ui?.response_watermark}`;
