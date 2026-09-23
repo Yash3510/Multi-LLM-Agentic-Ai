@@ -3,6 +3,7 @@
 	import { getContext, onDestroy, onMount, tick } from 'svelte';
 	import type { Readable } from 'svelte/store';
 	import { clampDocumentTargetPage } from '$lib/utils/documentPreview';
+	import { fixDocxBullets } from '$lib/utils/docxBullets';
 
 	import Spinner from './Spinner.svelte';
 
@@ -122,6 +123,7 @@
 				renderHeaders: true,
 				useBase64URL: true
 			});
+			fixDocxBullets(styleEl);
 			await tick();
 			updateFitScale();
 			await scrollToTargetPage();
