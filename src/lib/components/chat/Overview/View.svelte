@@ -27,6 +27,43 @@
 	export let onNodeClick;
 	export let chatUser = null;
 
+	/* The "sent back" wire's popover: which answer, and its change record from
+	   the receipt block in the answer's text (null for older answers). */
+	let why: { answer: string; revision: any } | null = null;
+	let root: HTMLElement;
+	const openWhy = (answer?: string) => {
+		if (answer && history.messages[answer]) {
+			why = { answer, revision: revisionOf(history.messages[answer]) };
+		}
+	};
+	/* The library does not pass a click on an edge's label to the edge, and
+	   the label is what people aim for; it sits on its wire, so the nearest
+	   "sent back" wire is the one it names. */
+	const labelClick = (e: MouseEvent) => {
+		const label = (e.target as HTMLElement)?.closest?.('.svelte-flow__edge-label');
+		if (!label) return;
+		const box = label.getBoundingClientRect();
+		let best: Element | null = null;
+		let distance = Infinity;
+		for (const wire of root.querySelectorAll('.svelte-flow__edge.ov-back')) {
+			const r = wire.getBoundingClientRect();
+			const d = Math.hypot(r.left + r.width / 2 - (box.left + box.width / 2), r.top + r.height / 2 - (box.top + box.height / 2));
+			if (d < distance) {
+				distance = d;
+				best = wire;
+			}
+		}
+		openWhy($edges.find((edge) => edge.id === best?.getAttribute('data-id'))?.data?.answer as string);
+	};
+	const revisionOf = (message) => {
+		const block = (message?.content ?? '').match(/```4ce-receipt\n([\s\S]*?)\n```/);
+		try {
+			return block ? (JSON.parse(block[1]).revision ?? null) : null;
+		} catch {
+			return null;
+		}
+	};
+
 	type LayoutDirection = 'vertical' | 'horizontal';
 	type PositionMapEntry = {
 		id: string;
@@ -295,7 +332,8 @@
 						targetHandle: 'first',
 						selectable: false,
 						type: 'straight',
-						label: sentBack ? 'sent back' : undefined,
+						label: sentBack ? 'sent back · why?' : undefined,
+						data: sentBack ? { answer: id } : undefined,
 						class: `ov-edge ov-pass${sentBack ? ' ov-back' : ''}${live ? ' on-path' : ''}`
 					});
 				});
@@ -360,7 +398,8 @@
 	});
 </script>
 
-<div class="w-full h-full relative">
+<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+<div class="w-full h-full relative" bind:this={root} on:click={labelClick}>
 	{#if $nodes.length > 0}
 		<Flow
 			{nodes}
@@ -368,6 +407,7 @@
 			{edges}
 			{setLayoutDirection}
 			bind:pinned
+			on:edgeclick={(e) => openWhy(e.detail?.edge?.data?.answer)}
 			on:nodeclick={(e) => {
 				onNodeClick(e.detail);
 				const clickedMessageId = e.detail.node.data.message.id as string;
@@ -378,4 +418,81 @@
 			}}
 		/>
 	{/if}
+
+	{#if why}
+		<!-- Why ULTRON sent it back: the same objection -> fix as the card under
+		     the answer, kept short, with a way into the answer itself. -->
+		<div
+			class="ov-why absolute inset-x-3 top-2 z-10 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-[0_18px_40px_-20px_rgba(16,24,40,0.35)] dark:border-gray-800 dark:bg-gray-900"
+			role="dialog"
+			aria-label="Why ULTRON sent it back"
+		>
+			<div class="mb-1.5 flex items-center gap-2">
+				<span class="text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
+					>Why it was sent back</span
+				>
+				{#if why.revision}
+					<span
+						class="text-[11px] font-medium {why.revision.verdict === 'PASS'
+							? 'text-emerald-700 dark:text-emerald-400'
+							: 'text-amber-700 dark:text-amber-400'}"
+						>{why.revision.verdict === 'PASS' ? 'passed on try 2' : 'failed again'}</span
+					>
+				{/if}
+				<button
+					type="button"
+					class="ml-auto rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white"
+					aria-label="Close"
+					on:click={() => (why = null)}
+				>
+					<svg class="size-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+				</button>
+			</div>
+			{#if why.revision}
+				{#each why.revision.objections.slice(0, 2) as objection}
+					<p class="text-[12px] leading-snug text-gray-700 dark:text-gray-300">
+						<span class="mr-1 font-semibold text-amber-600 dark:text-amber-400" aria-hidden="true">✕</span>{objection.text}
+					</p>
+					{#each (objection.fixes ?? []).slice(0, 1) as i}
+						{@const change = why.revision.changes[i]}
+						<div class="mb-1 mt-1 flex flex-col items-start gap-0.5 pl-4 text-[11.5px] leading-snug">
+							{#if change?.removed}<del class="rounded bg-red-50 px-1 text-red-700 dark:bg-red-950/40 dark:text-red-300">{change.removed}</del>{/if}
+							{#if change?.added}<ins class="rounded bg-emerald-50 px-1 text-emerald-700 no-underline dark:bg-emerald-950/40 dark:text-emerald-300">{change.added}</ins>{/if}
+						</div>
+					{/each}
+				{/each}
+			{:else}
+				<p class="text-[12px] leading-snug text-gray-500 dark:text-gray-400">
+					This answer predates the change record; its full provenance has both drafts.
+				</p>
+			{/if}
+			<div class="mt-2 flex justify-end">
+				<button
+					type="button"
+					class="rounded-full border border-gray-200 px-3 py-1 text-[11.5px] font-medium text-gray-800 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-850"
+					on:click={() => {
+						onNodeClick({ node: { data: { message: history.messages[why.answer] } } });
+						why = null;
+					}}>Open in the answer</button
+				>
+			</div>
+		</div>
+	{/if}
 </div>
+
+<style>
+	.ov-why {
+		animation: ov-why-in 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+	}
+	@keyframes ov-why-in {
+		from {
+			opacity: 0;
+			translate: 0 -4px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.ov-why {
+			animation: none;
+		}
+	}
+</style>

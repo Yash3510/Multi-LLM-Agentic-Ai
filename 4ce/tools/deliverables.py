@@ -102,6 +102,7 @@ class Tools:
         __signoff__: dict | None = None,
         __record__: list | None = None,
         __sources__: list | None = None,
+        __revision__: dict | None = None,
     ) -> str:
         """
         Create a formatted Word (.docx) document from the supplied content and return a download link.
@@ -131,7 +132,7 @@ class Tools:
         try:
             payload = await asyncio.to_thread(
                 self._build_docx, title, body, reference, document_type, __signoff__, __record__,
-                __sources__,
+                __sources__, __revision__,
             )
         except ImportError:
             return (
@@ -277,9 +278,11 @@ class Tools:
         signoff: dict | None = None,
         record: list | None = None,
         sources: list | None = None,
+        revision: dict | None = None,
     ) -> bytes:
         return _Report(
-            self.valves, title, body, reference, document_type, signoff or {}, record or [], sources
+            self.valves, title, body, reference, document_type, signoff or {}, record or [], sources,
+            revision,
         ).build()
 
 
@@ -580,9 +583,11 @@ class _Report:
         signoff: dict,
         record: list,
         sources: list | None = None,
+        revision: dict | None = None,
     ):
         self.valves = valves
         self.sources = [str(name) for name in (sources or []) if str(name).strip()]
+        self.revision = revision if revision and revision.get("objections") else None
         self.title = title.strip()
         self.body = body
         self.issued = datetime.now().astimezone()
@@ -612,6 +617,8 @@ class _Report:
         self._header_footer()
         self._masthead()
         self._markdown(self.body)
+        if self.revision:
+            self._revisions()
         if self.sources:
             self._sources()
         if self.record:
@@ -1073,6 +1080,53 @@ class _Report:
             _run(line, f"{n}", size=9.5, colour=INDIGO, bold=True)
             _run(line, f"\u2003{name}", size=10, colour=INK)
         self._gap(6)
+
+    def _revisions(self) -> None:
+        """What the verifier objected to in the first draft, the lines changed
+        for it, and the verdict on the revised draft - as in the chat's
+        "What changed on try 2" card."""
+        from docx.shared import Pt
+
+        rev = self.revision
+        changes = rev.get("changes") or []
+        self._heading("Revisions", 2)
+        note = self.doc.add_paragraph()
+        _spacing(note, 0, 8, 1.2)
+        _run(
+            note,
+            f"{rev.get('by') or 'ULTRON'} sent the first draft back. What it objected to, what "
+            "JARVIS changed for it, and the verdict on the revised draft.",
+            size=9,
+            colour=MUTED,
+        )
+
+        def line(label: str, text: str, colour: str, after: float = 2) -> None:
+            paragraph = self.doc.add_paragraph()
+            _spacing(paragraph, 0, after, 1.2)
+            paragraph.paragraph_format.left_indent = Pt(12)
+            _run(paragraph, f"{label}\u2003", size=7, colour=LABEL, bold=True, caps=True, track=1.0)
+            _run(paragraph, text, size=10, colour=colour)
+
+        fixed = set()
+        for objection in rev["objections"]:
+            line("Objection", objection.get("text", ""), INK, 2)
+            for i in objection.get("fixes") or []:
+                if i < len(changes):
+                    fixed.add(i)
+                    if changes[i].get("removed"):
+                        line("Was", changes[i]["removed"], MUTED)
+                    if changes[i].get("added"):
+                        line("Now", changes[i]["added"], INK)
+            self._gap(4)
+        passed = str(rev.get("verdict", "")).upper() == "PASS"
+        others = len(changes) - len(fixed) + int(rev.get("more") or 0)
+        line(
+            "Verdict",
+            ("ULTRON passed the revised draft." if passed else "ULTRON failed the revised draft as well.")
+            + (f" {others} other {'edit' if others == 1 else 'edits'} were made along the way." if others else ""),
+            INK,
+            6,
+        )
 
     def _record(self) -> None:
         self._heading("Verification record", 2)

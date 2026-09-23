@@ -40,6 +40,7 @@
 	nodesConnectable={false}
 	nodesDraggable={false}
 	on:nodeclick={(e) => dispatch('nodeclick', e.detail)}
+	on:edgeclick={(e) => dispatch('edgeclick', e.detail)}
 	oninit={() => {
 		console.log('Flow initialized');
 	}}
@@ -129,6 +130,11 @@
 	}
 	/* ULTRON sent the work back: the wire into the next pass turns amber and
 	   says so. */
+	/* The "sent back" wire opens why: ULTRON's objection and what changed. */
+	:global(.ov-4ce .svelte-flow__edge.ov-back),
+	:global(.ov-4ce .svelte-flow__edge-label) {
+		cursor: pointer;
+	}
 	:global(.ov-4ce .ov-edge.ov-pass.ov-back .svelte-flow__edge-path) {
 		stroke: #d97706;
 		stroke-dasharray: 3 3;

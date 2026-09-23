@@ -299,6 +299,9 @@
 		// The 4CE receipt and file card are drawn from blocks of JSON; a copy
 		// is the answer.
 		text = text.replace(/```4ce-(?:receipt|file)\n[\s\S]*?\n```\n?/g, '').trim();
+		// The rule that set the receipt apart goes too, so a copy is exactly
+		// the released text and checks against its fingerprint.
+		text = text.replace(/(\n\s*(?:-{3,}|\*{3,})\s*)+$/, '').trim();
 
 		if (($config?.ui?.response_watermark ?? '').trim() !== '') {
 			text = `${text}\n\n${$config?.ui?.response_watermark}`;

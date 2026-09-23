@@ -7,6 +7,7 @@ description: Sovereign multi-agent orchestrator. TONY classifies and routes, FRI
 
 import ast
 import asyncio
+import difflib
 import hashlib
 import inspect
 import json
@@ -423,6 +424,8 @@ class Pipe:
             )
         challenge: str | None = None
         attempts = 0
+        # The draft ULTRON sent back and why, kept to show what try 2 changed.
+        first_try: dict | None = None
         analysis = ""
         deliverable = ""
         verdict: dict = {}
@@ -715,12 +718,25 @@ class Pipe:
 
             # FRIDAY hears the objections, not the checks that passed.
             objections = [c["text"] for c in _parse_checks(verdict["detail"]) if c["kind"] != "ok"]
+            checks = verdict.get("checks") or []
+            first_try = {
+                "draft": deliverable,
+                "failed_by": verdict.get("failed_by") or "ULTRON",
+                # What it objected to: its problems, else what it could not
+                # verify, else the verdict's own summary.
+                "objections": [(c["text"], c.get("by", "ULTRON")) for c in checks if c["kind"] == "problem"]
+                or [(c["text"], c.get("by", "ULTRON")) for c in checks if c["kind"] == "unverified"]
+                or [(_clip(verdict.get("summary") or verdict.get("detail", ""), 220), "ULTRON")],
+            }
             challenge = "\n".join(f"- {o}" for o in objections) if objections else verdict["detail"]
             await _status(
                 __event_emitter__, "tony_replan", "TONY: replanning after ULTRON challenge",
                 facts=["FRIDAY and JARVIS run again with ULTRON's objections attached"],
             )
             trace.append("**TONY** replanned once and re-ran FRIDAY and JARVIS with the challenge attached.")
+
+        if first_try and verdict:
+            verdict["revision"] = _revision(first_try, deliverable, verdict)
 
         approval = "not required"
         approved_at: datetime | None = None
@@ -889,6 +905,8 @@ class Pipe:
                 __record__=record,
                 # The documents the [n] in the text refer to, listed at the end.
                 __sources__=[source["name"] for source in sources],
+                # What a replan changed, when ULTRON sent the first draft back.
+                __revision__=verdict.get("revision"),
             )
             if docx and not docx.startswith(_ERR):
                 tools_used.append("create_word_document")
@@ -1884,7 +1902,8 @@ def _parse_checks(detail: str) -> list[dict]:
 def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapsed: float,
              attempts: int, agent_models: dict, tools_used: list[str] | None,
              sources: list[dict], approver: str = "", approved_at: str = "",
-             fingerprint: str = "") -> str:
+             fingerprint: str = "", steps: list[dict] | None = None,
+             signals: list[str] | None = None) -> str:
     """One line the chat draws as a strip of facts under the answer - where it
     ran, what it stood on, how it was checked, who released it - with ULTRON's
     checks beneath. A fenced block, so any other client shows readable JSON."""
@@ -1913,7 +1932,22 @@ def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapse
         "tools": list(tools_used or []),
         "external_calls": 0,
         "fingerprint": fingerprint,
+        # For the audit record: when the run finished, why TONY routed it as
+        # it did, and every step in order.
+        "at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "signals": list(signals or []),
+        "steps": [
+            {
+                "agent": step["agent"],
+                "label": step.get("label", ""),
+                "model": str(step.get("model") or "").rsplit("/", 1)[-1],
+                "seconds": round(float(step.get("seconds") or 0), 1),
+            }
+            for step in (steps or [])
+        ],
     }
+    if verdict.get("revision"):
+        data["revision"] = verdict["revision"]
     return "```4ce-receipt\n" + json.dumps(data, ensure_ascii=False) + "\n```"
 
 
@@ -1940,6 +1974,120 @@ def _file_card(line: str) -> str:
     if rest:
         card["note"] = rest
     return "```4ce-file\n" + json.dumps(card, ensure_ascii=False) + "\n```"
+
+
+_STOP_WORDS = frozenset(
+    "the and for are but not with this that from into than then there their they "
+    "what when where which while will would should could must does did has have had "
+    "was were been being its any all per only also more most such other some each "
+    "answer result says said state states stated source sources document".split()
+)
+
+
+def _units(text: str) -> list[str]:
+    """An answer as the pieces a change is shown in: one per sentence, with
+    the markdown, citation numbers and table rules taken off."""
+    units: list[str] = []
+    for line in text.splitlines():
+        if line.strip().startswith("```"):
+            continue
+        line = re.sub(r"^\s*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s*)", "", line)
+        line = line.replace("**", "").replace("__", "")
+        line = _CITATION.sub("", line).replace("*(unverified)*", "")
+        if set(line.strip()) <= set("-|: "):
+            continue
+        line = " · ".join(cell.strip() for cell in line.strip().strip("|").split("|") if cell.strip())
+        for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z0-9\"\u201c(])", line):
+            # A list marker left on its own ("a.", "3.") is not a change.
+            if len(re.findall(r"[A-Za-z]{2,}", sentence)) >= 2:
+                units.append(sentence.strip())
+    return units
+
+
+def _words(text: str) -> set[str]:
+    """The words that carry meaning, with their endings folded, so "exceeds"
+    and "exceeded" count as the same word."""
+    words = set()
+    for w in re.findall(r"[a-z0-9]+", text.lower()):
+        if len(w) > 2 and w not in _STOP_WORDS:
+            words.add(re.sub(r"(?:ing|ed|es|s)$", "", w) if len(w) > 4 else w)
+    return words
+
+
+def _revision(first: dict, after: str, verdict: dict) -> dict:
+    """What try 2 changed, and which change answers which objection.
+
+    The two drafts are compared sentence by sentence. Within a changed stretch
+    each removed sentence is paired with the added one most like it, so a
+    rewording reads as one change, not a deletion and an addition. Each
+    objection is then matched to the changes that share its rarer words -
+    "exceeded" counts for more than "drops per minute", which every change
+    mentions - and a change nothing points to is listed as "also changed".
+    """
+    a, b = _units(first["draft"]), _units(after)
+    changes: list[dict] = []
+    same = lambda x, y: re.sub(r"\W+", "", x.lower()) == re.sub(r"\W+", "", y.lower())
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(a=a, b=b, autojunk=False).get_opcodes():
+        if tag == "equal":
+            continue
+        removed, added, used = a[i1:i2], b[j1:j2], set()
+        for gone in removed:
+            best, score = None, 0.0
+            for k, new in enumerate(added):
+                if k not in used:
+                    ratio = difflib.SequenceMatcher(a=gone, b=new).ratio()
+                    if ratio > score:
+                        best, score = k, ratio
+            if best is not None and score >= 0.45:
+                used.add(best)
+                if not same(gone, added[best]):
+                    changes.append({"removed": gone, "added": added[best], "kind": "reworded"})
+            else:
+                changes.append({"removed": gone, "added": "", "kind": "removed"})
+        changes += [{"removed": "", "added": new, "kind": "added"} for k, new in enumerate(added) if k not in used]
+
+    # A fix is judged mostly by what try 2 added; what it took out counts half.
+    added_words = [_words(c["added"]) for c in changes]
+    removed_words = [_words(c["removed"]) for c in changes]
+    spread: dict[str, int] = {}
+    for words in added_words + removed_words:
+        for w in words:
+            spread[w] = spread.get(w, 0) + 1
+    objections, fixed = [], []
+    for text, by in first["objections"]:
+        wanted = _words(text)
+        scored = sorted(
+            (
+                (
+                    sum(1 / spread[w] for w in wanted & added_words[i])
+                    + 0.5 * sum(1 / spread[w] for w in wanted & removed_words[i] - added_words[i]),
+                    i,
+                )
+                for i in range(len(changes))
+            ),
+            reverse=True,
+        )
+        fixes = [i for score, i in scored[:2] if score >= 0.25]
+        fixed += [i for i in fixes if i not in fixed]
+        objections.append({"text": _clip(text, 220), "by": by, "fixes": fixes})
+
+    # The changes an objection points to come first; the list is capped, so
+    # the ones that matter are never the ones cut.
+    order = fixed + [i for i in range(len(changes)) if i not in fixed]
+    keep = order[:14]
+    place = {old: new for new, old in enumerate(keep)}
+    for objection in objections:
+        objection["fixes"] = [place[i] for i in objection["fixes"] if i in place]
+    return {
+        "objections": objections,
+        "changes": [
+            {**changes[i], "removed": _clip(changes[i]["removed"], 240), "added": _clip(changes[i]["added"], 240)}
+            for i in keep
+        ],
+        "more": max(0, len(changes) - len(keep)),
+        "by": first["failed_by"],
+        "verdict": str(verdict.get("status", "")).upper(),
+    }
 
 
 def _objection(verdict: dict) -> str:
@@ -2182,6 +2330,7 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
     receipt = _receipt(
         task_type, model_id, verdict, approval, elapsed, attempts, agent_models,
         tools_used, sources or [], approver, approved_at, fingerprint,
+        steps=steps, signals=signals,
     )
     return _provenance_rest(steps, attempts, include_thinking, trace, table, receipt)
 

@@ -16,9 +16,10 @@
 <div
 	class="file-card not-prose my-3 flex w-full max-w-xl items-center gap-3 rounded-xl border border-gray-200/90 bg-white py-2.5 pl-2.5 pr-3 transition-[border-color,box-shadow] duration-200 hover:border-gray-300 hover:shadow-[0_6px_18px_-12px_rgba(16,24,40,0.25)] dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
 >
-	<!-- The page, folded at the corner, as on the evidence chips. -->
+	<!-- The page, folded at the corner, in the chat's ink: the report is
+	     4CE's own document, not a link out. -->
 	<span
-		class="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+		class="flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-gray-100 bg-gray-50 text-gray-800 dark:border-gray-800 dark:bg-gray-850 dark:text-gray-100"
 		aria-hidden="true"
 	>
 		<svg
@@ -46,7 +47,7 @@
 	{#if href}
 		<a
 			{href}
-			class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 no-underline transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/15 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:hover:text-white"
+			class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 px-3.5 py-1.5 text-xs font-medium text-gray-800 no-underline transition hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/15 dark:border-gray-700 dark:text-gray-100 dark:hover:bg-gray-850 dark:hover:text-white"
 			download
 			aria-label="Download {data.title || kind}"
 		>

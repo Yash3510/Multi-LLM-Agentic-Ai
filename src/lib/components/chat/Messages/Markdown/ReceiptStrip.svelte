@@ -6,6 +6,11 @@
 	 * ```4ce-receipt block of JSON (`_receipt()` in 4ce/functions/
 	 * orchestrator.py); the full provenance table follows it, folded away.
 	 */
+	import RevisionCard from './RevisionCard.svelte';
+	import AuditSheet from './AuditSheet.svelte';
+
+	let showAudit = false;
+
 	export let data: {
 		model?: string;
 		sources?: string[];
@@ -20,6 +25,8 @@
 		seconds?: number;
 		external_calls?: number;
 		fingerprint?: string;
+		revision?: any;
+		steps?: any[];
 	};
 
 	/* The fingerprint: SHA-256 of the released answer's exact text. Clicking
@@ -122,12 +129,29 @@
 				<span class="font-mono text-[10.5px] opacity-75">{data.fingerprint.slice(0, 8)}</span>
 			</button>
 		{/if}
+		<!-- The whole run as a record: every step, the evidence, the fingerprint. -->
+		<button
+			type="button"
+			style="--n: {pills.length + 1}"
+			class="receipt-pill inline-flex items-center gap-1 rounded-full border border-gray-900 bg-white px-2 py-0.5 text-[11px] font-medium leading-4 text-gray-900 transition hover:bg-gray-900 hover:text-white dark:border-gray-200 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-white dark:hover:text-gray-900"
+			aria-haspopup="dialog"
+			on:click={() => (showAudit = true)}
+		>
+			<svg class="size-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2.5h7l3 3v8H3z" /><path d="M5.5 8h5M5.5 10.5h3" /></svg>
+			Audit
+		</button>
 	</div>
+
+	{#if data.revision?.objections?.length}
+		<div class="receipt-checks" style="--n: {pills.length + 2}">
+			<RevisionCard revision={data.revision} />
+		</div>
+	{/if}
 
 	{#if checks.length}
 		<div
 			class="receipt-checks mt-2.5 rounded-xl border border-gray-100 px-3 py-2 dark:border-gray-850"
-			style="--n: {pills.length + 1}"
+			style="--n: {pills.length + 3}"
 		>
 			<!-- 4CE's own mechanical check first, then ULTRON's; each line says
 			     which of them made it. -->
@@ -165,6 +189,9 @@
 		</div>
 	{/if}
 </div>
+
+
+<AuditSheet bind:show={showAudit} {data} />
 
 <style>
 	/* When a run finishes in front of the reader, its receipt is set down
