@@ -322,11 +322,17 @@ class Pipe:
         # greeting or a request for a median function arrives carrying several
         # thousand characters of pump procedures: slower on a small card, and
         # provenance that claims a median was grounded in plant SOPs.
+        sources: list[dict] = []
         if task_type in RETRIEVING_TASKS:
-            passages = await self._retrieve(__request__, user, __metadata__, prompt)
-            if passages:
-                retrieved = f"{retrieved}\n\n{passages}".strip() if retrieved else passages
-                grounding = f"{grounding}\n\n{passages}".strip() if grounding else passages
+            found = await self._retrieve(__request__, user, __metadata__, prompt)
+            if found:
+                sources, numbered = _number_sources(found)
+                retrieved = f"{retrieved}\n\n{numbered}".strip() if retrieved else numbered
+                grounding = f"{grounding}\n\n{numbered}".strip() if grounding else numbered
+                # The chat shows these under the answer, and turns each [n] in
+                # the answer into a chip that opens the passage it stands on.
+                for source in sources:
+                    await _emit_source(__event_emitter__, source)
 
         await _status(
             __event_emitter__,
@@ -481,6 +487,7 @@ class Pipe:
                         if retrieved
                         else ""
                     )
+                    + (_CITE_RULE.format(numbers=_source_numbers(sources)) if sources else "")
                     + "\n\nREQUEST\n"
                     + prompt,
                     challenge,
@@ -561,6 +568,17 @@ class Pipe:
                     f"FRIDAY'S ANALYSIS\n{analysis}"
                     + grounded
                     + (
+                        "\n\nSOURCES\n"
+                        + "\n".join(f"[{n}] {src['name']}" for n, src in enumerate(sources, 1))
+                        + "\n\nKeep FRIDAY's bracketed source numbers on every claim you carry "
+                        "over, placed straight after the claim, exactly as written - for "
+                        "example \"The leakage limit is 5 drops per minute [1].\" Never add "
+                        f"a number that is not in the list above ({_source_numbers(sources)}), "
+                        "and never present an unnumbered claim as coming from the documents."
+                        if sources
+                        else ""
+                    )
+                    + (
                         "\n\nPut every line of code inside a fenced ```python block. "
                         "This code will be executed. If the request calls for a file - "
                         "a spreadsheet, a chart, an export - write it into the directory "
@@ -575,7 +593,7 @@ class Pipe:
                     "do not recompute them."
                 ),
             )
-            deliverable = jarvis["text"]
+            deliverable = _check_citations(jarvis["text"], len(sources))
             if deliverable.startswith(_ERR):
                 await _status(__event_emitter__, "error", "Run failed", done=True)
                 return deliverable
@@ -647,10 +665,18 @@ class Pipe:
                         else ""
                     )
                     + f"RESULT TO CHALLENGE\n{deliverable}\n\n"
-                    "Reply with PASS or FAIL on the first line, then your concerns."
+                    "Reply with PASS or FAIL on the first line. Then list what you checked, "
+                    "one line each, every line starting with OK:, PROBLEM: or UNVERIFIED: - "
+                    "for example \"OK: the 5 drops per minute limit matches source [1]\", "
+                    "\"PROBLEM: the 30-day deadline is not in any source\" or \"UNVERIFIED: "
+                    "whether the alarm was acknowledged; nothing supplied says\". Cover every "
+                    "claim the result makes. PROBLEM lines are your reasons for a FAIL."
                 ),
             )
             verdict = _parse_verdict(ultron["text"])
+            # The card under the answer: what 4CE confirmed mechanically, then
+            # ULTRON's own checks.
+            verdict["checks"] = _figure_checks(deliverable, sources) + _parse_checks(verdict["detail"])
             steps.append({
                 **ultron,
                 "agent": "ULTRON",
@@ -670,7 +696,9 @@ class Pipe:
                 trace.append("**TONY** exhausted the replan budget; delivering with the failure recorded.")
                 break
 
-            challenge = verdict["detail"]
+            # FRIDAY hears the objections, not the checks that passed.
+            objections = [c["text"] for c in _parse_checks(verdict["detail"]) if c["kind"] != "ok"]
+            challenge = "\n".join(f"- {o}" for o in objections) if objections else verdict["detail"]
             await _status(
                 __event_emitter__, "tony_replan", "TONY: replanning after ULTRON challenge",
                 facts=["FRIDAY and JARVIS run again with ULTRON's objections attached"],
@@ -750,6 +778,7 @@ class Pipe:
                         steps, task_type, signals, model_id, rationale, verdict, approval,
                         time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
                         trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
+                        sources=sources,
                     )
                 )
             decision = response if isinstance(response, str) else ""
@@ -769,6 +798,7 @@ class Pipe:
                         steps, task_type, signals, model_id, rationale, verdict, "rejected",
                         time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
                         trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
+                        sources=sources,
                     )
                 )
 
@@ -826,6 +856,8 @@ class Pipe:
                 __user__=__user__,
                 __signoff__=signoff,
                 __record__=record,
+                # The documents the [n] in the text refer to, listed at the end.
+                __sources__=[source["name"] for source in sources],
             )
             if docx and not docx.startswith(_ERR):
                 tools_used.append("create_word_document")
@@ -838,10 +870,15 @@ class Pipe:
 
         if not self.valves.show_reasoning:
             return deliverable
+        approver = when = ""
+        if approval == "approved" and approved_at is not None:
+            approver = (getattr(user, "name", "") or getattr(user, "email", "") or "").strip()
+            when = f"{approved_at:%H:%M}"
         return deliverable + "\n\n" + _provenance(
             steps, task_type, signals, model_id, rationale, verdict, approval,
             time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
             trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
+            sources=sources, approver=approver, approved_at=when,
         )
 
     async def _model_collections(self, metadata: dict) -> list[str]:
@@ -887,8 +924,9 @@ class Pipe:
                 collections.append(single)
         return collections
 
-    async def _retrieve(self, request: Any, user: Any, metadata: dict, query: str) -> str:
-        """Passages from any knowledge base attached to this request.
+    async def _retrieve(self, request: Any, user: Any, metadata: dict, query: str) -> list[dict]:
+        """Passages from any knowledge base attached to this request, each with
+        the file it came from, so the answer can cite it.
 
         Retrieval is done here rather than taken from the platform. The platform
         grounds an ordinary model by rewriting the system message, but every agent
@@ -912,7 +950,7 @@ class Pipe:
             collections = await self._model_collections(metadata)
         collections = list(dict.fromkeys(collections))
         if not collections:
-            return ""
+            return []
 
         try:
             from open_webui.retrieval.utils import query_collection
@@ -927,15 +965,26 @@ class Pipe:
                 k=self.valves.retrieval_k,
             )
         except Exception:
-            return ""
+            return []
 
-        passages = [
-            text
-            for group in ((found or {}).get("documents") or [])
-            for text in (group or [])
-            if text and text.strip()
-        ]
-        return "\n\n---\n\n".join(passages[: self.valves.retrieval_k])
+        found = found or {}
+        documents = found.get("documents") or []
+        metadatas = found.get("metadatas") or []
+        distances = found.get("distances") or []
+        passages: list[dict] = []
+        for g, group in enumerate(documents):
+            for i, text in enumerate(group or []):
+                if not text or not text.strip():
+                    continue
+                meta = dict(((metadatas[g] if g < len(metadatas) else None) or [None] * (i + 1))[i] or {})
+                distance = ((distances[g] if g < len(distances) else None) or [None] * (i + 1))[i]
+                passages.append({
+                    "text": text.strip(),
+                    "name": str(meta.get("name") or meta.get("source") or "Knowledge base"),
+                    "meta": meta,
+                    "distance": distance,
+                })
+        return passages[: self.valves.retrieval_k]
 
     async def _use_tool(self, tools: dict | None, name: str, **kwargs: Any) -> str:
         """Call one deployed 4CE tool by its function name.
@@ -1166,6 +1215,84 @@ def _wants_audit(prompt: str) -> bool:
     return any(signal in lowered for signal in AUDIT_SIGNALS)
 
 
+_CITE_RULE = (
+    "\n\nThe passages above are numbered by the document they come from, like [1]. "
+    "After every finding that rests on a passage, put that number in square brackets "
+    "straight after it - for example \"Leakage above 5 drops per minute requires a "
+    "shutdown [1].\" Use only these numbers: {numbers}. A finding the passages do not "
+    "state gets no number and is labelled as an assumption."
+)
+
+
+def _number_sources(passages: list[dict]) -> tuple[list[dict], str]:
+    """Group retrieved passages by the document they came from and number the
+    documents in order of first appearance. The chat numbers its citation chips
+    the same way - one per distinct source name - so [n] in an answer opens
+    exactly the document the agent was shown as [n]."""
+    sources: list[dict] = []
+    by_name: dict[str, dict] = {}
+    blocks: list[str] = []
+    for passage in passages:
+        source = by_name.get(passage["name"])
+        if source is None:
+            source = {"name": passage["name"], "passages": []}
+            by_name[passage["name"]] = source
+            sources.append(source)
+        source["passages"].append(passage)
+        n = sources.index(source) + 1
+        blocks.append(f"[{n}] {passage['name']}\n{passage['text']}")
+    return sources, "\n\n---\n\n".join(blocks)
+
+
+def _source_numbers(sources: list[dict]) -> str:
+    return ", ".join(f"[{n}]" for n in range(1, len(sources) + 1))
+
+
+async def _emit_source(emitter, source: dict) -> None:
+    """One document and the passages 4CE retrieved from it, in the shape the
+    chat's citation panel reads."""
+    if not emitter:
+        return
+    passages = source["passages"]
+    file_id = next((p["meta"].get("file_id") for p in passages if p["meta"].get("file_id")), None)
+    await emitter({
+        "type": "source",
+        "data": {
+            "source": {"name": source["name"], "id": file_id or source["name"]},
+            "document": [p["text"] for p in passages],
+            "metadata": [
+                {**{k: v for k, v in p["meta"].items() if isinstance(v, (str, int, float, bool))},
+                 "name": source["name"], "source": source["name"]}
+                for p in passages
+            ],
+            "distances": [p["distance"] for p in passages if p["distance"] is not None],
+        },
+    })
+
+
+_CITATION = re.compile(r"(\s*)\[(\d+(?:\s*,\s*\d+)*)\]")
+
+
+def _check_citations(text: str, count: int) -> str:
+    """Keep a bracketed source number only if it names a retrieved document.
+
+    A model can write [3] when two documents were retrieved, or cite at all
+    when none were. Shown as a chip, that would point at nothing while looking
+    like evidence. So a number that names no retrieved document is dropped, and
+    a claim left with none is marked *(unverified)* - the reader sees that it
+    was presented as sourced and is not. Code is left alone: [1] there is
+    Python.
+    """
+    def fix(match: re.Match) -> str:
+        keep = [n for n in re.split(r"\s*,\s*", match.group(2)) if 1 <= int(n) <= count]
+        return f"{match.group(1)}[{', '.join(keep)}]" if keep else " *(unverified)*"
+
+    parts = re.split(r"(```[\s\S]*?```|`[^`\n]*`)", text)
+    for i in range(0, len(parts), 2):
+        parts[i] = _CITATION.sub(fix, parts[i])
+    return "".join(parts)
+
+
 def _extract_python(text: str) -> str:
     """Every fenced Python block in a deliverable, joined in order.
 
@@ -1317,6 +1444,10 @@ _TITLE_VERB = re.compile(
 )
 
 
+_TITLE_BREAKS = ("what", "how", "when", "why", "whether", "which", "who", "where", "if", "also")
+_TITLE_DANGLING = ("and", "or", "of", "the", "a", "an", "to", "for", "in", "on", "under", "with", "by", "at", "what", "how")
+
+
 def _document_title(prompt: str) -> str:
     """A short title describing the deliverable, not the request for it.
 
@@ -1338,7 +1469,18 @@ def _document_title(prompt: str) -> str:
     words = re.findall(r"[A-Za-z0-9-]+(?:\.[0-9]+)*", asked)
     while words and words[0].lower() in _REQUEST_OPENERS + ("and", "run", "execute"):
         words.pop(0)
-    title = " ".join(words[:9]).rstrip(" ,.;:?")
+    # A request that asks two things ("the leakage limit, and what must happen
+    # if it is exceeded") is titled by the first. Cutting at a fixed word count
+    # instead ended titles mid-phrase: "... under SOP-MEC-014 and what".
+    for i, word in enumerate(words[1:], 1):
+        if word.lower() in ("and", "or", "then") and i + 1 < len(words) and words[i + 1].lower() in _TITLE_BREAKS:
+            words = words[:i]
+            break
+    if len(words) > 10:
+        words = words[:10]
+        while words and words[-1].lower() in _TITLE_DANGLING:
+            words.pop()
+    title = " ".join(words).rstrip(" ,.;:?")
     return (title[:1].upper() + title[1:]) if title else "4CE deliverable"
 
 
@@ -1502,6 +1644,133 @@ def _parse_verdict(raw: str) -> dict:
         "detail": (concerns or text)[:1500],
         "summary": _clip(re.sub(r"^[\s>*#_`\-\d.)]+", "", after[0]).replace("**", "")) if after else "",
     }
+
+
+_CHECK_LINE = re.compile(
+    r"^[\s>*\-\u2022\d.)]*(OK|PROBLEM|UNVERIFIED|NOT VERIFIED)\b\s*[:\-\u2014\u2013]\s*(.+)$", re.I
+)
+
+
+_SOURCE_GUESS = re.compile(
+    r"\b(?:in|from|per|based on|supported by|found in|backed by)\s+(?:any|the|a|its)\s+(?:source|document|passage)s?\b",
+    re.I,
+)
+_NEGATION = re.compile(
+    r"\b(?:not (?:in|found|present|supported|stated|mentioned|given|listed)|no source|missing|"
+    r"unsupported|absent|does not appear|cannot be verified|could not be verified)\b",
+    re.I,
+)
+
+
+# A figure, but not the digits of a code like SOP-MEC-014.
+_FIGURE = re.compile(r"(?<![\w.\-])\d+(?:[.,]\d+)?(?![\w])")
+
+
+def _doc_label(name: str) -> str:
+    """A document as a reader names it: its code ("SOP-MEC-014") when the
+    file name starts with one, else the file name without extension."""
+    stem = name.rsplit(".", 1)[0]
+    code = re.match(r"[A-Z]{2,}(?:-[A-Z0-9]+)*-\d+", stem)
+    return code.group(0) if code else stem.replace("_", " ")
+
+
+def _figure_checks(deliverable: str, sources: list[dict]) -> list[dict]:
+    """4CE's own check, made without a model: every figure in a sentence that
+    cites [n] must appear in document n. A model can write "within 30 days
+    [1]" when the document says 14; this catches that, and says so."""
+    if not sources:
+        return []
+    texts = {n: " ".join(p["text"] for p in src["passages"]) for n, src in enumerate(sources, 1)}
+    prose = re.sub(r"```[\s\S]*?```|`[^`\n]*`", " ", deliverable or "")
+    found: list[str] = []
+    missing: list[tuple[str, str]] = []
+    for sentence in re.split(r"(?<=[.!?])\s+", prose):
+        cited = [int(n) for group in _CITATION.findall(sentence) for n in re.split(r"\s*,\s*", group[1])]
+        cited = [n for n in cited if n in texts]
+        if not cited:
+            continue
+        bare = _CITATION.sub(" ", sentence)
+        for figure in _FIGURE.findall(bare):
+            pattern = re.compile(rf"(?<![\w.]){re.escape(figure)}(?![\w])")
+            if any(pattern.search(texts[n]) for n in cited):
+                if figure not in found:
+                    found.append(figure)
+            else:
+                names = ", ".join(_doc_label(sources[n - 1]["name"]) for n in cited)
+                missing.append((figure, names))
+    checks: list[dict] = []
+    if found and not missing:
+        figures = ", ".join(found[:6]) + ("…" if len(found) > 6 else "")
+        checks.append({
+            "kind": "ok",
+            "text": f"Every figure the answer cites ({figures}) appears in the source it cites",
+            "by": "4CE",
+        })
+    for figure, names in missing[:4]:
+        checks.append({
+            "kind": "problem",
+            "text": f"{figure} is cited to {names}, which does not contain it",
+            "by": "4CE",
+        })
+    return checks
+
+
+def _parse_checks(detail: str) -> list[dict]:
+    """ULTRON's checks, one per line: what it confirmed, what it objects to,
+    and what it could not check. Lines in any other shape are left out, so
+    the chat's card only ever shows a check ULTRON actually stated."""
+    checks: list[dict] = []
+    for line in (detail or "").splitlines():
+        match = _CHECK_LINE.match(line.replace("**", "").replace("`", ""))
+        if not match:
+            continue
+        word = match.group(1).upper()
+        kind = "ok" if word == "OK" else "problem" if word == "PROBLEM" else "unverified"
+        # "OK: the deadline is not in any source" says it passed and failed at
+        # once. A small verifier writes that; shown with a tick it misleads.
+        if kind == "ok" and _NEGATION.search(match.group(2)):
+            kind = "unverified"
+        text = _clip(match.group(2).strip(), 180)
+        # ULTRON is not shown the retrieved passages (a 1.7B verifier handed
+        # three thousand characters of them stopped giving a verdict), so it
+        # cannot know what they contain. Its guesses about that are left out;
+        # 4CE's own figure check is what speaks to sourcing.
+        if _SOURCE_GUESS.search(text):
+            continue
+        # A verifier that runs out of words mid-line leaves "whether the 3";
+        # a fragment says nothing, so it is not shown as a check.
+        if len(text.split()) < 4:
+            continue
+        # "PROBLEM: none" on a PASS is not a problem.
+        if not text or text.lower().strip(" .!") in ("none", "nothing", "n/a", "no problems", "no issues", "no concerns", "none found"):
+            continue
+        checks.append({"kind": kind, "text": text, "by": "ULTRON"})
+    return checks[:8]
+
+
+def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapsed: float,
+             attempts: int, agent_models: dict, tools_used: list[str] | None,
+             sources: list[dict], approver: str = "", approved_at: str = "") -> str:
+    """One line the chat draws as a strip of facts under the answer - where it
+    ran, what it stood on, how it was checked, who released it - with ULTRON's
+    checks beneath. A fenced block, so any other client shows readable JSON."""
+    data = {
+        "v": 1,
+        "task": task_type,
+        "model": model_id.rsplit("/", 1)[-1],
+        "agents": {agent: model.rsplit("/", 1)[-1] for agent, model in agent_models.items()},
+        "sources": [source["name"] for source in sources],
+        "verdict": str(verdict.get("status", "n/a")).upper(),
+        "attempts": attempts,
+        "checks": verdict.get("checks") or _parse_checks(verdict.get("detail", "")),
+        "approval": approval,
+        "approver": approver,
+        "approved_at": approved_at,
+        "seconds": round(elapsed),
+        "tools": list(tools_used or []),
+        "external_calls": 0,
+    }
+    return "```4ce-receipt\n" + json.dumps(data, ensure_ascii=False) + "\n```"
 
 
 def _clip(text: str, limit: int = 90) -> str:
@@ -1713,8 +1982,10 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
                 rationale: str, verdict: dict, approval: str, elapsed: float,
                 attempts: int, include_thinking: bool, trace: list[str],
                 agent_models: dict, tools_used: list[str] | None = None,
-                grounding: str = "") -> str:
-    """A compact provenance table plus the reasoning behind each decision."""
+                grounding: str = "", sources: list[dict] | None = None,
+                approver: str = "", approved_at: str = "") -> str:
+    """The receipt the chat shows under an answer, then the full provenance
+    table and the reasoning behind each decision, folded away."""
     timings = " · ".join(
         f"{s['agent'].title()} {s['seconds']:.0f}s" for s in steps if s.get("seconds")
     )
@@ -1723,7 +1994,11 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
         agent_models, tools_used, grounding, timings,
     )
     table = ["| Stage | Detail |", "|---|---|"] + [f"| {k} | {v} |" for k, v in rows]
-    return _provenance_rest(steps, attempts, include_thinking, trace, table)
+    receipt = _receipt(
+        task_type, model_id, verdict, approval, elapsed, attempts, agent_models,
+        tools_used, sources or [], approver, approved_at,
+    )
+    return _provenance_rest(steps, attempts, include_thinking, trace, table, receipt)
 
 
 def _provenance_rows(task_type: str, signals: list[str], model_id: str, rationale: str,
@@ -1759,8 +2034,12 @@ def _provenance_rows(task_type: str, signals: list[str], model_id: str, rational
 
 
 def _provenance_rest(steps: list[dict], attempts: int, include_thinking: bool,
-                     trace: list[str], table: list[str]) -> str:
-    blocks = ["---", "", "#### 4CE provenance", "", "\n".join(table)]
+                     trace: list[str], table: list[str], receipt: str = "") -> str:
+    blocks = [
+        "---",
+        receipt,
+        "<details>\n<summary>Full provenance</summary>\n\n" + "\n".join(table) + "\n</details>",
+    ]
 
     for step in steps:
         # JARVIS's output is the answer above; repeating it only adds noise unless

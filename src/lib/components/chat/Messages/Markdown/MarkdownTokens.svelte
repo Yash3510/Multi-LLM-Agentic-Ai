@@ -27,6 +27,19 @@
 	import HtmlToken from './HTMLToken.svelte';
 	import Clipboard from '$lib/components/icons/Clipboard.svelte';
 	import ColonFenceBlock from './ColonFenceBlock.svelte';
+	import ReceiptStrip from './ReceiptStrip.svelte';
+
+	/* A ```4ce-receipt block: the facts of a 4CE run, drawn as a strip rather
+	   than shown as JSON. Anything that does not parse falls back to code. */
+	const receiptOf = (token) => {
+		if (token?.lang !== '4ce-receipt') return null;
+		try {
+			const data = JSON.parse(token.text);
+			return data && typeof data === 'object' ? data : null;
+		} catch {
+			return null;
+		}
+	};
 
 	export let id: string;
 	export let chatId = '';
@@ -190,7 +203,9 @@
 			/>
 		</svelte:element>
 	{:else if token.type === 'code'}
-		{#if token.raw.includes('```')}
+		{#if receiptOf(token)}
+			<ReceiptStrip data={receiptOf(token)} />
+		{:else if token.raw.includes('```')}
 			<CodeBlock
 				id={`${id}-${tokenIdx}`}
 				collapsed={$settings?.collapseCodeBlocks ?? false}

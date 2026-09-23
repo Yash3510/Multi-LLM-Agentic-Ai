@@ -36,18 +36,43 @@
 
 		return title;
 	}
+
+	/* An evidence chip names the document, not the file: a document code such
+	   as "SOP-MEC-014" when the name starts with one, otherwise the name
+	   without its extension or underscores. The full file name is on hover
+	   and in the passage panel. */
+	const chipTitle = (title: string) => {
+		if (title.startsWith('http')) return getDomain(title);
+		const name = title.replace(/\.(pdf|docx?|md|txt|csv|xlsx?|pptx?|html?)$/i, '');
+		const code = name.match(/^[A-Z]{2,}(?:-[A-Z0-9]+)*-\d+/);
+		return code ? code[0] : name.replace(/_+/g, ' ');
+	};
 </script>
 
 {#if title !== 'N/A'}
+	<!-- 4CE evidence chip: the document a claim rests on. Opens the exact
+	     passage that was retrieved from it. -->
 	<button
 		aria-label={$i18n.t('View source: {{title}}', { title: formattedTitle(decodeString(title)) })}
-		class="text-[0.625rem] w-fit translate-y-[2px] px-2 py-0.5 dark:bg-white/5 dark:text-white/80 dark:hover:text-white bg-gray-50 text-black/80 hover:text-black transition rounded-xl"
+		title={formattedTitle(decodeString(title))}
+		class="evidence-chip inline-flex w-fit max-w-[16rem] translate-y-[1px] items-center gap-1 rounded-full border border-sky-200/80 bg-sky-50 px-1.5 py-px align-baseline text-[0.66rem] font-medium leading-[1.35] text-sky-800 transition hover:border-sky-300 hover:bg-sky-100 dark:border-sky-900/80 dark:bg-sky-950/50 dark:text-sky-200 dark:hover:border-sky-800 dark:hover:bg-sky-900/50"
 		on:click={() => {
 			onClick(id);
 		}}
 	>
+		<svg
+			class="size-[0.7rem] shrink-0 opacity-75"
+			viewBox="0 0 16 16"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.6"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+			><path d="M4 1.75h5.25L12.5 5v9.25H4z" /><path d="M9 1.75V5h3.5M6 8.25h4M6 10.75h4" /></svg
+		>
 		<span class="line-clamp-1">
-			{getDisplayTitle(formattedTitle(decodeString(title)))}
+			{getDisplayTitle(chipTitle(decodeString(title)))}
 		</span>
 	</button>
 {/if}
