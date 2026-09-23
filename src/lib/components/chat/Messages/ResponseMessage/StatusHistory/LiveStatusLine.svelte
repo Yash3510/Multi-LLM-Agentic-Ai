@@ -85,7 +85,7 @@
 
 	export let status = null;
 
-	const EVERY = 2600; // ms each line stays up
+	const EVERY = 3800; // ms each line stays up: one pass of the light, then a rest
 
 	let line = '';
 	let serial = 0; // bumps on every change, so the roll-up animates each one
@@ -156,7 +156,7 @@
 <div class="grid overflow-hidden py-0.5" aria-hidden="true">
 	{#key serial}
 		<div
-			class="[grid-area:1/1] text-[0.9375rem] line-clamp-1 text-left {live
+			class="[grid-area:1/1] w-fit max-w-full text-[0.9375rem] line-clamp-1 text-left {live
 				? 'line-light'
 				: 'text-gray-600 dark:text-gray-400'}"
 			in:fly={{ y: reduced ? 0 : 10, duration: reduced ? 0 : 340, opacity: 0 }}
@@ -168,8 +168,10 @@
 </div>
 
 <style>
-	/* A violet light runs through the working line, as through the working
-	   stage's name on the rail. */
+	/* A soft violet light glides across the working line once, then rests,
+	   as across the working stage's name on the rail. Sized to the words
+	   (the line is only as wide as its text), so a long line does not make
+	   the light race. Each new line starts its own pass as it comes up. */
 	.line-light {
 		--base: var(--color-gray-600, #676767);
 		--vt: #a78bfa;
@@ -177,18 +179,19 @@
 		background: linear-gradient(
 			90deg,
 			var(--base) 0%,
-			var(--base) 36%,
-			var(--vt) 45%,
-			var(--vh) 51%,
-			var(--vt) 57%,
-			var(--base) 66%,
+			var(--base) 38%,
+			var(--vt) 46%,
+			var(--vh) 50%,
+			var(--vt) 54%,
+			var(--base) 62%,
 			var(--base) 100%
 		);
-		background-size: 280% 100%;
+		background-size: 300% 100%;
+		background-position: 100% 0;
 		-webkit-background-clip: text;
 		background-clip: text;
 		-webkit-text-fill-color: transparent;
-		animation: line-light 3.2s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+		animation: line-light 3.8s cubic-bezier(0.37, 0, 0.63, 1) 400ms infinite;
 	}
 	:global(.dark) .line-light {
 		--base: var(--color-gray-400, #b4b4b4);
@@ -199,9 +202,9 @@
 		0% {
 			background-position: 100% 0;
 		}
-		70%,
+		63%,
 		100% {
-			background-position: -180% 0;
+			background-position: 0% 0;
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {

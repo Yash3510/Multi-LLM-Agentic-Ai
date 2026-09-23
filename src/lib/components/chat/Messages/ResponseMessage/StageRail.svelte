@@ -297,7 +297,7 @@
 		swept = true;
 		sweeping = true;
 		// The ring closes, the tick draws, then the light crosses the names.
-		sweepTimer = setTimeout(() => (sweeping = false), 5000);
+		sweepTimer = setTimeout(() => (sweeping = false), 5800);
 	}
 	$: syncSweep(looks[looks.length - 1]);
 
@@ -658,41 +658,47 @@
 		transition: color 300ms ease;
 	}
 
-	/* The working stage's name: a violet light runs through it. */
+	/* The working stage's name: now and then a soft violet light glides
+	   across it, once, then rests. The gradient is three times the name's
+	   width and moves from one end to the other, so the band starts and ends
+	   just off the letters and always crosses at the same unhurried pace. */
 	.live-name {
 		background: linear-gradient(
 			90deg,
 			var(--name) 0%,
-			var(--name) 36%,
-			var(--vt) 45%,
-			var(--vh) 51%,
-			var(--vt) 57%,
-			var(--name) 66%,
+			var(--name) 38%,
+			var(--vt) 46%,
+			var(--vh) 50%,
+			var(--vt) 54%,
+			var(--name) 62%,
 			var(--name) 100%
 		);
-		background-size: 280% 100%;
+		background-size: 300% 100%;
+		background-position: 100% 0;
 		-webkit-background-clip: text;
 		background-clip: text;
 		-webkit-text-fill-color: transparent;
-		animation: name-light 3.2s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+		animation: name-light 3.8s cubic-bezier(0.37, 0, 0.63, 1) 400ms infinite;
 	}
-	/* Released: once the tick is in, one light crosses the names, left to right. */
+	/* Released: once the tick is in, one light crosses the names, left to
+	   right, each a little after the last. */
 	.sweeping .name {
 		background: linear-gradient(
 			90deg,
 			currentColor 0%,
-			currentColor 36%,
-			var(--vt) 45%,
-			var(--vh) 51%,
-			var(--vt) 57%,
-			currentColor 66%,
+			currentColor 38%,
+			var(--vt) 46%,
+			var(--vh) 50%,
+			var(--vt) 54%,
+			currentColor 62%,
 			currentColor 100%
 		);
 		background-size: 300% 100%;
+		background-position: 100% 0;
 		-webkit-background-clip: text;
 		background-clip: text;
 		-webkit-text-fill-color: transparent;
-		animation: name-sweep 2.3s cubic-bezier(0.45, 0, 0.25, 1) calc(1800ms + var(--i) * 160ms) both;
+		animation: name-sweep 2.8s cubic-bezier(0.37, 0, 0.63, 1) calc(1800ms + var(--i) * 220ms) both;
 	}
 
 	/* The arc draws itself in from ULTRON's side, then the spark rides it back. */
@@ -745,9 +751,9 @@
 		0% {
 			background-position: 100% 0;
 		}
-		70%,
+		63%,
 		100% {
-			background-position: -180% 0;
+			background-position: 0% 0;
 		}
 	}
 	@keyframes name-sweep {
