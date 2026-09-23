@@ -120,9 +120,29 @@
 	:global(.dark) .invalid input {
 		border-color: rgb(248 113 113 / 0.5);
 	}
-	/* Keep the field's own colours when the browser autofills it. */
-	input:-webkit-autofill {
-		-webkit-text-fill-color: currentColor;
-		transition: background-color 600000s 0s;
+	/* Autofill. The browser paints a filled-in field its own way: it forces
+	   the text to its field colour (black unless told the page is dark) and
+	   tints the background. On the dark page that left black text on a dark
+	   field. The text colour is set outright, the field is told which scheme
+	   it is in, and the tint is held off so the field keeps its own colour. */
+	input {
+		caret-color: var(--color-gray-900, #1c1c1c);
+	}
+	:global(.dark) input {
+		color-scheme: dark;
+		caret-color: #fff;
+	}
+	input:-webkit-autofill,
+	input:-webkit-autofill:hover,
+	input:-webkit-autofill:focus {
+		-webkit-text-fill-color: var(--color-gray-900, #1c1c1c);
+		transition:
+			background-color 600000s 0s,
+			color 600000s 0s;
+	}
+	:global(.dark) input:-webkit-autofill,
+	:global(.dark) input:-webkit-autofill:hover,
+	:global(.dark) input:-webkit-autofill:focus {
+		-webkit-text-fill-color: var(--color-gray-100, #efefef);
 	}
 </style>
