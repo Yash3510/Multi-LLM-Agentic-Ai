@@ -243,7 +243,7 @@
 		     the pointer lit. -->
 		<div class="relative w-full group my-3">
 			<div
-				class="scrollbar-hidden relative overflow-x-auto max-w-full rounded-xl border border-gray-200/80 dark:border-gray-800"
+				class="scrollbar-hidden relative overflow-x-auto max-w-full rounded-2xl border border-gray-200/80 dark:border-gray-800"
 			>
 				<table
 					class="!my-0 w-full text-start text-[13.5px] text-gray-800 dark:text-gray-200 max-w-full"

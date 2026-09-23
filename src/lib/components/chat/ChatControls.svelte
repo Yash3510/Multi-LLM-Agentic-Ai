@@ -320,7 +320,7 @@
 		<!-- A card set in from the window's edge, with the corners of the message
 		     box and the sign-off panel, rather than a slab against it. -->
 		<div
-			class="flex h-full max-h-full min-h-full overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_1px_2px_-1px_rgba(16,24,40,0.05),0_12px_32px_-18px_rgba(16,24,40,0.18)] dark:border-gray-800/80 dark:bg-gray-900 dark:shadow-none"
+			class="flex h-full max-h-full min-h-full overflow-hidden rounded-[20px] border border-gray-100 bg-white shadow-[0_1px_2px_-1px_rgba(16,24,40,0.05),0_12px_32px_-18px_rgba(16,24,40,0.18)] dark:border-gray-800/80 dark:bg-gray-900 dark:shadow-none"
 		>
 			<div
 				class="w-full {specialPanel && !$showCallOverlay

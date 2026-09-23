@@ -26,7 +26,7 @@
 </script>
 
 <div
-	class="revision mt-2.5 rounded-xl border border-gray-200/80 px-3 py-2 dark:border-gray-800"
+	class="revision mt-2.5 rounded-2xl border border-gray-200/80 px-3 py-2 dark:border-gray-800"
 	role="group"
 	aria-label="What changed on try 2"
 >

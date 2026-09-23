@@ -13,8 +13,6 @@
 	import ProfileImage from '../Messages/ProfileImage.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Heart from '$lib/components/icons/Heart.svelte';
-	import LogoMotion from '$lib/components/common/LogoMotion.svelte';
-	import { ALL_MOTIONS } from '$lib/components/common/logoMotion.js';
 	import { user as currentUser } from '$lib/stores';
 	import { getOutputText } from '../Messages/structuredOutput';
 	import { runSummary, snippet, initials } from './summary';
@@ -68,7 +66,7 @@
 </script>
 
 <div
-	class="ov-card group relative box-border w-60 h-[5.75rem] rounded-xl border px-3 py-2.5 transition-[border-color,box-shadow,opacity,transform,background-color] duration-200 hover:-translate-y-px
+	class="ov-card group relative box-border w-60 h-[5.75rem] rounded-2xl border px-3 py-2.5 transition-[border-color,box-shadow,opacity,transform,background-color] duration-200 hover:-translate-y-px
 		{data?.current
 		? 'border-transparent bg-white ring-1 ring-gray-900 dark:bg-gray-900 dark:ring-gray-100'
 		: data?.onPath
@@ -89,24 +87,21 @@
 						aria-hidden="true">{initials(personName)}</span
 					>
 				{:else if is4ce}
+					<!-- The plain mark, live or not: the rib and its label say a run is
+					     working, and the chat avatar carries the motion. -->
 					<span class="relative flex size-[18px] items-center justify-center" aria-hidden="true">
-						{#if summary?.live}
-							<!-- The same motions as the chat avatar (ResponseMessage). -->
-							<LogoMotion motion={ALL_MOTIONS} randomStart size={17} />
-						{:else}
-							<img
-								src="/static/logo-mark-dark.svg"
-								class="ov-mark size-[17px] dark:hidden"
-								alt=""
-								draggable="false"
-							/>
-							<img
-								src="/static/logo-mark-light.svg"
-								class="ov-mark hidden size-[17px] dark:block"
-								alt=""
-								draggable="false"
-							/>
-						{/if}
+						<img
+							src="/static/logo-mark-dark.svg"
+							class="ov-mark size-[17px] dark:hidden"
+							alt=""
+							draggable="false"
+						/>
+						<img
+							src="/static/logo-mark-light.svg"
+							class="ov-mark hidden size-[17px] dark:block"
+							alt=""
+							draggable="false"
+						/>
 					</span>
 				{:else}
 					<ProfileImage

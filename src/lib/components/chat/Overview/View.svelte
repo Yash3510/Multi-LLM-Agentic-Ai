@@ -423,7 +423,7 @@
 		<!-- Why ULTRON sent it back: the same objection -> fix as the card under
 		     the answer, kept short, with a way into the answer itself. -->
 		<div
-			class="ov-why absolute inset-x-3 top-2 z-10 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-[0_18px_40px_-20px_rgba(16,24,40,0.35)] dark:border-gray-800 dark:bg-gray-900"
+			class="ov-why absolute inset-x-3 top-2 z-10 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 shadow-[0_18px_40px_-20px_rgba(16,24,40,0.35)] dark:border-gray-800 dark:bg-gray-900"
 			role="dialog"
 			aria-label="Why ULTRON sent it back"
 		>

@@ -150,7 +150,7 @@
 
 	{#if checks.length}
 		<div
-			class="receipt-checks mt-2.5 rounded-xl border border-gray-100 px-3 py-2 dark:border-gray-850"
+			class="receipt-checks mt-2.5 rounded-2xl border border-gray-100 px-3 py-2 dark:border-gray-850"
 			style="--n: {pills.length + 3}"
 		>
 			<!-- 4CE's own mechanical check first, then ULTRON's; each line says

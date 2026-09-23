@@ -1856,7 +1856,7 @@
 
 						<div
 							id="message-input-container"
-							class="flex-1 flex flex-col relative w-full rounded-2xl border ring-1 ring-black/[0.04] dark:ring-white/[0.06] focus-within:ring-black/[0.08] dark:focus-within:ring-white/[0.10] shadow-[0_1px_2px_-1px_rgba(16,24,40,0.06),0_12px_32px_-14px_rgba(16,24,40,0.20)] focus-within:shadow-[0_1px_3px_-1px_rgba(16,24,40,0.08),0_20px_48px_-18px_rgba(16,24,40,0.28)] duration-300 ease-out {$temporaryChatEnabled
+							class="flex-1 flex flex-col relative w-full rounded-[20px] border ring-1 ring-black/[0.04] dark:ring-white/[0.06] focus-within:ring-black/[0.08] dark:focus-within:ring-white/[0.10] shadow-[0_1px_2px_-1px_rgba(16,24,40,0.06),0_12px_32px_-14px_rgba(16,24,40,0.20)] focus-within:shadow-[0_1px_3px_-1px_rgba(16,24,40,0.08),0_20px_48px_-18px_rgba(16,24,40,0.28)] duration-300 ease-out {$temporaryChatEnabled
 								? 'border-dashed border-gray-100 dark:border-gray-800 hover:border-gray-200 focus-within:border-gray-200 hover:dark:border-gray-700 focus-within:dark:border-gray-700'
 								: ' border-gray-100/30 dark:border-gray-850/30 hover:border-gray-200 focus-within:border-gray-100 hover:dark:border-gray-800 focus-within:dark:border-gray-800'} {($settings?.highContrastMode ??
 							false)

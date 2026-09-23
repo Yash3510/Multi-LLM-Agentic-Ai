@@ -89,7 +89,7 @@
 	<div
 		role="region"
 		aria-label="Review before release"
-		class="overflow-hidden rounded-2xl border border-gray-100 bg-white ring-1 ring-black/[0.04] shadow-[0_1px_3px_-1px_rgba(16,24,40,0.08),0_20px_48px_-18px_rgba(16,24,40,0.28)] dark:border-gray-850 dark:bg-gray-900 dark:ring-white/[0.06]"
+		class="overflow-hidden rounded-[20px] border border-gray-100 bg-white ring-1 ring-black/[0.04] shadow-[0_1px_3px_-1px_rgba(16,24,40,0.08),0_20px_48px_-18px_rgba(16,24,40,0.28)] dark:border-gray-850 dark:bg-gray-900 dark:ring-white/[0.06]"
 	>
 		<!-- One text edge for the whole panel: 29px + the 1px border puts the
 		     title, the objection and the hint on the same line as the text inside

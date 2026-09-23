@@ -81,7 +81,7 @@
 
 <div class="file-card-wrap relative my-3 w-full max-w-xl">
 	<div
-		class="file-card not-prose flex w-full items-center gap-3 rounded-xl border border-gray-200/90 bg-white py-2.5 pl-2.5 pr-3 transition-[border-color,box-shadow] duration-200 hover:border-gray-300 hover:shadow-[0_6px_18px_-12px_rgba(16,24,40,0.25)] dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+		class="file-card not-prose flex w-full items-center gap-3 rounded-2xl border border-gray-200/90 bg-white py-2.5 pl-2.5 pr-3 transition-[border-color,box-shadow] duration-200 hover:border-gray-300 hover:shadow-[0_6px_18px_-12px_rgba(16,24,40,0.25)] dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
 	>
 		<!-- The page and the title open the report to read; hovering them shows
 		     its first page. -->
@@ -147,7 +147,7 @@
 	{#if peek && fileId}
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
 		<div
-			class="report-peek absolute left-0 top-full z-30 mt-2 origin-[22px_-10px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_24px_60px_-24px_rgba(16,24,40,0.45)] dark:border-gray-700 dark:bg-gray-900"
+			class="report-peek absolute left-0 top-full z-30 mt-2 origin-[22px_-10px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_24px_60px_-24px_rgba(16,24,40,0.45)] dark:border-gray-700 dark:bg-gray-900"
 			in:lift
 			out:fade={{ duration: 140 }}
 			on:mouseenter={enter}

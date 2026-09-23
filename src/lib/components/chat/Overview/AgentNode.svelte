@@ -21,7 +21,7 @@
 </script>
 
 <div
-	class="ov-agent group box-border flex h-11 w-60 items-center gap-2 rounded-xl border px-2.5 transition-[border-color,opacity,transform] duration-200 hover:-translate-y-px
+	class="ov-agent group box-border flex h-11 w-60 items-center gap-2 rounded-2xl border px-2.5 transition-[border-color,opacity,transform] duration-200 hover:-translate-y-px
 		{agent.active
 		? 'border-gray-900 bg-white dark:border-gray-100 dark:bg-gray-900'
 		: 'border-gray-200/90 bg-white hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700'}"
