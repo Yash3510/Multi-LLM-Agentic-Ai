@@ -129,6 +129,14 @@ async def can_read_shared_chat(user, shared, db: AsyncSession) -> bool:
 async def add_active_state_to_chat_list(
     request: Request, chat_list: list[ChatTitleIdResponse]
 ) -> list[ChatTitleIdResponse]:
+    # 4CE: how each chat's latest run ended, for the sidebar's markers.
+    try:
+        outcomes = await Chats.get_fource_outcomes([chat.id for chat in chat_list])
+    except Exception:
+        log.exception('4CE: could not read chat outcomes')
+        outcomes = {}
+    for chat in chat_list:
+        chat.outcome = outcomes.get(chat.id) or None
     for chat in chat_list:
         chat.active = False
         if not await has_active_tasks(request.app.state.redis, chat.id):

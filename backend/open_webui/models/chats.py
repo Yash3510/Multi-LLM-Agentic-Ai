@@ -309,6 +309,8 @@ class ChatTitleIdResponse(BaseModel):
     last_read_at: int | None = None
     snippet: str | None = None
     active: bool = False
+    # 4CE: how the chat's latest run ended (utils/fource.py).
+    outcome: str | None = None
 
 
 class SharedChatResponse(BaseModel):
@@ -1542,6 +1544,36 @@ class ChatTable:
                 )
                 for chat in all_chats
             ]
+
+    async def get_fource_outcomes(self, ids: list[str], db: AsyncSession | None = None) -> dict[str, str]:
+        """How each chat's latest 4CE run ended, keyed by chat id. Worked out
+        from the chat once per change and kept in its meta beside the
+        `updated_at` it was read at, so a list only re-reads chats that
+        changed. Writing meta leaves `updated_at` and the list order alone."""
+        from open_webui.utils.fource import fource_outcome
+
+        if not ids:
+            return {}
+        async with get_async_db_context(db) as session:
+            rows = (
+                await session.execute(select(Chat.id, Chat.updated_at, Chat.meta).where(Chat.id.in_(ids)))
+            ).all()
+            outcomes: dict[str, str] = {}
+            stale: list[str] = []
+            for chat_id, updated_at, meta in rows:
+                meta = meta or {}
+                if meta.get('4ce_outcome_at') == updated_at and '4ce_outcome' in meta:
+                    outcomes[chat_id] = meta['4ce_outcome']
+                else:
+                    stale.append(chat_id)
+            if stale:
+                chats = (await session.execute(select(Chat).where(Chat.id.in_(stale)))).scalars().all()
+                for chat in chats:
+                    outcome = fource_outcome(chat.chat)
+                    outcomes[chat.id] = outcome
+                    chat.meta = {**(chat.meta or {}), '4ce_outcome': outcome, '4ce_outcome_at': chat.updated_at}
+                await session.commit()
+            return outcomes
 
     async def get_chat_title_id_list_by_user_id(
         self,

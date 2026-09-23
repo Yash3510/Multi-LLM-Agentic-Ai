@@ -17,6 +17,8 @@
 	export let kind = 'pending';
 	export let motion = true;
 	export let bloom = 0;
+	/** Drawn size in px; the geometry scales with it. */
+	export let size = 14;
 
 	const mountedAs = kind;
 	const mountedBloom = bloom;
@@ -44,8 +46,8 @@
 	class="node-glyph k-{kind}"
 	class:still={!play}
 	viewBox="0 0 14 14"
-	width="14"
-	height="14"
+	width={size}
+	height={size}
 	aria-hidden="true"
 >
 	<circle class="wait" class:on={WAITING.has(kind)} cx={C} cy={C} r={R} pathLength="60" />

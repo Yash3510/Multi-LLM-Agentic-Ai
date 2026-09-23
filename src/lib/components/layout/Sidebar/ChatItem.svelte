@@ -59,6 +59,10 @@
 	import { createMessagesList } from '$lib/utils';
 	import { getOutputText } from '$lib/components/chat/Messages/structuredOutput';
 
+	import NodeGlyph from '$lib/components/chat/Messages/ResponseMessage/NodeGlyph.svelte';
+	const OUTCOME_GLYPH = { released: 'released', withheld: 'withheld', stopped: 'interrupted', done: 'done' };
+	const OUTCOME_LABEL = { released: 'Released', withheld: 'Withheld', stopped: 'Stopped', direct: 'Direct reply' };
+
 	const i18n = getContext('i18n');
 
 	const dispatch = createEventDispatcher();
@@ -71,6 +75,9 @@
 	export let updatedAt: number | null = null;
 	export let lastReadAt: number | null = null;
 	export let active = false;
+	/** 4CE: how the chat's latest run ended (released, withheld, stopped,
+	    direct, done), or null. */
+	export let outcome: string | null = null;
 
 	export let selected = false;
 	export let shiftKey = false;
@@ -521,11 +528,22 @@
 		</Tooltip>
 	{/if}
 
-	<!-- Loading spinner for active chat (left side) -->
-	{#if active}
-		<div class="shrink-0 self-center pr-2">
-			<Spinner className="size-3" />
-		</div>
+	<!-- 4CE: how the chat's latest run ended, in the rail's own shapes - the
+	     six violet dots while it runs, then its ring closes into a tick
+	     (released), a dash (withheld), amber (stopped), or a centre dot (done);
+	     a direct reply is a small dot. Every row keeps the slot, so titles
+	     line up. -->
+	<div class="shrink-0 self-center pr-2 flex size-5 items-center justify-center" aria-hidden="true">
+		{#if active}
+			<NodeGlyph kind="active" size={12} />
+		{:else if outcome === 'direct'}
+			<span class="size-1 rounded-full bg-gray-400 dark:bg-gray-500"></span>
+		{:else if outcome && OUTCOME_GLYPH[outcome]}
+			<NodeGlyph kind={OUTCOME_GLYPH[outcome]} size={12} />
+		{/if}
+	</div>
+	{#if active || (outcome && outcome !== 'done')}
+		<span class="sr-only">{active ? 'Running' : OUTCOME_LABEL[outcome] ?? ''}</span>
 	{/if}
 
 	<div class="flex self-center flex-1 w-full min-w-0">

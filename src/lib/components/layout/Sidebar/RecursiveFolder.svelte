@@ -956,6 +956,7 @@
 							updatedAt={chat.updated_at}
 							lastReadAt={chat.last_read_at}
 							active={chat.active ?? false}
+							outcome={chat.outcome ?? null}
 							ownerName={folders[folderId]?.shared ? (chat.owner_name ?? null) : null}
 							ownerUserId={folders[folderId]?.shared && chat.owner_name ? chat.user_id : null}
 							readonly={chat.user_id !== $user?.id}

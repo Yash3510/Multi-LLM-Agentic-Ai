@@ -1610,6 +1610,7 @@
 													updatedAt={chat.updated_at}
 													lastReadAt={chat.last_read_at}
 													active={chat.active ?? false}
+													outcome={chat.outcome ?? null}
 													{shiftKey}
 													selected={selectedChatId === chat.id}
 													on:select={() => {
@@ -1675,6 +1676,7 @@
 											updatedAt={chat.updated_at}
 											lastReadAt={chat.last_read_at}
 											active={chat.active ?? false}
+											outcome={chat.outcome ?? null}
 											{shiftKey}
 											selected={selectedChatId === chat.id}
 											on:select={() => {
