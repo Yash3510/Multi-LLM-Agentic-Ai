@@ -89,7 +89,7 @@
 	<div
 		role="region"
 		aria-label="Review before release"
-		class="overflow-hidden rounded-3xl border border-gray-100 bg-white ring-1 ring-black/[0.04] shadow-[0_1px_3px_-1px_rgba(16,24,40,0.08),0_20px_48px_-18px_rgba(16,24,40,0.28)] dark:border-gray-850 dark:bg-gray-900 dark:ring-white/[0.06]"
+		class="overflow-hidden rounded-2xl border border-gray-100 bg-white ring-1 ring-black/[0.04] shadow-[0_1px_3px_-1px_rgba(16,24,40,0.08),0_20px_48px_-18px_rgba(16,24,40,0.28)] dark:border-gray-850 dark:bg-gray-900 dark:ring-white/[0.06]"
 	>
 		<!-- One text edge for the whole panel: 29px + the 1px border puts the
 		     title, the objection and the hint on the same line as the text inside
@@ -121,7 +121,7 @@
 		{/if}
 
 		<div
-			class="markdown-prose mx-3 mb-3 max-h-[42vh] overflow-y-auto rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-gray-900 dark:border-gray-850 dark:bg-gray-850/60 dark:text-gray-100"
+			class="markdown-prose mx-3 mb-3 max-h-[42vh] overflow-y-auto rounded-[10px] border border-gray-100 bg-gray-50 px-4 py-4 text-gray-900 dark:border-gray-850 dark:bg-gray-850/60 dark:text-gray-100"
 		>
 			{@html draftHtml}
 		</div>
@@ -139,7 +139,7 @@
 				placeholder="Type approve to release"
 				aria-label="Type approve to release"
 				aria-describedby="approval-hint"
-				class="min-w-0 w-full sm:w-auto sm:flex-1 rounded-full border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-300 dark:border-gray-800 dark:bg-gray-850 dark:text-gray-100 dark:focus:border-gray-600"
+				class="min-w-0 w-full sm:w-auto sm:flex-1 rounded-[10px] border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-300 dark:border-gray-800 dark:bg-gray-850 dark:text-gray-100 dark:focus:border-gray-600"
 			/>
 			<button
 				type="button"

@@ -1,15 +1,16 @@
 <script>
 	/*
 	 * StageRail - the 4CE agent chain as a node path at the top of each answer:
-	 *   TONY ● ╌╌ ● FRIDAY ╌╌ ● JARVIS ╌╌ ● ULTRON ╌╌ ◆ You
-	 * Dots for the agents and a diamond for the human gate, echoing the dotted
-	 * orb and the connection-wheel mark. The wires are short cut lines that
+	 *   TONY ● ╌╌ ● FRIDAY ╌╌ ● JARVIS ╌╌ ● ULTRON ╌╌ ○ You
+	 * One dot for every stage, the human gate included: a ring while it waits
+	 * on you, filled with a tick when you release and a dash when you
+	 * withhold - one shape and ink only, so the rail ends as it began. The wires are short cut lines that
 	 * carry energy cut by cut:
 	 * - after the live agent, pulses run toward the next node - indeterminate
 	 *   motion, never a fake percentage;
 	 * - when a stage hands over, a spark charges the wire into the next node,
 	 *   and that node lands as the spark reaches it;
-	 * - the gate's wire charges amber (withheld) or green (released);
+	 * - the gate's wire charges in ink once you decide, either way;
 	 * - a finished chat charges its chain once, left to right, when it opens.
 	 *
 	 * Built only from the status stream the orchestrator already sends, so it
@@ -274,9 +275,9 @@
 		requeued: 'border border-gray-400 dark:border-gray-500',
 		skipped: 'border border-dashed border-gray-200 dark:border-gray-700',
 		fail: 'bg-amber-500',
-		withheld: 'bg-amber-500',
+		withheld: 'bg-gray-900 dark:bg-white',
 		interrupted: 'bg-amber-500',
-		released: 'bg-emerald-500'
+		released: 'bg-gray-900 dark:bg-white'
 	};
 	const LABEL = {
 		done: 'text-gray-600 dark:text-gray-300',
@@ -285,9 +286,9 @@
 		requeued: 'text-gray-500 dark:text-gray-400',
 		skipped: 'text-gray-300 dark:text-gray-600',
 		fail: 'text-amber-700 dark:text-amber-300',
-		withheld: 'text-amber-700 dark:text-amber-300',
+		withheld: 'text-gray-600 dark:text-gray-300',
 		interrupted: 'text-amber-700 dark:text-amber-300',
-		released: 'text-emerald-700 dark:text-emerald-300'
+		released: 'text-gray-900 dark:text-white'
 	};
 
 	/* The wire leaving stage i, toward stage i + 1. */
@@ -296,8 +297,10 @@
 		const to = stages[i + 1];
 		if (from.state === 'active') return 'flow';
 		if (to.name === 'You') {
-			if (to.state === 'released') return 'released';
-			if (to.state === 'withheld' || to.state === 'interrupted') return 'held';
+			// Your decision, either way, charges the wire in ink; only a run cut
+			// off before you decided stays amber.
+			if (to.state === 'released' || to.state === 'withheld') return 'released';
+			if (to.state === 'interrupted') return 'held';
 		}
 		if (['pending', 'skipped', 'requeued'].includes(to.state)) return 'future';
 		return 'done';
@@ -421,23 +424,39 @@
 								<!-- A soft glow that beats with the pulses leaving along the
 								     wire (same 1.1s period, same start), in place of the
 								     generic ping ring. -->
-								<span
-									class="halo absolute inset-0 {s.name === 'You'
-										? 'rotate-45 rounded-[2px]'
-										: 'rounded-full'}"
-								></span>
+								<span class="halo absolute inset-0 rounded-full"></span>
 							{/if}
 							{#if s.state === 'released'}
-								<span class="burst rotate-45 rounded-[2px]"></span>
+								<span class="burst rounded-full"></span>
 							{/if}
-							<span
-								class="relative inline-flex size-2.5 {s.name === 'You'
-									? 'rotate-45 rounded-[2px]'
-									: 'rounded-full'} {DOT[s.state]} transition-all duration-300 {done &&
-								s.state !== 'skipped'
-									? 'group-hover:scale-125'
-									: ''}"
-							></span>
+							{#if s.name === 'You' && (s.state === 'released' || s.state === 'withheld')}
+								<!-- Your decision: the gate fills, with a tick or a dash. -->
+								<span
+									class="relative inline-flex size-3 shrink-0 items-center justify-center rounded-full {DOT[
+										s.state
+									]} transition-all duration-300 {done ? 'group-hover:scale-125' : ''}"
+								>
+									<svg
+										class="size-2 text-white dark:text-gray-900"
+										viewBox="0 0 8 8"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.4"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										><path d={s.state === 'released' ? 'M1.6 4.2l1.6 1.6 3.2-3.5' : 'M2 4h4'} /></svg
+									>
+								</span>
+							{:else}
+								<span
+									class="relative inline-flex size-2.5 rounded-full {s.name === 'You' &&
+									s.state === 'active'
+										? 'border-[1.5px] border-gray-900 bg-white dark:border-white dark:bg-gray-900'
+										: DOT[s.state]} transition-all duration-300 {done && s.state !== 'skipped'
+										? 'group-hover:scale-125'
+										: ''}"
+								></span>
+							{/if}
 						</span>
 						<span
 							class="mt-2 text-[10.5px] font-medium tracking-[0.08em] {LABEL[s.state]} transition-colors duration-500"
@@ -467,8 +486,8 @@
 		--ink: var(--color-gray-900, #1c1c1c);
 		--cut: var(--color-gray-200, #e5e5e5);
 		--charged: var(--color-gray-400, #b4b4b4);
-		--held: #fbbf24; /* amber-400 */
-		--released: #34d399; /* emerald-400 */
+		--held: #fbbf24; /* amber-400: a run cut off */
+		--released: var(--ink); /* your decision, either way */
 		--glow: none;
 	}
 	:global(.dark) .rail {
@@ -476,7 +495,7 @@
 		--cut: var(--color-gray-800, #3b3b3b);
 		--charged: var(--color-gray-600, #6a6a6a);
 		--held: #d97706; /* amber-600 */
-		--released: #059669; /* emerald-600 */
+		--released: var(--ink);
 		--glow: drop-shadow(0 0 1px rgba(255, 255, 255, 0.45));
 	}
 
