@@ -785,6 +785,10 @@ class Pipe:
                         "verdict_detail": _objection(verdict),
                         "task_type": task_type,
                         "model_id": model_id,
+                        # The checks, the passages behind each [n] and what a
+                        # second try changed, so the reviewer decides on the
+                        # same record the answer and the report carry.
+                        **_review(deliverable, verdict, sources, attempts),
                     },
                 }
             )
@@ -2142,6 +2146,40 @@ def _revision(first: dict, after: str, verdict: dict) -> dict:
         "more": max(0, len(changes) - len(keep)),
         "by": first["failed_by"],
         "verdict": str(verdict.get("status", "")).upper(),
+    }
+
+
+def _review(deliverable: str, verdict: dict, sources: list[dict], attempts: int) -> dict:
+    """What the sign-off panel shows beside the draft: the checks made before
+    release, what each cited [n] rests on, and on a second try what changed.
+    All of it is already worked out for the answer's card and the report;
+    this hands the reviewer the same record before they decide."""
+    cited = set(_cited_numbers(deliverable, len(sources)))
+    figures = _cited_figures(deliverable, len(sources))
+    docs = []
+    for n, source in enumerate(sources, 1):
+        # The chat's passage panel reads a distance in 0..1 as a match share.
+        scores = [p.get("distance") for p in source["passages"]]
+        scores = [d for d in scores if isinstance(d, (int, float))]
+        best = max(scores) if scores and all(0 <= d <= 1 for d in scores) else None
+        docs.append({
+            "n": n,
+            "name": source["name"],
+            "cited": n in cited,
+            "passage": _clip(
+                _supporting_text("\n".join(p["text"] for p in source["passages"]), figures.get(n, set())),
+                700,
+            ),
+            "match": round(best * 100) if best is not None else None,
+        })
+    return {
+        "checks": [
+            {"kind": c["kind"], "text": c["text"], "by": c.get("by", "ULTRON")}
+            for c in verdict.get("checks") or []
+        ],
+        "sources": docs,
+        "revision": verdict.get("revision"),
+        "tries": attempts,
     }
 
 
