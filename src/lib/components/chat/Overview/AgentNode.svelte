@@ -16,7 +16,8 @@
 	$: agent = data?.agent ?? {};
 	$: gate = agent.name === 'YOU';
 	$: name = gate ? $i18n.t('You') : agent.name;
-	$: detail = agent.model ?? (gate ? $i18n.t('Approval') : agent.role);
+	// The gate's time is how long the reviewer took, so it says "waited".
+	$: detail = agent.model ?? (gate ? '' : agent.role);
 </script>
 
 <div
@@ -58,7 +59,9 @@
 		{detail}
 	</span>
 	{#if agent.time}
-		<span class="shrink-0 text-[10px] tabular-nums text-gray-500 dark:text-gray-400">{agent.time}</span>
+		<span class="shrink-0 text-[10px] tabular-nums text-gray-500 dark:text-gray-400"
+			>{gate && !agent.active ? `waited ${agent.time}` : agent.time}</span
+		>
 	{/if}
 
 	{#if agent.note}

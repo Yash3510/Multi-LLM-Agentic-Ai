@@ -39,7 +39,7 @@
 			class="line-clamp-1 text-[13px] font-medium leading-5 text-gray-900 dark:text-gray-100"
 			title={data.title || kind}>{data.title || kind}</span
 		>
-		<span class="line-clamp-1 text-[11.5px] leading-4 text-gray-500 dark:text-gray-400">
+		<span class="line-clamp-1 text-[11.5px] leading-4 text-gray-600 dark:text-gray-400">
 			{kind}{data.kb ? ` · ${data.kb} KB` : ''} · stored on this machine
 		</span>
 	</span>
@@ -66,7 +66,7 @@
 	{/if}
 </div>
 {#if data.note}
-	<p class="-mt-1.5 mb-3 text-xs text-gray-500 dark:text-gray-400">{data.note.replace(/`/g, '')}</p>
+	<p class="-mt-1.5 mb-3 text-xs text-gray-600 dark:text-gray-400">{data.note.replace(/`/g, '')}</p>
 {/if}
 
 <style>

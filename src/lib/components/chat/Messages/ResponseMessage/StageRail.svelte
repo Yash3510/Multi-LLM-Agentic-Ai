@@ -470,7 +470,12 @@
 						     Faded in dark mode only: at 75% on white it measured 3.35:1, under
 						     AA for text this small; full strength is 5.3:1. -->
 						<span class="text-[10.5px] tabular-nums leading-tight {LABEL[s.state]} dark:opacity-75">
-							{#if s.time}<span class="block">{s.time}</span>{/if}
+							<!-- Your time is waiting, not work: said so once the decision is in. -->
+							{#if s.time}<span class="block"
+									>{s.name === 'You' && (s.state === 'released' || s.state === 'withheld')
+										? `waited ${s.time}`
+										: s.time}</span
+								>{/if}
 							{#if s.note}<span class="block">{s.note}</span>{/if}
 							{#if !s.time && !s.note}&nbsp;{/if}
 						</span>

@@ -907,6 +907,17 @@ class Pipe:
                 __sources__=[source["name"] for source in sources],
                 # What a replan changed, when ULTRON sent the first draft back.
                 __revision__=verdict.get("revision"),
+                # The checks made before release, and what each cited [n]
+                # rests on: the passage retrieved from that document.
+                __checks__=verdict.get("checks") or [],
+                __passages__=[
+                    _supporting_text(
+                        "\n".join(p["text"] for p in source["passages"]),
+                        _cited_figures(deliverable, len(sources)).get(n, set()),
+                    )
+                    for n, source in enumerate(sources, 1)
+                ],
+                __cited__=_cited_numbers(deliverable, len(sources)),
             )
             if docx and not docx.startswith(_ERR):
                 tools_used.append("create_word_document")
@@ -1899,6 +1910,55 @@ def _parse_checks(detail: str) -> list[dict]:
     return checks[:8]
 
 
+def _supporting_text(text: str, figures: set[str]) -> str:
+    """The clauses of a retrieved passage that hold the figures an answer
+    cites to it: what "[1]" actually rests on. A clause is a numbered line and
+    the lines that continue it. With nothing to match, the passage as is."""
+    blocks: list[str] = []
+    current: list[str] = []
+    for line in text.splitlines():
+        if not line.strip() or re.match(r"^\s*\d+(?:\.\d+)*\s", line):
+            if current:
+                blocks.append(" ".join(current))
+                current = []
+        if line.strip():
+            current.append(line.strip())
+    if current:
+        blocks.append(" ".join(current))
+    # A clause's own number ("5." or "2.1") is not one of its figures.
+    hits = [
+        block for block in blocks
+        if any(
+            re.search(rf"(?<![\w.]){re.escape(f)}(?!\w|\.\d)", re.sub(r"^\s*\d+(?:\.\d+)*\.?\s+", "", block))
+            for f in figures
+        )
+    ]
+    return "\n".join(hits) if hits else text
+
+
+def _cited_figures(text: str, count: int) -> dict[int, set[str]]:
+    """The figures each source is cited for, sentence by sentence."""
+    found: dict[int, set[str]] = {}
+    prose = re.sub(r"```[\s\S]*?```|`[^`\n]*`", " ", text or "")
+    for sentence in re.split(r"(?<=[.!?])\s+", prose):
+        numbers = [int(n) for group in _CITATION.findall(sentence) for n in re.split(r"\s*,\s*", group[1])]
+        figures = set(_FIGURE.findall(_CITATION.sub(" ", sentence)))
+        for n in numbers:
+            if 1 <= n <= count:
+                found.setdefault(n, set()).update(figures)
+    return found
+
+
+def _cited_numbers(text: str, count: int) -> list[int]:
+    """The source numbers an answer actually cites, in order."""
+    return sorted({
+        int(n)
+        for group in _CITATION.findall(text or "")
+        for n in re.split(r"\s*,\s*", group[1])
+        if 1 <= int(n) <= count
+    })
+
+
 def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapsed: float,
              attempts: int, agent_models: dict, tools_used: list[str] | None,
              sources: list[dict], approver: str = "", approved_at: str = "",
@@ -1915,12 +1975,7 @@ def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapse
         "sources": [source["name"] for source in sources],
         # Which of them the answer actually cites: two retrieved and one
         # cited should not read as "grounded in 2 sources".
-        "cited": sorted({
-            int(n)
-            for group in _CITATION.findall(verdict.get("cited_text", ""))
-            for n in re.split(r"\s*,\s*", group[1])
-            if 1 <= int(n) <= len(sources)
-        }),
+        "cited": _cited_numbers(verdict.get("cited_text", ""), len(sources)),
         "verdict": str(verdict.get("status", "n/a")).upper(),
         "failed_by": verdict.get("failed_by", ""),
         "attempts": attempts,

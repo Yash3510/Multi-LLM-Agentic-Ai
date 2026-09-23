@@ -94,12 +94,12 @@
 		plain: 'border-gray-200 text-gray-600 dark:border-gray-800 dark:text-gray-300',
 		good: 'border-emerald-200 text-emerald-800 dark:border-emerald-900 dark:text-emerald-300',
 		warn: 'border-amber-200 text-amber-800 dark:border-amber-900 dark:text-amber-300',
-		muted: 'border-dashed border-gray-200 text-gray-400 dark:border-gray-800 dark:text-gray-500'
+		muted: 'border-dashed border-gray-200 text-gray-600 dark:border-gray-800 dark:text-gray-500'
 	};
 	const MARK = {
-		ok: { glyph: 'M3.5 8.5l3 3 6-7', tone: 'text-emerald-600 dark:text-emerald-400', word: 'Checked' },
-		problem: { glyph: 'M4.5 4.5l7 7M11.5 4.5l-7 7', tone: 'text-amber-600 dark:text-amber-400', word: 'Problem' },
-		unverified: { glyph: 'M4 8h8', tone: 'text-gray-400 dark:text-gray-500', word: 'Could not verify' }
+		ok: { glyph: 'M3.5 8.5l3 3 6-7', tone: 'text-emerald-700 dark:text-emerald-400', word: 'Checked' },
+		problem: { glyph: 'M4.5 4.5l7 7M11.5 4.5l-7 7', tone: 'text-amber-700 dark:text-amber-400', word: 'Problem' },
+		unverified: { glyph: 'M4 8h8', tone: 'text-gray-600 dark:text-gray-500', word: 'Could not verify' }
 	};
 </script>
 
@@ -114,7 +114,7 @@
 				title={pill.title}
 			>
 				<span class="font-medium">{pill.label}</span>
-				<span class="opacity-75">{pill.detail}</span>
+				<span class="font-normal">{pill.detail}</span>
 			</span>
 		{/each}
 		{#if data.fingerprint}
@@ -126,7 +126,7 @@
 				on:click={copyFingerprint}
 			>
 				<span class="font-medium">{copied ? 'Copied' : 'Fingerprint'}</span>
-				<span class="font-mono text-[10.5px] opacity-75">{data.fingerprint.slice(0, 8)}</span>
+				<span class="font-mono text-[10.5px] font-normal">{data.fingerprint.slice(0, 8)}</span>
 			</button>
 		{/if}
 		<!-- The whole run as a record: every step, the evidence, the fingerprint. -->
@@ -155,7 +155,7 @@
 		>
 			<!-- 4CE's own mechanical check first, then ULTRON's; each line says
 			     which of them made it. -->
-			<div class="mb-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
+			<div class="mb-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-600 dark:text-gray-400">
 				What was checked
 			</div>
 			<ul class="space-y-1">
@@ -179,7 +179,7 @@
 						</span>
 						{#if check.by}
 							<span
-								class="mt-px shrink-0 text-[9.5px] font-medium uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500"
+								class="mt-px shrink-0 text-[9.5px] font-medium uppercase tracking-[0.08em] text-gray-600 dark:text-gray-500"
 								>{check.by}</span
 							>
 						{/if}

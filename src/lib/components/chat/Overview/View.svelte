@@ -428,7 +428,7 @@
 			aria-label="Why ULTRON sent it back"
 		>
 			<div class="mb-1.5 flex items-center gap-2">
-				<span class="text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
+				<span class="text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-600 dark:text-gray-400"
 					>Why it was sent back</span
 				>
 				{#if why.revision}
@@ -451,7 +451,7 @@
 			{#if why.revision}
 				{#each why.revision.objections.slice(0, 2) as objection}
 					<p class="text-[12px] leading-snug text-gray-700 dark:text-gray-300">
-						<span class="mr-1 font-semibold text-amber-600 dark:text-amber-400" aria-hidden="true">✕</span>{objection.text}
+						<span class="mr-1 font-semibold text-amber-700 dark:text-amber-400" aria-hidden="true">✕</span>{objection.text}
 					</p>
 					{#each (objection.fixes ?? []).slice(0, 1) as i}
 						{@const change = why.revision.changes[i]}
@@ -462,7 +462,7 @@
 					{/each}
 				{/each}
 			{:else}
-				<p class="text-[12px] leading-snug text-gray-500 dark:text-gray-400">
+				<p class="text-[12px] leading-snug text-gray-600 dark:text-gray-400">
 					This answer predates the change record; its full provenance has both drafts.
 				</p>
 			{/if}

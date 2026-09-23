@@ -31,7 +31,7 @@
 	aria-label="What changed on try 2"
 >
 	<div class="mb-1 flex items-center justify-between gap-3">
-		<span class="text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
+		<span class="text-[10.5px] font-medium uppercase tracking-[0.08em] text-gray-600 dark:text-gray-400"
 			>What changed on try 2</span
 		>
 		<span
@@ -46,7 +46,7 @@
 		<div class="revision-row">
 			<span class="revision-who">{objection.by ?? revision.by ?? 'ULTRON'} · try 1</span>
 			<span class="text-gray-700 dark:text-gray-300">
-				<span class="mr-1 font-semibold text-amber-600 dark:text-amber-400" aria-hidden="true">✕</span
+				<span class="mr-1 font-semibold text-amber-700 dark:text-amber-400" aria-hidden="true">✕</span
 				><span class="sr-only">Objection: </span>{objection.text}
 			</span>
 		</div>
@@ -60,7 +60,7 @@
 					{/each}
 				</span>
 			{:else}
-				<span class="text-gray-400 dark:text-gray-500"
+				<span class="text-gray-600 dark:text-gray-500"
 					>No single change answers this one{others > 0 ? '; see every change below' : ''}.</span
 				>
 			{/if}
@@ -71,10 +71,10 @@
 		<span class="revision-who">ULTRON · try 2</span>
 		<span class="text-gray-700 dark:text-gray-300">
 			{#if passed}
-				<span class="mr-1 font-semibold text-emerald-600 dark:text-emerald-400" aria-hidden="true">✓</span>Passed the
+				<span class="mr-1 font-semibold text-emerald-700 dark:text-emerald-400" aria-hidden="true">✓</span>Passed the
 				revised draft.
 			{:else}
-				<span class="mr-1 font-semibold text-amber-600 dark:text-amber-400" aria-hidden="true">✕</span>Failed the revised
+				<span class="mr-1 font-semibold text-amber-700 dark:text-amber-400" aria-hidden="true">✕</span>Failed the revised
 				draft too; the reviewer saw that before deciding.
 			{/if}
 		</span>
@@ -82,7 +82,7 @@
 
 	{#if others > 0}
 		<div
-			class="mt-1 flex items-center justify-between gap-3 border-t border-gray-100 pt-1.5 text-[12px] text-gray-500 dark:border-gray-850 dark:text-gray-400"
+			class="mt-1 flex items-center justify-between gap-3 border-t border-gray-100 pt-1.5 text-[12px] text-gray-600 dark:border-gray-850 dark:text-gray-400"
 		>
 			<span>Also changed: {others} {others === 1 ? 'edit' : 'edits'}</span>
 			<button
@@ -103,7 +103,7 @@
 					</li>
 				{/each}
 				{#if revision.more}
-					<li class="text-[12px] text-gray-400 dark:text-gray-500">
+					<li class="text-[12px] text-gray-600 dark:text-gray-500">
 						{revision.more} more {revision.more === 1 ? 'edit' : 'edits'}; both drafts are in the full provenance below
 					</li>
 				{/if}
@@ -126,7 +126,10 @@
 		font-size: 10px;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--color-gray-400, #9ca3af);
+		color: var(--color-gray-600, #676767);
+	}
+	:global(.dark) .revision-who {
+		color: var(--color-gray-400, #b4b4b4);
 	}
 	.revision-del,
 	.revision-ins {

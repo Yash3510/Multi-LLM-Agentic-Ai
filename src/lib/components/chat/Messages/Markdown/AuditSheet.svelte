@@ -173,7 +173,7 @@
 			<img src="/static/logo-mark-dark.svg" class="size-[22px] dark:hidden" alt="" />
 			<img src="/static/logo-mark-light.svg" class="hidden size-[22px] dark:block" alt="" />
 			<h2 class="text-base font-semibold text-gray-900 dark:text-white">Audit record</h2>
-			{#if when}<span class="text-xs text-gray-400 dark:text-gray-500">{when}</span>{/if}
+			{#if when}<span class="text-xs text-gray-600 dark:text-gray-500">{when}</span>{/if}
 			<span class="ml-auto flex items-center gap-1.5">
 				<button type="button" class={pill} on:click={exportJson}>
 					<svg class="size-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.75 7.5 8 10.75 11.25 7.5M3 13.25h10" /></svg>
@@ -194,7 +194,7 @@
 		<div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
 			{#each [{ label: 'Outcome', value: outcome.word, tone: outcome.tone }, { label: 'Tries', value: data.attempts ?? 1, tone: '' }, { label: 'External calls', value: data.external_calls ?? 0, tone: '' }, { label: 'Working time', value: data.seconds ? `${data.seconds}s` : '—', tone: '' }] as kpi}
 				<div class="rounded-[10px] bg-gray-50 px-3 py-2 dark:bg-gray-850">
-					<div class="text-[10.5px] uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">{kpi.label}</div>
+					<div class="text-[10.5px] uppercase tracking-[0.06em] text-gray-600 dark:text-gray-400">{kpi.label}</div>
 					<div class="text-sm font-semibold {kpi.tone || 'text-gray-900 dark:text-white'}">{kpi.value}</div>
 				</div>
 			{/each}
@@ -212,9 +212,9 @@
 							: row.tone === 'good'
 								? 'text-emerald-700 dark:text-emerald-400'
 								: ''}"
-						>{row.text}{#if row.model}<span class="text-gray-400 dark:text-gray-500">{' · ' + row.model}</span>{/if}</span
+						>{row.text}{#if row.model}<span class="text-gray-600 dark:text-gray-500">{' · ' + row.model}</span>{/if}</span
 					>
-					<span class="shrink-0 text-[11px] tabular-nums text-gray-400 dark:text-gray-500">{row.time || '—'}</span>
+					<span class="shrink-0 text-[11px] tabular-nums text-gray-600 dark:text-gray-500">{row.time || '—'}</span>
 				</li>
 			{/each}
 		</ol>
@@ -227,15 +227,15 @@
 						<span
 							class="rounded-full border px-2 text-[11px] font-medium leading-[18px] {cited.has(i + 1)
 								? 'border-gray-300 text-gray-900 dark:border-gray-600 dark:text-white'
-								: 'border-dashed border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400'}"
+								: 'border-dashed border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400'}"
 							>[{i + 1}] {name}</span
 						>
-						<span class="text-gray-500 dark:text-gray-400">{cited.has(i + 1) ? 'cited in the answer' : 'retrieved, not cited'}</span>
+						<span class="text-gray-600 dark:text-gray-400">{cited.has(i + 1) ? 'cited in the answer' : 'retrieved, not cited'}</span>
 					</li>
 				{/each}
 			</ul>
 		{:else}
-			<p class="text-[12.5px] text-gray-500 dark:text-gray-400">No documents were retrieved for this answer.</p>
+			<p class="text-[12.5px] text-gray-600 dark:text-gray-400">No documents were retrieved for this answer.</p>
 		{/if}
 
 		{#if data.fingerprint}
@@ -284,7 +284,10 @@
 		font-weight: 500;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		color: var(--color-gray-500, #6b7280);
+		color: var(--color-gray-600, #676767);
+	}
+	:global(.dark) .audit-section {
+		color: var(--color-gray-400, #b4b4b4);
 	}
 	.audit-row {
 		display: flex;

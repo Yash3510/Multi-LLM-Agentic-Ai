@@ -2,6 +2,7 @@
 	import { LinkPreview } from 'bits-ui';
 	import { decodeString } from '$lib/utils';
 	import Source from './Source.svelte';
+	import { chipTitle, CHIP } from './evidence';
 
 	export let id;
 	export let token;
@@ -49,14 +50,25 @@
 			<LinkPreview.Trigger>
 				<button
 					aria-label={`${getDisplayTitle(formattedTitle(decodeString(sourceIds[token.ids[0] - 1])))} +${(token?.ids ?? []).length - 1} more sources`}
-					class="text-[0.625rem] w-fit translate-y-[2px] px-2 py-0.5 dark:bg-white/5 dark:text-white/80 dark:hover:text-white bg-gray-50 text-black/80 hover:text-black transition rounded-xl"
+					class={CHIP}
 					on:click={() => {
 						openPreview = !openPreview;
 					}}
 				>
+					<svg
+						class="size-[0.7rem] shrink-0 opacity-75"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.6"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+						><path d="M4 1.75h5.25L12.5 5v9.25H4z" /><path d="M9 1.75V5h3.5M6 8.25h4M6 10.75h4" /></svg
+					>
 					<span class="line-clamp-1">
-						{getDisplayTitle(formattedTitle(decodeString(sourceIds[token.ids[0] - 1])))}
-						<span class="dark:text-white/50 text-black/50">+{(token?.ids ?? []).length - 1}</span>
+						{chipTitle(decodeString(sourceIds[token.ids[0] - 1]), sourceIds.map((other) => decodeString(other ?? '')))}
+						<span class="opacity-60">+{(token?.ids ?? []).length - 1}</span>
 					</span>
 				</button>
 			</LinkPreview.Trigger>

@@ -103,6 +103,9 @@ class Tools:
         __record__: list | None = None,
         __sources__: list | None = None,
         __revision__: dict | None = None,
+        __checks__: list | None = None,
+        __passages__: list | None = None,
+        __cited__: list | None = None,
     ) -> str:
         """
         Create a formatted Word (.docx) document from the supplied content and return a download link.
@@ -132,7 +135,7 @@ class Tools:
         try:
             payload = await asyncio.to_thread(
                 self._build_docx, title, body, reference, document_type, __signoff__, __record__,
-                __sources__, __revision__,
+                __sources__, __revision__, __checks__, __passages__, __cited__,
             )
         except ImportError:
             return (
@@ -279,10 +282,13 @@ class Tools:
         record: list | None = None,
         sources: list | None = None,
         revision: dict | None = None,
+        checks: list | None = None,
+        passages: list | None = None,
+        cited: list | None = None,
     ) -> bytes:
         return _Report(
             self.valves, title, body, reference, document_type, signoff or {}, record or [], sources,
-            revision,
+            revision, checks, passages, cited,
         ).build()
 
 
@@ -309,6 +315,7 @@ MUTED = "5F5B6B"
 LABEL = "706B5E"  # small-caps labels: 4.9:1 on white, 4.5:1 on the paper panel
 INDIGO = "3C3C8E"
 ACCENT = "C2410C"
+GOOD = "1F7A4D"  # a check that held
 PAPER = "F6F4EE"  # panels
 FILL = "F4F2EC"  # table header row
 RULE = "E8E3D7"  # table hairlines
@@ -584,8 +591,15 @@ class _Report:
         record: list,
         sources: list | None = None,
         revision: dict | None = None,
+        checks: list | None = None,
+        passages: list | None = None,
+        cited: list | None = None,
     ):
         self.valves = valves
+        self.checks = [c for c in (checks or []) if isinstance(c, dict) and str(c.get("text", "")).strip()]
+        self.passages = [str(p or "") for p in (passages or [])]
+        # Which sources the text cites (1-based); None when not told.
+        self.cited = {int(n) for n in cited} if cited is not None else None
         self.sources = [str(name) for name in (sources or []) if str(name).strip()]
         self.revision = revision if revision and revision.get("objections") else None
         self.title = title.strip()
@@ -619,6 +633,8 @@ class _Report:
         self._markdown(self.body)
         if self.revision:
             self._revisions()
+        if self.checks:
+            self._checks()
         if self.sources:
             self._sources()
         if self.record:
@@ -1077,8 +1093,62 @@ class _Report:
         for n, name in enumerate(self.sources, 1):
             line = self.doc.add_paragraph()
             _spacing(line, 0, 3, 1.2)
+            line.paragraph_format.keep_with_next = True
             _run(line, f"{n}", size=9.5, colour=INDIGO, bold=True)
             _run(line, f"\u2003{name}", size=10, colour=INK)
+            cited = self.cited is None or n in self.cited
+            if self.cited is not None:
+                _run(line, "\u2003cited" if cited else "\u2003retrieved, not cited", size=8.5, colour=LABEL)
+            # What the answer's [n] rests on: the passage 4CE retrieved.
+            if cited and n - 1 < len(self.passages) and self.passages[n - 1].strip():
+                self._excerpt(self.passages[n - 1])
+        self._gap(6)
+
+    def _excerpt(self, text: str, limit: int = 900) -> None:
+        from docx.shared import Pt
+
+        lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines()]
+        lines, used = [line for line in lines if line], 0
+        kept = []
+        for line in lines:
+            if used + len(line) > limit:
+                kept.append("…")
+                break
+            kept.append(line)
+            used += len(line)
+        for index, line in enumerate(kept):
+            paragraph = self.doc.add_paragraph()
+            _spacing(paragraph, 0, 6 if index == len(kept) - 1 else 0, 1.2)
+            paragraph.paragraph_format.left_indent = Pt(17)
+            _run(paragraph, line, size=8.5, colour=MUTED)
+
+    def _checks(self) -> None:
+        """The checks made on the answer before it was released, as in the
+        chat's "What was checked" card: 4CE's own figure check first, made
+        without a model, then ULTRON's."""
+        from docx.shared import Pt
+
+        self._heading("What was checked", 2)
+        note = self.doc.add_paragraph()
+        _spacing(note, 0, 8, 1.2)
+        _run(
+            note,
+            "The checks made on this answer before release. 4CE's figure check is made "
+            "without a model; ULTRON's are its own reading.",
+            size=9,
+            colour=MUTED,
+        )
+        marks = {"ok": ("\u2713", GOOD), "problem": ("\u2715", ACCENT)}
+        for check in self.checks:
+            mark, colour = marks.get(check.get("kind"), ("\u2013", LABEL))
+            paragraph = self.doc.add_paragraph()
+            _spacing(paragraph, 0, 3, 1.2)
+            paragraph.paragraph_format.left_indent = Pt(14)
+            paragraph.paragraph_format.first_line_indent = Pt(-14)
+            _run(paragraph, f"{mark}\u2002", size=10, colour=colour, bold=True)
+            _run(paragraph, str(check["text"]), size=10, colour=BODY)
+            if check.get("by"):
+                _run(paragraph, f"\u2003{check['by']}", size=7, colour=LABEL, bold=True, caps=True, track=1.0)
         self._gap(6)
 
     def _revisions(self) -> None:
