@@ -42,7 +42,7 @@ MAX_CONTEXT = 8192
 REQUIRED_MODELS = ("qwen/qwen3-vl-4b", "qwen/qwen3-1.7b")
 EMBEDDING_MODEL = "text-embedding-nomic-embed-text-v1.5"
 
-TOOL_IDS = ("ace_sandbox", "ace_deliverables", "ace_sovereignty", "ace_sop_check")
+TOOL_IDS = ("ace_sandbox", "ace_deliverables", "ace_sovereignty", "ace_sop_check", "ace_calculations")
 FUNCTION_ID = "ace_orchestrator"
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
@@ -216,7 +216,7 @@ def check_backend(report: Report, backend: str, email: str, password: str) -> No
     record = get_json(f"{backend}/api/v1/models/model?id={model_id}", token) or {}
     attached = (record.get("meta") or {}).get("toolIds") or []
     if sorted(attached) == sorted(TOOL_IDS):
-        report.add(PASS, "Tools attached", "the chain can call all four")
+        report.add(PASS, "Tools attached", f"the chain can call all {len(TOOL_IDS)}")
     else:
         report.add(
             FAIL,

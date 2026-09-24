@@ -121,7 +121,7 @@ it before demonstrating; every check in it exists because it failed once.
 
 ## Tools on the model
 
-Nothing to do: `install.py` attaches all four tools to the orchestrator, and
+Nothing to do: `install.py` attaches all five tools to the orchestrator, and
 preflight fails if they are missing. Without them the chain still answers, but
 it reasons unaided — no threshold arithmetic, no sandboxed execution, no `.docx`.
 

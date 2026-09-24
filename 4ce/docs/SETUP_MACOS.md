@@ -177,7 +177,7 @@ cd 4ce
 ../.venv/bin/python install.py
 ```
 
-This creates the admin account, uploads the orchestrator and the four tools,
+This creates the admin account, uploads the orchestrator and the five tools,
 attaches them to the model, restricts the model picker to the two models the
 chain routes between, blanks the third-party endpoints Open WebUI ships
 configured, and builds the `Plant SOPs` knowledge base from
@@ -222,7 +222,7 @@ seconds. That is once, not every time.
 cd backend && ../.venv/bin/python ../4ce/test_tools.py
 ```
 
-71 checks, all passing.
+83 checks, all passing.
 
 Then try these in the browser, in order:
 

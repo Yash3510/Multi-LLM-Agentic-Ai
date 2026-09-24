@@ -100,6 +100,7 @@ app at runtime.
 | [`tools/deliverables.py`](4ce/tools/deliverables.py) | Renders the released answer as a formatted `.docx`, an `.xlsx` workbook or a `.pptx` deck - whichever the request asks for - each carrying the approval record. |
 | [`tools/sovereignty.py`](4ce/tools/sovereignty.py) | Audits live configuration for anything that could carry data off-premise, and returns a pass/fail table. |
 | [`tools/sop_check.py`](4ce/tools/sop_check.py) | Compares readings against an authored rule pack and cites the clause that decided each one. Arithmetic, not inference. |
+| [`tools/calculations.py`](4ce/tools/calculations.py) | Corrosion rate, remaining life and next inspection, worked in code with every step and unit shown. |
 
 The chain calls these itself: threshold comparisons go to `sop_check` rather than
 being reasoned out, generated code is executed before it is shown, an audit

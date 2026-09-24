@@ -105,6 +105,24 @@ something like an ISO 10816 zone converter it produced prose and no code at all.
 
 ---
 
+## P4b · A calculation, with every step shown
+
+> Calculate the remaining life of the P-101B discharge line as an Excel workbook: previous thickness 12.0 mm three years ago, current thickness 11.2 mm, required thickness 9.5 mm.
+
+The arithmetic is done in code, not by a model: corrosion rate 0.267 mm/year,
+remaining life 6.4 years, each step written out with its units. Then the point
+worth making: half the remaining life says 3.2 years, but the margin is 1.7 mm,
+and **SOP-MEC-014 §4.2** requires a six-month interval below 2.0 mm - so the
+next measurement is **6 months**, and the working says which rule set it. The
+SOP rule pack found §4.2; the calculation took it as its maximum; the model
+only quoted the result.
+
+Open the workbook. *Remaining life* is live formulas over blue input cells:
+change the current thickness and the corrosion rate, remaining life and next
+measurement recalculate in Excel.
+
+---
+
 ## P5 · The sovereignty claim, evidenced
 
 > Prove nothing leaves the premises - audit the running configuration.

@@ -33,6 +33,8 @@ TOOLS = [
      "Audits live configuration for anything that could send data off-premise."),
     ("ace_sop_check", "4CE SOP Threshold Check", ROOT / "tools" / "sop_check.py",
      "Assesses inspection readings against SOP thresholds and cites the clause that decided each."),
+    ("ace_calculations", "4CE Engineering Calculations", ROOT / "tools" / "calculations.py",
+     "Works corrosion rate, remaining life and the next inspection in code, every step shown."),
 ]
 
 # The models the orchestrator routes between, and the only ones offered in the

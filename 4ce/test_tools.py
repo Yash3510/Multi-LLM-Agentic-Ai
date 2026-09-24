@@ -324,6 +324,65 @@ async def test_figure_check() -> None:
     checks = judge("Clause 9.4 forbids it [1].", sources, "", {"5.1"})
     check("a clause nobody cited still fails", any("Clause 9.4" in c["text"] for c in checks))
 
+    sop = ("## SOP assessment - SOP-MEC-014 - ATTENTION REQUIRED\n### Required actions\n"
+           "- **§4.2** - Remaining wall thickness margin is below 2.0 mm. Shorten the inspection interval to six months.")
+    years, basis = orchestrator._sop_interval(sop)
+    check("reads the interval an SOP requires", abs(years - 0.5) < 1e-9 and basis == "the interval SOP-MEC-014 §4.2 requires")
+    check("no required interval, none read",
+          orchestrator._sop_interval("## SOP assessment - X\n- **§2.2** - Replace the seal.") == (0.0, ""))
+
+
+async def test_calculations() -> None:
+    """Remaining life by the thickness method, worked in code."""
+    print("\n4CE Engineering Calculations")
+    tool = load("calculations")
+
+    out = await tool.calculate_remaining_life(
+        "previous thickness 12.0 mm three years ago, current thickness 11.2 mm, required thickness 9.5 mm"
+    )
+    check("reproduces the worked example: 0.267 mm/year, 6.4 years, 3.2 years",
+          "**0.267 mm/year**" in out and "**6.4 years**" in out and "**3.2 years**" in out)
+    check("shows every step with its units", "(12.0 mm - 11.2 mm) ÷ 3 years" in out and "Step 3" in out)
+
+    out = await tool.calculate_remaining_life(
+        "readings 3 years apart\n\n| TML | Previous (mm) | Current (mm) | Required (mm) |\n|---|---|---|---|\n"
+        "| TML-1 | 12.0 | 11.2 | 9.5 |\n| TML-3 | 10.4 | 9.4 | 9.5 |"
+    )
+    check("a survey table is worked row by row", "| TML-1 |" in out and "| TML-3 |" in out)
+    check("at or below required thickness governs, and says so",
+          "Governing location: TML-3" in out and "AT OR BELOW REQUIRED THICKNESS" in out)
+
+    out = await tool.calculate_remaining_life(
+        "previous thickness 12.0 mm 3 years ago, current thickness 11.2 mm, required thickness 9.5 mm, "
+        "maximum interval 2 years"
+    )
+    check("the code maximum caps the next measurement",
+          "The lesser of RL ÷ 2 (3.2 years) and the code maximum (2.0 years) = **2.0 years**" in out)
+
+    out = await tool.calculate_remaining_life(
+        "previous thickness 12.0 mm 3 years ago, current thickness 11.2 mm, required thickness 9.5 mm",
+        max_interval_years=0.5, interval_basis="the interval SOP-MEC-014 §4.2 requires",
+    )
+    check("an SOP's shorter interval governs, and is named",
+          "the interval SOP-MEC-014 §4.2 requires (6 months) = **6 months**" in out
+          and "again within 6 months" in out)
+
+    out = await tool.calculate_remaining_life("the pump leaks 18 drops/min")
+    check("says what it needs when readings are missing", out.startswith("Remaining life could not be calculated"))
+
+    import io
+    from openpyxl import load_workbook
+    spec = importlib.util.spec_from_file_location("deliverables_module", TOOLS / "deliverables.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    book = load_workbook(io.BytesIO(module._build_xlsx(
+        "T", "x", [], [], [{"kind": "remaining_life", "max_interval": None, "rows": [
+            {"location": "TML-1", "previous": 12.0, "current": 11.2, "required": 9.5, "years": 3.0}]}]
+    )))
+    sheet = book["Remaining life"]
+    check("the workbook carries it as live formulas",
+          str(sheet["G2"].value).startswith("=") and str(sheet["H2"].value).startswith("=IF("))
+
 
 async def test_sop_check() -> None:
     print("\n4CE SOP Threshold Check")
@@ -395,6 +454,13 @@ async def test_sop_check() -> None:
     check("a velocity is named, not called missing", "7.1 mm/s was given" in out and "state the zone" in out)
     check("18 drops/min needs the supervisor under §2.2", "| 18 drops/min |" in out and "§2.2 | REVIEW" in out)
 
+    out = await tool.check_sop_thresholds(
+        "previous thickness 12.0 mm three years ago, current thickness 11.2 mm, required thickness 9.5 mm"
+    )
+    check("current and required thickness are read as §4.1's measured and retirement",
+          "§4.1 | PASS" in out and "11.2" in out)
+    check("a 1.7 mm margin brings §4.2's six-month interval", "§4.2" in out and "six months" in out)
+
 
 async def main() -> None:
     if not Path("data").exists():
@@ -407,6 +473,7 @@ async def main() -> None:
     await test_egress()
     await test_execution_check()
     await test_figure_check()
+    await test_calculations()
     await test_sop_check()
 
     failed = [label for label, ok, _ in RESULTS if not ok]

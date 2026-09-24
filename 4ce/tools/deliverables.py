@@ -280,6 +280,7 @@ class Tools:
         __event_emitter__: Callable[[dict], Awaitable[None]] | None = None,
         __record__: list | None = None,
         __sources__: list | None = None,
+        __calculations__: list | None = None,
     ) -> str:
         """
         Create an Excel (.xlsx) workbook from the tables in the supplied content and return a download link.
@@ -295,7 +296,9 @@ class Tools:
             return refused
         await _emit(__event_emitter__, "deliverable", f"JARVIS: writing '{title}' as an Excel workbook")
         try:
-            payload = await asyncio.to_thread(_build_xlsx, title, body, __record__ or [], __sources__ or [])
+            payload = await asyncio.to_thread(
+                _build_xlsx, title, body, __record__ or [], __sources__ or [], __calculations__ or []
+            )
         except ImportError:
             return "The `openpyxl` package is not available in this backend, so the workbook could not be made."
         except Exception as exc:
@@ -1528,7 +1531,7 @@ def _sheet_name(name: str, used: set[str]) -> str:
     return candidate
 
 
-def _build_xlsx(title: str, body: str, record: list, sources: list) -> bytes:
+def _build_xlsx(title: str, body: str, record: list, sources: list, calculations: list | None = None) -> bytes:
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
@@ -1556,6 +1559,12 @@ def _build_xlsx(title: str, body: str, record: list, sources: list) -> bytes:
             tables += 1
             sheet = book.create_sheet(_sheet_name(heading or f"Table {tables}", used))
             _write_table(sheet, block[1], block[2], bold, ink, fill, rule, get_column_letter)
+
+    # A calculation 4CE ran is rebuilt as live formulas over its inputs, first
+    # in the workbook: change an input and the rest recalculates.
+    for calculation in calculations or []:
+        if calculation.get("kind") == "remaining_life" and calculation.get("rows"):
+            _remaining_life_sheet(book, calculation, used, bold, fill, rule, get_column_letter)
 
     # The answer's words, for a request that asked for a workbook of
     # something that is not a table.
@@ -1657,6 +1666,64 @@ def _write_table(sheet, header, rows, bold, ink, fill, rule, letter) -> None:
     sheet.freeze_panes = "A2"
     if data:
         sheet.auto_filter.ref = f"A1:{letter(width)}{len(data) + 1}"
+
+
+def _remaining_life_sheet(book, calculation: dict, used: set, bold, fill, rule, letter) -> None:
+    """Corrosion rate, remaining life and the next measurement as formulas, not values.
+
+    The same thickness method as the calculation tool (4ce/tools/calculations.py):
+    CR = (previous - current) / interval, RL = (current - required) / CR, and
+    the next measurement at the lesser of RL / 2 and the code maximum.
+    """
+    from openpyxl.styles import Alignment, Font
+
+    sheet = book.create_sheet(_sheet_name("Remaining life", used), 0)
+    blue = Font(name=SANS, color="1F4E9E")  # an input: change it and the rest recalculates
+    ink = Font(name=SANS, color=INK)
+    header = [
+        "Location", "Previous thickness (mm)", "Current thickness (mm)", "Required thickness (mm)",
+        "Interval (years)", "Maximum interval (years)", "Corrosion rate (mm/year)",
+        "Remaining life (years)", "Next measurement within (years)",
+    ]
+    for c, name in enumerate(header, 1):
+        cell = sheet.cell(row=1, column=c, value=name)
+        cell.font, cell.fill, cell.border = bold, fill, rule
+        cell.alignment = Alignment(wrap_text=True, vertical="bottom")
+
+    maximum = calculation.get("max_interval")
+    rows = calculation["rows"]
+    for r, row in enumerate(rows, 2):
+        values = [row.get("location") or f"Location {r - 1}", row["previous"], row["current"],
+                  row["required"], row["years"], maximum]
+        for c, value in enumerate(values, 1):
+            cell = sheet.cell(row=r, column=c, value=value)
+            cell.font = blue if c > 1 else ink
+            if c > 1:
+                cell.number_format = "0.0##"
+        formulas = [
+            (f"=IF(E{r}>0,(B{r}-C{r})/E{r},\"\")", "0.000"),
+            (f"=IF(C{r}<=D{r},0,IF(N(G{r})<=0,\"not corrosion-limited\",(C{r}-D{r})/G{r}))", "0.0"),
+            # With no wall loss, an empty code maximum must not read as "within 0 years".
+            (f"=IF(ISNUMBER(H{r}),IF(ISNUMBER(F{r}),MIN(H{r}/2,F{r}),H{r}/2),"
+             f"IF(ISNUMBER(F{r}),F{r},\"the code's normal interval\"))", "0.0"),
+        ]
+        for c, (formula, number_format) in enumerate(formulas, 7):
+            cell = sheet.cell(row=r, column=c, value=formula)
+            cell.font, cell.number_format = ink, number_format
+
+    note = len(rows) + 3
+    sheet.cell(row=note, column=1, value=(
+        "Blue cells are inputs; change one and the rest recalculate. Corrosion rate = (previous - "
+        "current) / interval. Remaining life = (current - required) / corrosion rate, and 0 at or "
+        "below the required thickness. Next measurement = the lesser of remaining life / 2 and the "
+        "maximum interval, when one is given"
+        + (f" - here {calculation['basis']}." if calculation.get("basis") else ".")
+    )).font = Font(name=SANS, color=MUTED, size=9)
+    widths = [14, 14, 14, 14, 11, 14, 14, 14, 16]
+    for c, width in enumerate(widths, 1):
+        sheet.column_dimensions[letter(c)].width = width
+    sheet.row_dimensions[1].height = 32
+    sheet.freeze_panes = "B2"
 
 
 def _build_pptx(title: str, body: str, document_type: str, record: list, sources: list) -> bytes:

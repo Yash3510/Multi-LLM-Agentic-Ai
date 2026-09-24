@@ -497,6 +497,14 @@ class Pipe:
                 __tools__, __event_emitter__, prompt, tools_used, steps, trace, ""
             )
 
+        # Engineering arithmetic is done in code too, with every step shown: a
+        # model writes the method and the note; the numbers come from here.
+        calculation, calculation_data = "", None
+        if task_type != "chat" and _wants_remaining_life(prompt):
+            calculation, calculation_data = await self._remaining_life(
+                __tools__, __event_emitter__, prompt, tools_used, steps, trace, request_sop
+            )
+
         while True:
             attempts += 1
 
@@ -537,6 +545,13 @@ class Pipe:
                         if request_sop
                         else ""
                     )
+                    + (
+                        "\n\nCALCULATION of the request's thickness readings (deterministic "
+                        "arithmetic; authoritative - quote its steps and results as they stand, and "
+                        "do not recompute them):\n" + calculation
+                        if calculation
+                        else ""
+                    )
                     + "\n\nREQUEST\n"
                     + prompt,
                     challenge,
@@ -568,6 +583,11 @@ class Pipe:
                 grounded += (
                     "\n\nSOP THRESHOLD ASSESSMENT (deterministic rule pack; "
                     "authoritative)\n" + sop
+                )
+            if calculation:
+                grounded += (
+                    "\n\nCALCULATION (deterministic arithmetic, every step shown; "
+                    "authoritative)\n" + calculation
                 )
 
             await _status(
@@ -715,7 +735,7 @@ class Pipe:
             # ULTRON's own checks.
             verdict["checks"] = (
                 ([ran] if ran else [])
-                + _figure_checks(deliverable, sources, prompt, _sop_clauses(sop))
+                + _figure_checks(deliverable, sources, prompt, _sop_clauses(sop), calculation)
                 + _parse_checks(verdict["detail"])
             )
             verdict["cited_text"] = deliverable
@@ -978,6 +998,7 @@ class Pipe:
                 __tools__, tool, title=_document_title(prompt), body=body,
                 __user__=__user__, __record__=record,
                 __sources__=[source["name"] for source in sources], **extra,
+                **({"__calculations__": [calculation_data]} if fmt == "xlsx" and calculation_data else {}),
             )
             if made and not made.startswith(_ERR):
                 tools_used.append(tool)
@@ -1166,6 +1187,45 @@ class Pipe:
             "authored rule pack and cited the deciding clause."
         )
         return sop
+
+    async def _remaining_life(self, tools: dict | None, emitter, text: str, tools_used: list,
+                              steps: list, trace: list, sop: str = "") -> tuple[str, dict | None]:
+        """The thickness method's worked calculation, and its inputs for a workbook.
+        ("", None) when the request does not hold enough to calculate from.
+
+        An inspection interval the SOP rule pack requires goes into the
+        calculation as its maximum. Left to the model, a 1.7 mm margin was
+        reported as bringing SOP-MEC-014 §4.2's six-month interval - and the
+        same answer then scheduled the next measurement in 3.2 years."""
+        await _status(emitter, "tool", "TOOL: calculating remaining life from the thickness readings")
+        years, basis = _sop_interval(sop)
+        out = await self._use_tool(
+            tools, "calculate_remaining_life", readings=text,
+            max_interval_years=years, interval_basis=basis,
+        )
+        block = re.search(r"```4ce-calc\s*\n(.*?)\n```", out or "", re.S)
+        if not out or out.startswith(_ERR) or not block:
+            return "", None
+        try:
+            data = json.loads(block.group(1))
+        except ValueError:
+            data = None
+        worked = (out[:block.start()] + out[block.end():]).strip()
+        if "calculate_remaining_life" not in tools_used:
+            tools_used.append("calculate_remaining_life")
+        steps.append({
+            "agent": "TOOL",
+            "label": "remaining-life calculation",
+            "model": "deterministic arithmetic",
+            "seconds": 0.0,
+            "thinking": "",
+            "text": worked,
+        })
+        trace.append(
+            "**TOOL** `calculate_remaining_life` worked the corrosion rate, remaining life and "
+            "next measurement, every step shown."
+        )
+        return worked, data
 
     async def _use_tool(self, tools: dict | None, name: str, **kwargs: Any) -> str:
         """Call one deployed 4CE tool by its function name.
@@ -1706,6 +1766,7 @@ _REQUEST_OPENERS = (
     "write", "draft", "create", "produce", "generate", "make", "build", "give",
     "show", "provide", "prepare", "compose", "summarise", "summarize", "list",
     "me", "a", "an", "the", "some", "please", "us", "code", "for",
+    "calculate", "compute", "estimate", "determine", "work", "out",
 )
 
 
@@ -2020,7 +2081,7 @@ def _sop_clauses(sop: str) -> set[str]:
 
 
 def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
-                   clauses: set[str] | frozenset = frozenset()) -> list[dict]:
+                   clauses: set[str] | frozenset = frozenset(), computed: str = "") -> list[dict]:
     """4CE's own check, made without a model: every figure in a sentence that
     cites [n] must appear in document n. A model can write "within 30 days
     [1]" when the document says 14; this catches that, and says so.
@@ -2061,6 +2122,9 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
             elif present(figure, request):
                 if all(figure != b[0] for b in borrowed):
                     borrowed.append((figure, names))
+            elif present(figure, computed):
+                if all(figure != b[0] for b in borrowed):
+                    borrowed.append((figure, names, "4CE's own calculation"))
             else:
                 missing.append((figure, names))
     checks: list[dict] = []
@@ -2077,10 +2141,11 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
             "text": f"{figure} is cited to {names}, which does not contain it",
             "by": "4CE",
         })
-    for figure, names in borrowed[:3]:
+    for figure, names, *origin in borrowed[:3]:
+        where = origin[0] if origin else "the request's own figure"
         checks.append({
             "kind": "unverified",
-            "text": f"{figure} is the request's own figure, cited to {names} as if the document gave it",
+            "text": f"{figure} is {where}, cited to {names} as if the document gave it",
             "by": "4CE",
         })
     return checks
@@ -2228,6 +2293,44 @@ _OFFICE_TOOLS = {
     "xlsx": ("create_spreadsheet", "Excel workbook"),
     "pptx": ("create_presentation", "PowerPoint deck"),
 }
+
+
+_REMAINING_LIFE = re.compile(
+    r"remaining (?:life|wall)|corrosion rate|retirement thickness|required thickness|"
+    r"thickness survey|\bTMLs?\b|wall loss",
+    re.I,
+)
+
+
+def _wants_remaining_life(prompt: str) -> bool:
+    """A request that gives wall thicknesses to work from: named as such, or
+    three or more thicknesses in mm alongside the word."""
+    text = prompt or ""
+    if _REMAINING_LIFE.search(text):
+        return True
+    return "thickness" in text.lower() and len(re.findall(r"\d+(?:\.\d+)?\s*mm\b", text)) >= 3
+
+
+_MONTH_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+}
+
+
+def _sop_interval(sop: str) -> tuple[float, str]:
+    """An inspection interval the SOP rule pack requires, in years, and what
+    requires it - (0.0, "") when it requires none."""
+    sop_id = re.search(r"SOP assessment - ([A-Za-z0-9-]+)", sop or "")
+    for clause, action in re.findall(r"\*\*§([\d.]+)\*\* - ([^\n]+)", sop or ""):
+        found = re.search(r"interval to (\w+)\s+months?", action, re.I)
+        if not found:
+            continue
+        word = found.group(1).lower()
+        months = _MONTH_WORDS.get(word) or (float(word) if word.replace(".", "", 1).isdigit() else 0)
+        if months:
+            name = f"{sop_id.group(1)} " if sop_id else ""
+            return months / 12, f"the interval {name}§{clause} requires"
+    return 0.0, ""
 
 
 def _office_formats(prompt: str) -> list[str]:

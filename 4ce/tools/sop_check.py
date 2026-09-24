@@ -124,10 +124,16 @@ DEFAULT_RULE_PACK: dict[str, Any] = {
             "patterns": [
                 r"minimum measured wall thickness[^0-9]{0,40}(\d+(?:\.\d+)?)\s*mm",
                 r"measured wall thickness[^0-9]{0,40}(\d+(?:\.\d+)?)\s*mm",
-                r"wall thickness[^0-9]{0,40}(\d+(?:\.\d+)?)\s*mm",
+                # How a thickness survey or a remaining-life request says it: the
+                # latest reading is the measured thickness §4.1 is about. Missed,
+                # a 1.7 mm margin went unassessed and §4.2's six-month interval
+                # with it, while the answer scheduled the next check in 3.2 years.
+                r"(?:current|present|actual|latest)\s+(?:wall\s+)?thickness[^0-9]{0,40}(\d+(?:\.\d+)?)\s*mm",
+                r"(?<!previous )(?<!prior )(?<!original )wall thickness[^0-9]{0,40}(\d+(?:\.\d+)?)\s*mm",
             ],
             "reference_patterns": [
                 r"retirement thickness[^0-9]{0,40}(\d+(?:\.\d+)?)\s*mm",
+                r"(?:required|minimum required|minimum allowable)\s+(?:wall\s+)?thickness[^0-9]{0,40}(\d+(?:\.\d+)?)\s*mm",
             ],
             "pass": {"verdict": "PASS", "clause": "4.1", "disposition": "FIT FOR SERVICE"},
             "fail": {
