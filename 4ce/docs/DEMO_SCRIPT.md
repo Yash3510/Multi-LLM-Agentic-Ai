@@ -88,6 +88,18 @@ direction.
 The saved file is named after what the code defines - `calculate_median.py` -
 rather than after the sentence that asked for it.
 
+Then point at **what was checked**. The first line is 4CE's own, from the
+sandbox, not a model: a crash, a failed assertion or - measured on this very
+prompt - a program asked to print that printed nothing is a failure, and the
+code goes back once with the real error attached. A clean run that asserts
+nothing reads *could not check*, not a tick. If the chain shows "sent it back ·
+2nd try", open "What changed on try 2": the objection and the fix are both
+there.
+
+ULTRON's verdict word decides, but when it passes a result and still lists
+objections, the header says "Passed by ULTRON, with 1 reservation" in amber -
+never a clean pass over its own problems.
+
 Keep code prompts simple. The small model handles this reliably; asked for
 something like an ISO 10816 zone converter it produced prose and no code at all.
 

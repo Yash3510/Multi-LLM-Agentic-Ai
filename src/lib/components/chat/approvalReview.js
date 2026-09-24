@@ -11,8 +11,17 @@
  * wrong one.
  */
 import { chipTitle, CHIP } from './Messages/Markdown/evidence';
+import { isCitationGroup } from '$lib/utils/marked/citation-extension';
 
 const CITATION = /\s*\[(\d+(?:\s*,\s*\d+)*)\]/g;
+const numbersOf = (group) => group.split(/\s*,\s*/).map(Number);
+
+/* A text without its citations. Data in square brackets - a list the
+   answer is about - is kept: it is not a citation (isCitationGroup). */
+export const stripCitations = (text, replacement = ' ') =>
+	(text ?? '').replace(CITATION, (match, group) =>
+		isCitationGroup(numbersOf(group)) ? replacement : match
+	);
 const STOP = new Set(
 	(
 		'that this with from have been were will would should could there their them they then than ' +
@@ -29,8 +38,7 @@ const tokens = (text) =>
 	);
 
 const plain = (text) =>
-	text
-		.replace(CITATION, ' ')
+	stripCitations(text)
 		.replace(/[*_`#>~]/g, '')
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, ' ')
@@ -67,8 +75,8 @@ export function chipCitations(root, sources, onChip) {
 		const frag = document.createDocumentFragment();
 		let last = 0;
 		for (const match of text.matchAll(CITATION)) {
-			const ns = match[1].split(/\s*,\s*/).map(Number);
-			if (!ns.every((n) => byN.has(n))) continue;
+			const ns = numbersOf(match[1]);
+			if (!isCitationGroup(ns) || !ns.every((n) => byN.has(n))) continue;
 			frag.append(text.slice(last, match.index));
 			for (const n of ns) {
 				const source = byN.get(n);
@@ -131,7 +139,7 @@ export function findChanges(root, revision) {
 		const hit = probe && blocks.find((b) => b.text.includes(probe));
 		// The line it replaced, without its [n]: struck through, a citation
 		// token reads as noise.
-		if (hit) placed.push({ el: hit.el, removed: (change.removed ?? '').replace(CITATION, '').trim() });
+		if (hit) placed.push({ el: hit.el, removed: stripCitations(change.removed, '').trim() });
 		else unplaced.push(change);
 	}
 	return { placed, unplaced };

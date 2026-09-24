@@ -17,7 +17,9 @@
 		sources?: string[];
 		cited?: number[];
 		verdict?: string;
+		reservations?: number;
 		failed_by?: string;
+		failed_on?: string;
 		attempts?: number;
 		checks?: { kind: 'ok' | 'problem' | 'unverified'; text: string; by?: string }[];
 		approval?: string;
@@ -58,6 +60,13 @@
 	$: checks = usableChecks(data.checks);
 	$: verdict = (data.verdict ?? '').toUpperCase();
 	$: tries = (data.attempts ?? 1) > 1 ? ` after ${data.attempts} tries` : '';
+	// What ULTRON objected to on a result it still passed: said, not hidden
+	// under a clean tick.
+	$: reservations = verdict === 'PASS' ? (data.reservations ?? 0) : 0;
+	$: word = (check) =>
+		verdict === 'PASS' && check.kind === 'problem' && check.by !== '4CE'
+			? 'Reservation'
+			: (MARK[check.kind]?.word ?? MARK.unverified.word);
 
 	type Pill = { label: string; detail: string; tone: 'plain' | 'good' | 'warn' | 'muted'; title?: string };
 	$: pills = [
@@ -76,13 +85,23 @@
 				}
 			: { label: 'Not grounded', detail: 'no documents used', tone: 'muted' },
 		verdict === 'PASS'
-			? { label: 'Checked', detail: `ULTRON passed it${tries}`, tone: 'good' }
+			? reservations
+				? {
+						label: 'Checked',
+						detail: `ULTRON passed it${tries}, ${reservations} reservation${reservations === 1 ? '' : 's'}`,
+						tone: 'warn'
+					}
+				: { label: 'Checked', detail: `ULTRON passed it${tries}`, tone: 'good' }
 			: verdict === 'FAIL'
 				? {
 						label: 'Checked',
 						detail:
 							data.failed_by === '4CE'
-								? `failed on a cited figure${tries}`
+								? data.failed_on === 'execution'
+									? `the code failed in the sandbox${tries}`
+									: data.failed_on === 'not executed'
+										? 'the code was never run'
+										: `failed on a cited figure${tries}`
 								: `ULTRON failed it${tries}`,
 						tone: 'warn'
 					}
@@ -192,7 +211,7 @@
 							aria-hidden="true"><path d={MARK[check.kind]?.glyph ?? MARK.unverified.glyph} /></svg
 						>
 						<span class="min-w-0 flex-1">
-							<span class="sr-only">{MARK[check.kind]?.word ?? MARK.unverified.word}:</span>
+							<span class="sr-only">{word(check)}:</span>
 							{check.text}
 						</span>
 						{#if check.by}

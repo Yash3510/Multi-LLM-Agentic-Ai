@@ -44,7 +44,7 @@
 	import DOMPurify from 'dompurify';
 	import { settings } from '$lib/stores';
 	import { chipTitle, usableChecks } from './Messages/Markdown/evidence';
-	import { chipCitations, matchChecks, findChanges } from './approvalReview';
+	import { chipCitations, matchChecks, findChanges, stripCitations } from './approvalReview';
 
 	export let request = null;
 
@@ -52,15 +52,17 @@
 
 	$: data = request?.data ?? {};
 	$: pass = data.verdict === 'PASS';
+	// Objections ULTRON listed on a result it still passed. The pass stands,
+	// but it is not shown as a clean one.
+	$: reservations = pass ? (data.reservations ?? 0) : 0;
 	$: checks = usableChecks(data.checks);
 	$: sources = data.sources ?? [];
 	$: revision = data.revision?.changes?.length ? data.revision : null;
 	$: names = sources.map((s) => s.name);
 	$: draftHtml = DOMPurify.sanitize(marked.parse(data.draft || '*The draft is empty.*'));
 	$: verdictLabel = pass
-		? (data.tries ?? 1) > 1
-			? `Passed by ULTRON on try ${data.tries}`
-			: 'Passed by ULTRON'
+		? ((data.tries ?? 1) > 1 ? `Passed by ULTRON on try ${data.tries}` : 'Passed by ULTRON') +
+			(reservations ? `, with ${reservations} reservation${reservations === 1 ? '' : 's'}` : '')
 		: data.verdict === 'FAIL'
 			? 'Did not pass its checks'
 			: data.verdict === 'SKIPPED'
@@ -212,7 +214,9 @@
 			: c.kind === 'unverified'
 				? 'ULTRON · could not check'
 				: c.kind === 'problem'
-					? 'ULTRON · a problem'
+					? pass
+						? 'ULTRON · a reservation'
+						: 'ULTRON · a problem'
 					: 'ULTRON';
 </script>
 
@@ -236,7 +240,7 @@
 					Review before release
 				</span>
 				<span
-					class="rounded-full px-2.5 py-0.5 text-[11px] font-medium {pass
+					class="rounded-full px-2.5 py-0.5 text-[11px] font-medium {pass && !reservations
 						? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
 						: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}"
 				>
@@ -288,7 +292,7 @@
 							{/each}
 							{#each changes.unplaced.filter((c) => c.removed && !c.added) as c}
 								<p class="text-gray-600 dark:text-gray-400">
-									Taken out: <span class="line-through">{c.removed.replace(/\s*\[\d+(?:\s*,\s*\d+)*\]/g, '')}</span>
+									Taken out: <span class="line-through">{stripCitations(c.removed, '')}</span>
 								</p>
 							{/each}
 						</div>
@@ -322,7 +326,13 @@
 									>
 									<span class="leading-[1.45]">
 										<span class="sr-only"
-											>{c.kind === 'ok' ? 'Holds:' : c.kind === 'problem' ? 'Problem:' : 'Could not check:'}</span
+											>{c.kind === 'ok'
+												? 'Holds:'
+												: c.kind === 'problem'
+													? pass
+														? 'Reservation:'
+														: 'Problem:'
+													: 'Could not check:'}</span
 										>{c.text}
 										<span class="block text-[10.5px] tracking-[0.04em] text-gray-500 dark:text-gray-400">{CHECK_BY(c)}</span>
 									</span>

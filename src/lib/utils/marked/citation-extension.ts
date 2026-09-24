@@ -1,3 +1,14 @@
+// 4CE: a citation is one to four source numbers in ascending order - [1],
+// [1, 2]. Anything else in square brackets is data the answer is about: read
+// as citations, "the median of [5, 3, 9, 1, 7]" became five chips pointing at
+// sources that do not exist. The orchestrator applies the same rule
+// (_citation in 4ce/functions/orchestrator.py), so the two never disagree
+// about what an answer cites.
+export const isCitationGroup = (numbers: number[]) =>
+	numbers.length > 0 &&
+	numbers.length <= 4 &&
+	numbers.every((n, i) => Number.isInteger(n) && (i === 0 || n > numbers[i - 1]));
+
 export function citationExtension() {
 	return {
 		name: 'citation',
@@ -31,6 +42,7 @@ export function citationExtension() {
 			while ((m = groupRegex.exec(raw))) {
 				// m[1] is the content inside brackets, e.g. "1, 2#foo"
 				const parts = m[1].split(',').map((p) => p.trim());
+				if (!isCitationGroup(parts.map((p) => parseInt(p, 10)))) return;
 
 				parts.forEach((part) => {
 					// Check if it starts with digit

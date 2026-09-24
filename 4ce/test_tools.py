@@ -262,6 +262,43 @@ async def test_egress() -> None:
         egress.psutil.net_connections, egress._family = real_table, real_family
 
 
+async def test_execution_check() -> None:
+    """The orchestrator's own check on generated code, from real sandbox runs."""
+    print("\n4CE Orchestrator: execution check")
+    spec = importlib.util.spec_from_file_location(
+        "orchestrator", str(Path(__file__).parent / "functions" / "orchestrator.py")
+    )
+    orchestrator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(orchestrator)
+    judge = orchestrator._execution_check
+    sandbox = load("sandbox")
+
+    code = "def double(x):\n    return 2 * x\nassert double(4) == 8\nprint(double(4))"
+    ran = judge(code, await sandbox.run_python(code))
+    check("a clean run with its assertions holding passes", ran["kind"] == "ok" and "1 assertion" in ran["text"])
+
+    code = "assert 2 + 2 == 5, 'arithmetic'"
+    ran = judge(code, await sandbox.run_python(code))
+    check("a failed assertion fails, with its message", ran["kind"] == "problem" and "arithmetic" in ran["text"])
+
+    code = "print(undefined_name)"
+    ran = judge(code, await sandbox.run_python(code))
+    check("a crash fails, naming the error", ran["kind"] == "problem" and "NameError" in ran["text"])
+
+    ran = judge("print(1)", "The sovereign sandbox is unavailable, so this code was NOT executed.\n\n"
+                            "Reason: the Docker daemon is not running\n")
+    check("unexecuted code is unverified, and final", ran["kind"] == "unverified" and ran.get("final"))
+    check("no code block is a problem", judge("", "")["kind"] == "problem")
+
+    code = "def median(xs):\n    return sorted(xs)[len(xs) // 2]\nmedian([5, 3, 9, 1, 7])"
+    ran = judge(code, await sandbox.run_python(code), "Write a function and print it for [5, 3, 9, 1, 7].")
+    check("asked to print, printed nothing, is a problem", ran["kind"] == "problem" and "printed nothing" in ran["text"])
+
+    code = "print(sorted([5, 3, 9, 1, 7])[2])"
+    ran = judge(code, await sandbox.run_python(code), "Print the median of [5, 3, 9, 1, 7].")
+    check("a clean run that asserts nothing is not a pass", ran["kind"] == "unverified")
+
+
 async def test_sop_check() -> None:
     print("\n4CE SOP Threshold Check")
     tool = load("sop_check")
@@ -338,6 +375,7 @@ async def main() -> None:
     await test_deliverables()
     await test_sovereignty()
     await test_egress()
+    await test_execution_check()
     await test_sop_check()
 
     failed = [label for label, ok, _ in RESULTS if not ok]

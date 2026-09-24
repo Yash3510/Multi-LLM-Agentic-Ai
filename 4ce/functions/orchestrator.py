@@ -600,8 +600,16 @@ class Pipe:
                         "\n\nPut every line of code inside a fenced ```python block. "
                         "This code will be executed. If the request calls for a file - "
                         "a spreadsheet, a chart, an export - write it into the directory "
-                        "/output, which is returned to the user. Nowhere else is writable."
+                        "/output, which is returned to the user. Nowhere else is writable. "
+                        "End the program by checking its own result: assert what the "
+                        "request's example should produce, then print it. A failed assert "
+                        "fails the run and sends the code back to be fixed."
                         if task_type == "code"
+                        else ""
+                    )
+                    + (
+                        "\n\nPREVIOUS ATTEMPT WAS REJECTED FOR:\n" + challenge
+                        if challenge and task_type == "code"
                         else ""
                     )
                     + "\n\nProduce the finished deliverable the request actually asked "
@@ -624,8 +632,10 @@ class Pipe:
 
             # Generated code is run, not admired. The real output is appended so
             # ULTRON and the reviewer judge what actually executed.
+            ran = None
             if task_type == "code":
                 code = _extract_python(deliverable)
+                execution = ""
                 if code:
                     await _status(
                         __event_emitter__,
@@ -649,6 +659,9 @@ class Pipe:
                             "network-less container and returned its real output."
                         )
                         deliverable += "\n\n### Sandboxed execution result\n\n" + execution
+                # What the sandbox reported, as 4CE's own check - not left for a
+                # 1.7B verifier to notice that the program crashed.
+                ran = _execution_check(code, execution, prompt)
 
             if not self.valves.enable_verification:
                 verdict = {"status": "SKIPPED", "passed": True, "detail": "Verification disabled in Valves."}
@@ -698,7 +711,11 @@ class Pipe:
             verdict = _parse_verdict(ultron["text"])
             # The card under the answer: what 4CE confirmed mechanically, then
             # ULTRON's own checks.
-            verdict["checks"] = _figure_checks(deliverable, sources) + _parse_checks(verdict["detail"])
+            verdict["checks"] = (
+                ([ran] if ran else [])
+                + _figure_checks(deliverable, sources)
+                + _parse_checks(verdict["detail"])
+            )
             verdict["cited_text"] = deliverable
             # A figure cited to a document that does not contain it is wrong
             # whatever ULTRON concluded: the answer fails and goes round again.
@@ -708,8 +725,29 @@ class Pipe:
                     status="FAIL",
                     passed=False,
                     failed_by="4CE",
+                    failed_on="execution" if ran and ran["kind"] == "problem" else "figure",
                     summary=_clip(mismatched[0]),
                     detail="\n".join(f"PROBLEM: {m}" for m in mismatched) + "\n" + verdict["detail"],
+                )
+            # Code nobody ran has not been verified, whatever ULTRON read into
+            # it. A second try cannot start a sandbox, so this one is final.
+            if ran and ran.get("final") and verdict["passed"]:
+                verdict.update(
+                    status="FAIL",
+                    passed=False,
+                    failed_by="4CE",
+                    failed_on="not executed",
+                    summary=_clip(ran["text"]),
+                    detail=f"UNVERIFIED: {ran['text']}\n" + verdict["detail"],
+                )
+            # A PASS with objections listed beneath it is two answers at once.
+            # The verdict word decides - on the runs seen here the 1.7B
+            # verifier's word was right and its line-by-line objections were
+            # not - but the record says both, so nobody is shown a clean tick
+            # over "a problem".
+            if verdict["passed"]:
+                verdict["reservations"] = sum(
+                    1 for c in verdict["checks"] if c.get("by") == "ULTRON" and c["kind"] != "ok"
                 )
             steps.append({
                 **ultron,
@@ -719,14 +757,17 @@ class Pipe:
             trace.append(f"**ULTRON** returned `{verdict['status']}` in {ultron['seconds']:.1f}s.")
 
             if verdict["passed"]:
-                await _status(__event_emitter__, "ultron", "ULTRON: PASS")
+                await _status(
+                __event_emitter__, "ultron",
+                "ULTRON: PASS" + _reservations_phrase(verdict, ", with "),
+            )
                 break
 
             await _status(
                 __event_emitter__, "ultron",
                 "ULTRON: FAIL" + (f" — {verdict['summary']}" if verdict.get("summary") else ""),
             )
-            if not self.valves.enable_replan or attempts > 1:
+            if not self.valves.enable_replan or attempts > 1 or (ran and ran.get("final")):
                 trace.append("**TONY** exhausted the replan budget; delivering with the failure recorded.")
                 break
 
@@ -796,6 +837,7 @@ class Pipe:
                         "kind": "4ce_approval",
                         "draft": (deliverable or "").strip(),
                         "verdict": str(verdict.get("status", "UNKNOWN")).upper(),
+                        "reservations": verdict.get("reservations", 0),
                         "verdict_detail": _objection(verdict),
                         "task_type": task_type,
                         "model_id": model_id,
@@ -902,7 +944,8 @@ class Pipe:
             signoff = {
                 "fingerprint": fingerprint,
                 "verification": str(verdict.get("status", "n/a")).upper()
-                + (f" after {attempts} attempts" if attempts > 1 else ""),
+                + (f" after {attempts} attempts" if attempts > 1 else "")
+                + _reservations_phrase(verdict, ", with "),
                 "models": " · ".join(dict.fromkeys(m.rsplit("/", 1)[-1] for m in agent_models.values())),
             }
             if approval == "approved" and approved_at is not None:
@@ -1428,7 +1471,32 @@ async def _emit_source(emitter, source: dict) -> None:
     })
 
 
-_CITATION = re.compile(r"(\s*)\[(\d+(?:\s*,\s*\d+)*)\]")
+_BRACKETED = re.compile(r"(\s*)\[(\d+(?:\s*,\s*\d+)*)\]")
+
+
+def _citation(group: str) -> list[int]:
+    """The source numbers in a bracketed group - or none, if it is not a citation.
+
+    A citation is one to four source numbers in ascending order: [1], [1, 2].
+    Anything else in square brackets is data the answer is about. Read as
+    citations, "the median of [5, 3, 9, 1, 7]" named five sources that do not
+    exist, the list was replaced with "(unverified)" twice in one sentence, and
+    ULTRON - correctly - failed the answer for talking about unverified terms.
+    """
+    numbers = [int(n) for n in re.split(r"\s*,\s*", group)]
+    if len(numbers) > 4 or numbers != sorted(set(numbers)):
+        return []
+    return numbers
+
+
+def _citations(text: str) -> list[int]:
+    """Every source number cited in a piece of text, in order of appearance."""
+    return [n for m in _BRACKETED.finditer(text or "") for n in _citation(m.group(2))]
+
+
+def _strip_citations(text: str, repl: str = " ") -> str:
+    """The text without its citations; data in square brackets stays."""
+    return _BRACKETED.sub(lambda m: repl if _citation(m.group(2)) else m.group(0), text or "")
 
 
 def _check_citations(text: str, count: int) -> str:
@@ -1442,12 +1510,15 @@ def _check_citations(text: str, count: int) -> str:
     Python.
     """
     def fix(match: re.Match) -> str:
-        keep = [n for n in re.split(r"\s*,\s*", match.group(2)) if 1 <= int(n) <= count]
+        numbers = _citation(match.group(2))
+        if not numbers:
+            return match.group(0)
+        keep = [str(n) for n in numbers if 1 <= n <= count]
         return f"{match.group(1)}[{', '.join(keep)}]" if keep else " *(unverified)*"
 
     parts = re.split(r"(```[\s\S]*?```|`[^`\n]*`)", text)
     for i in range(0, len(parts), 2):
-        parts[i] = _CITATION.sub(fix, parts[i])
+        parts[i] = _BRACKETED.sub(fix, parts[i])
     return "".join(parts)
 
 
@@ -1860,11 +1931,11 @@ def _figure_checks(deliverable: str, sources: list[dict]) -> list[dict]:
     found: list[str] = []
     missing: list[tuple[str, str]] = []
     for sentence in re.split(r"(?<=[.!?])\s+", prose):
-        cited = [int(n) for group in _CITATION.findall(sentence) for n in re.split(r"\s*,\s*", group[1])]
+        cited = _citations(sentence)
         cited = [n for n in cited if n in texts]
         if not cited:
             continue
-        bare = _CITATION.sub(" ", sentence)
+        bare = _strip_citations(sentence)
         for figure in _FIGURE.findall(bare):
             pattern = re.compile(rf"(?<![\w.]){re.escape(figure)}(?![\w])")
             if any(pattern.search(texts[n]) for n in cited):
@@ -1961,8 +2032,8 @@ def _cited_figures(text: str, count: int) -> dict[int, set[str]]:
     found: dict[int, set[str]] = {}
     prose = re.sub(r"```[\s\S]*?```|`[^`\n]*`", " ", text or "")
     for sentence in re.split(r"(?<=[.!?])\s+", prose):
-        numbers = [int(n) for group in _CITATION.findall(sentence) for n in re.split(r"\s*,\s*", group[1])]
-        figures = set(_FIGURE.findall(_CITATION.sub(" ", sentence)))
+        numbers = _citations(sentence)
+        figures = set(_FIGURE.findall(_strip_citations(sentence)))
         for n in numbers:
             if 1 <= n <= count:
                 found.setdefault(n, set()).update(figures)
@@ -1971,12 +2042,64 @@ def _cited_figures(text: str, count: int) -> dict[int, set[str]]:
 
 def _cited_numbers(text: str, count: int) -> list[int]:
     """The source numbers an answer actually cites, in order."""
-    return sorted({
-        int(n)
-        for group in _CITATION.findall(text or "")
-        for n in re.split(r"\s*,\s*", group[1])
-        if 1 <= int(n) <= count
-    })
+    return sorted({n for n in _citations(text) if 1 <= n <= count})
+
+
+_ASKS_FOR_OUTPUT = re.compile(r"\b(?:print|prints|printed|output|outputs|show|display)\b", re.I)
+
+
+def _execution_check(code: str, report: str, prompt: str = "") -> dict:
+    """4CE's own check on generated code: did it run, and did it finish cleanly.
+
+    Read from the sandbox tool's report, so it is what actually happened. The
+    program is asked to assert its own result, so a clean exit also means its
+    checks held; a failed assert exits non-zero like any other error.
+    """
+    if not code:
+        return {"kind": "problem", "by": "4CE",
+                "text": "There is no ```python block in the result, so nothing could be run"}
+    if not report or report.startswith(_ERR):
+        return {"kind": "unverified", "by": "4CE", "final": True,
+                "text": "The code was not executed: the sandbox tool is not attached to this model"}
+    if "was NOT executed" in report:
+        reason = re.search(r"Reason:\s*(.+)", report)
+        return {"kind": "unverified", "by": "4CE", "final": True,
+                "text": _clip("The code was not executed" + (f": {reason.group(1).strip()}" if reason else ""), 180)}
+    if "**Timed out**" in report:
+        return {"kind": "problem", "by": "4CE",
+                "text": "The code did not finish inside the sandbox's time limit"}
+    exit_code = re.search(r"- Exit code:\s*(-?\d+|None)", report)
+    exit_code = exit_code.group(1) if exit_code else "unknown"
+    if exit_code == "0":
+        # Asked to print, printed nothing: the answer's "Output: 5" was written,
+        # not produced. Seen exactly so - a function called and its result
+        # dropped - with a made-up output block beneath it.
+        if _ASKS_FOR_OUTPUT.search(prompt or "") and "**stdout**" not in report:
+            return {"kind": "problem", "by": "4CE",
+                    "text": "The request asks for the result to be printed, and the program printed nothing"}
+        asserts = len(re.findall(r"^\s*assert\b", code, re.M))
+        if asserts:
+            return {"kind": "ok", "by": "4CE", "text":
+                    f"The code ran in the sandbox and exited 0, with its {asserts} assertion"
+                    f"{'' if asserts == 1 else 's'} holding"}
+        # Running cleanly is not the same as being right. Shown as a tick it
+        # read as a pass; it is something nobody checked.
+        return {"kind": "unverified", "by": "4CE",
+                "text": "The code ran in the sandbox and exited 0, but asserts nothing about its own result"}
+    stderr = re.search(r"\*\*stderr\*\*\s*```\s*\n(.*?)```", report, re.S)
+    last = [line for line in (stderr.group(1) if stderr else "").splitlines() if line.strip()]
+    return {"kind": "problem", "by": "4CE", "text": _clip(
+        f"The code failed in the sandbox with exit code {exit_code}"
+        + (f": {last[-1].strip()}" if last else ""), 180,
+    )}
+
+
+def _reservations_phrase(verdict: dict, lead: str, tail: str = "") -> str:
+    """", with 2 reservations" - or nothing, for a clean pass or any fail."""
+    count = int(verdict.get("reservations") or 0) if verdict.get("passed") else 0
+    if not count:
+        return ""
+    return f"{lead}{count} reservation{'' if count == 1 else 's'}{tail}"
 
 
 def _egress_mark() -> dict | None:
@@ -2034,7 +2157,9 @@ def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapse
         # cited should not read as "grounded in 2 sources".
         "cited": _cited_numbers(verdict.get("cited_text", ""), len(sources)),
         "verdict": str(verdict.get("status", "n/a")).upper(),
+        "reservations": verdict.get("reservations", 0),
         "failed_by": verdict.get("failed_by", ""),
+        "failed_on": verdict.get("failed_on", ""),
         "attempts": attempts,
         "checks": verdict.get("checks") or _parse_checks(verdict.get("detail", "")),
         "approval": approval,
@@ -2108,7 +2233,7 @@ def _units(text: str) -> list[str]:
             continue
         line = re.sub(r"^\s*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s*)", "", line)
         line = line.replace("**", "").replace("__", "")
-        line = _CITATION.sub("", line).replace("*(unverified)*", "")
+        line = _strip_citations(line, "").replace("*(unverified)*", "")
         if set(line.strip()) <= set("-|: "):
             continue
         line = " · ".join(cell.strip() for cell in line.strip().strip("|").split("|") if cell.strip())
@@ -2495,7 +2620,8 @@ def _provenance_rows(task_type: str, signals: list[str], model_id: str, rational
         ("Task type", f"`{task_type}`" + (f" — matched: {', '.join(signals)}" if signals else " — no strong signal")),
         ("Model routed", f"`{model_id}` — {rationale}"),
         ("Agents", " · ".join(f"{a} `{m}`" for a, m in agent_models.items())),
-        ("Verification", f"ULTRON **{status}**" + (f" after {attempts} attempts" if attempts > 1 else "")),
+        ("Verification", f"ULTRON **{status}**" + (f" after {attempts} attempts" if attempts > 1 else "")
+         + _reservations_phrase(verdict, " — with ", " it did not count against the result")),
         ("Human approval", approval.capitalize()),
         # Working time, not wall clock: the reviewer's reading time belongs to
         # the reviewer, and counting it makes a fast run look like a slow one.

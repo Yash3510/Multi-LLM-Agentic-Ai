@@ -171,5 +171,4 @@ Re-run the vision check after that change before relying on the multimodal demo.
 
 ### Still open
 
-- Wiring the sandbox result back through ULTRON so verification covers *executed* output.
 - Porting the citation-discipline guard from `sovereign_ai/knowledge.py`.
