@@ -39,7 +39,10 @@ TOOLS = [
 
 # The models the orchestrator routes between, and the only ones offered in the
 # chat picker. Keep in step with the model valves in functions/orchestrator.py.
-ROUTED_MODELS = ["qwen/qwen3-vl-4b", "qwen/qwen3-1.7b"]
+# Read from the registry the router reads (models.json), so the models the
+# picker offers and the models the router chooses between are one list.
+REGISTRY = json.loads((ROOT / "models.json").read_text(encoding="utf-8"))
+ROUTED_MODELS = [m["id"] for m in REGISTRY["models"]]
 
 # The knowledge base the chain is grounded in, and the documents that make it
 # up. Held here so the collection can be rebuilt from the repository: the admin
@@ -487,6 +490,28 @@ def ensure_knowledge(base, token):
     return "UPDATED", f"'{KNOWLEDGE_NAME}' {what}" + (f", {added} file(s) indexed" if added else "")
 
 
+def push_registry(base, token):
+    """Write models.json into the orchestrator's model_registry valve.
+
+    Adding a model is then an entry in that file and a run of this script:
+    the router reads capabilities from the valve, and the new model appears in
+    every answer's candidate list - chosen, lacking a capability, or not
+    served - with no change to code.
+    """
+    function_id = FUNCTIONS[0][0]
+    status, valves = call(base, f"/api/v1/functions/id/{function_id}/valves", token)
+    valves = valves if status == 200 and isinstance(valves, dict) else {}
+    text = json.dumps(REGISTRY, separators=(",", ":"), ensure_ascii=False)
+    summary = f"{len(ROUTED_MODELS)} models, {len(REGISTRY.get('routing') or {})} task routes"
+    if valves.get("model_registry") == text:
+        return "OK", summary
+    valves["model_registry"] = text
+    status, _ = call(base, f"/api/v1/functions/id/{function_id}/valves/update", token, valves)
+    if status != 200:
+        return "FAILED", f"could not write the model_registry valve (status {status})"
+    return "UPDATED", summary
+
+
 def main():
     parser = argparse.ArgumentParser(description="Install the 4CE plugin set.")
     parser.add_argument("--base", default="http://127.0.0.1:8080")
@@ -517,6 +542,8 @@ def main():
     print(f"  {'tools -> model'.ljust(width)}  {state:<8} {detail}")
     picker_state, picker_detail = restrict_models(args.base, token)
     print(f"  {'model picker'.ljust(width)}  {picker_state:<8} {picker_detail}")
+    registry_state, registry_detail = push_registry(args.base, token)
+    print(f"  {'model registry'.ljust(width)}  {registry_state:<8} {registry_detail}")
 
     prompts_state, prompts_detail = ensure_suggestions(args.base, token)
     print(f"  {'starting prompts'.ljust(width)}  {prompts_state:<8} {prompts_detail}")

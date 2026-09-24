@@ -7,10 +7,11 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from open_webui.models.functions import Functions
 from open_webui.models.tools import Tools
 from open_webui.utils.auth import get_admin_user
 from open_webui.utils.fource_egress import watch
-from open_webui.utils.plugin import get_tool_module_from_cache
+from open_webui.utils.plugin import get_function_module_from_cache, get_tool_module_from_cache
 
 log = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ router = APIRouter()
 # Installed by 4ce/install.py; the audit lives in the tool so chat and this
 # page report from the same code.
 SOVEREIGNTY_TOOL_ID = "ace_sovereignty"
+ORCHESTRATOR_ID = "ace_orchestrator"
 
 
 @router.get("/egress")
@@ -37,6 +39,33 @@ async def run_canary(user=Depends(get_admin_user)):
 async def reset_egress(user=Depends(get_admin_user)):
     watch.reset()
     return watch.snapshot()
+
+
+@router.get("/models")
+async def get_models(request: Request, user=Depends(get_admin_user)):
+    """The model registry the router reads, and which of its models are served now."""
+    try:
+        loaded = await get_function_module_from_cache(request, ORCHESTRATOR_ID)
+        module = loaded[0] if isinstance(loaded, tuple) else loaded
+    except Exception:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail="The 4CE orchestrator is not installed. Run 4ce/install.py.",
+        )
+    valves = await Functions.get_function_valves_by_id(ORCHESTRATOR_ID)
+    if hasattr(module, "Valves"):
+        module.valves = module.Valves(**(valves or {}))
+    registry = module._registry()
+    served = set(getattr(request.app.state, "MODELS", {}) or {})
+    return {
+        "models": [
+            {**entry, "served": entry.get("id") in served}
+            for entry in registry.get("models") or []
+            if isinstance(entry, dict)
+        ],
+        "embedding": registry.get("embedding") or {},
+        "routing": registry.get("routing") or {},
+    }
 
 
 @router.get("/audit")

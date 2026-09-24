@@ -8,14 +8,17 @@
 	import {
 		getAudit,
 		getEgress,
+		getModels,
 		resetEgress,
 		runCanary,
 		type Audit,
-		type Egress
+		type Egress,
+		type Registry
 	} from '$lib/apis/fource';
 
 	let egress: Egress | null = null;
 	let audit: Audit | null = null;
+	let registry: Registry | null = null;
 	let loadError = '';
 	let auditError = '';
 	let canaryBusy = false;
@@ -59,6 +62,9 @@
 	onMount(() => {
 		poll();
 		loadAudit();
+		getModels(localStorage.token)
+			.then((r) => (registry = r))
+			.catch(() => (registry = null));
 		timer = setInterval(poll, 1000);
 	});
 	onDestroy(() => clearInterval(timer));
@@ -378,6 +384,55 @@
 				<p class="mt-2 text-sm text-gray-500">Running the audit…</p>
 			{/if}
 		</section>
+
+		<!-- What runs here: the registry the router reads, with the licence of each. -->
+		{#if registry}
+			<section class="mt-8">
+				<h2 class="text-sm font-semibold text-gray-900 dark:text-white">Models on this machine</h2>
+				<p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+					The registry the router reads (<code class="text-xs">4ce/models.json</code>). A task goes
+					to the first served model with the capabilities it needs; adding a model is adding an
+					entry.
+				</p>
+				<div class="mt-2 overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+					<table class="w-full text-left text-xs">
+						<thead class="text-gray-500 dark:text-gray-400">
+							<tr>
+								<th class="whitespace-nowrap px-3 py-2 font-medium">Model</th>
+								<th class="whitespace-nowrap px-3 py-2 font-medium">Capabilities</th>
+								<th class="whitespace-nowrap px-3 py-2 font-medium">Context</th>
+								<th class="whitespace-nowrap px-3 py-2 font-medium">Weights</th>
+								<th class="whitespace-nowrap px-3 py-2 font-medium">Licence</th>
+								<th class="whitespace-nowrap px-3 py-2 font-medium">Served</th>
+							</tr>
+						</thead>
+						<tbody class="text-gray-800 dark:text-gray-200">
+							{#each [...registry.models, ...(registry.embedding?.id ? [{ ...registry.embedding, capabilities: ['embedding'] }] : [])] as model}
+								<tr class="border-t border-gray-100 dark:border-gray-850">
+									<td class="whitespace-nowrap px-3 py-1.5 font-mono">{model.id}</td>
+									<td class="px-3 py-1.5">{(model.capabilities ?? []).join(', ')}</td>
+									<td class="whitespace-nowrap px-3 py-1.5 tabular-nums"
+										>{model.context?.toLocaleString() ?? '—'}</td
+									>
+									<td class="whitespace-nowrap px-3 py-1.5 tabular-nums"
+										>{model.size_gb ? `${model.size_gb} GB` : '—'}</td
+									>
+									<td class="whitespace-nowrap px-3 py-1.5">{model.licence ?? '—'}</td>
+									<td class="px-3 py-1.5"
+										>{model.served === undefined ? '—' : model.served ? 'yes' : 'not served'}</td
+									>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+				<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+					Routing: {Object.entries(registry.routing)
+						.map(([task, needs]) => `${task} needs ${needs.join(', ')}`)
+						.join(' · ')}
+				</p>
+			</section>
+		{/if}
 
 		<!-- Making it physical: the rule is the operator's to add; the canary shows it works. -->
 		<section class="mt-8">

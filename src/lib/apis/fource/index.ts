@@ -89,3 +89,22 @@ export const getEgress = (token: string): Promise<Egress> => call(token, '/egres
 export const runCanary = (token: string): Promise<Canary> => call(token, '/egress/canary', 'POST');
 export const resetEgress = (token: string): Promise<Egress> => call(token, '/egress/reset', 'POST');
 export const getAudit = (token: string): Promise<Audit> => call(token, '/audit');
+
+export type RegistryModel = {
+	id: string;
+	family?: string;
+	modalities?: string[];
+	capabilities?: string[];
+	context?: number;
+	size_gb?: number;
+	licence?: string;
+	served?: boolean;
+};
+
+export type Registry = {
+	models: RegistryModel[];
+	embedding: RegistryModel;
+	routing: Record<string, string[]>;
+};
+
+export const getModels = (token: string): Promise<Registry> => call(token, '/models');

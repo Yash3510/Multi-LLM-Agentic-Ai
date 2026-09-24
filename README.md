@@ -143,6 +143,7 @@ so are deliberately left alone.
 4ce/
 ├── README.md              valve reference and design notes
 ├── install.py             deploys the plugin set into a running instance
+├── models.json            the model registry: capabilities, context, licence
 ├── test_tools.py          tool test suite
 ├── env.sovereign.example  the air-gapped configuration
 ├── functions/             the agent chain (registers as a selectable model)

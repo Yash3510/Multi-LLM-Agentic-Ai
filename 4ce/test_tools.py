@@ -399,6 +399,44 @@ async def test_calculations() -> None:
           str(sheet["G2"].value).startswith("=") and str(sheet["H2"].value).startswith("=IF("))
 
 
+async def test_routing() -> None:
+    """The router reads the model registry, not code."""
+    print("\n4CE Orchestrator: model registry")
+    from types import SimpleNamespace
+
+    spec = importlib.util.spec_from_file_location(
+        "orchestrator", str(Path(__file__).parent / "functions" / "orchestrator.py")
+    )
+    orchestrator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(orchestrator)
+    registry = json.loads((Path(__file__).parent / "models.json").read_text(encoding="utf-8"))
+    check("the built-in registry is the same as models.json",
+          orchestrator._DEFAULT_REGISTRY["models"] == registry["models"]
+          and orchestrator._DEFAULT_REGISTRY["routing"] == registry["routing"]
+          and orchestrator._DEFAULT_REGISTRY["embedding"] == registry["embedding"])
+
+    served = {"qwen/qwen3-vl-4b": {}, "qwen/qwen3-1.7b": {}, "ace_orchestrator.tony": {}}
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(MODELS=served)))
+    pipe = orchestrator.Pipe()
+    model, why, candidates = pipe._route("code", request, "ace_orchestrator.tony")
+    check("code goes to the model the registry says can code",
+          model == "qwen/qwen3-1.7b" and "needs coding" in why)
+    check("the others are listed with why they were passed over",
+          any(c["id"] == "qwen/qwen3-vl-4b" and c["status"] == "lacks coding" for c in candidates))
+    model, _, _ = pipe._route("vision", request, "ace_orchestrator.tony")
+    check("a scan goes to the model with vision", model == "qwen/qwen3-vl-4b")
+
+    registry["models"].append({"id": "example/new-coder-7b", "capabilities": ["coding"], "licence": "Apache-2.0"})
+    pipe.valves.model_registry = json.dumps(registry)
+    _, _, candidates = pipe._route("code", request, "ace_orchestrator.tony")
+    check("a new registry entry appears with no code change",
+          any(c["id"] == "example/new-coder-7b" and c["status"] == "not served" for c in candidates))
+
+    pipe.valves.coding_model = "qwen/qwen3-vl-4b"
+    model, why, _ = pipe._route("code", request, "ace_orchestrator.tony")
+    check("an override in the valves still wins, and says so", model == "qwen/qwen3-vl-4b" and "override" in why)
+
+
 async def test_sop_check() -> None:
     print("\n4CE SOP Threshold Check")
     tool = load("sop_check")
@@ -489,6 +527,7 @@ async def main() -> None:
     await test_execution_check()
     await test_figure_check()
     await test_calculations()
+    await test_routing()
     await test_sop_check()
 
     failed = [label for label, ok, _ in RESULTS if not ok]

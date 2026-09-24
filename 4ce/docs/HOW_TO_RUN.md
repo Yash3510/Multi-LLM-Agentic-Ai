@@ -163,6 +163,7 @@ pkill -f "open-webui serve"
 ├── .env                    ← your local config (copy of env.sovereign.example)
 ├── env.sovereign.example   ← template
 ├── install.py              ← uploads plugins to running instance
+├── models.json             ← the model registry the router reads
 ├── test_tools.py           ← runs the test suite against a live instance
 ├── functions/
 │   └── orchestrator.py     ← TONY / FRIDAY / JARVIS / ULTRON agent chain
@@ -171,6 +172,38 @@ pkill -f "open-webui serve"
     ├── deliverables.py     ← .docx, .xlsx and .pptx output
     └── sovereignty.py      ← off-premise audit
 ```
+
+---
+
+## Adding a model
+
+The router does not name models in code. `4ce/models.json` lists each model
+with its modalities, capabilities, context, weights and licence, and says what
+each task type needs - `code` needs `coding`, `vision` needs `vision`, and so
+on. A task goes to the first served model that has what it needs.
+
+To add one, load it in Bionic at a context that fits, add an entry, and run
+`install.py`, which writes the file into the orchestrator:
+
+```json
+{
+  "id": "prism-ml/bonsai-27b",
+  "family": "Bonsai 27B",
+  "modalities": ["text"],
+  "capabilities": ["reasoning", "documents", "coding"],
+  "context": 8192,
+  "size_gb": 4.73,
+  "licence": "check the model card"
+}
+```
+
+It appears at once in every answer's routing line - chosen, "lacks coding",
+or "not served" - and on the Sovereignty page under *Models on this machine*.
+Order matters: the first capable, served entry wins, so put the model you
+prefer for a capability above the others that have it. The chat picker and
+preflight read the same file, so all three agree on what 4CE runs. A model
+named in one of the orchestrator's `*_model` valves overrides the registry for
+that task type, and the routing line says so.
 
 ---
 

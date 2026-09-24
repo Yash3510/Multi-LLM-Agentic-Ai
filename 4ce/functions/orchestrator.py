@@ -75,21 +75,25 @@ META_QUESTIONS = (
 
 class Pipe:
     class Valves(BaseModel):
+        model_registry: str = Field(
+            default="",
+            description="The model registry, as JSON: 4ce/models.json, which install.py writes here. Each model lists its capabilities, and each task type the capabilities it needs; the router takes the first served model that has them. Blank uses the built-in copy.",
+        )
         analysis_model: str = Field(
-            default="qwen/qwen3-vl-4b",
-            description="Model for general reasoning, analysis and document work.",
+            default="",
+            description="OVERRIDE for general reasoning, analysis and document work. Blank follows the model registry.",
         )
         coding_model: str = Field(
-            default="qwen/qwen3-1.7b",
-            description="Model for code generation and debugging tasks.",
+            default="",
+            description="OVERRIDE for code generation and debugging. Blank follows the model registry.",
         )
         vision_model: str = Field(
-            default="qwen/qwen3-vl-4b",
-            description="Vision-capable model for scanned documents, drawings and photographs.",
+            default="",
+            description="OVERRIDE for scanned documents, drawings and photographs. Blank follows the model registry.",
         )
         chat_model: str = Field(
-            default="qwen/qwen3-1.7b",
-            description="Small, fast model for greetings and questions about the assistant. These answer directly and never enter the agent chain.",
+            default="",
+            description="OVERRIDE for greetings and questions about the assistant, answered directly outside the agent chain. Blank follows the model registry.",
         )
         orchestrate_small_talk: bool = Field(
             default=False,
@@ -370,7 +374,7 @@ class Pipe:
             + (f"on signals: {', '.join(signals)}." if signals else "with no strong signal; used the default route.")
         )
 
-        model_id, rationale = self._route(task_type, __request__, body.get("model", ""))
+        model_id, rationale, candidates = self._route(task_type, __request__, body.get("model", ""))
         if model_id is None:
             return (
                 f"4CE could not resolve a local model for a `{task_type}` task. "
@@ -393,14 +397,21 @@ class Pipe:
                 f"**Signals matched:** {', '.join(signals) if signals else 'none — used the default route'}\n\n"
                 f"**Model selected:** `{model_id}`\n\n"
                 f"**Reason:** {rationale}\n\n"
-                f"**Candidates considered:** "
-                + ", ".join(f"`{k}` → `{v}`" for k, v in {
-                    "code": self.valves.coding_model,
-                    "vision": self.valves.vision_model,
-                    "document/analysis": self.valves.analysis_model,
-                }.items())
+                "**Candidates considered** (model registry):\n\n"
+                + "\n".join(
+                    f"- `{c['id']}` — {', '.join(c['capabilities']) or 'no capabilities listed'}"
+                    f"{' · ' + c['licence'] if c.get('licence') else ''} — **{c['status']}**"
+                    for c in candidates
+                )
             ),
         })
+
+        # The alternatives, into the provenance and the report: a router that
+        # names only its choice is a claim; one that names what it passed over,
+        # and why, is evidence.
+        passed_over = [f"{c['id']} ({c['status']})" for c in candidates if c["status"] not in ("chosen", "overridden")]
+        if passed_over:
+            rationale += "; also considered " + ", ".join(passed_over)
 
         if task_type == "chat" and not self.valves.orchestrate_small_talk:
             # Open while the model answers, closed once it has: marking it done up
@@ -1274,41 +1285,82 @@ class Pipe:
         so a blank ULTRON override crosses to a different model rather than
         quietly agreeing with itself.
         """
-        for wanted in (
-            self.valves.analysis_model,
-            self.valves.coding_model,
-            self.valves.chat_model,
-            self.valves.vision_model,
-        ):
-            candidate = _match_model((wanted or "").strip(), available, "")
+        entries = [e for e in self._registry().get("models") or [] if isinstance(e, dict)]
+        # Models the registry says can verify, first.
+        entries.sort(key=lambda e: "verification" not in (e.get("capabilities") or []))
+        for entry in entries:
+            candidate = _match_model(str(entry.get("id") or ""), available, "")
             if candidate and candidate != routed:
                 return candidate
         return next((c for c in available if c != routed), None)
 
-    def _route(self, task_type: str, request: Any, current_model: str) -> tuple[str | None, str]:
-        preference = {
-            "chat": (self.valves.chat_model, "conversational message answered directly by the small model"),
-            "code": (self.valves.coding_model, "coding task routed to the code-specialised model"),
-            "vision": (self.valves.vision_model, "image or scanned input requires a vision-capable model"),
-            "document": (self.valves.analysis_model, "document work routed to the general reasoning model"),
-            "analysis": (self.valves.analysis_model, "general reasoning task"),
-        }[task_type]
+    def _registry(self) -> dict:
+        """The model registry: the valve's JSON when it parses, else the built-in copy."""
+        text = (self.valves.model_registry or "").strip()
+        if text:
+            try:
+                registry = json.loads(text)
+                if isinstance(registry, dict) and isinstance(registry.get("models"), list):
+                    return registry
+            except ValueError:
+                pass
+        return _DEFAULT_REGISTRY
 
+    def _route(self, task_type: str, request: Any, current_model: str) -> tuple[str | None, str, list[dict]]:
+        """The model for a task type, why, and every registry entry with its standing.
+
+        Capabilities come from the registry, not from code: a task type needs
+        some ("code" needs "coding"), and the first served model that has them
+        is chosen. Adding a model is adding an entry - it appears in every
+        answer's candidate list, chosen or not, and why.
+        """
+        registry = self._registry()
+        needs = [str(c) for c in (registry.get("routing") or {}).get(task_type) or []]
         available = _available_models(request)
-        wanted = preference[0].strip()
+        override = {
+            "chat": self.valves.chat_model, "code": self.valves.coding_model,
+            "vision": self.valves.vision_model, "document": self.valves.analysis_model,
+            "analysis": self.valves.analysis_model,
+        }[task_type].strip()
 
-        if not available:
-            return (wanted or None), preference[1] + " (model registry unavailable; using the configured name)"
+        chosen, first_capable, candidates = None, None, []
+        for entry in registry.get("models") or []:
+            if not isinstance(entry, dict) or not entry.get("id"):
+                continue
+            model = str(entry["id"])
+            capabilities = [str(c) for c in entry.get("capabilities") or []]
+            missing = [c for c in needs if c not in capabilities]
+            served = _match_model(model, available, "") if available else None
+            if missing:
+                status = "lacks " + ", ".join(missing)
+            elif available and not served:
+                status = "not served"
+            elif chosen is None and first_capable is None:
+                first_capable = model
+                chosen = served
+                status = "chosen"
+            else:
+                status = "capable, not first"
+            candidates.append({
+                "id": model, "capabilities": capabilities,
+                "licence": str(entry.get("licence") or ""), "status": status,
+            })
 
-        resolved = _match_model(wanted, available, current_model)
-        if resolved:
-            suffix = "" if resolved == wanted else f" (resolved '{wanted}' to '{resolved}')"
-            return resolved, preference[1] + suffix
-
+        need = f"{task_type} work needs {', '.join(needs)}" if needs else f"{task_type} work"
+        if override:
+            resolved = _match_model(override, available, current_model) if available else override
+            if resolved:
+                for c in candidates:
+                    c["status"] = "overridden" if c["status"] == "chosen" else c["status"]
+                return resolved, f"{need}; the {task_type} override in the valves names {resolved}", candidates
+        if chosen:
+            return chosen, f"{need}; {chosen} is the first served model in the registry with it", candidates
+        if first_capable and not available:
+            return first_capable, f"{need}; the model server did not list its models, so the registry's first capable entry, {first_capable}", candidates
         fallback = next((m for m in available if m != current_model), None)
         if fallback:
-            return fallback, f"configured model '{wanted}' is not served locally; fell back to '{fallback}'"
-        return None, "no local model available"
+            return fallback, f"{need}, and no served model in the registry has it; fell back to {fallback}", candidates
+        return None, "no local model available", candidates
 
     async def _agent_call(
         self, request: Any, user: Any, model: str, messages: list[dict],
@@ -1869,6 +1921,32 @@ def _document_title(prompt: str) -> str:
             words.pop()
     title = " ".join(words).rstrip(" ,.;:?")
     return (title[:1].upper() + title[1:]) if title else "4CE deliverable"
+
+
+# The built-in copy of 4ce/models.json, used until install.py writes the file
+# into the model_registry valve. Keep the two in step.
+_DEFAULT_REGISTRY = {
+    "models": [
+        {
+            "id": "qwen/qwen3-vl-4b", "family": "Qwen3-VL 4B", "modalities": ["text", "image"],
+            "capabilities": ["reasoning", "documents", "drafting", "vision", "verification"],
+            "context": 8192, "size_gb": 3.33, "licence": "Apache-2.0",
+        },
+        {
+            "id": "qwen/qwen3-1.7b", "family": "Qwen3 1.7B", "modalities": ["text"],
+            "capabilities": ["coding", "chat", "verification"],
+            "context": 8192, "size_gb": 1.14, "licence": "Apache-2.0",
+        },
+    ],
+    "embedding": {
+        "id": "text-embedding-nomic-embed-text-v1.5", "family": "nomic-embed-text v1.5",
+        "context": 2048, "size_gb": 0.08, "licence": "Apache-2.0",
+    },
+    "routing": {
+        "chat": ["chat"], "code": ["coding"], "vision": ["vision"],
+        "document": ["documents"], "analysis": ["reasoning"],
+    },
+}
 
 
 def _available_models(request: Any) -> list[str]:

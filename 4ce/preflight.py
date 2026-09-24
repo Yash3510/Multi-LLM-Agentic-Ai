@@ -39,8 +39,12 @@ SANDBOX_IMAGE = "python:3.12-alpine"
 
 # Context length 4CE loads these at. Larger is not better here: it is slower.
 MAX_CONTEXT = 8192
-REQUIRED_MODELS = ("qwen/qwen3-vl-4b", "qwen/qwen3-1.7b")
-EMBEDDING_MODEL = "text-embedding-nomic-embed-text-v1.5"
+# The models the router chooses between, and the context each is loaded at,
+# from the same registry the router reads.
+REGISTRY = json.loads((ROOT / "models.json").read_text(encoding="utf-8"))
+REQUIRED_MODELS = tuple(m["id"] for m in REGISTRY["models"])
+CONTEXTS = {m["id"]: m.get("context") for m in REGISTRY["models"]}
+EMBEDDING_MODEL = REGISTRY["embedding"]["id"]
 
 TOOL_IDS = ("ace_sandbox", "ace_deliverables", "ace_sovereignty", "ace_sop_check", "ace_calculations")
 FUNCTION_ID = "ace_orchestrator"
@@ -132,7 +136,7 @@ def check_models(report: Report, fix: bool) -> None:
 
     for model in (*REQUIRED_MODELS, EMBEDDING_MODEL):
         entry = by_id.get(model)
-        wanted = None if model == EMBEDDING_MODEL else MAX_CONTEXT
+        wanted = None if model == EMBEDDING_MODEL else (CONTEXTS.get(model) or MAX_CONTEXT)
 
         if entry is None:
             report.add(FAIL, model, "not installed in Bionic")

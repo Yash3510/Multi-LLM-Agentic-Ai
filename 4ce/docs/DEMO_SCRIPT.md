@@ -213,6 +213,22 @@ leaving the building.
 
 ---
 
+## P8 · A new model, without a code change
+
+The statement asks that new open-weight models be "addable later without
+redesigning the system". Show it rather than say it.
+
+Open the Sovereignty page, *Models on this machine*: every model the router
+chooses between, its capabilities, context, weights and licence, and whether
+it is served. Point at the routing line under it - `code` needs `coding`, and
+so on. Then open `4ce/models.json`, add an entry (the one in "Adding a model"
+in `HOW_TO_RUN.md` uses a model already on the demo box), run `install.py`,
+and refresh: it is in the table. Ask anything and the routing line in the
+answer's provenance lists it among the candidates - chosen, "lacks coding",
+or "not served" - with no code touched.
+
+---
+
 ## Questions worth pre-empting
 
 **"Is the verification real, or is it marking its own homework?"** Open the
