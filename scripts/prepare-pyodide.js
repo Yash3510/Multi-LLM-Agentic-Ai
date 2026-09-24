@@ -120,7 +120,25 @@ async function copyPyodide() {
 	console.log('Copying Pyodide files into static directory');
 	// Copy all files from node_modules/pyodide to static/pyodide
 	for await (const entry of await readdir('node_modules/pyodide')) {
-		await copyFile(`node_modules/pyodide/${entry}`, `static/pyodide/${entry}`);
+		await copyWithRetry(`node_modules/pyodide/${entry}`, `static/pyodide/${entry}`);
+	}
+}
+
+// downloadPackages() writes static/pyodide/pyodide-lock.json moments before we
+// copy the stock one over the top of it. On Windows the handle to that
+// just-written file is not always released in time, and libuv reports the
+// sharing violation as a bare UNKNOWN rather than EBUSY - which failed the
+// whole build, on a copy that succeeds on the next attempt. Back off briefly
+// and try again; anything still failing after that is a real error.
+async function copyWithRetry(from, to, attempts = 5) {
+	for (let attempt = 1; ; attempt++) {
+		try {
+			return await copyFile(from, to);
+		} catch (err) {
+			const transient = err && ['UNKNOWN', 'EBUSY', 'EPERM'].includes(err.code);
+			if (!transient || attempt >= attempts) throw err;
+			await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+		}
 	}
 }
 
