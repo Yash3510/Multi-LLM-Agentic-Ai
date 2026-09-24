@@ -238,6 +238,30 @@ follows.
 
 ---
 
+## Measuring retrieval
+
+`4ce/eval_retrieval.py` is a small golden set: fifteen questions about
+SOP-MEC-014 and the P-101B readings, each with the clause text its answer has
+to come from, and three questions the plant documents cannot answer.
+
+```bash
+cd backend && ../.venv/bin/python ../4ce/eval_retrieval.py      # Windows: ../.venv/Scripts/python.exe
+```
+
+It asks the running backend, checks the right passage is in the top four, then
+applies the orchestrator's relevance guard and checks the guard kept it - and
+that the unrelated questions, which vector search answers with its nearest
+chunks regardless, come back empty. On this build: 15/15 found, 13 at rank 1,
+15/15 kept, 3/3 unrelated emptied. Re-run it after changing the embedding
+model, chunking, `retrieval_k` or the guard.
+
+The guard is ported from 4CE's first prototype: a passage is only offered to
+the agents when it shares a word of substance with the request, or when its
+similarity is at least `retrieval_strong_score` (0.8). Asked "What is the
+capital of France?", this knowledge base returns the seal leakage SOP at 0.68.
+
+---
+
 ## Recovering retrieval
 
 `python 4ce/preflight.py` reports **Knowledge attached**. If that fails, the

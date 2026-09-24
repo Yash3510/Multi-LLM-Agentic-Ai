@@ -324,6 +324,21 @@ async def test_figure_check() -> None:
     checks = judge("Clause 9.4 forbids it [1].", sources, "", {"5.1"})
     check("a clause nobody cited still fails", any("Clause 9.4" in c["text"] for c in checks))
 
+    checks = judge("SOP-MEC-014 limits seal leakage to 7 drops per minute.", sources)
+    check("no citation, no claim: an invented SOP limit fails", any(
+        c["kind"] == "problem" and c["text"].startswith("7 is stated as the SOP's") for c in checks))
+    checks = judge("SOP-MEC-014 requires replacement within 30 days.", sources)
+    check("an uncited SOP figure a source holds is not called invented",
+          not any(c["kind"] == "problem" for c in checks))
+
+    relevant = orchestrator._relevant
+    passages = [{"text": "Seal leakage below 5 drops per minute is acceptable.", "name": "SOP-MEC-014", "distance": 0.68},
+                {"text": "4. Wall thickness", "name": "SOP-MEC-014", "distance": 0.86}]
+    check("an unrelated question keeps only strong matches",
+          [p["distance"] for p in relevant(passages, "What is the capital of France?", 0.8)] == [0.86])
+    check("a related question keeps what it shares words with",
+          len(relevant(passages, "What is the acceptable seal leakage?", 0.8)) == 2)
+
     sop = ("## SOP assessment - SOP-MEC-014 - ATTENTION REQUIRED\n### Required actions\n"
            "- **§4.2** - Remaining wall thickness margin is below 2.0 mm. Shorten the inspection interval to six months.")
     years, basis = orchestrator._sop_interval(sop)

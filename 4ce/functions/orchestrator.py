@@ -118,6 +118,10 @@ class Pipe:
             default=4,
             description="Passages retrieved from an attached knowledge base and given to FRIDAY.",
         )
+        retrieval_strong_score: float = Field(
+            default=0.8,
+            description="Similarity at which a retrieved passage is kept even when it shares no word with the request. With nomic-embed-text, an unrelated question still scores about 0.68 against the plant SOPs; related ones score 0.84 and up.",
+        )
         vision_max_edge: int = Field(
             default=900,
             description="Longest edge, in pixels, an image is downscaled to before it reaches the vision model. Smaller is markedly faster on modest GPUs. Set 0 to send images untouched.",
@@ -338,8 +342,9 @@ class Pipe:
         # thousand characters of pump procedures: slower on a small card, and
         # provenance that claims a median was grounded in plant SOPs.
         sources: list[dict] = []
+        searched = False
         if task_type in RETRIEVING_TASKS and not auditing:
-            found = await self._retrieve(__request__, user, __metadata__, prompt)
+            found, searched = await self._retrieve(__request__, user, __metadata__, prompt)
             if found:
                 sources, numbered = _number_sources(found)
                 retrieved = f"{retrieved}\n\n{numbered}".strip() if retrieved else numbered
@@ -538,6 +543,7 @@ class Pipe:
                         else ""
                     )
                     + (_CITE_RULE.format(numbers=_source_numbers(sources)) if sources else "")
+                    + (_NOT_FOUND if searched and not sources and task_type == "document" else "")
                     + (
                         "\n\nSOP THRESHOLD ASSESSMENT of the readings in the request "
                         "(deterministic rule pack; authoritative - build on its verdicts and "
@@ -735,7 +741,7 @@ class Pipe:
             # ULTRON's own checks.
             verdict["checks"] = (
                 ([ran] if ran else [])
-                + _figure_checks(deliverable, sources, prompt, _sop_clauses(sop), calculation)
+                + _figure_checks(deliverable, sources, prompt, _sop_clauses(sop), calculation, sop)
                 + _parse_checks(verdict["detail"])
             )
             verdict["cited_text"] = deliverable
@@ -1103,7 +1109,7 @@ class Pipe:
                 collections.append(single)
         return collections
 
-    async def _retrieve(self, request: Any, user: Any, metadata: dict, query: str) -> list[dict]:
+    async def _retrieve(self, request: Any, user: Any, metadata: dict, query: str) -> tuple[list[dict], bool]:
         """Passages from any knowledge base attached to this request, each with
         the file it came from, so the answer can cite it.
 
@@ -1129,7 +1135,7 @@ class Pipe:
             collections = await self._model_collections(metadata)
         collections = list(dict.fromkeys(collections))
         if not collections:
-            return []
+            return [], False
 
         try:
             from open_webui.retrieval.utils import query_collection
@@ -1144,7 +1150,7 @@ class Pipe:
                 k=self.valves.retrieval_k,
             )
         except Exception:
-            return []
+            return [], True
 
         found = found or {}
         documents = found.get("documents") or []
@@ -1163,7 +1169,7 @@ class Pipe:
                     "meta": meta,
                     "distance": distance,
                 })
-        return passages[: self.valves.retrieval_k]
+        return _relevant(passages, query, self.valves.retrieval_strong_score)[: self.valves.retrieval_k], True
 
     async def _sop_check(self, tools: dict | None, emitter, readings: str, tools_used: list,
                          steps: list, trace: list, round_label: str) -> str:
@@ -2073,6 +2079,47 @@ def _doc_label(name: str) -> str:
 
 
 _CLAUSE_REF = re.compile(r"(?:§\s*|\bclauses?\s+|\bsections?\s+)(\d+(?:\.\d+)*)", re.I)
+# A sentence that says the SOP says something.
+_ATTRIBUTED = re.compile(r"\bSOP[-\s]|\bclauses?\b|\bsections?\s+\d|§", re.I)
+
+_NOT_FOUND = (
+    "\n\nNOTHING RELEVANT WAS FOUND in the local knowledge base for this request. If it asks "
+    "about the plant's documents, say plainly that it is not found in them - that is an "
+    "acceptable answer - and do not answer from general knowledge as if a plant document said it."
+)
+
+# Words that carry no subject: a passage sharing only these with a request is
+# not about it.
+_STOP = frozenset(
+    "what which when where who why how does did the and for are was were been being this that "
+    "these those with from into onto about under over per its their there them they you your our "
+    "can could should would will shall may might must give tell show list explain describe please "
+    "contain contains is a an of to in on at by as be or if do it me my we us "
+    # In every chunk of every plant document, so sharing them says nothing.
+    "sop sops document documents procedure procedures summarise summarize".split()
+)
+
+
+def _relevant(passages: list[dict], query: str, strong: float) -> list[dict]:
+    """The retrieved passages that are about the request.
+
+    Vector search always returns its nearest k, related or not: asked "What is
+    the capital of France?", this knowledge base still returns the seal
+    leakage SOP at a similarity of 0.68. A passage is kept when it shares a
+    word of substance with the request, or when its similarity is strong -
+    the guard 4CE's first prototype used (sovereign_ai/knowledge.py), so an
+    unrelated document is never offered to the agents as something to cite.
+    """
+    terms = {t for t in re.findall(r"[a-z0-9]+", (query or "").lower()) if len(t) >= 3 and t not in _STOP}
+    if not terms:
+        return passages
+    kept = []
+    for passage in passages:
+        words = set(re.findall(r"[a-z0-9]+", f"{passage.get('text', '')} {passage.get('name', '')}".lower()))
+        score = passage.get("distance")
+        if terms & words or (isinstance(score, (int, float)) and score >= strong):
+            kept.append(passage)
+    return kept
 
 
 def _sop_clauses(sop: str) -> set[str]:
@@ -2081,7 +2128,8 @@ def _sop_clauses(sop: str) -> set[str]:
 
 
 def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
-                   clauses: set[str] | frozenset = frozenset(), computed: str = "") -> list[dict]:
+                   clauses: set[str] | frozenset = frozenset(), computed: str = "",
+                   ruled: str = "") -> list[dict]:
     """4CE's own check, made without a model: every figure in a sentence that
     cites [n] must appear in document n. A model can write "within 30 days
     [1]" when the document says 14; this catches that, and says so.
@@ -2105,10 +2153,20 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
     def present(figure: str, text: str) -> bool:
         return re.search(rf"(?<![\w.]){re.escape(figure)}(?![\w])", text or "") is not None
 
-    for sentence in re.split(r"(?<=[.!?])\s+", prose):
+    anywhere = " ".join(texts.values())
+    unsourced: list[str] = []
+    for sentence in re.split(r"(?<=[.!?]|\n)\s+", prose):
         cited = _citations(sentence)
         cited = [n for n in cited if n in texts]
         if not cited:
+            # No citation, no claim: a figure attributed to the SOP with nothing
+            # behind it - not in any passage, the request, the rule pack or 4CE's
+            # own calculation - is the invented limit this check exists to stop.
+            if _ATTRIBUTED.search(sentence):
+                for figure in _FIGURE.findall(_CLAUSE_REF.sub(" ", _strip_citations(sentence))):
+                    if not any(present(figure, t) for t in (anywhere, request, computed, ruled)):
+                        if figure not in unsourced:
+                            unsourced.append(figure)
             continue
         names = ", ".join(dict.fromkeys(_doc_label(sources[n - 1]["name"]) for n in cited))
         bare = _strip_citations(sentence)
@@ -2128,7 +2186,7 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
             else:
                 missing.append((figure, names))
     checks: list[dict] = []
-    if found and not missing:
+    if found and not missing and not unsourced:
         figures = ", ".join(found[:6]) + ("…" if len(found) > 6 else "")
         checks.append({
             "kind": "ok",
@@ -2139,6 +2197,12 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
         checks.append({
             "kind": "problem",
             "text": f"{figure} is cited to {names}, which does not contain it",
+            "by": "4CE",
+        })
+    for figure in unsourced[:3]:
+        checks.append({
+            "kind": "problem",
+            "text": f"{figure} is stated as the SOP's with no citation, and no source, reading or check contains it",
             "by": "4CE",
         })
     for figure, names, *origin in borrowed[:3]:

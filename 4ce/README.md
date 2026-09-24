@@ -172,4 +172,4 @@ Re-run the vision check after that change before relying on the multimodal demo.
 
 ### Still open
 
-- Porting the citation-discipline guard from `sovereign_ai/knowledge.py`.
+Nothing from the original list. The SIH26117 briefing's remaining items are tracked as they are built.
