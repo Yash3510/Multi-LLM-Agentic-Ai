@@ -25,8 +25,22 @@ so an existing LM Studio install works too. Docker Desktop is at
 Homebrew covers the rest:
 
 ```bash
-brew install python@3.12 node git
+brew install python@3.12 node@22 git
 ```
+
+`node@22`, not plain `node`. Homebrew's `node` formula tracks the current
+release, which is well past 22 by now, and this repository sets
+`engine-strict=true` in `.npmrc` - so a newer Node does not warn about the
+mismatch, it refuses to install anything at all. Homebrew keeps versioned
+formulae off the PATH, so put this one on it:
+
+```bash
+echo 'export PATH="/opt/homebrew/opt/node@22/bin:$PATH"' >> ~/.zshrc
+exec zsh
+node --version      # v22.x
+```
+
+On an Intel Mac the prefix is `/usr/local`, not `/opt/homebrew`.
 
 ---
 
@@ -238,6 +252,7 @@ Then try these in the browser, in order:
 | Sandbox says it is unavailable | Docker Desktop is not running, or the default socket setting in step 7 |
 | `Grounding: none` on a document question | the knowledge base is gone. Re-run `python 4ce/install.py` — it rebuilds it |
 | Preflight fails on **Knowledge attached** | same as above |
+| `npm error code EBADENGINE` | Node is newer than 22. Install `node@22` and put it on the PATH, as in step 1 |
 
 `4ce/docs/HOW_TO_RUN.md` has more, including how to recover from the admin
 **Reset vector DB** action, which deletes more than it appears to.
