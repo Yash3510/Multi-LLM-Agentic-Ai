@@ -90,6 +90,14 @@ DEFAULT_RULE_PACK: dict[str, Any] = {
             "type": "categorical",
             "limit": "Zone A or B",
             "patterns": [r"zone\s*([A-D])\b"],
+            # A velocity is not a zone: the ISO 10816 boundaries depend on the
+            # machine's class, which this SOP does not give. Recognised, so the
+            # report says what was supplied, and deliberately not converted.
+            "unconverted": {
+                "patterns": [r"(\d+(?:\.\d+)?)\s*mm\s*/\s*s"],
+                "note": "{value} mm/s was given, but this SOP states vibration as ISO 10816 zones, "
+                        "whose boundaries depend on the machine class - state the zone to have it assessed",
+            },
             "cases": {
                 "A": {"verdict": "PASS", "clause": "3.1", "disposition": "FIT FOR SERVICE"},
                 "B": {"verdict": "PASS", "clause": "3.1", "disposition": "FIT FOR SERVICE"},
@@ -275,9 +283,11 @@ class Tools:
         if missing:
             lines += ["", "### Not measured", ""]
             for finding in missing:
+                detail = finding.measured[len("not found ("):-1] if finding.measured.startswith("not found (") else ""
                 lines.append(
-                    f"- **{finding.parameter}** - no reading found in the material supplied. "
-                    f"{sop_id} §{finding.clause} could not be applied."
+                    f"- **{finding.parameter}** - "
+                    + (f"{detail}. " if detail else "no reading found in the material supplied. ")
+                    + f"{sop_id} §{finding.clause} could not be applied."
                 )
 
         if unassessed:
@@ -354,7 +364,7 @@ def _assess_band(rule: dict[str, Any], text: str) -> tuple[Finding, list[tuple[i
 def _assess_categorical(rule: dict[str, Any], text: str) -> tuple[Finding, list[tuple[int, int]]]:
     match = _first_match(rule.get("patterns", []), text)
     if not match or not match.groups():
-        return _no_data(rule), []
+        return _no_data(rule, _unconverted(rule, text)), []
 
     key = match.group(1).strip().upper()
     case = (rule.get("cases") or {}).get(key)
@@ -408,6 +418,15 @@ def _finding(rule: dict[str, Any], measured: str, outcome: dict[str, Any], limit
     if action and finding.verdict != "PASS":
         finding.actions.append((finding.clause, str(action)))
     return finding
+
+
+def _unconverted(rule: dict[str, Any], text: str) -> str:
+    """What was supplied instead of the reading a rule needs, when it says so."""
+    spec = rule.get("unconverted") or {}
+    found = _first_match(spec.get("patterns", []), text)
+    if not found or not spec.get("note"):
+        return ""
+    return str(spec["note"]).format(value=found.group(1))
 
 
 def _no_data(rule: dict[str, Any], detail: str = "") -> Finding:

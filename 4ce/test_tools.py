@@ -299,6 +299,32 @@ async def test_execution_check() -> None:
     check("a clean run that asserts nothing is not a pass", ran["kind"] == "unverified")
 
 
+async def test_figure_check() -> None:
+    """The orchestrator's own check that cited figures are in what they cite."""
+    print("\n4CE Orchestrator: figure check")
+    spec = importlib.util.spec_from_file_location(
+        "orchestrator", str(Path(__file__).parent / "functions" / "orchestrator.py")
+    )
+    orchestrator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(orchestrator)
+    judge = orchestrator._figure_checks
+    sources = [{"name": "SOP-MEC-014_seal_leakage.txt", "passages": [{"text":
+        "2.2 Leakage between 5 and 20 drops per minute: replace within 30 days."}]}]
+
+    kinds = lambda checks: sorted((c["kind"], c["text"].split(" ")[0]) for c in checks)
+    checks = judge("Replace within 30 days [1].", sources)
+    check("a figure the source holds passes", kinds(checks) == [("ok", "Every")])
+    checks = judge("Replace within 14 days [1].", sources)
+    check("a figure the source lacks fails", ("problem", "14") in kinds(checks))
+    checks = judge("The seal leaks 18 drops per minute [1].", sources, "it leaks 18 drops/min")
+    check("the request's own figure is shown, not failed",
+          ("unverified", "18") in kinds(checks) and not any(k == "problem" for k, _ in kinds(checks)))
+    checks = judge("Clause 5.1 forbids starting without the guard [1].", sources, "", {"5.1"})
+    check("a clause the rule pack cited is not a fabrication", not any(c["kind"] == "problem" for c in checks))
+    checks = judge("Clause 9.4 forbids it [1].", sources, "", {"5.1"})
+    check("a clause nobody cited still fails", any("Clause 9.4" in c["text"] for c in checks))
+
+
 async def test_sop_check() -> None:
     print("\n4CE SOP Threshold Check")
     tool = load("sop_check")
@@ -365,6 +391,10 @@ async def test_sop_check() -> None:
     out = await tool.check_sop_thresholds(DEMO_REPORT)
     check("states its own limitation", "only for the parameters in its rule pack" in out)
 
+    out = await tool.check_sop_thresholds("seal leak 18 drops/min, vibration 7.1 mm/s, bearing temperature 71 C")
+    check("a velocity is named, not called missing", "7.1 mm/s was given" in out and "state the zone" in out)
+    check("18 drops/min needs the supervisor under §2.2", "| 18 drops/min |" in out and "§2.2 | REVIEW" in out)
+
 
 async def main() -> None:
     if not Path("data").exists():
@@ -376,6 +406,7 @@ async def main() -> None:
     await test_sovereignty()
     await test_egress()
     await test_execution_check()
+    await test_figure_check()
     await test_sop_check()
 
     failed = [label for label, ok, _ in RESULTS if not ok]

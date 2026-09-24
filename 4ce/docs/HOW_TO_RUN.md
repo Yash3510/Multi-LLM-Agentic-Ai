@@ -168,7 +168,7 @@ pkill -f "open-webui serve"
 │   └── orchestrator.py     ← TONY / FRIDAY / JARVIS / ULTRON agent chain
 └── tools/
     ├── sandbox.py          ← sandboxed Python execution via Docker
-    ├── deliverables.py     ← .docx output generator
+    ├── deliverables.py     ← .docx, .xlsx and .pptx output
     └── sovereignty.py      ← off-premise audit
 ```
 

@@ -158,7 +158,23 @@ verdict the deterministic tool decided, so the spreadsheet inherits the
 clause-cited assessment rather than the model's opinion.
 
 Say: the type follows the request — `.py`, `.sql`, `.csv`, `.json`, `.md` and
-the rest. Set `output_dir` on the tool and every released file also lands in a
+the rest, and an **Excel workbook** or a **PowerPoint deck** by name:
+
+> Give me the P-101B readings as an Excel workbook: seal leak 18 drops/min, vibration 7.1 mm/s, bearing temperature 71 C.
+
+Worth opening. Each table in the answer is a sheet, with numbers stored as
+numbers and units moved into the headers; a stated total is a live `SUM`, and
+only once it has been checked to add up. A sheet called *SOP rule pack
+verdicts* is the deterministic table verbatim - "below 5 drops/min", not a
+model's paraphrase of it - and *About this workbook* carries the same approval
+record as the chat. "Make a short PowerPoint deck on replacing the P-101B
+seal…" gives a deck with a slide per section, the verdict table as a native
+table slide, speaker notes, and a closing "How this was produced" slide.
+
+Measured on this build: 18 drops/min comes back REVIEW under §2.2 - supervisor
+concurrence and replacement within 30 days - and 7.1 mm/s is reported as given
+but not assessed, because SOP-MEC-014 states vibration as ISO 10816 zones whose
+boundaries depend on the machine class. Neither is a model's guess. Set `output_dir` on the tool and every released file also lands in a
 folder you choose, such as an inspection share.
 
 ---

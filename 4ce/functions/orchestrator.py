@@ -476,6 +476,27 @@ class Pipe:
             else:
                 audit = ""
 
+        # Threshold arithmetic belongs to the authored rule pack, not to a model.
+        # ULTRON reading 6.2 mm against a 6.0 mm retirement limit as a breach is
+        # precisely the failure this removes. Readings come from the request, or
+        # from the page in a vision task: deciding from FRIDAY's prose instead
+        # fires on anything that mentions a number - a sovereignty audit
+        # reporting "11 of 11" should not produce an SOP assessment.
+        #
+        # A request's own readings are assessed once, before FRIDAY: they do not
+        # change between tries, and FRIDAY given the verdicts reasons from them.
+        # Given only the documents, a small model asked for "these readings as a
+        # workbook" asked instead whether the readings were in the documents, and
+        # refused. And assessed from the request and FRIDAY's analysis together,
+        # the rule pack took whichever numbers it met first - the sample
+        # inspection report's, quoted by FRIDAY - so one request came back "4/4
+        # within limits" on its first try and "2/3" on its second.
+        request_sop = ""
+        if task_type in ("document", "analysis", "vision") and _has_readings(prompt):
+            request_sop = await self._sop_check(
+                __tools__, __event_emitter__, prompt, tools_used, steps, trace, ""
+            )
+
         while True:
             attempts += 1
 
@@ -495,7 +516,10 @@ class Pipe:
                 system=_FRIDAY_SYSTEM,
                 instruction=_with_challenge(
                     "Analyse the request below. State factual findings drawn only from the "
-                    "supplied context, and label every assumption explicitly."
+                    "supplied context and the request itself, and label every assumption "
+                    "explicitly. Figures and readings the request gives are the requester's own "
+                    "data: use them as given, and do not treat them as unsupported because no "
+                    "document contains them."
                     + (
                         "\n\nSUPPLIED CONTEXT - passages retrieved from the local "
                         "knowledge base, and any standing instruction for this workspace. "
@@ -506,6 +530,13 @@ class Pipe:
                         else ""
                     )
                     + (_CITE_RULE.format(numbers=_source_numbers(sources)) if sources else "")
+                    + (
+                        "\n\nSOP THRESHOLD ASSESSMENT of the readings in the request "
+                        "(deterministic rule pack; authoritative - build on its verdicts and "
+                        "clauses, and do not recompute or question them):\n" + request_sop
+                        if request_sop
+                        else ""
+                    )
                     + "\n\nREQUEST\n"
                     + prompt,
                     challenge,
@@ -519,43 +550,13 @@ class Pipe:
             steps.append({**friday, "agent": "FRIDAY", "label": f"analysis{round_label}"})
             trace.append(f"**FRIDAY** analysed the request in {friday['seconds']:.1f}s.")
 
-            # Threshold arithmetic belongs to the authored rule pack, not to a model.
-            # ULTRON reading 6.2 mm against a 6.0 mm retirement limit as a breach is
-            # precisely the failure this removes.
-            # Readings come from the request, or from the page in a vision task.
-            # Deciding from FRIDAY's prose instead makes it fire on anything that
-            # happens to mention a number - a sovereignty audit reporting "11 of
-            # 11" should not produce an SOP assessment row.
-            sop = ""
-            assessable = task_type == "vision" or _has_readings(prompt)
-            if task_type in ("document", "analysis", "vision") and assessable:
-                await _status(
-                    __event_emitter__,
-                    "tool",
-                    "TOOL: comparing readings against the SOP thresholds",
+            sop = request_sop
+            # A scan or a photo: its readings exist nowhere but in FRIDAY's
+            # extraction, so they are assessed from that, on every try.
+            if not sop and task_type == "vision":
+                sop = await self._sop_check(
+                    __tools__, __event_emitter__, analysis, tools_used, steps, trace, round_label
                 )
-                sop = await self._use_tool(
-                    __tools__,
-                    "check_sop_thresholds",
-                    readings=prompt + "\n\n" + analysis,
-                )
-                if sop and not sop.startswith(_ERR):
-                    if "check_sop_thresholds" not in tools_used:
-                        tools_used.append("check_sop_thresholds")
-                    steps.append({
-                        "agent": "TOOL",
-                        "label": f"SOP threshold check{round_label}",
-                        "model": "deterministic rule pack",
-                        "seconds": 0.0,
-                        "thinking": "",
-                        "text": sop,
-                    })
-                    trace.append(
-                        "**TOOL** `check_sop_thresholds` compared the readings against the "
-                        "authored rule pack and cited the deciding clause."
-                    )
-                else:
-                    sop = ""
 
             grounded = ""
             if audit:
@@ -612,6 +613,7 @@ class Pipe:
                         if challenge and task_type == "code"
                         else ""
                     )
+                    + _office_guidance(_office_formats(prompt))
                     + "\n\nProduce the finished deliverable the request actually asked "
                     "for. Show working for any calculation. Do not claim you performed an "
                     "action unless it is supported by the analysis above. Where a section "
@@ -713,7 +715,7 @@ class Pipe:
             # ULTRON's own checks.
             verdict["checks"] = (
                 ([ran] if ran else [])
-                + _figure_checks(deliverable, sources)
+                + _figure_checks(deliverable, sources, prompt, _sop_clauses(sop))
                 + _parse_checks(verdict["detail"])
             )
             verdict["cited_text"] = deliverable
@@ -905,6 +907,7 @@ class Pipe:
             if approval in ("approved", "not required")
             else ""
         )
+        released = deliverable
 
         # Whatever the request actually asked for, in the type it asked for: a .py
         # for a script, a .csv for data, .sql for a query. Released on the same
@@ -920,14 +923,11 @@ class Pipe:
                     trace.append(f"**TOOL** `save_artifact` wrote `{name}`.")
                     deliverable += "\n\n" + written
 
-        # PS 26117 asks for the approval note as a Word file. Produce it only once a
-        # person has released the result, never before.
-        if task_type in ("document", "vision") and approval in ("approved", "not required"):
-            await _status(
-                __event_emitter__, "tool", "TOOL: writing the Word deliverable",
-                facts=["Writing a .docx of the approved result"],
-            )
-            # The report carries the same record the chat shows, and who
+        releasing = approval in ("approved", "not required")
+        record: list = []
+        signoff: dict = {}
+        if releasing and task_type != "chat":
+            # Every file carries the same record the chat shows, and who
             # approved it and when. Passed as "__" parameters, which the tool
             # spec hides from models: only this code ran the approval gate,
             # so only it may say that a person approved the document.
@@ -956,6 +956,41 @@ class Pipe:
                     (label, f"Approved by {approver} on {when}" if label == "Human approval" else value)
                     for label, value in record
                 ]
+
+        # A workbook or a deck when the request asked for one, built from the
+        # released answer's own tables and sections - the text the fingerprint
+        # covers, before any file link was added to it.
+        for fmt in _office_formats(prompt) if releasing and task_type != "chat" else []:
+            tool, kind = _OFFICE_TOOLS[fmt]
+            await _status(__event_emitter__, "tool", f"TOOL: writing the {kind}")
+            extra = (
+                {"document_type": "Approved deliverable" if approval == "approved" else "Deliverable"}
+                if fmt == "pptx" else {}
+            )
+            body = released
+            verdicts = _first_table(sop)
+            if verdicts:
+                # The rule pack's own table, verbatim. The answer quotes it, but
+                # a model can paraphrase a limit - "5-20 drops/min" for the
+                # acceptance limit of "below 5" - and the rule pack does not.
+                body += "\n\n### SOP rule pack verdicts\n\n" + verdicts
+            made = await self._use_tool(
+                __tools__, tool, title=_document_title(prompt), body=body,
+                __user__=__user__, __record__=record,
+                __sources__=[source["name"] for source in sources], **extra,
+            )
+            if made and not made.startswith(_ERR):
+                tools_used.append(tool)
+                trace.append(f"**TOOL** `{tool}` wrote the released result as a {kind}.")
+                deliverable += "\n\n" + _file_card(made)
+
+        # PS 26117 asks for the approval note as a Word file. Produce it only once a
+        # person has released the result, never before.
+        if task_type in ("document", "vision") and releasing:
+            await _status(
+                __event_emitter__, "tool", "TOOL: writing the Word deliverable",
+                facts=["Writing a .docx of the approved result"],
+            )
             docx = await self._use_tool(
                 __tools__,
                 "create_word_document",
@@ -1108,6 +1143,29 @@ class Pipe:
                     "distance": distance,
                 })
         return passages[: self.valves.retrieval_k]
+
+    async def _sop_check(self, tools: dict | None, emitter, readings: str, tools_used: list,
+                         steps: list, trace: list, round_label: str) -> str:
+        """Assess readings against the authored SOP rule pack; "" when it cannot run."""
+        await _status(emitter, "tool", "TOOL: comparing readings against the SOP thresholds")
+        sop = await self._use_tool(tools, "check_sop_thresholds", readings=readings)
+        if not sop or sop.startswith(_ERR):
+            return ""
+        if "check_sop_thresholds" not in tools_used:
+            tools_used.append("check_sop_thresholds")
+        steps.append({
+            "agent": "TOOL",
+            "label": f"SOP threshold check{round_label}",
+            "model": "deterministic rule pack",
+            "seconds": 0.0,
+            "thinking": "",
+            "text": sop,
+        })
+        trace.append(
+            "**TOOL** `check_sop_thresholds` compared the readings against the "
+            "authored rule pack and cited the deciding clause."
+        )
+        return sop
 
     async def _use_tool(self, tools: dict | None, name: str, **kwargs: Any) -> str:
         """Call one deployed 4CE tool by its function name.
@@ -1421,7 +1479,8 @@ _CITE_RULE = (
     "After every finding that rests on a passage, put that number in square brackets "
     "straight after it - for example \"Leakage above 5 drops per minute requires a "
     "shutdown [1].\" Use only these numbers: {numbers}. A finding the passages do not "
-    "state gets no number and is labelled as an assumption."
+    "state gets no number and is labelled as an assumption. Figures the request itself "
+    "gives are the requester's own data: they take no number, and are not assumptions."
 )
 
 
@@ -1677,6 +1736,33 @@ _TITLE_BREAKS = ("what", "how", "when", "why", "whether", "which", "who", "where
 _TITLE_DANGLING = ("and", "or", "of", "the", "a", "an", "to", "for", "in", "on", "under", "with", "by", "at", "what", "how")
 
 
+_TITLE_FORMAT = re.compile(
+    r"\s+(?:as|in(?:to)?)\s+(?:an?\s+)?(?:excel\s+(?:workbook|file|sheet)|excel|xlsx|spreadsheet|"
+    r"workbook|power\s?point(?:\s+deck)?|pptx|slide\s+deck|deck|slides|presentation|"
+    r"word\s+(?:document|file)|docx|csv(?:\s+file)?)\b",
+    re.I,
+)
+
+
+_TITLE_FORMAT_LEAD = re.compile(
+    r"^(?:\w+\s+){0,3}?(?:an?\s+|the\s+)?(?:excel\s+workbook|spreadsheet|workbook|power\s?point\s+deck|"
+    r"power\s?point|slide\s+deck|deck|presentation|slides)\s+(?:on|about|of|covering)\s+",
+    re.I,
+)
+
+
+def _first_table(markdown: str) -> str:
+    """The first markdown table in a text, header to last row, or ""."""
+    lines = (markdown or "").splitlines()
+    for i in range(len(lines) - 1):
+        if lines[i].lstrip().startswith("|") and re.match(r"^\s*\|?\s*:?-{2,}", lines[i + 1]):
+            end = i
+            while end < len(lines) and lines[end].lstrip().startswith("|"):
+                end += 1
+            return "\n".join(lines[i:end])
+    return ""
+
+
 def _document_title(prompt: str) -> str:
     """A short title describing the deliverable, not the request for it.
 
@@ -1692,6 +1778,11 @@ def _document_title(prompt: str) -> str:
     # A request often states its subject after a colon; prefer what precedes it.
     head = cleaned.split(":", 1)[0]
     first = re.split(r"(?<=[.?!])\s+", head)[0].rstrip(" ?.!")
+    # "the P-101B readings as an Excel workbook" is titled by what it is about;
+    # the file type is already on the card and in the file name.
+    first = _TITLE_FORMAT.sub("", first)
+    # "a deck on replacing the seal" is about replacing the seal.
+    first = _TITLE_FORMAT_LEAD.sub("", first)
     asked = _TITLE_ASK.sub("", first)
     if asked != first:
         asked = _TITLE_VERB.sub("", asked)
@@ -1920,29 +2011,57 @@ def _doc_label(name: str) -> str:
     return code.group(0) if code else stem.replace("_", " ")
 
 
-def _figure_checks(deliverable: str, sources: list[dict]) -> list[dict]:
+_CLAUSE_REF = re.compile(r"(?:§\s*|\bclauses?\s+|\bsections?\s+)(\d+(?:\.\d+)*)", re.I)
+
+
+def _sop_clauses(sop: str) -> set[str]:
+    """The clauses the SOP rule pack cited: authored from the SOP, so real."""
+    return set(re.findall(r"§(\d+(?:\.\d+)*)", sop or ""))
+
+
+def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
+                   clauses: set[str] | frozenset = frozenset()) -> list[dict]:
     """4CE's own check, made without a model: every figure in a sentence that
     cites [n] must appear in document n. A model can write "within 30 days
-    [1]" when the document says 14; this catches that, and says so."""
+    [1]" when the document says 14; this catches that, and says so.
+
+    Two things are not invented figures, and are not failed as if they were.
+    A clause reference - "Clause 5.1" - is checked against the passages and
+    the clauses the SOP rule pack cited: a retrieved passage is a chunk, and
+    §5.1 was failed as "not in SOP-MEC-014" because the chunk ended at §3. And
+    a figure the request itself gives - the requester's own reading, cited as
+    though the document gave it - is shown as that, not as a fabrication."""
     if not sources:
         return []
     texts = {n: " ".join(p["text"] for p in src["passages"]) for n, src in enumerate(sources, 1)}
     prose = re.sub(r"```[\s\S]*?```|`[^`\n]*`", " ", deliverable or "")
+    # A numbered list's "1." is a position, not a figure.
+    prose = re.sub(r"(?m)^\s*\d{1,3}[.)]\s+", "", prose)
     found: list[str] = []
     missing: list[tuple[str, str]] = []
+    borrowed: list[tuple[str, str]] = []
+
+    def present(figure: str, text: str) -> bool:
+        return re.search(rf"(?<![\w.]){re.escape(figure)}(?![\w])", text or "") is not None
+
     for sentence in re.split(r"(?<=[.!?])\s+", prose):
         cited = _citations(sentence)
         cited = [n for n in cited if n in texts]
         if not cited:
             continue
+        names = ", ".join(dict.fromkeys(_doc_label(sources[n - 1]["name"]) for n in cited))
         bare = _strip_citations(sentence)
-        for figure in _FIGURE.findall(bare):
-            pattern = re.compile(rf"(?<![\w.]){re.escape(figure)}(?![\w])")
-            if any(pattern.search(texts[n]) for n in cited):
+        for ref in _CLAUSE_REF.findall(bare):
+            if ref not in clauses and not any(present(ref, texts[n]) for n in cited):
+                missing.append((f"Clause {ref}", names))
+        for figure in _FIGURE.findall(_CLAUSE_REF.sub(" ", bare)):
+            if any(present(figure, texts[n]) for n in cited):
                 if figure not in found:
                     found.append(figure)
+            elif present(figure, request):
+                if all(figure != b[0] for b in borrowed):
+                    borrowed.append((figure, names))
             else:
-                names = ", ".join(_doc_label(sources[n - 1]["name"]) for n in cited)
                 missing.append((figure, names))
     checks: list[dict] = []
     if found and not missing:
@@ -1956,6 +2075,12 @@ def _figure_checks(deliverable: str, sources: list[dict]) -> list[dict]:
         checks.append({
             "kind": "problem",
             "text": f"{figure} is cited to {names}, which does not contain it",
+            "by": "4CE",
+        })
+    for figure, names in borrowed[:3]:
+        checks.append({
+            "kind": "unverified",
+            "text": f"{figure} is the request's own figure, cited to {names} as if the document gave it",
             "by": "4CE",
         })
     return checks
@@ -2092,6 +2217,44 @@ def _execution_check(code: str, report: str, prompt: str = "") -> dict:
         f"The code failed in the sandbox with exit code {exit_code}"
         + (f": {last[-1].strip()}" if last else ""), 180,
     )}
+
+
+# A workbook or a deck, when the request asks for one by name.
+_OFFICE_FORMATS = (
+    ("xlsx", re.compile(r"\b(?:excel|xlsx|spreadsheet|workbook)\b", re.I)),
+    ("pptx", re.compile(r"\b(?:power\s?point|pptx|slides?|slide deck|deck|presentation)\b", re.I)),
+)
+_OFFICE_TOOLS = {
+    "xlsx": ("create_spreadsheet", "Excel workbook"),
+    "pptx": ("create_presentation", "PowerPoint deck"),
+}
+
+
+def _office_formats(prompt: str) -> list[str]:
+    return [fmt for fmt, pattern in _OFFICE_FORMATS if pattern.search(prompt or "")]
+
+
+def _office_guidance(formats: list[str]) -> str:
+    """What JARVIS needs to know for the answer to become a good workbook or deck.
+    The files are built from the answer itself, so its shape is theirs."""
+    text = ""
+    if "xlsx" in formats:
+        text += (
+            "\n\nThe spreadsheet the request asks for is made by 4CE from this answer once it is "
+            "approved, so that part of the request is already taken care of: write only the "
+            "content that goes in it, and say nothing about files. Put the figures in markdown "
+            "tables, one table per sheet, with a header row, one value per cell, and a unit shared "
+            "by a whole column in its header rather than in every cell."
+        )
+    if "pptx" in formats:
+        text += (
+            "\n\nThe slide deck the request asks for is made by 4CE from this answer once it is "
+            "approved, so that part of the request is already taken care of: write only the "
+            "content that goes in it, and say nothing about files. Open with the answer in one or "
+            "two sentences, then give each ### section three to six short bullet points, one idea "
+            "per bullet. A table becomes a table slide."
+        )
+    return text
 
 
 def _reservations_phrase(verdict: dict, lead: str, tail: str = "") -> str:

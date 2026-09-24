@@ -97,7 +97,7 @@ app at runtime.
 |---|---|
 | [`functions/orchestrator.py`](4ce/functions/orchestrator.py) | The agent chain. Registers as a selectable model and owns the whole turn. |
 | [`tools/sandbox.py`](4ce/tools/sandbox.py) | Runs generated Python in a disposable container — no network, read-only root, all capabilities dropped, hard CPU/memory/PID/time caps. |
-| [`tools/deliverables.py`](4ce/tools/deliverables.py) | Renders agent output into a formatted `.docx` with a classification banner and reference table. |
+| [`tools/deliverables.py`](4ce/tools/deliverables.py) | Renders the released answer as a formatted `.docx`, an `.xlsx` workbook or a `.pptx` deck - whichever the request asks for - each carrying the approval record. |
 | [`tools/sovereignty.py`](4ce/tools/sovereignty.py) | Audits live configuration for anything that could carry data off-premise, and returns a pass/fail table. |
 | [`tools/sop_check.py`](4ce/tools/sop_check.py) | Compares readings against an authored rule pack and cites the clause that decided each one. Arithmetic, not inference. |
 

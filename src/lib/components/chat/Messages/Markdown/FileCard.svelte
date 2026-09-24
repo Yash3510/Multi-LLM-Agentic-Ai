@@ -30,6 +30,10 @@
 
 	$: href = data.url?.startsWith('/api/') ? `${WEBUI_BASE_URL}${data.url}` : (data.url ?? '');
 	$: kind = data.kind ?? 'Word report';
+	// A workbook or a deck downloads; only a Word report has a page to preview.
+	$: format = /excel|workbook/i.test(kind) ? 'xlsx' : /powerpoint|deck/i.test(kind) ? 'pptx' : 'docx';
+	$: previewable = format === 'docx';
+	let downloadEl: HTMLAnchorElement;
 	$: fileId = data.url?.match(/\/files\/([^/]+)\/content/)?.[1] ?? null;
 
 	/* The file is fetched once, the first time it is looked at, and kept. */
@@ -54,6 +58,7 @@
 	let showTimer: ReturnType<typeof setTimeout>;
 	let hideTimer: ReturnType<typeof setTimeout>;
 	const enter = () => {
+		if (!previewable) return;
 		clearTimeout(hideTimer);
 		load();
 		showTimer = setTimeout(() => (peek = true), 280);
@@ -65,6 +70,10 @@
 
 	let open = false;
 	const read = () => {
+		if (!previewable) {
+			downloadEl?.click();
+			return;
+		}
 		clearTimeout(showTimer);
 		peek = false;
 		load();
@@ -89,8 +98,8 @@
 		<button
 			type="button"
 			class="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-gray-900/15"
-			aria-label="Preview {data.title || kind}"
-			aria-haspopup="dialog"
+			aria-label="{previewable ? 'Preview' : 'Download'} {data.title || kind}"
+			aria-haspopup={previewable ? 'dialog' : undefined}
 			on:mouseenter={enter}
 			on:mouseleave={leave}
 			on:focus={enter}
@@ -113,7 +122,13 @@
 					stroke-width="1.3"
 					stroke-linecap="round"
 					stroke-linejoin="round"
-					><path d="M4 1.75h5.25L12.5 5v9.25H4z" /><path d="M9 1.75V5h3.5M6 8.25h4M6 10.75h4" /></svg
+					>{#if format === 'xlsx'}<path d="M2.75 2.75h10.5v10.5H2.75z" /><path
+							d="M2.75 6.25h10.5M2.75 9.75h10.5M6.75 2.75v10.5"
+						/>{:else if format === 'pptx'}<path d="M2 3h12v8H2z" /><path
+							d="M8 11v2.5M5.5 13.5h5M4.5 5.75h4M4.5 8.25h6"
+						/>{:else}<path d="M4 1.75h5.25L12.5 5v9.25H4z" /><path
+							d="M9 1.75V5h3.5M6 8.25h4M6 10.75h4"
+						/>{/if}</svg
 				>
 			</span>
 
@@ -129,7 +144,7 @@
 		</button>
 
 		{#if href}
-			<a {href} class={DOWNLOAD} download aria-label="Download {data.title || kind}">
+			<a {href} class={DOWNLOAD} download aria-label="Download {data.title || kind}" bind:this={downloadEl}>
 				<svg
 					class="size-3.5"
 					viewBox="0 0 16 16"
@@ -145,7 +160,7 @@
 		{/if}
 	</div>
 
-	{#if peek && fileId}
+	{#if peek && fileId && previewable}
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
 		<div
 			class="report-peek absolute left-0 top-full z-30 mt-2 origin-[22px_-10px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_24px_60px_-24px_rgba(16,24,40,0.45)] dark:border-gray-700 dark:bg-gray-900"

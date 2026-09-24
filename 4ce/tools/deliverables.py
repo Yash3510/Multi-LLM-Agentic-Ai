@@ -2,7 +2,7 @@
 title: 4CE Deliverables
 author: 4CE
 version: 0.1.0
-description: Produces real office documents from agent output - approval notes, inspection summaries and reports as .docx files registered for download. Generated entirely on the local machine.
+description: Produces real office files from agent output - approval notes and reports as .docx, tables as .xlsx workbooks, decks as .pptx - registered for download. Generated entirely on the local machine.
 """
 
 import asyncio
@@ -270,6 +270,117 @@ class Tools:
         return (
             f"**{safe}** · {len(payload) // 1024 or 1} KB, stored on this machine · "
             f"[Download](/api/v1/files/{file_id}/content){saved}"
+        )
+
+    async def create_spreadsheet(
+        self,
+        title: str,
+        body: str,
+        __user__: dict | None = None,
+        __event_emitter__: Callable[[dict], Awaitable[None]] | None = None,
+        __record__: list | None = None,
+        __sources__: list | None = None,
+    ) -> str:
+        """
+        Create an Excel (.xlsx) workbook from the tables in the supplied content and return a download link.
+
+        Use this when the request asks for a spreadsheet, an Excel file or a workbook.
+
+        :param title: Workbook title, e.g. "P-101B readings".
+        :param body: The content, in markdown. Every table becomes a sheet of its own: numbers are stored as numbers, a unit shared by a whole column moves into its header, and a stated total that adds up becomes a live SUM formula.
+        :return: A markdown download link to the workbook, or the reason it could not be made.
+        """
+        refused = _refusal(title, body, __user__)
+        if refused:
+            return refused
+        await _emit(__event_emitter__, "deliverable", f"JARVIS: writing '{title}' as an Excel workbook")
+        try:
+            payload = await asyncio.to_thread(_build_xlsx, title, body, __record__ or [], __sources__ or [])
+        except ImportError:
+            return "The `openpyxl` package is not available in this backend, so the workbook could not be made."
+        except Exception as exc:
+            return f"The workbook could not be made: {exc}"
+        return await self._store(
+            __user__, __event_emitter__, title, payload, "xlsx", "Excel workbook",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    async def create_presentation(
+        self,
+        title: str,
+        body: str,
+        document_type: str = "Deliverable",
+        __user__: dict | None = None,
+        __event_emitter__: Callable[[dict], Awaitable[None]] | None = None,
+        __record__: list | None = None,
+        __sources__: list | None = None,
+    ) -> str:
+        """
+        Create a PowerPoint (.pptx) deck from the supplied content and return a download link.
+
+        Use this when the request asks for slides, a deck, a presentation or a PowerPoint file.
+
+        :param title: Deck title, e.g. "P-101B seal replacement - for approval".
+        :param body: The content, in markdown. The opening paragraph becomes the key-message slide, every ### section a slide of bullets, every table a table slide; the full text of each section goes into the speaker notes.
+        :param document_type: What the deck is, shown above the title, e.g. "Board update".
+        :return: A markdown download link to the deck, or the reason it could not be made.
+        """
+        refused = _refusal(title, body, __user__)
+        if refused:
+            return refused
+        await _emit(__event_emitter__, "deliverable", f"JARVIS: writing '{title}' as a PowerPoint deck")
+        try:
+            payload = await asyncio.to_thread(
+                _build_pptx, title, body, document_type, __record__ or [], __sources__ or []
+            )
+        except ImportError:
+            return "The `python-pptx` package is not available in this backend, so the deck could not be made."
+        except Exception as exc:
+            return f"The deck could not be made: {exc}"
+        return await self._store(
+            __user__, __event_emitter__, title, payload, "pptx", "PowerPoint deck",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        )
+
+    async def _store(self, user: dict, emitter, title: str, payload: bytes, suffix: str,
+                     kind: str, media: str) -> str:
+        """Register a built file for download - and copy it to output_dir when one is set -
+        and answer in the one-line shape the chat draws as a file card."""
+        safe = re.sub(r"[^A-Za-z0-9._-]+", "_", title.strip())[:60].strip("_") or "deliverable"
+        filename = f"{safe}_{datetime.now():%Y-%m-%d}.{suffix}"
+        file_id = str(uuid.uuid4())
+        try:
+            contents, path = await asyncio.to_thread(
+                Storage.upload_file, io.BytesIO(payload), f"{file_id}_{filename}", {}
+            )
+            record = await Files.insert_new_file(
+                user["id"],
+                FileForm(
+                    id=file_id, filename=filename, path=path, data={},
+                    meta={"name": filename, "content_type": media, "size": len(contents)},
+                ),
+            )
+        except Exception as exc:
+            return f"The {kind.lower()} was made but could not be stored: {exc}"
+        if record is None:
+            return f"The {kind.lower()} was made but could not be registered for download."
+
+        saved = ""
+        keep = (self.valves.output_dir or "").strip()
+        if keep:
+            try:
+                destination = Path(keep).expanduser().resolve()
+                await asyncio.to_thread(destination.mkdir, parents=True, exist_ok=True)
+                target = destination / filename
+                await asyncio.to_thread(target.write_bytes, payload)
+                saved = f"\n\nAlso written to `{target}`."
+            except Exception as exc:
+                saved = f"\n\nIt could not be written to `{keep}`: {exc}"
+
+        await _emit(emitter, "deliverable", f"{kind} ready", done=True)
+        return (
+            f"**{kind}** · {title.strip()} · {len(payload) // 1024 or 1} KB, stored on this "
+            f"machine · [Download .{suffix}](/api/v1/files/{file_id}/content)" + saved
         )
 
     def _build_docx(
@@ -1293,6 +1404,396 @@ def _clean(text: str) -> str:
 
 def _unescape(text: str) -> str:
     return re.sub(r"\\([\\`*_{}\[\]()#+\-.!|>])", r"\1", text)
+
+
+# ---------------------------------------------------------------------------
+# Workbooks and decks
+#
+# Both are built from the released answer itself, parsed once into neutral
+# blocks, so a workbook's figures and a deck's bullets are the approved text -
+# nothing is re-asked of a model. Same house style as the report: ink, warm
+# paper, one deep-orange accent, Arial.
+# ---------------------------------------------------------------------------
+
+
+def _refusal(title: str, body: str, user: dict | None) -> str:
+    if not (title or "").strip():
+        return "A title is required."
+    if not (body or "").strip():
+        return "The content is empty; nothing was generated."
+    if not user or not user.get("id"):
+        return "The file could not be attributed to a user, so it was not generated."
+    return ""
+
+
+def _blocks(text: str) -> list[tuple]:
+    """An answer as ("heading", level, text), ("para", text), ("list", [items]),
+    ("table", header, rows) and ("code", text) blocks, in order."""
+    lines = (text or "").replace("\r\n", "\n").replace("\t", "    ").split("\n")
+    out: list[tuple] = []
+    prose: list[str] = []
+
+    def flush() -> None:
+        if prose:
+            out.append(("para", " ".join(s.strip() for s in prose)))
+            prose.clear()
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if not line.strip():
+            flush()
+            i += 1
+        elif _FENCE.match(line):
+            flush()
+            block, i = [], i + 1
+            while i < len(lines) and not _FENCE.match(lines[i]):
+                block.append(lines[i])
+                i += 1
+            out.append(("code", "\n".join(block)))
+            i += 1
+        elif line.lstrip().startswith("|") and i + 1 < len(lines) and _TABLE_SEP.match(lines[i + 1]):
+            flush()
+            header, i = _cells(line), i + 2
+            rows = []
+            while i < len(lines) and lines[i].lstrip().startswith("|"):
+                rows.append(_cells(lines[i]))
+                i += 1
+            out.append(("table", header, rows))
+        elif _HEADING.match(line):
+            flush()
+            marks, words = _HEADING.match(line).groups()
+            out.append(("heading", len(marks), words))
+            i += 1
+        elif _RULE_LINE.match(line):
+            flush()
+            i += 1
+        elif _QUOTE.match(line):
+            flush()
+            quoted = []
+            while i < len(lines) and _QUOTE.match(lines[i]):
+                quoted.append(_QUOTE.match(lines[i]).group(1))
+                i += 1
+            out.append(("para", " ".join(q.strip() for q in quoted if q.strip())))
+        elif _ITEM.match(line):
+            flush()
+            items: list[str] = []
+            while i < len(lines):
+                found = _ITEM.match(lines[i])
+                if found:
+                    items.append(found.group(3))
+                elif lines[i].strip() and items and (lines[i].startswith("  ") or not _looks_structural(lines[i])):
+                    items[-1] += " " + lines[i].strip()
+                else:
+                    break
+                i += 1
+            out.append(("list", items))
+        else:
+            prose.append(line)
+            i += 1
+    flush()
+    return out
+
+
+def _plain(text: str) -> str:
+    """Inline markdown as the words a cell or a slide shows. Citation numbers stay."""
+    text = _clean(text or "")
+    text = re.sub(r"!?\[([^\]]+)\]\([^)\s]+\)", r"\1", text)
+    text = re.sub(r"\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|__(.+?)__", lambda m: next(g for g in m.groups() if g), text)
+    text = re.sub(r"(?<![\w*])\*(?=\S)(.+?)(?<=\S)\*(?![\w*])", r"\1", text)
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+    return _unescape(text).strip()
+
+
+_NUMBER = re.compile(r"^([-+−]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*(%|[^\d\s].{0,15}?)?$")
+
+
+def _numeric(cell: str) -> tuple[float, str] | None:
+    """A cell that is one number and, optionally, its unit: (value, unit).
+    Anything else - a range, a comparison, a citation, words - is not."""
+    text = _plain(cell)
+    found = _NUMBER.match(text)
+    if not found:
+        return None
+    value = float(found.group(1).replace(",", "").replace("−", "-"))
+    return value, (found.group(2) or "").strip()
+
+
+def _sheet_name(name: str, used: set[str]) -> str:
+    base = re.sub(r"[\[\]:*?/\\]", " ", _plain(name)).strip()[:28] or "Sheet"
+    candidate, n = base, 2
+    while candidate.lower() in used:
+        candidate, n = f"{base[:25]} {n}", n + 1
+    used.add(candidate.lower())
+    return candidate
+
+
+def _build_xlsx(title: str, body: str, record: list, sources: list) -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    ink, muted = Font(name=SANS, color=INK), Font(name=SANS, color=MUTED, size=9)
+    bold = Font(name=SANS, color=INK, bold=True)
+    fill = PatternFill("solid", fgColor=FILL)
+    rule = Border(bottom=Side(style="thin", color=LINE))
+    wrap = Alignment(wrap_text=True, vertical="top")
+
+    book = Workbook()
+    book.remove(book.active)
+    used: set[str] = set()
+    heading, tables, prose = "", 0, []
+
+    for block in _blocks(body):
+        if block[0] == "heading":
+            heading = block[2]
+            prose.append((True, _plain(block[2])))
+        elif block[0] == "para":
+            prose.append((False, _plain(block[1])))
+        elif block[0] == "list":
+            prose += [(False, "• " + _plain(item)) for item in block[1]]
+        elif block[0] == "table":
+            tables += 1
+            sheet = book.create_sheet(_sheet_name(heading or f"Table {tables}", used))
+            _write_table(sheet, block[1], block[2], bold, ink, fill, rule, get_column_letter)
+
+    # The answer's words, for a request that asked for a workbook of
+    # something that is not a table.
+    if prose:
+        notes = book.create_sheet(_sheet_name("Notes", used))
+        notes.column_dimensions["A"].width = 110
+        for row, (is_heading, line) in enumerate(prose, 1):
+            cell = notes.cell(row=row, column=1, value=line)
+            cell.font, cell.alignment = (bold if is_heading else ink), wrap
+
+    about = book.create_sheet(_sheet_name("About this workbook", used))
+    about.column_dimensions["A"].width, about.column_dimensions["B"].width = 24, 90
+    about.cell(row=1, column=1, value=_plain(title)).font = Font(name=SANS, color=INK, bold=True, size=14)
+    about.cell(row=2, column=1, value=(
+        "Produced by 4CE on this machine with local open-weight models. The figures are the "
+        "released answer's own; the only formulas are totals that were checked to add up."
+    )).font = muted
+    row = 4
+    for label, value in record:
+        about.cell(row=row, column=1, value=str(label)).font = bold
+        cell = about.cell(row=row, column=2, value=_plain(str(value)))
+        cell.font, cell.alignment = ink, wrap
+        row += 1
+    if sources:
+        row += 1
+        about.cell(row=row, column=1, value="Sources").font = bold
+        for n, name in enumerate(sources, 1):
+            about.cell(row=row, column=2, value=f"[{n}] {name}").font = ink
+            row += 1
+
+    book.properties.title = _plain(title)
+    book.properties.creator = "4CE"
+    buffer = io.BytesIO()
+    book.save(buffer)
+    return buffer.getvalue()
+
+
+def _write_table(sheet, header, rows, bold, ink, fill, rule, letter) -> None:
+    width = max([len(header)] + [len(r) for r in rows])
+    header = list(header) + [""] * (width - len(header))
+    rows = [list(r) + [""] * (width - len(r)) for r in rows]
+
+    # A last row that says it is a total, checked below before it becomes one.
+    total = bool(rows) and re.match(r"^\s*total\b", _plain(rows[-1][0]), re.I) is not None
+    data = rows[:-1] if total else rows
+
+    columns = []
+    for c in range(width):
+        parsed = [_numeric(r[c]) for r in data if _plain(r[c])]
+        units = {p[1] for p in parsed if p}
+        numeric = bool(parsed) and all(parsed) and len(units) == 1
+        columns.append((numeric, units.pop() if numeric else ""))
+
+    for c, name in enumerate(header):
+        label = _plain(name)
+        numeric, unit = columns[c]
+        # "Reading" over "18 drops/min, 7.1 drops/min" becomes "Reading (drops/min)"
+        # over numbers a formula can use.
+        if numeric and unit and unit != "%" and unit.lower() not in label.lower():
+            label = f"{label} ({unit})"
+        cell = sheet.cell(row=1, column=c + 1, value=label)
+        cell.font, cell.fill, cell.border = bold, fill, rule
+
+    for r, row in enumerate(data, 2):
+        for c, raw in enumerate(row):
+            numeric, unit = columns[c]
+            cell = sheet.cell(row=r, column=c + 1)
+            parsed = _numeric(raw) if numeric else None
+            if parsed:
+                value = parsed[0] / 100 if unit == "%" else parsed[0]
+                cell.value = int(value) if float(value).is_integer() and unit != "%" else value
+                cell.number_format = "0%" if unit == "%" else ("0" if isinstance(cell.value, int) else "0.0##")
+            else:
+                cell.value = _plain(raw)
+            cell.font = ink
+
+    if total:
+        r = len(data) + 2
+        sheet.cell(row=r, column=1, value=_plain(rows[-1][0])).font = bold
+        for c in range(1, width):
+            numeric, unit = columns[c]
+            stated = _numeric(rows[-1][c])
+            cell = sheet.cell(row=r, column=c + 1)
+            if numeric and stated and data:
+                values = [p[0] for row in data if (p := _numeric(row[c]))]
+                if abs(sum(values) - stated[0]) <= 1e-6 * max(1.0, abs(stated[0])):
+                    col = letter(c + 1)
+                    cell.value = f"=SUM({col}2:{col}{r - 1})"
+                    cell.number_format = "0%" if unit == "%" else "0.0##"
+                else:
+                    cell.value = _plain(rows[-1][c])
+            else:
+                cell.value = _plain(rows[-1][c])
+            cell.font = bold
+
+    for c in range(width):
+        cells = [_plain(header[c])] + [_plain(r[c]) for r in rows]
+        sheet.column_dimensions[letter(c + 1)].width = min(60, max(10, max(len(v) for v in cells) + 2))
+    sheet.freeze_panes = "A2"
+    if data:
+        sheet.auto_filter.ref = f"A1:{letter(width)}{len(data) + 1}"
+
+
+def _build_pptx(title: str, body: str, document_type: str, record: list, sources: list) -> bytes:
+    from pptx import Presentation
+    from pptx.dml.color import RGBColor
+    from pptx.enum.text import MSO_ANCHOR
+    from pptx.util import Inches, Pt
+
+    colour = {name: RGBColor.from_string(value) for name, value in
+              (("ink", INK), ("body", BODY), ("muted", MUTED), ("accent", ACCENT), ("fill", FILL), ("rule", RULE))}
+    deck = Presentation()
+    deck.slide_width, deck.slide_height = Inches(13.333), Inches(7.5)
+    blank = deck.slide_layouts[6]
+    heading_text = _plain(title)
+
+    def text(slide, left, top, width, height, lines, size, colour_name="body", bold=False, font=SANS):
+        box = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
+        frame = box.text_frame
+        frame.word_wrap = True
+        frame.vertical_anchor = MSO_ANCHOR.TOP
+        for n, line in enumerate(lines if isinstance(lines, list) else [lines]):
+            paragraph = frame.paragraphs[0] if n == 0 else frame.add_paragraph()
+            paragraph.space_after = Pt(size * 0.5)
+            # A (label, value) pair sets its label in bold, as the report's record does.
+            for part, strong in ((line[0] + "  ", True), (line[1], bold)) if isinstance(line, tuple) else ((line, bold),):
+                run = paragraph.add_run()
+                run.text = part
+                run.font.size, run.font.bold, run.font.name = Pt(size), strong, font
+                run.font.color.rgb = colour["ink" if strong and isinstance(line, tuple) else colour_name]
+        return box
+
+    def slide(heading: str, notes: str = ""):
+        page = deck.slides.add_slide(blank)
+        bar = page.shapes.add_shape(1, Inches(0.6), Inches(0.55), Inches(0.08), Inches(0.55))
+        bar.fill.solid()
+        bar.fill.fore_color.rgb = colour["accent"]
+        bar.line.fill.background()
+        bar.shadow.inherit = False
+        text(page, 0.85, 0.45, 11.8, 0.9, _plain(heading), 28, "ink", bold=True)
+        text(page, 0.6, 6.95, 9.0, 0.35, f"4CE · {heading_text}", 10, "muted")
+        text(page, 12.0, 6.95, 0.8, 0.35, str(len(deck.slides)), 10, "muted")
+        if notes:
+            page.notes_slide.notes_text_frame.text = notes
+        return page
+
+    def bullets(heading: str, items: list[str], notes: str) -> None:
+        items = [_plain(i) for i in items if _plain(i)]
+        for start in range(0, len(items), 6):
+            chunk = items[start:start + 6]
+            size = 20 if all(len(i) <= 140 for i in chunk) else 16
+            page = slide(heading if start == 0 else f"{heading} (continued)", notes)
+            text(page, 0.85, 1.6, 11.8, 5.2, ["• " + i for i in chunk], size)
+
+    def table(heading: str, header: list[str], rows: list[list[str]], notes: str) -> None:
+        width = max([len(header)] + [len(r) for r in rows])
+        for start in range(0, max(1, len(rows)), 9):
+            chunk = rows[start:start + 9]
+            page = slide(heading if start == 0 else f"{heading} (continued)", notes)
+            shape = page.shapes.add_table(len(chunk) + 1, width, Inches(0.85), Inches(1.6),
+                                          Inches(11.8), Inches(0.45 * (len(chunk) + 1)))
+            grid = shape.table
+            for r, values in enumerate([header] + chunk):
+                for c in range(width):
+                    cell = grid.cell(r, c)
+                    cell.text = _plain(values[c]) if c < len(values) else ""
+                    for paragraph in cell.text_frame.paragraphs:
+                        for run in paragraph.runs:
+                            run.font.size, run.font.name = Pt(14 if r == 0 else 13), SANS
+                            run.font.bold = r == 0
+                            run.font.color.rgb = colour["ink"]
+                    cell.fill.solid()
+                    cell.fill.fore_color.rgb = colour["fill"] if r == 0 else RGBColor(0xFF, 0xFF, 0xFF)
+
+    # Title.
+    first = deck.slides.add_slide(blank)
+    text(first, 0.9, 2.1, 11.5, 0.5, (document_type or "Deliverable").upper(), 14, "accent", bold=True)
+    text(first, 0.9, 2.6, 11.5, 2.2, heading_text, 40, "ink", bold=True)
+    text(first, 0.9, 5.2, 11.5, 0.5, f"4CE · {datetime.now():%d %B %Y} · produced on this machine", 14, "muted")
+
+    # Sections: the opening answer first, then each heading's content.
+    sections: list[tuple[str, list[tuple]]] = [("In short", [])]
+    for block in _blocks(body):
+        if block[0] == "heading":
+            sections.append((block[2], []))
+        else:
+            sections[-1][1].append(block)
+    for heading, blocks in sections:
+        if not blocks:
+            continue
+        notes = "\n".join(
+            _plain(b[1]) if b[0] in ("para", "code") else
+            "\n".join("- " + _plain(i) for i in b[1]) if b[0] == "list" else
+            " | ".join(_plain(c) for c in b[1]) for b in blocks
+        )
+        if sources:
+            notes += "\n\nSources: " + "; ".join(f"[{n}] {s}" for n, s in enumerate(sources, 1))
+        items: list[str] = []
+        for block in blocks:
+            if block[0] == "para":
+                items.append(block[1])
+            elif block[0] == "list":
+                items += block[1]
+            elif block[0] == "table":
+                if items:
+                    bullets(heading, items, notes)
+                    items = []
+                table(heading, block[1], block[2], notes)
+            elif block[0] == "code":
+                if items:
+                    bullets(heading, items, notes)
+                    items = []
+                page = slide(heading, notes)
+                lines = block[1].splitlines()
+                shown = lines[:18] + (["…"] if len(lines) > 18 else [])
+                text(page, 0.85, 1.6, 11.8, 5.2, "\n".join(shown), 12, "ink", font=MONO)
+        if items:
+            if heading == "In short":
+                page = slide(heading, notes)
+                text(page, 0.85, 1.7, 11.8, 5.0, [_plain(i) for i in items], 24, "ink")
+            else:
+                bullets(heading, items, notes)
+
+    # How it was produced: the record, as the report and the chat carry it.
+    if record or sources:
+        page = slide("How this was produced")
+        keep = [(str(l), _plain(str(v))) for l, v in record
+                if str(l) in ("Model routed", "Verification", "Human approval", "Egress", "Fingerprint", "Grounding")]
+        lines = list(keep)
+        if sources:
+            lines.append(("Sources", "; ".join(f"[{n}] {s}" for n, s in enumerate(sources, 1))))
+        text(page, 0.85, 1.6, 11.8, 5.2, lines, 16)
+
+    deck.core_properties.title = heading_text
+    deck.core_properties.author = "4CE"
+    buffer = io.BytesIO()
+    deck.save(buffer)
+    return buffer.getvalue()
 
 
 async def _emit(emitter, action: str, description: str, done: bool = False) -> None:
