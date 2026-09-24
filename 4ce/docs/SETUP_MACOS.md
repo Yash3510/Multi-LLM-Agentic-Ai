@@ -192,7 +192,7 @@ is left alone.
 python 4ce/preflight.py
 ```
 
-Thirteen checks. It should end with **Ready.** If a model is loaded at the wrong
+Fourteen checks. It should end with **Ready.** If a model is loaded at the wrong
 context length, `python 4ce/preflight.py --fix` reloads it at 8192.
 
 Every check in that script exists because it failed once and cost real time to
@@ -222,7 +222,7 @@ seconds. That is once, not every time.
 cd backend && ../.venv/bin/python ../4ce/test_tools.py
 ```
 
-44 checks, all passing.
+57 checks, all passing.
 
 Then try these in the browser, in order:
 

@@ -132,10 +132,15 @@
 		verdict = hex === data.fingerprint ? 'match' : 'differs';
 	};
 
+	// Observed over the run by the backend's egress watch, or honestly not.
+	$: egressText = data.egress?.observed
+		? `${data.egress.external ?? 0} observed across ${data.egress.processes ?? 0} processes (${data.egress.samples ?? 0} samples)`
+		: 'not observed';
+
 	const summary = () =>
 		[
 			`4CE audit record${when ? ` · ${when}` : ''}`,
-			`Outcome: ${outcome.word}${data.approver ? ` by ${data.approver}` : ''} · tries: ${data.attempts ?? 1} · external calls: ${data.external_calls ?? 0} · working time: ${data.seconds ?? '?'}s`,
+			`Outcome: ${outcome.word}${data.approver ? ` by ${data.approver}` : ''} · tries: ${data.attempts ?? 1} · external calls: ${egressText} · working time: ${data.seconds ?? '?'}s`,
 			...rows.map((row) => `- ${row.name}: ${row.text}${row.model ? ` (${row.model})` : ''}${row.time ? ` · ${row.time}` : ''}`),
 			sources.length ? `Sources: ${sources.map((name, i) => `[${i + 1}] ${name}${cited.has(i + 1) ? ' (cited)' : ''}`).join('; ')}` : 'Sources: none',
 			data.fingerprint ? `Fingerprint (SHA-256 of the released answer): ${data.fingerprint}` : ''
@@ -192,7 +197,7 @@
 		</div>
 
 		<div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-			{#each [{ label: 'Outcome', value: outcome.word, tone: outcome.tone }, { label: 'Tries', value: data.attempts ?? 1, tone: '' }, { label: 'External calls', value: data.external_calls ?? 0, tone: '' }, { label: 'Working time', value: data.seconds ? `${data.seconds}s` : '—', tone: '' }] as kpi}
+			{#each [{ label: 'Outcome', value: outcome.word, tone: outcome.tone }, { label: 'Tries', value: data.attempts ?? 1, tone: '' }, { label: 'External calls', value: data.egress?.observed ? (data.egress.external ?? 0) : '—', tone: data.egress?.observed && data.egress.external ? 'text-amber-700 dark:text-amber-400' : '' }, { label: 'Working time', value: data.seconds ? `${data.seconds}s` : '—', tone: '' }] as kpi}
 				<div class="rounded-[10px] bg-gray-50 px-3 py-2 dark:bg-gray-850">
 					<div class="text-[10.5px] uppercase tracking-[0.06em] text-gray-600 dark:text-gray-400">{kpi.label}</div>
 					<div class="text-sm font-semibold {kpi.tone || 'text-gray-900 dark:text-white'}">{kpi.value}</div>

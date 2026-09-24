@@ -225,6 +225,7 @@ def check_backend(report: Report, backend: str, email: str, password: str) -> No
         )
 
     check_knowledge(report, backend, record, token)
+    check_egress(report, backend, token)
 
     try:
         valves = get_json(f"{backend}/api/v1/functions/id/{FUNCTION_ID}/valves", token) or {}
@@ -290,6 +291,45 @@ def check_knowledge(report: Report, backend: str, record: dict, token: str) -> N
         )
     else:
         report.add(PASS, "Knowledge attached", ", ".join(names))
+
+
+def check_egress(report: Report, backend: str, token: str) -> None:
+    """Whether the egress watch is observing, and what it has seen so far.
+
+    The Sovereignty page and every run's receipt report what this watch
+    counts. When it is not sampling they say "not observed" - honest, but a
+    sovereignty demonstration without observation is back to being a claim.
+    """
+    try:
+        egress = get_json(f"{backend}/api/v1/fource/egress", token) or {}
+    except Exception:
+        report.add(FAIL, "Egress watch", "not served - the backend predates it or it failed to start")
+        return
+    if not egress.get("running"):
+        report.add(FAIL, "Egress watch", "not running - restart the backend")
+        return
+
+    flows = egress.get("flows") or {}
+    external, lan_out = flows.get("external", 0), flows.get("lan_out", 0)
+    if external or lan_out:
+        events = (egress.get("external") or []) + (egress.get("lan_out") or [])
+        seen = ", ".join(sorted({f"{e['process']} to {e['remote']}" for e in events})[:3])
+        report.add(
+            WARN, "Egress watch",
+            f"{external} external, {lan_out} LAN outbound seen ({seen}) - the monitor will not "
+            "read zero. See the Sovereignty page, then start a new window",
+        )
+    else:
+        processes = len(egress.get("scope") or [])
+        report.add(PASS, "Egress watch", f"sampling {processes} processes, nothing has left the machine")
+
+    canaries = egress.get("canaries") or []
+    if canaries and canaries[0].get("outcome") == "reachable":
+        report.add(
+            WARN, "Egress rule",
+            "the canary reached the internet - nothing on this host blocks egress. "
+            "See 'Making it physical' in 4ce/docs/HOW_TO_RUN.md",
+        )
 
 
 def main() -> None:

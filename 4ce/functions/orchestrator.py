@@ -36,6 +36,12 @@ AUDIT_SIGNALS = (
     "sovereignty", "sovereign", "audit the running", "audit the configuration",
     "external call", "air gap", "air-gapped", "offline mode", "telemetry",
     "data leaving", "phone home",
+    # How people actually ask - including the starter prompt install.py puts
+    # on the empty chat, which matched none of the above and was answered as
+    # a document task about pump SOPs.
+    "off-premise", "off premise", "off the premises", "send data", "sends data",
+    "sending data", "data leave", "anything leave", "egress", "outbound connection",
+    "network monitor", "audit this deployment", "audit the deployment",
 )
 CALC_SIGNALS = ("calculate", "compute", "thickness", "pressure", "flow rate", "tonnage")
 
@@ -298,6 +304,9 @@ class Pipe:
             return ""
 
         started = time.monotonic()
+        # What the workbench's processes connect to from here to the answer
+        # is observed, not assumed: the receipt reports it (_egress_since).
+        egress_mark = _egress_mark()
         messages = body.get("messages") or []
         if not messages:
             return "No request received."
@@ -318,6 +327,10 @@ class Pipe:
             return "4CE could not resolve the requesting user."
 
         task_type, signals = _classify(prompt, has_image)
+        # A sovereignty question is about this deployment, not the plant. The
+        # audit answers it; pump procedures retrieved beside it only give
+        # FRIDAY something irrelevant to reason about.
+        auditing = _wants_audit(prompt)
 
         # Retrieve after classifying, and only where documents can help. An
         # attached knowledge base is queried on every turn otherwise, so a
@@ -325,7 +338,7 @@ class Pipe:
         # thousand characters of pump procedures: slower on a small card, and
         # provenance that claims a median was grounded in plant SOPs.
         sources: list[dict] = []
-        if task_type in RETRIEVING_TASKS:
+        if task_type in RETRIEVING_TASKS and not auditing:
             found = await self._retrieve(__request__, user, __metadata__, prompt)
             if found:
                 sources, numbered = _number_sources(found)
@@ -441,9 +454,9 @@ class Pipe:
         # Sovereignty is evidenced, not narrated: read the running configuration
         # rather than letting a model describe the configuration it imagines.
         audit = ""
-        if _wants_audit(prompt):
+        if auditing:
             await _status(
-                __event_emitter__, "tool", "TOOL: auditing the running configuration"
+                __event_emitter__, "tool", "TOOL: auditing the configuration and the observed egress"
             )
             audit = await self._use_tool(__tools__, "verify_sovereignty")
             if audit and not audit.startswith(_ERR):
@@ -451,13 +464,14 @@ class Pipe:
                 steps.append({
                     "agent": "TOOL",
                     "label": "sovereignty audit",
-                    "model": "deterministic configuration read",
+                    "model": "configuration read and egress observation",
                     "seconds": 0.0,
                     "thinking": "",
                     "text": audit,
                 })
                 trace.append(
-                    "**TOOL** `verify_sovereignty` read the live configuration."
+                    "**TOOL** `verify_sovereignty` read the live configuration and "
+                    "what the workbench was observed connecting to."
                 )
             else:
                 audit = ""
@@ -815,7 +829,7 @@ class Pipe:
                         steps, task_type, signals, model_id, rationale, verdict, approval,
                         time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
                         trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
-                        sources=sources,
+                        sources=sources, egress=_egress_since(egress_mark),
                     )
                 )
             decision = response if isinstance(response, str) else ""
@@ -835,7 +849,7 @@ class Pipe:
                         steps, task_type, signals, model_id, rationale, verdict, "rejected",
                         time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
                         trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
-                        sources=sources,
+                        sources=sources, egress=_egress_since(egress_mark),
                     )
                 )
 
@@ -880,6 +894,7 @@ class Pipe:
                 for label, value in _provenance_rows(
                     task_type, signals, model_id, rationale, verdict, approval,
                     time.monotonic() - started - waited, attempts, agent_models, tools_used, grounding,
+                    egress=_egress_since(egress_mark),
                 )
             ]
             if fingerprint:
@@ -943,6 +958,7 @@ class Pipe:
             time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
             trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
             sources=sources, approver=approver, approved_at=when, fingerprint=fingerprint,
+            egress=_egress_since(egress_mark),
         )
 
     async def _model_collections(self, metadata: dict) -> list[str]:
@@ -1963,11 +1979,48 @@ def _cited_numbers(text: str, count: int) -> list[int]:
     })
 
 
+def _egress_mark() -> dict | None:
+    """Where the backend's egress watch stands as a run starts.
+
+    The watch lives in the backend (open_webui/utils/fource_egress.py); a
+    backend without it simply leaves the run unobserved.
+    """
+    try:
+        from open_webui.utils.fource_egress import watch
+        return watch.mark()
+    except Exception:
+        return None
+
+
+def _egress_since(mark: dict | None) -> dict:
+    """What the workbench's processes were seen connecting to since the mark."""
+    try:
+        from open_webui.utils.fource_egress import watch
+        return watch.since_mark(mark)
+    except Exception:
+        return {"observed": False, "reason": "this backend has no egress watch"}
+
+
+def _egress_row(egress: dict | None) -> str:
+    if not egress or not egress.get("observed"):
+        return "not observed — " + ((egress or {}).get("reason") or "the egress watch is not running")
+    external = egress.get("external", 0)
+    text = (
+        f"**{external}** external connection{'' if external == 1 else 's'} observed across "
+        f"{egress.get('processes', 0)} workbench processes during this run "
+        f"({egress.get('samples', 0):,} samples, every {egress.get('interval_ms', 0)} ms)"
+    )
+    lan_out = egress.get("lan_out", 0)
+    if lan_out:
+        text += f" · {lan_out} other outbound LAN connection{'' if lan_out == 1 else 's'}"
+    return text
+
+
 def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapsed: float,
              attempts: int, agent_models: dict, tools_used: list[str] | None,
              sources: list[dict], approver: str = "", approved_at: str = "",
              fingerprint: str = "", steps: list[dict] | None = None,
-             signals: list[str] | None = None) -> str:
+             signals: list[str] | None = None, egress: dict | None = None) -> str:
     """One line the chat draws as a strip of facts under the answer - where it
     ran, what it stood on, how it was checked, who released it - with ULTRON's
     checks beneath. A fenced block, so any other client shows readable JSON."""
@@ -1989,7 +2042,10 @@ def _receipt(task_type: str, model_id: str, verdict: dict, approval: str, elapse
         "approved_at": approved_at,
         "seconds": round(elapsed),
         "tools": list(tools_used or []),
-        "external_calls": 0,
+        # Observed by the backend's egress watch over this run, or None when
+        # nothing was watching: an unmeasured run gets no number, not a zero.
+        "external_calls": (egress or {}).get("external") if (egress or {}).get("observed") else None,
+        "egress": egress or {"observed": False},
         "fingerprint": fingerprint,
         # For the audit record: when the run finished, why TONY routed it as
         # it did, and every step in order.
@@ -2407,7 +2463,8 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
                 attempts: int, include_thinking: bool, trace: list[str],
                 agent_models: dict, tools_used: list[str] | None = None,
                 grounding: str = "", sources: list[dict] | None = None,
-                approver: str = "", approved_at: str = "", fingerprint: str = "") -> str:
+                approver: str = "", approved_at: str = "", fingerprint: str = "",
+                egress: dict | None = None) -> str:
     """The receipt the chat shows under an answer, then the full provenance
     table and the reasoning behind each decision, folded away."""
     timings = " · ".join(
@@ -2415,7 +2472,7 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
     )
     rows = _provenance_rows(
         task_type, signals, model_id, rationale, verdict, approval, elapsed, attempts,
-        agent_models, tools_used, grounding, timings,
+        agent_models, tools_used, grounding, timings, egress,
     )
     if fingerprint:
         rows.append(("Fingerprint", f"SHA-256 `{fingerprint}` of the released answer"))
@@ -2423,7 +2480,7 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
     receipt = _receipt(
         task_type, model_id, verdict, approval, elapsed, attempts, agent_models,
         tools_used, sources or [], approver, approved_at, fingerprint,
-        steps=steps, signals=signals,
+        steps=steps, signals=signals, egress=egress,
     )
     return _provenance_rest(steps, attempts, include_thinking, trace, table, receipt)
 
@@ -2431,7 +2488,7 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
 def _provenance_rows(task_type: str, signals: list[str], model_id: str, rationale: str,
                      verdict: dict, approval: str, elapsed: float, attempts: int,
                      agent_models: dict, tools_used: list[str] | None, grounding: str,
-                     timings: str = "") -> list[tuple[str, str]]:
+                     timings: str = "", egress: dict | None = None) -> list[tuple[str, str]]:
     """The provenance rows, shared by the chat's table and the Word report."""
     status = verdict.get("status", "n/a")
     rows = [
@@ -2455,7 +2512,8 @@ def _provenance_rows(task_type: str, signals: list[str], model_id: str, rational
             if tools_used
             else "none — the agents reasoned unaided",
         ),
-        ("Inference", "Local open-weight models · 0 external API calls"),
+        ("Inference", "Local open-weight models"),
+        ("Egress", _egress_row(egress)),
     ]
     return rows
 

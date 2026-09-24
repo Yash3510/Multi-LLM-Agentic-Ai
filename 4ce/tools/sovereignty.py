@@ -2,11 +2,12 @@
 title: 4CE Sovereignty Check
 author: 4CE
 version: 0.1.0
-description: Audits the running system for anything that could send data off the premises - model endpoints, embedding and OCR engines, web search, telemetry and update checks - and reports a verdict from live configuration rather than a claim.
+description: Audits the running system for anything that could send data off the premises - model endpoints, embedding and OCR engines, web search, telemetry and update checks - and sets that beside what the workbench's processes were actually observed connecting to.
 """
 
 import ipaddress
 import socket
+from datetime import datetime
 from typing import Any, Awaitable, Callable
 from urllib.parse import urlparse
 
@@ -48,17 +49,27 @@ class Tools:
         __event_emitter__: Callable[[dict], Awaitable[None]] | None = None,
     ) -> str:
         """
-        Audit the running system for any configured path that could send data outside the premises.
+        Audit the running system for any path that could send data outside the premises, and report what it actually connected to.
 
         Use this whenever the user asks whether the system is air-gapped, sovereign, offline,
         or whether any data leaves the machine. It inspects live configuration - model
         endpoints, embedding and document-extraction engines, web search, telemetry and
-        update checks - and returns a pass/fail verdict with the evidence.
+        update checks - and sets that beside the connections the workbench's own processes
+        were observed making, and returns a verdict with the evidence.
 
-        :return: A sovereignty report listing every checked surface and the overall verdict.
+        :return: A sovereignty report: every configured surface, the observed connections, and the verdict.
         """
         await _emit(__event_emitter__, "sovereignty", "Auditing configured egress paths")
+        findings = await self._audit()
+        return await self._report(findings, __event_emitter__)
 
+    async def _audit(self) -> list[tuple[str, bool, str]]:
+        """Every configured surface, as (label, passed, detail).
+
+        Underscored so Open WebUI does not offer it to the model as a tool in
+        its own right. The sovereignty page calls it directly, so the page and
+        the chat audit report from the same code.
+        """
         findings: list[tuple[str, bool, str]] = []
 
         try:
@@ -220,42 +231,55 @@ class Tools:
             not sharing,
             "disabled" if not sharing else "enabled — exposes a share-to-openwebui.com action",
         ))
+        return findings
 
+    async def _report(self, findings: list[tuple[str, bool, str]], emitter) -> str:
         passed = sum(1 for _, ok, _ in findings if ok)
         total = len(findings)
-        sovereign = passed == total
+        configured_clean = passed == total
 
+        seen = _observation()
+        watching = bool(seen and seen.get("running"))
+        flows = (seen or {}).get("flows") or {}
+        leaked = watching and (flows.get("external", 0) or flows.get("lan_out", 0))
+
+        if not configured_clean or leaked:
+            verdict = "ATTENTION REQUIRED"
+        elif watching:
+            verdict = "PASS"
+        else:
+            verdict = "PASS on configuration, not observed"
+
+        observed_status = (
+            f"{_plural(flows.get('external', 0), 'external connection')} observed"
+            if watching else "egress not observed"
+        )
         await _emit(
-            __event_emitter__, "sovereignty",
-            f"Sovereignty audit: {passed}/{total} checks passed", done=True,
+            emitter, "sovereignty",
+            f"Sovereignty audit: {passed}/{total} surfaces pass · {observed_status}", done=True,
         )
 
         lines = [
-            f"## Sovereignty audit — {'PASS' if sovereign else 'ATTENTION REQUIRED'}",
+            f"## Sovereignty audit — {verdict}",
             "",
-            f"**{passed} of {total} checks passed.**",
+            f"**{passed} of {total} configured surfaces pass.** "
+            + (f"**{observed_status[0].upper() + observed_status[1:]}.**" if watching
+               else "Egress was not observed."),
+            "",
+            "### What the configuration permits",
             "",
             "| Surface | Status | Detail |",
             "|---|---|---|",
         ]
         for label, ok, detail in findings:
             lines.append(f"| {label} | {'PASS' if ok else 'FAIL'} | {detail} |")
-
-        lines += [
-            "",
-            "This report is generated from the configuration the server is actually running, "
-            "not from a static claim.",
-        ]
-        if not sovereign:
+        if not configured_clean:
             lines.append(
                 "\n> Every FAIL above is a configured path that *could* carry data off the "
                 "premises. Resolve them before asserting air-gapped operation."
             )
-        lines.append(
-            "\n*Configuration audit only. It does not observe packets — pair it with a host "
-            "network monitor, or run the stack on a Docker network with no gateway, for "
-            "physical proof.*"
-        )
+
+        lines += ["", "### What the workbench actually did", ""] + _observed_lines(seen)
         return "\n".join(lines)
 
     def _is_local(self, url: str) -> bool:
@@ -273,6 +297,89 @@ class Tools:
         if address.is_loopback:
             return True
         return self.valves.treat_private_ranges_as_local and address.is_private
+
+
+def _observation() -> dict | None:
+    """The egress watch's current window, if the backend is running one."""
+    try:
+        from open_webui.utils.fource_egress import watch
+    except Exception:
+        return None
+    try:
+        return watch.snapshot()
+    except Exception:
+        return None
+
+
+def _plural(count: int, one: str, many: str | None = None) -> str:
+    return f"{count} {one if count == 1 else (many or one + 's')}"
+
+
+def _duration(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    if seconds < 90:
+        return f"{seconds} s"
+    minutes = seconds // 60
+    if minutes < 90:
+        return f"{minutes} min"
+    return f"{minutes // 60} h {minutes % 60} min"
+
+
+def _clock(epoch: float) -> str:
+    return datetime.fromtimestamp(epoch).strftime("%H:%M:%S")
+
+
+def _observed_lines(seen: dict | None) -> list[str]:
+    if not seen or not seen.get("running"):
+        return [
+            "The egress watch is not running, so nothing here was observed and this report "
+            "rests on configuration alone. It starts with the 4CE backend.",
+        ]
+    flows = seen.get("flows") or {}
+    external = flows.get("external", 0)
+    lines = [
+        f"**{_plural(external, 'external connection')}** from the "
+        f"{_plural(len(seen.get('scope') or []), 'workbench process', 'workbench processes')} over the last "
+        f"{_duration(seen['now'] - seen['since'])} "
+        f"({seen['samples']:,} samples, every {seen['interval_ms']} ms).",
+        "",
+        "| Where the connections went | Count |",
+        "|---|---|",
+        f"| This machine (loopback) | {flows.get('local', 0):,} |",
+        f"| LAN: clients reaching the workbench | {flows.get('lan_in', 0):,} |",
+        f"| LAN: the configured model endpoints | {flows.get('lan_expected', 0):,} |",
+        f"| LAN: anything else, outbound | {flows.get('lan_out', 0):,} |",
+        f"| **The internet** | **{external:,}** |",
+    ]
+    reached = (seen.get("external") or []) + (seen.get("lan_out") or [])
+    if reached:
+        lines += ["", "Seen leaving the machine:", ""]
+        for event in reached[:6]:
+            lines.append(
+                f"- `{event['process']}` ({event['role']}) → `{event['remote']}`, "
+                f"{event['state'].lower().replace('_', ' ')}, first seen {_clock(event['first'])}"
+            )
+    canaries = seen.get("canaries") or []
+    lines.append("")
+    if canaries:
+        last = canaries[0]
+        lines.append(
+            f"Last canary, to `{last['target']}` at {_clock(last['at'])}: **{last['outcome']}** "
+            f"— {last['detail']}."
+        )
+    else:
+        lines.append(
+            "The canary has not been run in this window. Run it from the Sovereignty page to "
+            "show whether the host itself refuses a connection out."
+        )
+    lines += [
+        "",
+        "Live view: [Sovereignty](/sovereignty).",
+        "",
+        "*Observed by sampling the operating system's socket table, not by capturing packets. "
+        + " ".join(seen.get("limits") or []) + "*",
+    ]
+    return lines
 
 
 def _parse_ip(host: str):

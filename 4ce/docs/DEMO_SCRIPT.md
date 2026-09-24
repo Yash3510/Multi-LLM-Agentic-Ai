@@ -111,10 +111,28 @@ read 11 of 11 turned out not to be looking at them — the interface still offer
 "Attach Webpage", which hands the server a URL and has it fetch the page. That
 action is now withdrawn, and the audit checks that it is.
 
-Be ready for the obvious question, and answer it before it is asked: this reads
-configuration, not packets. A process could open a socket it never declared.
-`SECURITY.md` states that limit. For proof rather than assurance, pull the
-network cable and re-run the demo — it still works.
+Then show that the claim is observed, not just configured. The navbar has
+carried the egress count since the first click; open it - the Sovereignty page.
+
+- **The number.** External connections from the workbench's own processes -
+  backend, model server, frontend, 16 processes on the demo box - counted every
+  250 ms since the window opened. Start a new window before the demo, so the
+  count covers exactly the session the judges watch.
+- **The canary.** Press it. It tries a TCP handshake from the backend to a
+  public address. *Blocked* is the control demonstrated rather than described;
+  *reachable* says plainly that nothing on this host stops a connection.
+- **Every answer's receipt** now reads "0 external calls, observed" - counted
+  over that run - where it used to print a constant.
+
+Answer the obvious question before it is asked: this samples sockets, it does
+not capture packets, and the page lists what it cannot see. For the last word,
+pull the network cable and re-run the demo — it still works.
+
+**Before the day:** the monitor caught Bionic contacting a Cloudflare address to
+check for its own updates. Add the egress rule for `Bionic.exe` (see "Making it
+physical" in `HOW_TO_RUN.md`), run the canary until it reads *Blocked*, then
+start a new window. Otherwise the count will not read zero on stage, and
+that will be the truth.
 
 ---
 

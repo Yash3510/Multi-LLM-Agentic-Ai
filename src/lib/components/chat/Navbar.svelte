@@ -21,6 +21,7 @@
 
 	import ShareChatModal from '../chat/ShareChatModal.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
+	import EgressIndicator from '$lib/components/fource/EgressIndicator.svelte';
 	import Menu from '$lib/components/layout/Navbar/Menu.svelte';
 	import AdjustmentsHorizontal from '../icons/AdjustmentsHorizontal.svelte';
 
@@ -228,6 +229,10 @@
 								<ChatPlus className="size-4.5" strokeWidth="1.5" />
 							</button>
 						</Tooltip>
+					{/if}
+
+					{#if $user?.role === 'admin'}
+						<EgressIndicator />
 					{/if}
 
 					{#if $user?.role === 'admin' || ($user?.permissions.chat?.controls ?? true)}

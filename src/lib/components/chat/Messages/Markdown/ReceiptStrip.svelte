@@ -24,7 +24,18 @@
 		approver?: string;
 		approved_at?: string;
 		seconds?: number;
-		external_calls?: number;
+		external_calls?: number | null;
+		// Observed by the backend's egress watch over the run. Receipts
+		// written before it existed have no egress: their zero was asserted.
+		egress?: {
+			observed: boolean;
+			external?: number;
+			lan_out?: number;
+			samples?: number;
+			processes?: number;
+			interval_ms?: number;
+			reason?: string;
+		};
 		fingerprint?: string;
 		revision?: any;
 		steps?: any[];
@@ -88,7 +99,13 @@
 					? { label: 'Released', detail: 'no approval needed', tone: 'plain' }
 					: { label: 'Not released', detail: 'no reviewer answered', tone: 'warn' },
 		...(data.seconds ? [{ label: `${data.seconds}s`, detail: 'working', tone: 'plain' }] : []),
-		{ label: `${data.external_calls ?? 0}`, detail: 'external calls', tone: 'plain' }
+		data.egress?.observed
+			? {
+					label: `${data.egress.external ?? 0}`,
+					detail: `external ${data.egress.external === 1 ? 'call' : 'calls'}, observed`,
+					tone: data.egress.external || data.egress.lan_out ? 'warn' : 'plain'
+				}
+			: { label: 'Egress', detail: 'not observed', tone: 'muted' }
 	] as Pill[];
 
 	const TONE = {

@@ -174,6 +174,70 @@ pkill -f "open-webui serve"
 
 ---
 
+## Making it physical
+
+The Sovereignty page (the egress count in the navbar opens it) shows what the
+workbench *was observed* connecting to. That is evidence, not a control: an
+egress rule on the host is what makes a connection impossible, and the page's
+**canary** is how you prove the rule works - it tries a handshake from the
+backend to `1.1.1.1:443` and reports *Blocked* or *Reachable*.
+
+The page lists the executables to name, under "Making it physical". Use those
+paths, not guesses: on Windows the backend's network traffic comes from the
+base Python interpreter, **not** `.venv\Scripts\python.exe`, which is only a
+launcher.
+
+### Windows (PowerShell, as administrator)
+
+```powershell
+New-NetFirewallRule -DisplayName "4CE backend: no egress" -Direction Outbound -Action Block -Program "<backend python.exe from the page>"
+New-NetFirewallRule -DisplayName "4CE model server: no egress" -Direction Outbound -Action Block -Program "<Bionic.exe from the page>"
+```
+
+These block every outbound connection those programs make except on loopback,
+which suits a single-box demo where the backend reaches Bionic on
+`127.0.0.1:1234`. Then run the canary - it should read **Blocked** - and ask a
+question in chat to confirm the model still answers. If the model server runs
+on another machine, a program-wide block would cut the backend off from it;
+restrict the rule to public addresses instead.
+
+Remove them with `Remove-NetFirewallRule -DisplayName "4CE backend: no egress"`
+(and the same for the model server).
+
+### Linux (nftables)
+
+A host-wide default-deny for new outbound connections, allowing loopback and
+replies to the users of the UI:
+
+```bash
+sudo nft add table inet fource
+sudo nft add chain inet fource out '{ type filter hook output priority 0; policy drop; }'
+sudo nft add rule inet fource out oif lo accept
+sudo nft add rule inet fource out ct state established,related accept
+sudo nft add rule inet fource out counter log prefix '"4CE-DROP "' drop
+```
+
+`sudo nft delete table inet fource` removes it. The sandbox needs nothing: its
+containers run with `--network none`.
+
+### macOS
+
+The built-in firewall filters incoming connections only. Blocking outgoing
+ones needs `pf` rules or an application firewall; whichever you use, the
+canary tells you whether it works.
+
+### What the monitor found here
+
+On its first run the monitor caught `Bionic.exe` opening a TLS connection to a
+Cloudflare address (`[2606:4700:20::681a:799]:443`), with the configuration
+audit reading 18 of 18. Bionic's own `settings.json` has
+`"appUpdateChannel": "stable"` and `"autoUpdateExtensionPacks": true` - it
+checks for updates by itself. Block it with the rule above, then press
+**Start a new window** on the Sovereignty page so the count covers only what
+follows.
+
+---
+
 ## Recovering retrieval
 
 `python 4ce/preflight.py` reports **Knowledge attached**. If that fails, the

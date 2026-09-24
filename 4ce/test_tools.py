@@ -153,7 +153,23 @@ async def test_sovereignty() -> None:
     out = await tool.verify_sovereignty()
     check("produces an audit table", "Sovereignty audit" in out and "| Surface |" in out)
     check("reports a verdict", "PASS" in out or "ATTENTION REQUIRED" in out)
-    check("states its own limitation", "does not observe packets" in out)
+    # Nothing is watching egress in this process yet: the report must say so,
+    # not print a verdict that sounds observed.
+    check("says when egress was not observed", "PASS on configuration, not observed" in out
+          or "ATTENTION REQUIRED" in out)
+    check("states its own limitation", "rests on configuration alone" in out)
+
+    from open_webui.utils.fource_egress import watch
+    watch.set_endpoints(["http://127.0.0.1:1234/v1"])
+    watch.start()
+    await asyncio.sleep(0.8)
+    try:
+        out = await tool.verify_sovereignty()
+        check("reports what the workbench was observed doing",
+              "What the workbench actually did" in out and "samples" in out)
+        check("states what sampling cannot see", "not by capturing packets" in out)
+    finally:
+        watch.stop()
 
     ok_local = tool._is_local("http://localhost:1234/v1") and tool._is_local("http://127.0.0.1:8080")
     check("classifies loopback as on-premise", ok_local)
@@ -169,6 +185,81 @@ DEMO_REPORT = """1.2  Mechanical seal exhibits intermittent weeping, approximate
 Minimum measured wall thickness: 11.2 mm (nominal 12.7 mm)
 Retirement thickness: 9.5 mm
 """
+
+
+async def test_egress() -> None:
+    """The egress watch's classification, against a socket table it is handed.
+
+    Synthetic, so it is deterministic and makes no connection of its own: the
+    point is that each kind of flow lands in the right count, once.
+    """
+    print("\n4CE Egress watch")
+    from collections import namedtuple
+
+    import psutil
+    import open_webui.utils.fource_egress as egress
+
+    conn = namedtuple("conn", "fd family type laddr raddr status pid")
+    addr = namedtuple("addr", "ip port")
+    me, model = os.getpid(), 999_001
+
+    def c(local, remote, status="ESTABLISHED", pid=me):
+        return conn(-1, 2, 1, addr(*local), addr(*remote) if remote else (), status, pid)
+
+    table: list = []
+    listening = [
+        c(("127.0.0.1", 8080), None, psutil.CONN_LISTEN),
+        c(("127.0.0.1", 1234), None, psutil.CONN_LISTEN, model),
+    ]
+    real_table, real_family = egress.psutil.net_connections, egress._family
+    egress.psutil.net_connections = lambda kind="inet": listening + table
+    egress._family = lambda pid: {pid: ("backend.exe" if pid == me else "model.exe", "")} \
+        if pid in (me, model) else {}
+    try:
+        w = egress.EgressWatch()
+        w.set_endpoints(["http://127.0.0.1:1234/v1", "http://192.168.1.50:8000/v1"])
+
+        def sample(*flows):
+            table[:] = list(flows)
+            w._sample()
+
+        sample(c(("127.0.0.1", 50001), ("127.0.0.1", 1234)))
+        sample(c(("127.0.0.1", 50001), ("127.0.0.1", 1234)))
+        check("a loopback flow is counted once across samples", w.flows["local"] == 1)
+        check("the model server is in scope by its port",
+              {m["role"] for m in w._scope.values()} == {"backend", "model server"})
+
+        sample(c(("192.168.1.9", 8080), ("192.168.1.20", 61000)))
+        sample(c(("192.168.1.9", 50100), ("192.168.1.50", 8000)))
+        check("LAN clients and the configured LAN endpoint are not leaks",
+              w.flows["lan_in"] == 1 and w.flows["lan_expected"] == 1 and w.flows["lan_out"] == 0)
+
+        mark = w.mark()
+        sample(c(("192.168.1.9", 50200), ("192.168.1.77", 3128)))
+        sample(c(("10.0.0.5", 50300), ("93.184.216.34", 443), pid=model))
+        event = next(iter(w._events["external"].values()))
+        check("other outbound LAN and the internet are flagged",
+              w.flows["lan_out"] == 1 and w.flows["external"] == 1)
+        check("an external flow names the process that made it", event["role"] == "model server")
+        check("a run is not reported as observed when nothing was watching",
+              w.since_mark(mark)["observed"] is False)
+
+        w._thread = type("Alive", (), {"is_alive": lambda self: True})()
+        run = w.since_mark(mark)
+        check("a watched run reports what happened during it",
+              run["observed"] and run["external"] == 1 and run["lan_out"] == 1)
+
+        import time as _time
+        w._canary = ("1.1.1.1", 443, _time.time() + 5)
+        sample(c(("10.0.0.5", 50400), ("1.1.1.1", 443)))
+        check("the canary is logged apart, not counted external",
+              w.flows["canary"] == 1 and w.flows["external"] == 1)
+
+        w.reset()
+        check("a new window starts from zero", w.samples == 0 and w.flows["external"] == 0)
+        check("the snapshot is serialisable for the page", bool(json.dumps(w.snapshot())))
+    finally:
+        egress.psutil.net_connections, egress._family = real_table, real_family
 
 
 async def test_sop_check() -> None:
@@ -246,6 +337,7 @@ async def main() -> None:
     await test_sandbox()
     await test_deliverables()
     await test_sovereignty()
+    await test_egress()
     await test_sop_check()
 
     failed = [label for label, ok, _ in RESULTS if not ok]

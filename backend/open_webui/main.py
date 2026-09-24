@@ -154,6 +154,7 @@ from open_webui.routers import (
     evaluations,
     files,
     folders,
+    fource,
     functions,
     groups,
     images,
@@ -393,6 +394,13 @@ async def lifespan(app: FastAPI):
 
     app.state.scheduler_worker_loop = asyncio.create_task(scheduler_worker_loop(app))
 
+    # 4CE: observe what the workbench connects to, for the sovereignty page
+    # and for every run's receipt (utils/fource_egress.py).
+    from open_webui.utils.fource_egress import keep_endpoints_current, watch as fource_egress
+
+    fource_egress.start()
+    app.state.fource_egress_endpoints = asyncio.create_task(keep_endpoints_current(Config.get))
+
     if await Config.get('models.base_models_cache'):
         try:
             await get_all_models(
@@ -475,6 +483,8 @@ async def lifespan(app: FastAPI):
     app.state.periodic_usage_pool_cleanup.cancel()
     app.state.periodic_session_pool_cleanup.cancel()
     app.state.scheduler_worker_loop.cancel()
+    app.state.fource_egress_endpoints.cancel()
+    fource_egress.stop()
 
     await publish_event(app, EVENTS.SYSTEM_SHUTDOWN_COMPLETED, source='system')
 
@@ -858,6 +868,7 @@ app.include_router(utils.router, prefix='/api/v1/utils', tags=['utils'])
 app.include_router(terminals.router, prefix='/api/v1/terminals', tags=['terminals'])
 app.include_router(automations.router, prefix='/api/v1/automations', tags=['automations'])
 app.include_router(calendar.router, prefix='/api/v1/calendars', tags=['calendars'])
+app.include_router(fource.router, prefix='/api/v1/fource', tags=['fource'])
 
 # SCIM 2.0 API for identity management
 if ENABLE_SCIM:

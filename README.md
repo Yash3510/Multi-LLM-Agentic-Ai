@@ -157,8 +157,10 @@ so are deliberately left alone.
 
 The threat model, the trust boundaries and what "sovereign" does and does not
 cover are documented in [`SECURITY.md`](SECURITY.md). It is worth reading before
-taking the air-gap claim at face value: the sovereignty audit checks
-configuration, not packets.
+taking the air-gap claim at face value. In short: egress is *observed* - the
+workbench's own connections are sampled and counted on the Sovereignty page and
+in every answer's receipt - but by sampling sockets rather than capturing
+packets, and only a host egress rule actually prevents a connection.
 
 ---
 

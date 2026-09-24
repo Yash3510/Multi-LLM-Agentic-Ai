@@ -29,12 +29,34 @@ additionally sets `HF_HUB_OFFLINE=1` and disables the update check.
 
 These are the honest limits. Each is a real gap, not a hedge.
 
-**The sovereignty audit reads configuration, not packets.** `tools/sovereignty.py`
-inspects the endpoints and feature flags the server is actually running and
-classifies each as on-premise or external. It cannot observe traffic. A process
-could open a socket it never declared and the audit would not see it. For proof
-rather than assurance, run the stack on a Docker network with no gateway, or
-watch the host's adapter.
+**Egress is observed, but by sampling sockets, not by capturing packets.** Two
+things answer "does anything leave the premises", and they are kept apart:
+
+- *Assurance.* `tools/sovereignty.py` reads the configuration the server is
+  running - endpoints, engines, feature flags - and classifies each surface as
+  on-premise or external. It cannot see a socket nobody configured.
+- *Observation.* `backend/open_webui/utils/fource_egress.py` samples the
+  operating system's socket table every 250 ms and classifies every connection
+  held by the workbench's own processes - the backend, the model server and
+  the frontend, with their children - as loopback, LAN or internet. The
+  Sovereignty page, the navbar indicator and every answer's receipt report
+  what it counted.
+
+What observation still cannot see, stated on the page as well: a connection
+that opens and closes between two samples; DNS lookups, which the OS resolver
+makes on a process's behalf; and anything outside that scope - the browser,
+the operating system, other programs. A capture on the uplink closes those
+gaps.
+
+It has already earned its place. On its first run it caught the model server
+itself - `Bionic.exe` - opening a TLS connection to a Cloudflare address, with
+the configuration audit reading 18 of 18. Bionic checks for its own updates
+(`appUpdateChannel`, `autoUpdateExtensionPacks` in its settings). No setting in
+4CE could have shown that.
+
+Observation shows what the workbench did; it does not stop anything. An egress
+rule on the host does, and the canary on the Sovereignty page proves the rule
+works. Both are in "Making it physical" in `4ce/docs/HOW_TO_RUN.md`.
 
 **Build time is not run time.** Producing the image needs the internet: npm
 packages, Python wheels, Pyodide, and the frontend build. The air-gap claim
