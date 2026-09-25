@@ -720,6 +720,31 @@ async def test_routing() -> None:
     model, why, _ = pipe._route("code", request, "ace_orchestrator.tony")
     check("an override in the valves still wins, and says so", model == "qwen/qwen3-vl-4b" and "override" in why)
 
+    # Hardware profiles: each a registry for a larger GPU, with the valves
+    # that suit it. Only the laptop one has been measured.
+    valve_names = set(orchestrator.Pipe.Valves.model_fields)
+    profiles = {"laptop-6gb": registry}
+    for path in sorted((Path(__file__).parent / "profiles").glob("*.json")):
+        profiles[path.stem] = json.loads(path.read_text(encoding="utf-8"))
+    check("the laptop profile is models.json, and the one measured",
+          registry["profile"]["name"] == "laptop-6gb" and registry["profile"]["measured"] is True)
+    check("profiles for 24, 48 and 80 GB machines, none claiming a measurement",
+          {"workstation-24gb", "workstation-48gb", "server-80gb"} <= set(profiles)
+          and not any(p["profile"]["measured"] for n, p in profiles.items() if n != "laptop-6gb"))
+    check("every profile has a model for every task type", all(
+        any(set(needs) <= set(m.get("capabilities", [])) for m in p["models"])
+        for p in profiles.values() for needs in p["routing"].values()
+    ))
+    check("every profile sets only valves the orchestrator has",
+          all(set(p["profile"]["valves"]) <= valve_names for p in profiles.values()))
+    big = orchestrator.Pipe()
+    big.valves.model_registry = json.dumps(profiles["server-80gb"])
+    served = {m["id"]: {} for m in profiles["server-80gb"]["models"]}
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(MODELS=served)))
+    check("on the 80 GB profile, documents go to the 120B model and code to the coder",
+          big._route("document", request, "")[0] == "openai/gpt-oss-120b"
+          and big._route("code", request, "")[0] == "qwen/qwen3.6-35b-a3b")
+
 
 async def test_vision() -> None:
     """Reading an image: its kind, its fields, and what is left to the reviewer."""

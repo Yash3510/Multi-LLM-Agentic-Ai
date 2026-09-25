@@ -22,6 +22,10 @@ The root `CHANGELOG.md` belongs to the upstream platform, not to 4CE.
 
 ### Added
 
+- Hardware profiles for 24, 48 and 80 GB machines beside the measured laptop
+  one, installed with `install.py --profile` and checked by `preflight.py
+  --profile`; each sets the orchestrator valves that suit its GPU, and the
+  Sovereignty page names the one installed.
 - An append-only, hash-chained audit trail: each run's request, sources,
   route, model and tool calls with input and output hashes, file writes,
   verdict, approval and release. Shown live and verified on the Sovereignty

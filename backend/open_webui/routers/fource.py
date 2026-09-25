@@ -77,6 +77,7 @@ async def get_models(request: Request, user=Depends(get_admin_user)):
         ],
         "embedding": registry.get("embedding") or {},
         "routing": registry.get("routing") or {},
+        "profile": registry.get("profile") or {},
     }
 
 

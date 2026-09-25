@@ -46,6 +46,16 @@ REQUIRED_MODELS = tuple(m["id"] for m in REGISTRY["models"])
 CONTEXTS = {m["id"]: m.get("context") for m in REGISTRY["models"]}
 EMBEDDING_MODEL = REGISTRY["embedding"]["id"]
 
+def load_registry(profile: str = "") -> dict:
+    """The registry a machine runs: models.json, the laptop profile every
+    measurement was taken on, or one of profiles/ for a larger GPU."""
+    path = ROOT / "profiles" / f"{profile}.json" if profile else ROOT / "models.json"
+    if not path.is_file():
+        known = ", ".join(sorted(p.stem for p in (ROOT / "profiles").glob("*.json")))
+        raise SystemExit(f"No profile named {profile!r}. The profiles are: {known}.")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 TOOL_IDS = (
     "ace_sandbox", "ace_deliverables", "ace_sovereignty", "ace_sop_check", "ace_calculations",
     "ace_files", "ace_sheets",
@@ -364,9 +374,19 @@ def main() -> None:
                         help="the 4CE backend to check, e.g. http://127.0.0.1:8081")
     parser.add_argument("--email", default="admin@4ce.local")
     parser.add_argument("--password", default="4ce-demo-password")
+    parser.add_argument("--profile", default="",
+                        help="the hardware profile installed, from 4ce/profiles/; blank checks models.json")
     args = parser.parse_args()
+    if args.profile:
+        global REGISTRY, REQUIRED_MODELS, CONTEXTS, EMBEDDING_MODEL
+        REGISTRY = load_registry(args.profile)
+        REQUIRED_MODELS = tuple(m["id"] for m in REGISTRY["models"])
+        CONTEXTS = {m["id"]: m.get("context") for m in REGISTRY["models"]}
+        EMBEDDING_MODEL = REGISTRY["embedding"]["id"]
 
-    print("\n4CE preflight\n")
+    profile = REGISTRY.get("profile") or {}
+    print(f"\n4CE preflight - profile {profile.get('name', 'default')}"
+          + ("" if profile.get("measured", True) else ", planned and not yet measured") + "\n")
     report = Report()
     check_models(report, args.fix)
     check_docker(report)

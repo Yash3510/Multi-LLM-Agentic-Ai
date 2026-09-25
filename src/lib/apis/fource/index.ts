@@ -131,6 +131,8 @@ export type Registry = {
 	models: RegistryModel[];
 	embedding: RegistryModel;
 	routing: Record<string, string[]>;
+	// The hardware profile installed: models.json or one of 4ce/profiles/.
+	profile?: { name?: string; gpu?: string; measured?: boolean };
 };
 
 export const getModels = (token: string): Promise<Registry> => call(token, '/models');

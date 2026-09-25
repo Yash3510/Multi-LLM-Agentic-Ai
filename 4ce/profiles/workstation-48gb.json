@@ -1,0 +1,61 @@
+{
+  "about": "A high-end workstation: one 32-48 GB GPU, such as an RTX 6000 Ada or an L40S. A 27B vision model at 8-bit and a 20B reasoning model stay resident together; the coder is loaded on demand. Planned from the SIH26117 briefing's hardware tiers; not yet measured on such a card. Model ids are as Bionic's catalog names them in September 2026 - check them with `lms ls` after downloading, and edit here to match.",
+  "profile": {
+    "name": "workstation-48gb",
+    "gpu": "one 32-48 GB GPU (RTX 5090 32 GB, RTX 6000 Ada 48 GB, L40S 48 GB)",
+    "measured": false,
+    "valves": {
+      "max_tokens": 3072,
+      "extraction_max_tokens": 4000,
+      "vision_page_edge": 2800,
+      "vision_max_edge": 1600,
+      "retrieval_k": 8
+    }
+  },
+  "models": [
+    {
+      "id": "qwen/qwen3.8-27b",
+      "family": "Qwen3.8 27B",
+      "modalities": ["text", "image"],
+      "capabilities": ["reasoning", "documents", "drafting", "vision", "verification"],
+      "context": 16384,
+      "size_gb": 29.0,
+      "quantisation": "8-bit",
+      "licence": "Apache-2.0"
+    },
+    {
+      "id": "openai/gpt-oss-20b",
+      "family": "gpt-oss 20B",
+      "modalities": ["text"],
+      "capabilities": ["reasoning", "drafting", "chat", "verification"],
+      "context": 16384,
+      "size_gb": 12.8,
+      "quantisation": "MXFP4",
+      "licence": "Apache-2.0"
+    },
+    {
+      "id": "qwen/qwen3.6-35b-a3b",
+      "family": "Qwen3.6 35B-A3B",
+      "modalities": ["text"],
+      "capabilities": ["coding"],
+      "context": 16384,
+      "size_gb": 19.5,
+      "quantisation": "4-bit",
+      "licence": "Apache-2.0"
+    }
+  ],
+  "embedding": {
+    "id": "text-embedding-nomic-embed-text-v1.5",
+    "family": "nomic-embed-text v1.5",
+    "context": 2048,
+    "size_gb": 0.08,
+    "licence": "Apache-2.0"
+  },
+  "routing": {
+    "chat": ["chat"],
+    "code": ["coding"],
+    "vision": ["vision"],
+    "document": ["documents"],
+    "analysis": ["reasoning"]
+  }
+}

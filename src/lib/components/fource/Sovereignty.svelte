@@ -566,6 +566,15 @@
 					to the first served model with the capabilities it needs; adding a model is adding an
 					entry.
 				</p>
+				{#if registry.profile?.name}
+					<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+						Profile <span class="font-medium text-gray-700 dark:text-gray-300">{registry.profile.name}</span>
+						{#if registry.profile.gpu}· {registry.profile.gpu}{/if} ·
+						{registry.profile.measured === false
+							? 'planned from the briefing, not yet measured on that hardware'
+							: 'the one every measurement in the docs was taken on'}
+					</p>
+				{/if}
 				<div class="mt-2 overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
 					<table class="w-full text-left text-xs">
 						<thead class="text-gray-500 dark:text-gray-400">

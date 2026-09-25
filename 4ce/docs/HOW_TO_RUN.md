@@ -213,6 +213,7 @@ Your local config is `.env` at the **repository root**, copied from
 ├── install.py              ← uploads plugins to running instance
 ├── preflight.py            ← checks the machine is ready to demo
 ├── models.json             ← the model registry the router reads
+├── profiles/               ← the registry for 24, 48 and 80 GB machines
 ├── test_tools.py           ← runs the test suite against a live instance
 ├── eval_retrieval.py       ← scores retrieval against a golden set of questions
 ├── eval_vision.py          ← scores the image reading pass against the answer keys
@@ -259,6 +260,42 @@ prefer for a capability above the others that have it. The chat picker and
 preflight read the same file, so all three agree on what 4CE runs. A model
 named in one of the orchestrator's `*_model` valves overrides the registry for
 that task type, and the routing line says so.
+
+---
+
+## Hardware profiles
+
+The venue's hardware is not the team's to choose, so the registry comes in one
+profile per GPU class. `models.json` is the laptop profile; the others are in
+`4ce/profiles/`, from the briefing's hardware tiers:
+
+| Profile | GPU | Models | Per-reply budget |
+|---|---|---|---|
+| `laptop-6gb` (`models.json`) | one 6-8 GB laptop GPU | Qwen3-VL 4B for documents, images and reasoning; Qwen3 1.7B for code and chat | 900 tokens |
+| `workstation-24gb` | one 16-24 GB GPU | gpt-oss 20B for reasoning and documents; Qwen3.8 27B (4-bit) for images; Qwen3.6 35B-A3B (4-bit) for code; Qwen3.5 4B for chat - one large model resident at a time | 2,048 |
+| `workstation-48gb` | one 32-48 GB GPU | Qwen3.8 27B (8-bit) for documents, images and reasoning, resident beside gpt-oss 20B; the coder loaded on demand | 3,072 |
+| `server-80gb` | one 80-96 GB GPU, or two | gpt-oss 120B for reasoning and documents; Qwen3.8 27B (8-bit) for images and the coder (8-bit), on demand or on a second GPU; gpt-oss 20B for chat | 4,096 |
+
+Only the laptop profile has been measured - every timing in these pages is
+from it. The others are planned, say so on the Sovereignty page and in
+preflight, and name models by the ids Bionic's catalog used in September 2026:
+check them with `lms ls` once downloaded, and edit the profile to match.
+
+A profile also carries the orchestrator valves that suit its GPU - the reply
+budgets, the image sizes, how many passages retrieval sends - so installing
+one sets those too, and installing the laptop profile sets them back:
+
+```bash
+.venv/Scripts/python.exe 4ce/install.py --profile workstation-24gb
+.venv/Scripts/python.exe 4ce/preflight.py --profile workstation-24gb --fix
+```
+
+`--fix` loads each model at the context its profile gives it. Weights take
+roughly parameters × bits ÷ 8 - a 27B model is about 13.5 GB at 4-bit - and
+the context's cache comes on top; when the two exceed the card's memory the
+server spills to the CPU and a 20-second answer takes twenty minutes. If
+preflight's model lines pass and a first answer is that slow, lower the
+contexts in the profile before anything else.
 
 ---
 

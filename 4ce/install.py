@@ -48,6 +48,16 @@ TOOLS = [
 REGISTRY = json.loads((ROOT / "models.json").read_text(encoding="utf-8"))
 ROUTED_MODELS = [m["id"] for m in REGISTRY["models"]]
 
+def load_registry(profile: str = "") -> dict:
+    """The registry a machine runs: models.json, the laptop profile every
+    measurement was taken on, or one of profiles/ for a larger GPU."""
+    path = ROOT / "profiles" / f"{profile}.json" if profile else ROOT / "models.json"
+    if not path.is_file():
+        known = ", ".join(sorted(p.stem for p in (ROOT / "profiles").glob("*.json")))
+        raise SystemExit(f"No profile named {profile!r}. The profiles are: {known}.")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 # The knowledge base the chain is grounded in, and the documents that make it
 # up. Held here so the collection can be rebuilt from the repository: the admin
 # "Reset vector DB" action deletes every knowledge record along with the
@@ -506,10 +516,19 @@ def push_registry(base, token):
     status, valves = call(base, f"/api/v1/functions/id/{function_id}/valves", token)
     valves = valves if status == 200 and isinstance(valves, dict) else {}
     text = json.dumps(REGISTRY, separators=(",", ":"), ensure_ascii=False)
-    summary = f"{len(ROUTED_MODELS)} models, {len(REGISTRY.get('routing') or {})} task routes"
-    if valves.get("model_registry") == text:
+    profile = REGISTRY.get("profile") or {}
+    summary = (
+        f"{profile.get('name', 'default')}: {len(ROUTED_MODELS)} models, "
+        f"{len(REGISTRY.get('routing') or {})} task routes"
+        + ("" if profile.get("measured", True) else " (planned, not measured here)")
+    )
+    # A profile also sets the valves that suit its GPU: reply budgets, image
+    # sizes, retrieval depth. Switching back to the laptop sets them back.
+    tuned = {k: v for k, v in (profile.get("valves") or {}).items()}
+    if valves.get("model_registry") == text and all(valves.get(k) == v for k, v in tuned.items()):
         return "OK", summary
     valves["model_registry"] = text
+    valves.update(tuned)
     status, _ = call(base, f"/api/v1/functions/id/{function_id}/valves/update", token, valves)
     if status != 200:
         return "FAILED", f"could not write the model_registry valve (status {status})"
@@ -522,7 +541,13 @@ def main():
     parser.add_argument("--email", default="admin@4ce.local")
     parser.add_argument("--password", default="4ce-demo-password")
     parser.add_argument("--name", default="4CE Administrator")
+    parser.add_argument("--profile", default="",
+                        help="a hardware profile from 4ce/profiles/, e.g. workstation-24gb; blank uses models.json")
     args = parser.parse_args()
+    if args.profile:
+        global REGISTRY, ROUTED_MODELS
+        REGISTRY = load_registry(args.profile)
+        ROUTED_MODELS = [m["id"] for m in REGISTRY["models"]]
 
     status, _ = call(args.base, "/health")
     if status != 200:

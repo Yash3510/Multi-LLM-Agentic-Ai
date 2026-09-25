@@ -1,5 +1,17 @@
 {
-  "about": "The models 4CE routes between. Adding a model is adding an entry here and running install.py: the router reads capabilities from this file, so no code changes. size_gb is the weights as the model server reports them; the KV cache for the context comes on top. Keep contexts at 8192 on a 6 GB GPU.",
+  "about": "The models 4CE routes between. Adding a model is adding an entry here and running install.py: the router reads capabilities from this file, so no code changes. size_gb is the weights as the model server reports them; the KV cache for the context comes on top. Keep contexts at 8192 on a 6 GB GPU. This is the laptop profile, the one every measurement in the docs was taken on; larger machines have profiles in profiles/, installed with install.py --profile.",
+  "profile": {
+    "name": "laptop-6gb",
+    "gpu": "one 6-8 GB laptop GPU (RTX 4050, 3060, 4060)",
+    "measured": true,
+    "valves": {
+      "max_tokens": 900,
+      "extraction_max_tokens": 2400,
+      "vision_page_edge": 2200,
+      "vision_max_edge": 900,
+      "retrieval_k": 4
+    }
+  },
   "models": [
     {
       "id": "qwen/qwen3-vl-4b",
