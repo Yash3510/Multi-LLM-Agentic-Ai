@@ -349,6 +349,46 @@ def render_pid() -> Image.Image:
     return canvas
 
 
+# ---------------------------------------------------------------------------
+# A thickness survey as a workbook: the spreadsheet a request attaches when it
+# asks for corrosion rate and remaining life added to it. The first row is
+# Shell course 1 east, the briefing's own example - 0.267 mm/year, 6.4 years.
+# ---------------------------------------------------------------------------
+
+SURVEY = [
+    ("Location", "Previous thickness (mm)", "Current thickness (mm)", "Required thickness (mm)",
+     "Years between readings"),
+    ("Shell course 1, east", 12.0, 11.2, 9.5, 3),
+    ("Shell course 1, west", 12.0, 11.6, 9.5, 3),
+    ("Suction nozzle N1", 10.0, 9.1, 8.2, 3),
+    ("Discharge nozzle N2", 10.0, 9.9, 8.2, 3),
+    ("Bottom head", 14.0, 12.2, 11.8, 3),
+]
+
+
+def write_survey(path: Path) -> None:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "Survey"
+    for row in SURVEY:
+        sheet.append(row)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill("solid", fgColor="F4F2EC")
+    for letter, width in zip("ABCDE", (24, 24, 24, 24, 22)):
+        sheet.column_dimensions[letter].width = width
+    about = book.create_sheet("About")
+    about["A1"] = "P-101B casing thickness survey"
+    about["A1"].font = Font(bold=True)
+    about["A2"] = "Ultrasonic readings, February 2023 and February 2026. Synthetic - for demonstration only."
+    book.properties.title = "P-101B thickness survey"
+    book.properties.creator = "4CE demo samples"
+    book.save(path)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     report = render_report()
@@ -359,6 +399,7 @@ def main() -> None:
     (OUT / "shift_log_P-101_answer_key.txt").write_text(SHIFT_LOG_KEY, encoding="utf-8")
     render_pid().save(OUT / "pid_P-101_excerpt.png", dpi=(200, 200))
     (OUT / "pid_P-101_excerpt_answer_key.txt").write_text(PID_KEY, encoding="utf-8")
+    write_survey(OUT / "thickness_survey_P-101B.xlsx")
     for path in sorted(OUT.iterdir()):
         print(f"wrote {path.relative_to(OUT.parent)} ({path.stat().st_size // 1024} KB)")
 

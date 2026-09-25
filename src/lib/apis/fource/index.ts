@@ -92,6 +92,30 @@ export const runCanary = (token: string): Promise<Canary> => call(token, '/egres
 export const resetEgress = (token: string): Promise<Egress> => call(token, '/egress/reset', 'POST');
 export const getAudit = (token: string): Promise<Audit> => call(token, '/audit');
 
+// 4CE's audit trail (backend/open_webui/utils/fource_audit.py): append-only,
+// each entry sealed with the hash of the one before it.
+export type TrailEntry = {
+	seq: number;
+	at: number;
+	action: string;
+	prev: string;
+	hash: string;
+	[field: string]: unknown;
+};
+
+export type Trail = {
+	entries: TrailEntry[];
+	path: string;
+	count: number;
+	head: string;
+	last_error: string;
+	failed_writes: number;
+	verify?: { ok: boolean; entries: number; head: string; broken_at: number | null; reason: string };
+};
+
+export const getTrail = (token: string, after = 0, verify = false): Promise<Trail> =>
+	call(token, `/audit-trail?after=${after}&limit=40${verify ? '&verify=true' : ''}`);
+
 export type RegistryModel = {
 	id: string;
 	family?: string;

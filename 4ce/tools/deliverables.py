@@ -6,6 +6,7 @@ description: Produces real office files from agent output - approval notes and r
 """
 
 import asyncio
+import hashlib
 import io
 import re
 import uuid
@@ -53,6 +54,16 @@ ARTIFACT_TYPES = {
     ".env": "text/plain",
     ".log": "text/plain",
 }
+
+
+def _logged(action: str, **fields) -> None:
+    """An entry in 4CE's audit trail - append-only, hash-chained - when the
+    backend keeps one. Recording never fails the tool."""
+    try:
+        from open_webui.utils.fource_audit import record
+    except Exception:
+        return
+    record(action, **fields)
 
 
 def _safe_filename(filename: str) -> str | None:
@@ -174,6 +185,8 @@ class Tools:
 
         if record is None:
             return "The document was generated but could not be registered for download."
+        _logged("file.write", tool="create_word_document", file=filename, id=file_id,
+                sha256=hashlib.sha256(payload).hexdigest(), bytes=len(payload))
 
         # The document is registered for download either way; a configured directory
         # is an additional copy on disk, for a share the plant already uses.
@@ -254,6 +267,8 @@ class Tools:
             return f"The file was prepared but could not be stored: {exc}"
         if record is None:
             return "The file was prepared but could not be registered for download."
+        _logged("file.write", tool="save_artifact", file=safe, id=file_id,
+                sha256=hashlib.sha256(payload).hexdigest(), bytes=len(payload))
 
         saved = ""
         keep = (self.valves.output_dir or "").strip()
@@ -369,6 +384,8 @@ class Tools:
             return f"The {kind.lower()} was made but could not be stored: {exc}"
         if record is None:
             return f"The {kind.lower()} was made but could not be registered for download."
+        _logged("file.write", tool=kind, file=filename, id=file_id,
+                sha256=hashlib.sha256(payload).hexdigest(), bytes=len(payload))
 
         saved = ""
         keep = (self.valves.output_dir or "").strip()
@@ -1744,7 +1761,7 @@ def _remaining_life_sheet(book, calculation: dict, used: set, bold, fill, rule, 
     rows = calculation["rows"]
     for r, row in enumerate(rows, 2):
         values = [row.get("location") or f"Location {r - 1}", row["previous"], row["current"],
-                  row["required"], row["years"], maximum]
+                  row["required"], row["years"], row.get("max_interval", maximum)]
         for c, value in enumerate(values, 1):
             cell = sheet.cell(row=r, column=c, value=value)
             cell.font = blue if c > 1 else ink

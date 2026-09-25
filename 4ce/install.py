@@ -35,6 +35,10 @@ TOOLS = [
      "Assesses inspection readings against SOP thresholds and cites the clause that decided each."),
     ("ace_calculations", "4CE Engineering Calculations", ROOT / "tools" / "calculations.py",
      "Works corrosion rate, remaining life and the next inspection in code, every step shown."),
+    ("ace_files", "4CE Workspace Files", ROOT / "tools" / "files.py",
+     "Reads and writes files in one workspace folder, keeping earlier versions; every access audited."),
+    ("ace_sheets", "4CE Spreadsheets", ROOT / "tools" / "sheets.py",
+     "Reads workbooks with their formulas and writes changes to a copy as live formulas; never the source."),
 ]
 
 # The models the orchestrator routes between, and the only ones offered in the

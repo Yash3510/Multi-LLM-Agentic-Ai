@@ -401,6 +401,15 @@ async def lifespan(app: FastAPI):
     fource_egress.start()
     app.state.fource_egress_endpoints = asyncio.create_task(keep_endpoints_current(Config.get))
 
+    # 4CE: in offline mode, a library may not download a model while it runs
+    # (utils/fource_offline.py) - the document loader fetched one from GitHub.
+    from open_webui.env import OFFLINE_MODE as FOURCE_OFFLINE
+
+    if FOURCE_OFFLINE:
+        from open_webui.utils.fource_offline import guard as guard_downloads
+
+        log.info('4CE offline mode: run-time downloads refused in %s', ', '.join(guard_downloads()))
+
     if await Config.get('models.base_models_cache'):
         try:
             await get_all_models(

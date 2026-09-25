@@ -17,7 +17,7 @@ Every step that touches confidential content runs on the machine:
 | Inference | A local OpenAI-compatible model server, over loopback |
 | Embeddings | The same local server, so no model is fetched at runtime |
 | Vector store | Chroma on local disk, with its own telemetry hard-disabled upstream |
-| Document parsing | In-process parsers by default |
+| Document parsing | In-process parsers by default; in offline mode they may not download a model while running |
 | Code execution | A container on the host, with networking removed |
 | Deliverables | Written to local storage |
 
@@ -54,9 +54,37 @@ the configuration audit reading 18 of 18. Bionic checks for its own updates
 (`appUpdateChannel`, `autoUpdateExtensionPacks` in its settings). No setting in
 4CE could have shown that.
 
+It caught a second one, in the backend this time. The first spreadsheet
+uploaded went to the platform's document loader, the `unstructured` library,
+which - finding spaCy's `en_core_web_sm` missing - downloaded the model's wheel
+from github.com and installed it into site-packages while the upload was being
+processed. The watch showed the backend reaching GitHub; the backend log showed
+the install. On an air-gapped machine the same upload would have failed. In
+offline mode 4CE now refuses that download
+(`backend/open_webui/utils/fource_offline.py`): the attempt fails with the
+reason and is written to the audit trail, and the configuration audit checks
+the model is installed, so a machine without it is flagged before its first
+upload rather than during it.
+
 Observation shows what the workbench did; it does not stop anything. An egress
 rule on the host does, and the canary on the Sovereignty page proves the rule
 works. Both are in "Making it physical" in `4ce/docs/HOW_TO_RUN.md`.
+
+**The audit trail is tamper-evident, not tamper-proof.** Every request's
+entries - its sources, each model call and tool call with the SHA-256 of what
+went in and out, each file written, the verdict, the approver and the released
+answer's fingerprint - are appended to `DATA_DIR/4ce/audit.jsonl`, each sealed
+with the hash of the one before (`backend/open_webui/utils/fource_audit.py`).
+Changing or removing an entry breaks the chain, and the Sovereignty page and
+preflight say where. Someone who can write the file can still rewrite the chain
+from that point on; keep a copy of the head hash somewhere they cannot reach.
+
+**File tools reach one folder.** `tools/files.py` and `tools/sheets.py` write
+only inside the workspace folder, and only text files and workbook copies; a
+path that resolves outside it is refused, overwriting keeps the earlier
+version, and a spreadsheet's source is never changed. A formula that could
+reach outside the workbook - a web service, an external link, DDE, a
+hyperlink - is refused, because the copy is opened in Excel on a plant PC.
 
 **Build time is not run time.** Producing the image needs the internet: npm
 packages, Python wheels, Pyodide, and the frontend build. The air-gap claim

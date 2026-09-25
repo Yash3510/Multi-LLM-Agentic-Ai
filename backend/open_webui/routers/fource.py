@@ -3,6 +3,7 @@ beside what its configuration permits, audited. Admin only throughout: the
 page names processes, ports and addresses on this machine.
 """
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -10,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from open_webui.models.functions import Functions
 from open_webui.models.tools import Tools
 from open_webui.utils.auth import get_admin_user
+from open_webui.utils.fource_audit import trail
 from open_webui.utils.fource_egress import watch
 from open_webui.utils.plugin import get_function_module_from_cache, get_tool_module_from_cache
 
@@ -26,6 +28,16 @@ ORCHESTRATOR_ID = "ace_orchestrator"
 @router.get("/egress")
 async def get_egress(user=Depends(get_admin_user)):
     return watch.snapshot()
+
+
+@router.get("/audit-trail")
+async def get_audit_trail(after: int = 0, limit: int = 40, verify: bool = False, user=Depends(get_admin_user)):
+    """The newest entries of 4CE's audit trail after a sequence number and,
+    when asked, the whole chain walked and checked."""
+    body = {"entries": await asyncio.to_thread(trail.entries, after, limit), **trail.status()}
+    if verify:
+        body["verify"] = await asyncio.to_thread(trail.verify)
+    return body
 
 
 @router.post("/egress/canary")

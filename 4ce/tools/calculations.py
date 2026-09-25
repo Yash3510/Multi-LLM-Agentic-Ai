@@ -42,8 +42,11 @@ _PATTERNS = {
     ],
 }
 
-# A thickness survey as a table: which header means which quantity.
+# A thickness survey as a table: which header means which quantity. An
+# interval a rule requires for one location is a column of its own, matched
+# before the readings' own interval so "SOP interval" is not taken for Δt.
 _COLUMNS = {
+    "max_interval": ("sop interval", "max interval", "maximum interval"),
     "previous": ("previous", "prev", "prior", "original", "initial", "baseline", "last"),
     "current": ("current", "measured", "actual", "latest", "present"),
     "required": ("required", "retirement", "t_req", "treq", "minimum allowable", "min required"),
@@ -98,7 +101,15 @@ class Tools:
                 "thickness, the required (retirement) thickness, all in mm, and the years between "
                 "the two readings."
             )
-        results = [dict(_remaining_life(row, interval), basis=basis) for row in rows]
+        # A location with an interval of its own - the SOP's six months where
+        # its wall margin is thin - takes the shorter of that and the rest's.
+        results = []
+        for row in rows:
+            own = row.pop("max_interval", None)
+            if own and own > 0 and (interval is None or own < interval):
+                results.append(dict(_remaining_life(row, own), basis=interval_basis or "the interval set for it"))
+            else:
+                results.append(dict(_remaining_life(row, interval), basis=basis))
         await _emit(
             __event_emitter__, "calculation",
             f"Remaining life calculated for {len(results)} location{'' if len(results) == 1 else 's'}",
@@ -160,6 +171,8 @@ def _parse_table(text: str) -> list[dict]:
             for key, n in columns.items():
                 found = re.search(_NUM, cells[n]) if n < len(cells) else None
                 values[key] = float(found.group(1)) if found else None
+            if values.get("max_interval") is None:
+                values.pop("max_interval", None)
             if all(values.get(k) is not None for k in ("previous", "current", "required")):
                 label = next((c for n, c in enumerate(cells) if n not in columns.values() and c), "")
                 rows.append({"location": re.sub(r"[*_`]", "", label), **values})
@@ -287,6 +300,7 @@ def _report(results: list[dict], interval: float | None, basis: str = "the code 
         "basis": basis if interval else "",
         "rows": [
             {k: r[k] for k in ("location", "previous", "current", "required", "years")}
+            | ({"max_interval": r["max_interval"]} if r.get("max_interval") != interval else {})
             for r in results
         ],
     }

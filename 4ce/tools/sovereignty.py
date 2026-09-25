@@ -96,6 +96,24 @@ class Tools:
                 "disabled" if not ENABLE_OTEL else "ENABLED — OpenTelemetry is exporting traces",
             ))
 
+        # A library that fetches what it lacks the first time it is used: the
+        # document loader installed spaCy's model from github.com on the first
+        # spreadsheet uploaded here, and 4CE's egress watch is what saw it.
+        try:
+            import importlib.util
+
+            parser_model = importlib.util.find_spec("en_core_web_sm") is not None
+        except Exception:
+            parser_model = False
+        findings.append((
+            "Document parsing model",
+            parser_model,
+            "spaCy en_core_web_sm installed — uploads are parsed without a download"
+            if parser_model
+            else "NOT INSTALLED — the first Excel, Word or PowerPoint upload would download it "
+            "from github.com; install it with the offline install",
+        ))
+
         settings = await _safe_config(
             "openai.api_base_urls", "ollama.base_urls", "rag.embedding_engine",
             "rag.content_extraction_engine", "rag.openai.api_base_url", "rag.ollama.base_url",

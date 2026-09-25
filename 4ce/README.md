@@ -124,7 +124,9 @@ Install each the same way, under **Workspace → Tools → +**, then enable them
 | `tools/deliverables.py` | Renders the released answer as real office files, stored locally with a download link: a formatted `.docx` (classification banner, reference table, headings and bullets), an `.xlsx` with one sheet per table - numbers as numbers, units in headers, a stated total as a live `SUM` once it is checked to add up - and a `.pptx` deck with a slide per section, native table slides and speaker notes. Workbooks and decks also carry the SOP rule pack's verdict table verbatim, and every file carries the approval record. |
 | `tools/sovereignty.py` | Audits live configuration for anything that could carry data off-premise and returns a pass/fail table. |
 | `tools/sop_check.py` | Assesses inspection readings against the thresholds in an SOP and returns a clause-cited fit-for-service verdict. The comparisons are arithmetic done locally against an authored rule pack, so the accept/reject decision never rests on a model's judgement. See [`docs/SOP_THRESHOLD_PLAN.md`](docs/SOP_THRESHOLD_PLAN.md). |
-| `tools/calculations.py` | Works engineering calculations in code with every step shown and units carried: corrosion rate, remaining life and the next thickness measurement, from a sentence or a thickness-survey table. An inspection interval the SOP rule pack requires caps the next measurement, and a workbook carries the calculation as live formulas. |
+| `tools/calculations.py` | Works engineering calculations in code with every step shown and units carried: corrosion rate, remaining life and the next thickness measurement, from a sentence or a thickness-survey table. An inspection interval the SOP rule pack requires caps the next measurement - for a survey, location by location - and a workbook carries the calculation as live formulas. |
+| `tools/files.py` | Reads, lists and writes text files in one workspace folder (`DATA_DIR/4ce/workspace` by default), plus any read-only folders it is given, such as an SOP share. A path that would leave the workspace - `..`, an absolute path, a drive letter, a link out - is refused; so is any type but text. Overwriting a file keeps the earlier version under `.versions/`, and every read and write is recorded in the audit trail with the file's SHA-256. |
+| `tools/sheets.py` | Reads an Excel workbook or a CSV - attached to the chat or in the workspace - as tables with every cell's reference and formula, and writes changes to a copy, never the source, as live formulas. A formula that could reach outside the workbook (`WEBSERVICE`, an external link, DDE, `HYPERLINK`) is refused. A small evaluator - arithmetic, comparisons, `IF`, `MIN`, `MAX`, `SUM` and a few more, walked node by node rather than handed to `eval` - reports what the new cells will show, so the copy's numbers can be checked against 4CE's own calculation. |
 
 ### Sandbox deployment note
 
@@ -141,6 +143,23 @@ Also disable the built-in interpreter (`ENABLE_CODE_INTERPRETER=false`,
 `ENABLE_CODE_EXECUTION=false`) so there is exactly one execution path to explain: the
 browser-side Pyodide default is weaker than this sandbox and muddies the story.
 
+## The audit trail
+
+Every request leaves an append-only, hash-chained record in `DATA_DIR/4ce/audit.jsonl`
+(`backend/open_webui/utils/fource_audit.py`): the request, the documents retrieved, the
+model it was routed to, every model call and tool call with the SHA-256 of what went in
+and what came out, every file read or written, ULTRON's verdict, who approved, and the
+fingerprint of what was released - which is the same SHA-256 the receipt, the provenance
+and the Word report print. Entries hold names, counts and hashes, never the text itself.
+
+Each entry carries the hash of the one before it, so an entry changed or removed breaks
+the chain from that point and a verification names it. The Sovereignty page shows the
+trail live, with a button that walks and checks the whole chain; every answer's provenance
+names the entries its run wrote and the chain's head at that moment; preflight fails a
+trail that no longer verifies. It is tamper-evident rather than tamper-proof - anyone who
+can write the file can rewrite the whole chain after it - so keep a copy of the head hash
+somewhere they cannot reach.
+
 ## Verification status
 
 Verified against a running instance with Bionic serving `qwen3-vl-4b`,
@@ -155,11 +174,13 @@ Verified against a running instance with Bionic serving `qwen3-vl-4b`,
 | Human approval | Verified in the browser — approve releases, reject and empty-box both withhold |
 | Sandboxed code execution | Verified — 6/6 checks including blocked network, read-only workspace, enforced timeout |
 | Word deliverables | Verified — 7/7 checks, valid OOXML with content and classification banner |
-| Sovereignty audit | Verified — 6/6 checks, 18/18 surfaces pass on the demo configuration |
+| Sovereignty audit | Verified — 19/19 surfaces pass on the demo configuration |
 | Local RAG | Verified — upload, embed, index and query in ~0.3 s, and a grounded answer citing SOP thresholds |
-| **Multimodal / vision** | **Not yet verified** — see below |
+| Multimodal / vision | Verified — a scanned report, a handwritten log and a P&ID read into boxed fields; `eval_vision.py` measures it |
+| Workspace files and spreadsheets | Verified — writes versioned and confined to the workspace; a thickness survey's copy gets live formulas whose values match 4CE's calculation |
+| Audit trail | Verified — every model call, tool call, file write, approval and release of a run recorded and the chain verified; a changed or removed entry is caught |
 
-### The vision path needs a model-server change
+### The vision path and the model server's context
 
 On a 6 GB GPU the vision model is loaded with a 65k context window, so weights plus
 KV cache exceed VRAM and inference silently falls back to CPU: the server reports
@@ -171,7 +192,8 @@ The same model answers the same document correctly in **19 seconds** at 760 px w
 on the model server: **reload the vision model with a context length of around 8192**,
 which is ample for a page of text and leaves the KV cache inside VRAM.
 
-Re-run the vision check after that change before relying on the multimodal demo.
+With the vision model reloaded at 8192, the demo images read in 10-35 seconds each; see
+"Reading images" in `docs/HOW_TO_RUN.md` for the measurements.
 
 ### Still open
 

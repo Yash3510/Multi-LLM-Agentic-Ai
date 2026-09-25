@@ -46,7 +46,10 @@ REQUIRED_MODELS = tuple(m["id"] for m in REGISTRY["models"])
 CONTEXTS = {m["id"]: m.get("context") for m in REGISTRY["models"]}
 EMBEDDING_MODEL = REGISTRY["embedding"]["id"]
 
-TOOL_IDS = ("ace_sandbox", "ace_deliverables", "ace_sovereignty", "ace_sop_check", "ace_calculations")
+TOOL_IDS = (
+    "ace_sandbox", "ace_deliverables", "ace_sovereignty", "ace_sop_check", "ace_calculations",
+    "ace_files", "ace_sheets",
+)
 FUNCTION_ID = "ace_orchestrator"
 
 PASS, WARN, FAIL = "PASS", "WARN", "FAIL"
@@ -230,6 +233,7 @@ def check_backend(report: Report, backend: str, email: str, password: str) -> No
 
     check_knowledge(report, backend, record, token)
     check_egress(report, backend, token)
+    check_trail(report, backend, token)
 
     try:
         valves = get_json(f"{backend}/api/v1/functions/id/{FUNCTION_ID}/valves", token) or {}
@@ -334,6 +338,23 @@ def check_egress(report: Report, backend: str, token: str) -> None:
             "the canary reached the internet - nothing on this host blocks egress. "
             "See 'Making it physical' in 4ce/docs/HOW_TO_RUN.md",
         )
+
+
+def check_trail(report: Report, backend: str, token: str) -> None:
+    """Whether 4CE's audit trail is being written and still verifies. A trail
+    that fails to write, or no longer checks out, is not evidence of anything."""
+    try:
+        trail = get_json(f"{backend}/api/v1/fource/audit-trail?limit=1&verify=true", token) or {}
+    except Exception:
+        report.add(FAIL, "Audit trail", "not served - the backend predates it or it failed to start")
+        return
+    verdict = trail.get("verify") or {}
+    if not verdict.get("ok", False):
+        report.add(FAIL, "Audit trail", f"broken at entry {verdict.get('broken_at')}: {verdict.get('reason')}")
+    elif trail.get("failed_writes"):
+        report.add(WARN, "Audit trail", f"{trail['failed_writes']} entries could not be written: {trail.get('last_error')}")
+    else:
+        report.add(PASS, "Audit trail", f"{verdict.get('entries', 0)} entries, chain intact")
 
 
 def main() -> None:

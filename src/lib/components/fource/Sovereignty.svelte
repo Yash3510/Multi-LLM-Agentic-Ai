@@ -9,11 +9,14 @@
 		getAudit,
 		getEgress,
 		getModels,
+		getTrail,
 		resetEgress,
 		runCanary,
 		type Audit,
 		type Egress,
-		type Registry
+		type Registry,
+		type Trail,
+		type TrailEntry
 	} from '$lib/apis/fource';
 
 	let egress: Egress | null = null;
@@ -59,6 +62,32 @@
 		egress = await resetEgress(localStorage.token).catch(() => egress);
 	};
 
+	// The audit trail: fetched whole and verified on opening, then only the
+	// entries after the last one shown.
+	let trail: Trail | null = null;
+	let trailEntries: TrailEntry[] = [];
+	let trailError = '';
+	let verifying = false;
+	let trailTimer: ReturnType<typeof setInterval>;
+
+	const pollTrail = async (verify = false) => {
+		try {
+			const after = verify ? 0 : (trailEntries[trailEntries.length - 1]?.seq ?? 0);
+			const next = await getTrail(localStorage.token, after, verify);
+			trailEntries = (verify ? next.entries : [...trailEntries, ...next.entries]).slice(-40);
+			trail = { ...next, verify: next.verify ?? trail?.verify };
+			trailError = '';
+		} catch (err) {
+			trailError = typeof err === 'string' ? err : 'The audit trail could not be read.';
+		}
+	};
+
+	const verifyTrail = async () => {
+		verifying = true;
+		await pollTrail(true);
+		verifying = false;
+	};
+
 	onMount(() => {
 		poll();
 		loadAudit();
@@ -66,8 +95,13 @@
 			.then((r) => (registry = r))
 			.catch(() => (registry = null));
 		timer = setInterval(poll, 1000);
+		pollTrail(true);
+		trailTimer = setInterval(() => pollTrail(), 3000);
 	});
-	onDestroy(() => clearInterval(timer));
+	onDestroy(() => {
+		clearInterval(timer);
+		clearInterval(trailTimer);
+	});
 
 	const clock = (epoch: number) =>
 		new Date(epoch * 1000).toLocaleTimeString([], {
@@ -83,6 +117,60 @@
 	};
 	const plural = (n: number, one: string, many = `${one}s`) =>
 		`${n.toLocaleString()} ${n === 1 ? one : many}`;
+
+	// One line per kind of entry, from the names, counts and timings it holds.
+	const detail = (entry: TrailEntry): string => {
+		const f = entry as Record<string, any>;
+		const parts = (...items: unknown[]) => items.filter(Boolean).join(' · ');
+		const secs = f.seconds != null ? `${f.seconds} s` : '';
+		switch (entry.action) {
+			case 'request':
+				return parts(
+					`${f.task} task, ${plural(f.chars ?? 0, 'character')}${f.image ? ' and an image' : ''}`,
+					f.model ? `routed to ${f.model}` : ''
+				);
+			case 'route':
+				return f.model ? `routed to ${f.model}` : '';
+			case 'sources':
+				return (f.documents ?? []).join(', ');
+			case 'model.call':
+				return parts(
+					f.agent,
+					f.model,
+					secs,
+					f.tokens ? plural(f.tokens, 'token') : '',
+					f.ok === false ? `failed: ${f.error ?? ''}` : ''
+				);
+			case 'tool.call':
+				return parts(f.tool, secs, f.ok === false ? `failed: ${f.error ?? ''}` : '');
+			case 'file.write':
+				return parts(
+					f.file,
+					f.bytes ? `${Math.max(1, Math.round(f.bytes / 1024))} KB` : '',
+					f.tool ? `by ${f.tool}` : ''
+				);
+			case 'verdict':
+				return `${f.status}${f.attempts > 1 ? ` after ${f.attempts} attempts` : ''}${
+					f.reservations ? `, ${plural(f.reservations, 'reservation')}` : ''
+				}`;
+			case 'approval':
+				return `${f.decision}${f.approver ? ` by ${f.approver}` : ''}${f.reason ? ` (${f.reason})` : ''}`;
+			case 'release':
+				return f.fingerprint ? `fingerprint ${String(f.fingerprint).slice(0, 16)}…` : 'released';
+			default:
+				return '';
+		}
+	};
+	const hashes = (entry: TrailEntry) =>
+		[
+			entry.input ? `in   ${entry.input}` : '',
+			entry.output ? `out  ${entry.output}` : '',
+			entry.sha256 ? `file ${entry.sha256}` : '',
+			`prev ${entry.prev}`,
+			`hash ${entry.hash}`
+		]
+			.filter(Boolean)
+			.join('\n');
 
 	const ROLE_ORDER = ['backend', 'model server', 'frontend'];
 	const KIND = {
@@ -352,6 +440,83 @@
 				<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 					No open connections in the latest sample.
 				</p>
+			{/if}
+		</section>
+
+		<!-- The audit trail: what the workbench did, each entry sealed to the one before. -->
+		<section class="mt-6">
+			<div class="flex items-baseline justify-between gap-2">
+				<h2 class="text-sm font-semibold text-gray-900 dark:text-white">Audit trail</h2>
+				<button
+					class="text-xs text-gray-500 underline-offset-2 hover:underline disabled:opacity-60 dark:text-gray-400"
+					disabled={verifying}
+					on:click={verifyTrail}>{verifying ? 'Verifying…' : 'Verify the whole chain'}</button
+				>
+			</div>
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+				Every request, source, model call, tool call, file written, approval and release -
+				names, timings and SHA-256 hashes, never the text itself. Each entry is sealed with the
+				hash of the one before it, so an entry changed or removed breaks the chain from there.
+			</p>
+			{#if trailError}
+				<p class="mt-2 text-sm text-amber-700 dark:text-amber-400">{trailError}</p>
+			{:else if trail}
+				<p class="mt-2 text-sm text-gray-700 dark:text-gray-300">
+					{plural(trail.count, 'entry', 'entries')}{#if trail.count}{' · head '}
+						<span class="font-mono text-xs">{trail.head.slice(0, 16)}…</span>{/if}
+				</p>
+				{#if trail.verify}
+					<p
+						class="mt-1 text-xs {trail.verify.ok
+							? 'text-emerald-700 dark:text-emerald-400'
+							: 'font-semibold text-amber-700 dark:text-amber-400'}"
+					>
+						{trail.verify.ok
+							? `Chain intact: all ${plural(trail.verify.entries, 'entry', 'entries')} check out, as of entry ${trail.verify.entries}.`
+							: `Chain broken at entry ${trail.verify.broken_at}: ${trail.verify.reason}.`}
+					</p>
+				{/if}
+				{#if trail.last_error}
+					<p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
+						{plural(trail.failed_writes, 'entry', 'entries')} could not be written: {trail.last_error}
+					</p>
+				{/if}
+				{#if trailEntries.length}
+					<div class="mt-2 overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+						<table class="w-full text-left text-xs">
+							<thead class="text-gray-500 dark:text-gray-400">
+								<tr>
+									<th class="px-3 py-2 font-medium">#</th>
+									<th class="px-3 py-2 font-medium">Time</th>
+									<th class="px-3 py-2 font-medium">Entry</th>
+									<th class="px-3 py-2 font-medium">Detail</th>
+									<th class="px-3 py-2 font-medium">Hash</th>
+								</tr>
+							</thead>
+							<tbody class="text-gray-800 dark:text-gray-200">
+								{#each [...trailEntries].reverse().slice(0, 14) as entry (entry.seq)}
+									<tr class="border-t border-gray-100 dark:border-gray-850" title={hashes(entry)}>
+										<td class="whitespace-nowrap px-3 py-1.5 tabular-nums text-gray-500">{entry.seq}</td>
+										<td class="whitespace-nowrap px-3 py-1.5 tabular-nums">{clock(entry.at)}</td>
+										<td class="whitespace-nowrap px-3 py-1.5 font-medium">{entry.action}</td>
+										<td class="px-3 py-1.5 text-gray-600 dark:text-gray-400">{detail(entry)}</td>
+										<td class="whitespace-nowrap px-3 py-1.5 font-mono text-gray-500">{entry.hash.slice(0, 10)}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+					<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+						The latest {Math.min(14, trailEntries.length)}, refreshed every three seconds; hover a row
+						for its hashes. The whole trail is <span class="font-mono">{trail.path}</span>.
+					</p>
+				{:else}
+					<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+						Nothing recorded yet - ask 4CE something.
+					</p>
+				{/if}
+			{:else}
+				<p class="mt-2 text-sm text-gray-500">Reading the trail…</p>
 			{/if}
 		</section>
 

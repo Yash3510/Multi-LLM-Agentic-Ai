@@ -352,6 +352,18 @@ class Pipe:
         # FRIDAY something irrelevant to reason about.
         auditing = _wants_audit(prompt)
 
+        # The audit trail: every entry from here names this chat and message,
+        # including those the tools write while this run awaits them.
+        _audit_bind(
+            chat=(__metadata__ or {}).get("chat_id"),
+            message=(__metadata__ or {}).get("message_id"),
+            user=getattr(user, "email", "") or getattr(user, "id", ""),
+        )
+        trail_first = (_audit(
+            "request", task=task_type, prompt=_digest(prompt), chars=len(prompt),
+            image=has_image or None,
+        ) or {}).get("seq")
+
         # Retrieve after classifying, and only where documents can help. An
         # attached knowledge base is queried on every turn otherwise, so a
         # greeting or a request for a median function arrives carrying several
@@ -369,6 +381,10 @@ class Pipe:
                 # the answer into a chip that opens the passage it stands on.
                 for source in sources:
                     await _emit_source(__event_emitter__, source)
+                _audit(
+                    "sources", documents=[source["name"] for source in sources],
+                    passages=_digest([p["text"] for source in sources for p in source["passages"]]),
+                )
 
         await _status(
             __event_emitter__,
@@ -398,6 +414,7 @@ class Pipe:
             facts=[f"Routed to {model_id}", rationale[:1].upper() + rationale[1:] if rationale else ""],
         )
         trace.append(f"**ROUTER** selected `{model_id}` — {rationale}")
+        _audit("route", model=model_id)
         steps.append({
             "agent": "TONY",
             "label": "classification and routing",
@@ -553,13 +570,50 @@ class Pipe:
                 __tools__, __event_emitter__, sop_input, tools_used, steps, trace, ""
             )
 
+        # A spreadsheet attached to the request is read by the tool, cell by
+        # cell with its formulas, not from the platform's text extraction of
+        # it: the agents see column letters they can refer to, and a thickness
+        # survey's table goes straight to the calculation below.
+        attached = (__metadata__ or {}).get("files")
+        sheet_name, sheet_text, sheet_changes = "", "", None
+        sheets = _attached_sheets(__metadata__) if task_type != "chat" else []
+        if sheets:
+            sheet_name = sheets[0]
+            await _status(__event_emitter__, "tool", f"TOOL: reading {sheet_name}")
+            read = await self._use_tool(__tools__, "read_sheet", file=sheet_name, __files__=attached)
+            if read and not read.startswith(_ERR) and "**Sheet" in read:
+                sheet_text = read
+                tools_used.append("read_sheet")
+                steps.append({
+                    "agent": "TOOL", "label": f"read {sheet_name}", "model": "openpyxl, on this machine",
+                    "seconds": 0.0, "thinking": "", "text": read,
+                })
+                trace.append(f"**TOOL** `read_sheet` read `{sheet_name}` cell by cell, with its formulas.")
+            else:
+                trace.append(f"**TOOL** `read_sheet` could not read `{sheet_name}`: {read or 'the tool is not attached'}")
+                sheet_name = ""
+
         # Engineering arithmetic is done in code too, with every step shown: a
         # model writes the method and the note; the numbers come from here.
         calculation, calculation_data = "", None
+        survey_intervals: dict[int, float] = {}
+        row_basis = ""
         if task_type != "chat" and _wants_remaining_life(prompt):
+            survey_text = sheet_text
+            if sheet_text:
+                survey_text, row_basis, survey_intervals = await self._survey_intervals(
+                    __tools__, __event_emitter__, sheet_text, tools_used, steps, trace
+                )
             calculation, calculation_data = await self._remaining_life(
-                __tools__, __event_emitter__, prompt, tools_used, steps, trace, request_sop
+                __tools__, __event_emitter__, prompt + ("\n\n" + survey_text if survey_text else ""),
+                tools_used, steps, trace, request_sop, row_basis,
             )
+        # Asked to add to the sheet: a survey's corrosion rate, remaining life
+        # and next inspection are written by 4CE as formulas over the sheet's
+        # own columns; anything else, JARVIS proposes and the reviewer approves.
+        if sheet_text and _wants_sheet_edit(prompt) and _wants_remaining_life(prompt):
+            sheet_changes = _survey_changes(sheet_text, survey_intervals)
+        planned = None
 
         while True:
             attempts += 1
@@ -602,6 +656,13 @@ class Pipe:
                         "than full confidence: carry it as uncertain, and never firm it up.\n"
                         + reading["table"]
                         if reading
+                        else ""
+                    )
+                    + (
+                        "\n\nSPREADSHEET attached to the request, read cell by cell by read_sheet - "
+                        "the requester's own data. Columns are headed by their letter, rows by their "
+                        "number, and a formula shows as its value then itself:\n" + sheet_text
+                        if sheet_text
                         else ""
                     )
                     + (
@@ -655,7 +716,10 @@ class Pipe:
             if calculation:
                 grounded += (
                     "\n\nCALCULATION (deterministic arithmetic, every step shown; "
-                    "authoritative)\n" + calculation
+                    "authoritative)"
+                    + (" - worked by 4CE's calculation tool from the sheet's readings; "
+                       "the spreadsheet itself does not contain these results" if sheet_text else "")
+                    + "\n" + calculation
                 )
 
             await _status(
@@ -709,6 +773,30 @@ class Pipe:
                         if reading
                         else ""
                     )
+                    + (
+                        "\n\nSPREADSHEET as attached, read cell by cell - only the columns shown; "
+                        "nothing has been added to it:\n" + sheet_text
+                        if sheet_text
+                        else ""
+                    )
+                    + (
+                        "\n\n4CE lists the changes it will write to a copy of the workbook after "
+                        "your answer, and writes them only once a person approves. Do not describe "
+                        "the workbook, its columns or its changes, and do not say anything has been "
+                        "added to it; report the calculation's results and what they mean."
+                        if sheet_changes
+                        else (
+                            "\n\nTo change the workbook, end your answer with a fenced ```4ce-sheet "
+                            "block holding a JSON list of changes: {\"column\": \"header\", "
+                            "\"formula\": \"=...{row}...\"} adds a column, the formula written into "
+                            "every data row with {row} its row number; {\"cell\": \"G2\", "
+                            "\"formula\": \"=...\"} or {\"cell\": \"G2\", \"value\": ...} sets one "
+                            "cell. Use the column letters shown above. 4CE writes the changes to a "
+                            "copy once a person approves them; the file itself is never changed."
+                        )
+                        if sheet_text and _wants_sheet_edit(prompt)
+                        else ""
+                    )
                     + "\n\nProduce the finished deliverable the request actually asked "
                     "for. Show working for any calculation. Do not claim you performed an "
                     "action unless it is supported by the analysis above. Where a section "
@@ -724,6 +812,15 @@ class Pipe:
             # Tidied before ULTRON reads it, so the text it checks is the text
             # that is released, fingerprinted and written into the report.
             deliverable = _tidy(deliverable)
+            if sheet_name:
+                planned = sheet_changes or _sheet_block(deliverable)
+                if planned:
+                    preview = await self._use_tool(
+                        __tools__, "write_sheet", changes=json.dumps(planned), file=sheet_name,
+                        __files__=attached, __preview__=True,
+                    )
+                    if preview.startswith("On approval"):
+                        deliverable += "\n\n### The workbook, on approval\n\n" + preview
             if reading:
                 # What was read, where, and how sure: in the draft the reviewer
                 # approves, the answer released and the report filed.
@@ -825,6 +922,12 @@ class Pipe:
                     read=reading["readings"] if reading else "",
                 )
                 + _verdict_checks(deliverable, sop)
+                + (_workbook_checks(deliverable, planned) if planned else [])
+                + (
+                    _interval_checks(deliverable, survey_intervals, row_basis, len(_survey_rows(sheet_text)))
+                    if survey_intervals
+                    else []
+                )
                 + _parse_checks(verdict["detail"])
             )
             verdict["cited_text"] = deliverable
@@ -904,6 +1007,11 @@ class Pipe:
 
         if first_try and verdict:
             verdict["revision"] = _revision(first_try, deliverable, verdict)
+        _audit(
+            "verdict", status=str(verdict.get("status", "n/a")).upper(), attempts=attempts,
+            failed_by=verdict.get("failed_by"), reservations=verdict.get("reservations"),
+            draft=_digest(deliverable),
+        )
 
         approval = "not required"
         approved_at: datetime | None = None
@@ -913,6 +1021,7 @@ class Pipe:
             # Never record an approval nobody gave: without a live session there is
             # no one to answer the prompt.
             approval = "NOT OBTAINED — no interactive session to prompt"
+            _audit("approval", decision="not obtained", reason="no interactive session")
             trace.append(
                 "**HUMAN** approval is required but no interactive session was available, "
                 "so this result is unapproved and must not be treated as released."
@@ -970,6 +1079,7 @@ class Pipe:
             # differs, and the record is the point.
             if isinstance(response, dict) and response.get("error"):
                 approval = "not obtained — no reviewer answered"
+                _audit("approval", decision="not obtained", reason=str(response.get("error"))[:120])
                 trace.append(
                     f"**HUMAN** approval was not obtained ({response.get('error')}); "
                     "the result was not released."
@@ -990,10 +1100,12 @@ class Pipe:
             approved = decision.strip().lower() in ("approve", "approved")
             if approved:
                 approval = "approved"
+                _audit("approval", decision="approved", approver=getattr(user, "name", "") or getattr(user, "email", ""))
                 approved_at = datetime.now().astimezone()
                 trace.append("**HUMAN** approved the deliverable.")
             else:
                 approval = "rejected"
+                _audit("approval", decision="rejected", approver=getattr(user, "name", "") or getattr(user, "email", ""))
                 trace.append("**HUMAN** rejected the deliverable; it was not released.")
                 await _status(__event_emitter__, "approval", "Rejected by reviewer", done=True)
                 return (
@@ -1051,6 +1163,9 @@ class Pipe:
             ]
             if fingerprint:
                 record.append(("Fingerprint", f"SHA-256 {fingerprint} of the released answer"))
+            placed = _trail_span(trail_first)
+            if placed:
+                record.append(("Audit trail", placed))
             signoff = {
                 "fingerprint": fingerprint,
                 "verification": str(verdict.get("status", "n/a")).upper()
@@ -1095,6 +1210,28 @@ class Pipe:
                 trace.append(f"**TOOL** `{tool}` wrote the released result as a {kind}.")
                 deliverable += "\n\n" + _file_card(made)
 
+        # The attached workbook's copy, with the approved changes as live
+        # formulas - never the file itself.
+        if sheet_name and releasing:
+            changes = sheet_changes or _sheet_block(released)
+            if changes:
+                await _status(__event_emitter__, "tool", f"TOOL: writing a copy of {sheet_name}")
+                made = await self._use_tool(
+                    __tools__, "write_sheet", changes=json.dumps(changes), file=sheet_name,
+                    __user__=__user__, __files__=attached,
+                )
+                if made and made.startswith("**Excel workbook**"):
+                    tools_used.append("write_sheet")
+                    trace.append(
+                        f"**TOOL** `write_sheet` wrote the approved changes to a copy of `{sheet_name}` "
+                        "as live formulas; the file itself was not changed."
+                    )
+                    card = made.partition("\n\n")[0]
+                    deliverable += "\n\n" + _file_card(card)
+                elif made:
+                    trace.append(f"**TOOL** `write_sheet` did not write the copy: {made}")
+                    deliverable += f"\n\n*The workbook was not written: {made}*"
+
         # PS 26117 asks for the approval note as a Word file. Produce it only once a
         # person has released the result, never before.
         if task_type in ("document", "vision") and releasing:
@@ -1134,6 +1271,8 @@ class Pipe:
                 )
                 deliverable += "\n\n" + _file_card(docx)
 
+        if releasing:
+            _audit("release", fingerprint=fingerprint or None, tools=tools_used or None)
         await _status(__event_emitter__, "done", "Complete", done=True)
 
         if not self.valves.show_reasoning:
@@ -1147,7 +1286,7 @@ class Pipe:
             time.monotonic() - started - waited, attempts, self.valves.show_model_thinking,
             trace if self.valves.show_trace else [], agent_models, tools_used, grounding,
             sources=sources, approver=approver, approved_at=when, fingerprint=fingerprint,
-            egress=_egress_since(egress_mark),
+            egress=_egress_since(egress_mark), audit=_trail_span(trail_first),
         )
 
     async def _model_collections(self, metadata: dict) -> list[str]:
@@ -1279,7 +1418,8 @@ class Pipe:
         return sop
 
     async def _remaining_life(self, tools: dict | None, emitter, text: str, tools_used: list,
-                              steps: list, trace: list, sop: str = "") -> tuple[str, dict | None]:
+                              steps: list, trace: list, sop: str = "",
+                              row_basis: str = "") -> tuple[str, dict | None]:
         """The thickness method's worked calculation, and its inputs for a workbook.
         ("", None) when the request does not hold enough to calculate from.
 
@@ -1291,7 +1431,7 @@ class Pipe:
         years, basis = _sop_interval(sop)
         out = await self._use_tool(
             tools, "calculate_remaining_life", readings=text,
-            max_interval_years=years, interval_basis=basis,
+            max_interval_years=years, interval_basis=basis or row_basis,
         )
         block = re.search(r"```4ce-calc\s*\n(.*?)\n```", out or "", re.S)
         if not out or out.startswith(_ERR) or not block:
@@ -1317,6 +1457,52 @@ class Pipe:
         )
         return worked, data
 
+    async def _survey_intervals(self, tools: dict | None, emitter, sheet_text: str, tools_used: list,
+                                steps: list, trace: list) -> tuple[str, str, dict[int, float]]:
+        """The SOP rule pack on every location of a thickness survey: its wall
+        margin decides its interval - SOP-MEC-014 §4.2's six months under 2.0
+        mm - and a survey's locations differ. Returns the table with an "SOP
+        interval (yr)" column for the calculation, what requires it, and the
+        interval by sheet row. Unchanged when no location needs one.
+
+        Assessed once for the whole sheet, the rule pack sees one pair of
+        numbers; left out, a survey answer scheduled a 1.7 mm margin's next
+        measurement in 25 years."""
+        rows = _survey_rows(sheet_text)
+        if not rows:
+            return sheet_text, "", {}
+        await _status(emitter, "tool", f"TOOL: checking {len(rows)} locations against the SOP rule pack")
+        intervals: dict[int, float] = {}
+        basis = ""
+        lines = []
+        for row, location, current, required in rows:
+            out = await self._use_tool(
+                tools, "check_sop_thresholds",
+                readings=f"Minimum measured wall thickness {current:g} mm. Retirement thickness {required:g} mm.",
+            )
+            years, why = _sop_interval(out)
+            if years:
+                intervals[row] = years
+                basis = basis or why
+            lines.append(
+                f"| {location} | {current - required:.1f} mm | "
+                + (f"{round(years * 12)} months - {why}" if years else "no shorter interval") + " |"
+            )
+        if "check_sop_thresholds" not in tools_used:
+            tools_used.append("check_sop_thresholds")
+        steps.append({
+            "agent": "TOOL", "label": "SOP rule pack, location by location", "model": "deterministic rule pack",
+            "seconds": 0.0, "thinking": "",
+            "text": "| Location | Wall margin | Interval the SOP requires |\n|---|---|---|\n" + "\n".join(lines),
+        })
+        trace.append(
+            f"**TOOL** `check_sop_thresholds` assessed each of the survey's {len(rows)} locations; "
+            f"{len(intervals)} need a shorter interval" + (f" ({basis})." if basis else ".")
+        )
+        if not intervals:
+            return sheet_text, "", {}
+        return _with_interval_column(sheet_text, intervals), basis, intervals
+
     async def _use_tool(self, tools: dict | None, name: str, **kwargs: Any) -> str:
         """Call one deployed 4CE tool by its function name.
 
@@ -1328,13 +1514,22 @@ class Pipe:
         fn = entry.get("callable")
         if not callable(fn):
             return ""
+        # What went in, as the trail records it: the arguments a model could
+        # see, not the "__" ones only this code passes.
+        given = _digest({k: v for k, v in kwargs.items() if not k.startswith("__")})
+        started = time.monotonic()
         try:
             result = fn(**kwargs)
             if inspect.isawaitable(result):
                 result = await result
         except Exception as exc:
+            _audit("tool.call", tool=name, input=given, ok=False, error=str(exc)[:160],
+                   seconds=round(time.monotonic() - started, 2))
             return f"{_ERR} {name} failed: {exc}"
-        return str(result or "").strip()
+        text = str(result or "").strip()
+        _audit("tool.call", tool=name, input=given, output=_digest(text), ok=True,
+               seconds=round(time.monotonic() - started, 2))
+        return text
 
     def _agent_model(
         self,
@@ -1536,15 +1731,23 @@ class Pipe:
         if budget:
             payload["max_tokens"] = budget
         started = time.monotonic()
+        agent = _agent_of(system)
         try:
             response = await generate_chat_completion(request, form_data=payload, user=user, bypass_filter=True)
         except Exception as exc:
+            _audit("model.call", agent=agent, model=model, input=_digest(payload["messages"]), ok=False,
+                   error=str(exc)[:160], seconds=round(time.monotonic() - started, 2))
             return _step(
                 _failure(f"local model call to '{model}' failed", _explain(exc)),
                 "", model, started,
             )
         usage = _usage_of(response)
         raw, separate_reasoning = _response_parts(response)
+        _audit(
+            "model.call", agent=agent, model=model, input=_digest(payload["messages"]),
+            output=_digest(raw + separate_reasoning), seconds=round(time.monotonic() - started, 2),
+            tokens=(usage or {}).get("total_tokens") if isinstance(usage, dict) else None,
+        )
         if not raw.strip() and not separate_reasoning.strip():
             # An upstream refusal arrives here as a reply with no content, so
             # reporting "empty response" sends the reader to restart the model
@@ -1560,6 +1763,53 @@ class Pipe:
 
 
 _ERR = "**4CE error:**"
+
+
+def _digest(value: Any) -> str:
+    """SHA-256 of text, or of anything JSON can say, as the audit trail records it."""
+    data = value if isinstance(value, str) else json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def _audit(action: str, **fields: Any) -> dict | None:
+    """One entry in the audit trail (backend/open_webui/utils/fource_audit.py):
+    append-only and hash-chained. Recording never fails the run."""
+    try:
+        from open_webui.utils.fource_audit import record
+    except Exception:
+        return None
+    return record(action, **fields)
+
+
+def _audit_bind(**context: Any) -> None:
+    try:
+        from open_webui.utils.fource_audit import bind
+    except Exception:
+        return
+    bind(**context)
+
+
+def _trail_span(first: int | None) -> str:
+    """Where this run sits in the audit trail: its entries so far and the
+    chain's head, which a copy of the trail can be checked against."""
+    if not first:
+        return ""
+    try:
+        from open_webui.utils.fource_audit import trail
+    except Exception:
+        return ""
+    last = trail._seq or first
+    head = trail._head
+    span = f"entry {first}" if last == first else f"entries {first}–{last}"
+    return f"{span} · chain head {head[:16]}…"
+
+
+def _agent_of(system: str) -> str:
+    """Which agent a model call is for, from the system prompt it was given."""
+    named = re.match(r"You are (\w+)", system or "")
+    if named:
+        return named.group(1)
+    return "READER" if system == _READER_SYSTEM else ""
 
 _FRIDAY_SYSTEM = (
     "You are FRIDAY, the analysis agent of a sovereign on-premise AI workbench. "
@@ -2268,6 +2518,165 @@ def _shrink_image(part: dict, max_edge: int) -> dict:
         return part
 
 
+_SHEET_FILE = re.compile(r"\.(?:xlsx|xlsm|csv|tsv)$", re.I)
+_SHEET_EDIT = re.compile(
+    r"\b(?:add|insert|append|fill(?:\s+in)?|put|write|update|extend)\b[^.?!]{0,120}"
+    r"\b(?:column|columns|sheet|workbook|spreadsheet|excel|survey)\b"
+    r"|\b(?:to|in|into)\s+(?:the|this|my|that)\s+(?:\w+\s+)?(?:sheet|workbook|spreadsheet|survey)\b",
+    re.I,
+)
+_SHEET_BLOCK = re.compile(r"```4ce-sheet\s*\n(.*?)```", re.S)
+# A survey's columns, by the words their headers use - the calculation tool's.
+_SURVEY_COLUMNS = {
+    "previous": ("previous", "prev", "prior", "original", "initial", "baseline", "last"),
+    "current": ("current", "measured", "actual", "latest", "present"),
+    "required": ("required", "retirement", "t_req", "treq", "minimum allowable", "min required"),
+    "years": ("years", "interval", "yrs", "delta t"),
+}
+
+
+def _attached_sheets(metadata: dict | None) -> list[str]:
+    """The spreadsheets attached to the request, by name."""
+    names = []
+    for item in (metadata or {}).get("files") or []:
+        if not isinstance(item, dict):
+            continue
+        inner = item.get("file") if isinstance(item.get("file"), dict) else {}
+        name = item.get("name") or inner.get("filename") or (inner.get("meta") or {}).get("name") or ""
+        if _SHEET_FILE.search(name):
+            names.append(name)
+    return names
+
+
+def _wants_sheet_edit(prompt: str) -> bool:
+    return bool(_SHEET_EDIT.search(prompt or ""))
+
+
+def _survey_changes(sheet_text: str, intervals: dict[int, float] | None = None) -> list[dict] | None:
+    """Corrosion rate, remaining life and the next inspection as formulas over
+    a thickness survey's own columns - the thickness method the calculation
+    tool works, written so the workbook recalculates when a reading changes.
+    An interval the SOP requires at a location is a column of values beside
+    them, and the next inspection is the lesser of half the life and it. None
+    when the sheet's headers do not name all four quantities."""
+    header = next((line for line in sheet_text.splitlines() if line.startswith("| ") and " · " in line), "")
+    columns = []
+    for cell in header.strip("| ").split(" | "):
+        found = re.match(r"([A-Z]{1,3}) · (.*)", cell.strip())
+        if found:
+            columns.append((found.group(1), found.group(2).lower()))
+    letters: dict[str, str] = {}
+    for key, words in _SURVEY_COLUMNS.items():
+        for letter, name in columns:
+            if letter not in letters.values() and any(w in name for w in words):
+                letters[key] = letter
+                break
+    if len(letters) < 4 or not columns:
+        return None
+    prev, cur, req, yrs = (letters[k] for k in ("previous", "current", "required", "years"))
+    last = _column_index(max(columns, key=lambda c: _column_index(c[0]))[0])
+    rate, life, rule = (_column_name(last + n) for n in (1, 2, 3))
+    changes = [
+        {"column": "Corrosion rate (mm/yr)",
+         "formula": f'=IF({yrs}{{row}}>0,({prev}{{row}}-{cur}{{row}})/{yrs}{{row}},"")'},
+        {"column": "Remaining life (yr)",
+         "formula": f'=IF({cur}{{row}}<={req}{{row}},0,IF(N({rate}{{row}})<=0,"not corrosion-limited",'
+                    f'({cur}{{row}}-{req}{{row}})/{rate}{{row}}))'},
+    ]
+    if intervals:
+        rows = [row for row, *_ in _survey_rows(sheet_text)]
+        span = range(2, (max(rows) if rows else 1) + 1)
+        changes.append({"column": "SOP interval (yr)", "values": [intervals.get(r, "") for r in span]})
+        changes.append({
+            "column": "Next inspection (yr)",
+            "formula": f'=IF(ISNUMBER({life}{{row}}),IF(ISNUMBER({rule}{{row}}),MIN({life}{{row}}/2,{rule}{{row}}),'
+                       f'{life}{{row}}/2),IF(ISNUMBER({rule}{{row}}),{rule}{{row}},""))',
+        })
+    else:
+        changes.append({
+            "column": "Next inspection (yr)",
+            "formula": f'=IF(ISNUMBER({life}{{row}}),{life}{{row}}/2,"")',
+        })
+    return changes
+
+
+def _survey_rows(sheet_text: str) -> list[tuple[int, str, float, float]]:
+    """(sheet row, location, current, required) for each location of the
+    survey table read_sheet rendered."""
+    lines = sheet_text.splitlines()
+    for i, line in enumerate(lines[:-1]):
+        if not (line.startswith("| ") and " · " in line and lines[i + 1].startswith("|---")):
+            continue
+        header = [c.strip() for c in line.strip().strip("|").split("|")]
+        names = [re.sub(r"^[A-Z]{1,3} · ", "", h).lower() for h in header]
+        find = lambda key: next((n for n, name in enumerate(names) if any(w in name for w in _SURVEY_COLUMNS[key])), None)
+        cur, req = find("current"), find("required")
+        if cur is None or req is None:
+            return []
+        found = []
+        for row in lines[i + 2:]:
+            if not row.startswith("|"):
+                break
+            cells = [c.strip() for c in row.strip().strip("|").split("|")]
+            numbers = [re.match(r"-?\d+(?:\.\d+)?", cells[n]) if n < len(cells) else None for n in (cur, req)]
+            if all(numbers) and cells[-1].isdigit():
+                label = next((c for n, c in enumerate(cells[:-1]) if n not in (cur, req) and c and not re.match(r"-?\d", c)), "")
+                found.append((int(cells[-1]), label, float(numbers[0].group(0)), float(numbers[1].group(0))))
+        return found
+    return []
+
+
+def _with_interval_column(sheet_text: str, intervals: dict[int, float]) -> str:
+    """The survey table with an "SOP interval (yr)" column, for the calculation."""
+    out, state = [], "before"
+    lines = sheet_text.splitlines()
+    for i, line in enumerate(lines):
+        if state == "before" and line.startswith("| ") and " · " in line and i + 1 < len(lines) and lines[i + 1].startswith("|---"):
+            out.append(line + " SOP interval (yr) |")
+            state = "separator"
+            continue
+        if state == "separator":
+            out.append(line + "---|")
+            state = "rows"
+            continue
+        if state == "rows":
+            found = re.search(r"\| (\d+) \|\s*$", line) if line.startswith("|") else None
+            if found:
+                value = intervals.get(int(found.group(1)))
+                out.append(line + (f" {value:g} |" if value else "  |"))
+                continue
+            state = "after"
+        out.append(line)
+    return "\n".join(out)
+
+
+def _column_index(letters: str) -> int:
+    n = 0
+    for ch in letters:
+        n = n * 26 + ord(ch) - 64
+    return n
+
+
+def _column_name(n: int) -> str:
+    letters = ""
+    while n:
+        n, rest = divmod(n - 1, 26)
+        letters = chr(65 + rest) + letters
+    return letters
+
+
+def _sheet_block(text: str) -> list[dict] | None:
+    """The changes JARVIS proposed for the workbook, if it proposed any."""
+    found = _SHEET_BLOCK.search(text or "")
+    if not found:
+        return None
+    try:
+        changes = json.loads(found.group(1))
+    except ValueError:
+        return None
+    return changes if isinstance(changes, list) and changes else None
+
+
 def _first_image(message: dict) -> dict | None:
     content = message.get("content")
     if isinstance(content, list):
@@ -2813,8 +3222,9 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
         return []
     texts = {n: " ".join(p["text"] for p in src["passages"]) for n, src in enumerate(sources, 1)}
     every = [src["name"] for src in sources]
-    # 4CE's own table of what an image showed is the image's, not a claim.
-    prose = (deliverable or "").split("### Read from the image", 1)[0]
+    # 4CE's own sections - what an image showed, what a workbook will get -
+    # are records, not claims.
+    prose = _answer_only(deliverable)
     prose = re.sub(r"```[\s\S]*?```|`[^`\n]*`", " ", prose)
     # A numbered list's "1." is a position, not a figure; a clock's "06:05" is
     # when something happened, not a figure a document could hold.
@@ -2912,6 +3322,72 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
     return checks
 
 
+_OWN_SECTIONS = ("### Read from the image", "### The workbook, on approval")
+# An answer saying a workbook already holds what 4CE is about to add to it.
+_ALREADY_THERE = re.compile(
+    r"\balready\s+(?:present|included|computed|calculated|populated|in\s+the\s+(?:spreadsheet|sheet|workbook))\b"
+    r"|\bno\s+(?:new\s+|further\s+|additional\s+)?(?:data|columns?|changes?|modifications?)\s+"
+    r"(?:is\s+|are\s+)?(?:required|needed)\b"
+    r"|\brequest\s+(?:has\s+been|is)\s+(?:fulfilled|complete)",
+    re.I,
+)
+
+
+_DOES_NOT_APPLY = re.compile(
+    r"\b(?:not\s+met|(?:does|do)\s+not\s+apply|doesn't\s+apply|not\s+applicable|not\s+triggered|"
+    r"no\s+location|none\s+of\s+the\s+locations|in\s+no\s+location|not\s+required)\b",
+    re.I,
+)
+
+
+def _interval_checks(deliverable: str, intervals: dict, basis: str, locations: int) -> list[dict]:
+    """The answer against the interval the rule pack set, location by
+    location. A survey answer's own table showed §4.2's six months at four
+    locations while its limits said §4.2's condition was "not met in any
+    location" - the rule telling a reader it does not apply."""
+    clause = re.search(r"§\s*([\d.]+)", basis or "")
+    if not clause:
+        return []
+    for sentence in re.split(r"(?<=[.!?])\s+|\n", _answer_only(deliverable)):
+        if re.search(rf"(?:§\s*|clause\s+|section\s+){re.escape(clause.group(1))}\b", sentence, re.I) \
+                and _DOES_NOT_APPLY.search(sentence):
+            return [{
+                "kind": "problem",
+                "text": f"The answer says §{clause.group(1)} does not apply; the SOP rule pack requires its "
+                        f"interval at {len(intervals)} of {locations} locations",
+                "by": "4CE",
+                "on": "verdict",
+            }]
+    return []
+
+
+def _workbook_checks(deliverable: str, planned: list) -> list[dict]:
+    """The answer against the changes 4CE will write. A 4B model given the
+    calculation and the sheet said the results were "already present in the
+    spreadsheet" and that no columns needed adding - above a list of the four
+    columns approval would add."""
+    found = _ALREADY_THERE.search(_answer_only(deliverable))
+    if not found:
+        return []
+    added = sum(1 for change in planned if "column" in change)
+    return [{
+        "kind": "problem",
+        "text": f"The answer says the workbook already has what was asked (\"{found.group(0)}\"); "
+                f"nothing has been written yet - on approval 4CE adds "
+                + (f"{added} column{'s' if added != 1 else ''}" if added else "the changes")
+                + " to a copy",
+        "by": "4CE",
+        "on": "workbook",
+    }]
+
+
+def _answer_only(deliverable: str) -> str:
+    """The deliverable up to the first section 4CE appended to it."""
+    text = deliverable or ""
+    cut = min((text.find(s) for s in _OWN_SECTIONS if s in text), default=len(text))
+    return text[:cut]
+
+
 _WITHIN_LIMITS = re.compile(
     r"\b(?:is|are|was|were|remains?|stays?)\s+(?:well\s+|still\s+)?within\s+(?:the\s+)?"
     r"(?:acceptable\s+|allowable\s+|permissible\s+|sop\s+|its\s+)?limits?\b"
@@ -2928,7 +3404,7 @@ def _verdict_checks(deliverable: str, sop: str) -> list[dict]:
     table = _first_table(sop)
     if not table:
         return []
-    prose = (deliverable or "").split("### Read from the image", 1)[0]
+    prose = _answer_only(deliverable)
     sentences = [s for s in re.split(r"(?<=[.!?])\s+|\n", prose) if s.strip()]
     checks: list[dict] = []
     for line in table.splitlines()[2:]:
@@ -3436,7 +3912,9 @@ def _objection(verdict: dict) -> str:
     open with "Okay, let me try to figure this out..."."""
     problems = [c for c in verdict.get("checks") or [] if c["kind"] == "problem"]
     who = (
-        ("4CE's rule-pack check" if verdict.get("failed_on") == "verdict" else "4CE's figure check")
+        {"verdict": "4CE's rule-pack check", "workbook": "4CE's workbook check"}.get(
+            verdict.get("failed_on"), "4CE's figure check"
+        )
         if verdict.get("failed_by") == "4CE"
         else "ULTRON"
     )
@@ -3659,7 +4137,7 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
                 agent_models: dict, tools_used: list[str] | None = None,
                 grounding: str = "", sources: list[dict] | None = None,
                 approver: str = "", approved_at: str = "", fingerprint: str = "",
-                egress: dict | None = None) -> str:
+                egress: dict | None = None, audit: str = "") -> str:
     """The receipt the chat shows under an answer, then the full provenance
     table and the reasoning behind each decision, folded away."""
     timings = " · ".join(
@@ -3671,6 +4149,8 @@ def _provenance(steps: list[dict], task_type: str, signals: list[str], model_id:
     )
     if fingerprint:
         rows.append(("Fingerprint", f"SHA-256 `{fingerprint}` of the released answer"))
+    if audit:
+        rows.append(("Audit trail", audit))
     table = ["| Stage | Detail |", "|---|---|"] + [f"| {k} | {v} |" for k, v in rows]
     receipt = _receipt(
         task_type, model_id, verdict, approval, elapsed, attempts, agent_models,

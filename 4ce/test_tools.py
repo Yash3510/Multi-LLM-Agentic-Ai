@@ -25,6 +25,10 @@ from pathlib import Path
 # directory, so the backend package would not resolve without this.
 sys.path.insert(0, os.getcwd())
 
+# Tools record what they write in 4CE's audit trail. A test run is not work
+# the plant did, so it records to a trail of its own, not data/4ce/audit.jsonl.
+os.environ["FOURCE_AUDIT_PATH"] = str(Path(tempfile.gettempdir()) / "4ce-test-audit.jsonl")
+
 TOOLS = Path(__file__).resolve().parent / "tools"
 RESULTS: list[tuple[str, bool, str]] = []
 
@@ -302,6 +306,212 @@ async def test_egress() -> None:
         check("the snapshot is serialisable for the page", bool(json.dumps(w.snapshot())))
     finally:
         egress.psutil.net_connections, egress._family = real_table, real_family
+
+
+async def test_audit_trail() -> None:
+    """The audit trail: append-only, each entry sealed to the one before."""
+    print("\n4CE Audit trail")
+    import hashlib
+
+    import open_webui.utils.fource_audit as audit
+
+    with tempfile.TemporaryDirectory(prefix="4ce-test-trail-") as folder:
+        path = Path(folder) / "audit.jsonl"
+        trail = audit.AuditTrail(path)
+        token = audit._run.set({"chat": "chat-1", "message": "msg-1"})
+        try:
+            first = trail.append("request", task="document", prompt=hashlib.sha256(b"q").hexdigest())
+            trail.append("model.call", agent="FRIDAY", model="qwen/qwen3-vl-4b", seconds=1.5)
+            third = trail.append("release", fingerprint="ab" * 32)
+        finally:
+            audit._run.reset(token)
+        check("the first entry follows the genesis hash", first["seq"] == 1 and first["prev"] == audit.GENESIS)
+        check("each entry names the one before it", third["prev"] == trail.entries()[1]["hash"])
+        check("entries carry the run they belong to", all(e["chat"] == "chat-1" for e in trail.entries()))
+        result = trail.verify()
+        check("an untouched trail verifies", result["ok"] and result["entries"] == 3 and result["head"] == third["hash"])
+
+        again = audit.AuditTrail(path)
+        fourth = again.append("approval", decision="approved")
+        check("a reopened trail carries on the same chain", fourth["seq"] == 4 and fourth["prev"] == third["hash"])
+        check("entries after a number", [e["seq"] for e in again.entries(after=2)] == [3, 4])
+
+        lines = path.read_text(encoding="utf-8").splitlines()
+        changed = json.loads(lines[1])
+        changed["model"] = "some/other-model"
+        path.write_text("\n".join([lines[0], json.dumps(changed), *lines[2:]]) + "\n", encoding="utf-8")
+        result = again.verify()
+        check("an entry changed after writing breaks the chain there",
+              not result["ok"] and result["broken_at"] == 2 and "changed" in result["reason"])
+
+        path.write_text("\n".join([lines[0], lines[1], lines[3]]) + "\n", encoding="utf-8")
+        result = again.verify()
+        check("a removed entry breaks the chain there", not result["ok"] and result["broken_at"] == 3)
+
+        blocked = audit.AuditTrail(Path(folder))  # a directory: nothing can be appended to it
+        check("a trail that cannot be written reports it, and does not raise",
+              blocked.append("request") is None and blocked.failed_writes == 1 and blocked.last_error)
+
+    # Offline mode: a library may not install a model while it runs. Proved on
+    # a stand-in module, then on the loader that actually did it.
+    import open_webui.utils.fource_offline as offline
+
+    with tempfile.TemporaryDirectory(prefix="4ce-test-guard-") as folder:
+        (Path(folder) / "fource_fake_loader.py").write_text("def fetch():\n    return 'downloaded'\n")
+        sys.path.insert(0, folder)
+        offline.GUARDED["fource_fake_loader"] = "fetch"
+        try:
+            offline.guard()
+            import fource_fake_loader
+
+            try:
+                fource_fake_loader.fetch()
+                refused = False
+            except RuntimeError as exc:
+                refused = "offline mode" in str(exc)
+            check("a guarded download is refused when its module is first imported", refused)
+        finally:
+            offline.GUARDED.pop("fource_fake_loader", None)
+            sys.path.remove(folder)
+            sys.modules.pop("fource_fake_loader", None)
+    import unstructured.nlp.tokenize as tokenize
+
+    check("the document loader's spaCy download is refused offline",
+          getattr(tokenize._install_spacy_model, "__fource_guard__", False))
+
+    spec = importlib.util.spec_from_file_location(
+        "orchestrator", str(Path(__file__).parent / "functions" / "orchestrator.py")
+    )
+    orchestrator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(orchestrator)
+    check("model calls are recorded under the agent that made them",
+          orchestrator._agent_of(orchestrator._FRIDAY_SYSTEM) == "FRIDAY"
+          and orchestrator._agent_of(orchestrator._READER_SYSTEM) == "READER")
+    check("the trail's hashes are SHA-256 of the text",
+          orchestrator._digest("abc") == hashlib.sha256(b"abc").hexdigest() == audit.digest("abc"))
+
+
+async def test_workspace_tools() -> None:
+    """File read and write inside one workspace; spreadsheets read with their
+    formulas and changed only in a copy."""
+    print("\n4CE Workspace files and spreadsheets")
+    import shutil
+
+    files, sheets = load("files"), load("sheets")
+    with tempfile.TemporaryDirectory(prefix="4ce-test-ws-") as folder:
+        files.valves.workspace = sheets.valves.workspace = folder
+
+        out = await files.write_file("notes/p101b.md", "# P-101B\nfirst")
+        check("writes a text file inside the workspace", out.startswith("**Written**")
+              and (Path(folder) / "notes" / "p101b.md").read_text() == "# P-101B\nfirst")
+        out = await files.write_file("notes/p101b.md", "# P-101B\nsecond")
+        kept = Path(folder) / ".versions" / "notes" / "p101b.md" / "p101b.v1.md"
+        check("overwriting keeps the earlier version", "earlier version kept" in out
+              and kept.read_text() == "# P-101B\nfirst")
+        refused = [await files.write_file(p, "x") for p in ("../escape.md", "C:/Windows/x.md", "/etc/x.md")]
+        check("a path outside the workspace is refused", all("outside the workspace" in r for r in refused)
+              and not (Path(folder).parent / "escape.md").exists())
+        check("an executable type is refused", "not a type 4CE writes" in await files.write_file("run.bat", "x"))
+        check("the kept versions cannot be rewritten",
+              "kept, not rewritten" in await files.write_file(".versions/notes/p101b.md/p101b.v1.md", "x"))
+        out = await files.read_file("notes/p101b.md")
+        check("reads a file back", "second" in out and "from the workspace" in out)
+        check("a read outside the workspace is refused", "outside" in await files.read_file("../../x.md"))
+
+        survey = Path(__file__).parent / "demo" / "samples" / "thickness_survey_P-101B.xlsx"
+        shutil.copy(survey, Path(folder) / "survey.xlsx")
+        text = await sheets.read_sheet("survey.xlsx")
+        check("a workbook is read with its cell letters and headers",
+              "B · Previous thickness (mm)" in text and "| Shell course 1, east | 12 | 11.2 | 9.5 | 3 | 2 |" in text)
+
+        spec = importlib.util.spec_from_file_location(
+            "orchestrator", str(Path(__file__).parent / "functions" / "orchestrator.py")
+        )
+        o = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(o)
+        changes = o._survey_changes(text)
+        check("a survey's formulas use its own columns",
+              changes and changes[0]["formula"] == '=IF(E{row}>0,(B{row}-C{row})/E{row},"")'
+              and "/F{row}" in changes[1]["formula"])
+        out = await sheets.write_sheet(json.dumps(changes), "survey.xlsx")
+        check("changes go to a copy, as live formulas", out.startswith("**Excel workbook**")
+              and (Path(folder) / "survey - 4CE.xlsx").exists() and "was not changed" in out)
+        check("the source is untouched", (Path(folder) / "survey.xlsx").read_bytes() == survey.read_bytes())
+        check("the copy's formulas give what 4CE's calculation gives",
+              "| Shell course 1, east | 0.266667 | 6.375 | 3.1875 | 2 |" in out
+              and "| Bottom head | 0.6 | 0.666667 | 0.333333 | 6 |" in out)
+
+        # Each location through the rule pack: its own margin, its own interval.
+        rows = o._survey_rows(text)
+        check("a survey's locations are read with their sheet rows",
+              rows[0] == (2, "Shell course 1, east", 11.2, 9.5) and len(rows) == 5)
+        sop = load("sop_check")
+        intervals = {}
+        for row, _, cur, req in rows:
+            assessed = await sop.check_sop_thresholds(
+                f"Minimum measured wall thickness {cur:g} mm. Retirement thickness {req:g} mm."
+            )
+            years, basis = o._sop_interval(assessed)
+            if years:
+                intervals[row] = years
+        check("§4.2's six months falls on each thin location, not the sheet as a whole",
+              intervals == {2: 0.5, 4: 0.5, 5: 0.5, 6: 0.5})
+        worked = await load("calculations").calculate_remaining_life(
+            o._with_interval_column(text, intervals), 0.0, basis
+        )
+        check("each location's next measurement honours its own interval",
+              "| Discharge nozzle N2 | 10 | 9.9 | 8.2 | 3 | 0.033 | 51.0 | 0.5 |" in worked
+              and "| Shell course 1, west | 12 | 11.6 | 9.5 | 3 | 0.133 | 15.7 | 7.9 |" in worked)
+        before = sorted(p.name for p in Path(folder).iterdir())
+        preview = await sheets.write_sheet(json.dumps(o._survey_changes(text, intervals)), "survey.xlsx",
+                                           __preview__=True)
+        check("a preview shows what approval would write, and writes nothing",
+              preview.startswith("On approval") and "| Discharge nozzle N2 | 0.0333333 | 51 | 0.5 | 0.5 | 5 |" in preview
+              and sorted(p.name for p in Path(folder).iterdir()) == before)
+        planned = o._survey_changes(text, intervals)
+        claims = o._workbook_checks(
+            "The values are already present in the spreadsheet; no new columns are required.", planned
+        )
+        check("an answer saying the workbook already has the results is a problem",
+              len(claims) == 1 and claims[0]["kind"] == "problem" and "adds 4 columns" in claims[0]["text"])
+        said = ("The 3-year interval is authoritative and not subject to revision per SOP-MEC-014 §4.2, "
+                "which only applies to margin < 2.0 mm — a condition not met in any location.")
+        found = o._interval_checks(said, intervals, "the interval SOP-MEC-014 §4.2 requires", 5)
+        check("an answer saying §4.2 applies nowhere, where it applies at four locations, is a problem",
+              len(found) == 1 and "4 of 5 locations" in found[0]["text"])
+        check("an answer that states §4.2 as it applies is left alone", o._interval_checks(
+            "SOP-MEC-014 §4.2 requires a six-month interval where the margin is under 2.0 mm.",
+            intervals, "the interval SOP-MEC-014 §4.2 requires", 5) == [])
+        check("an answer that reports the results is left alone",
+              o._workbook_checks("Shell course 1, east corrodes at 0.267 mm/year; 6.4 years remain.", planned) == [])
+        check("4CE's own sections are not weighed as claims",
+              o._answer_only("Answer.\n\n### The workbook, on approval\n\n| H · SOP interval (yr) |") == "Answer.\n\n")
+        out = await sheets.write_sheet(json.dumps(o._survey_changes(text, intervals)), "survey.xlsx",
+                                       save_as="survey with intervals.xlsx")
+        check("the copy carries the interval and the next inspection as formulas",
+              "| Discharge nozzle N2 | 0.0333333 | 51 | 0.5 | 0.5 | 5 |" in out
+              and "| Shell course 1, west | 0.133333 | 15.75 |  | 7.875 | 3 |" in out)
+        copy_text = await sheets.read_sheet("survey - 4CE.xlsx")
+        check("the copy reads back with its formulas", "(=IF(E2>0,(B2-C2)/E2,\"\"))" in copy_text)
+        calc = load("calculations")
+        worked = await calc.calculate_remaining_life(text)
+        check("a sheet read by the tool feeds the calculation", "| Shell course 1, east | 12 | 11.2 | 9.5 | 3 | 0.267 | 6.4 |" in worked)
+
+        out = await sheets.write_sheet(json.dumps([{"cell": "Z1", "formula": '=WEBSERVICE("http://x")'}]), "survey.xlsx")
+        check("a formula that could reach outside the workbook is refused", "refused" in out and "Nothing was written" in out)
+        out = await sheets.write_sheet(json.dumps(changes), "survey.xlsx", save_as="survey.xlsx")
+        check("the source is never overwritten", "never changes" in out)
+        (Path(folder) / "log.csv").write_text("Tag,Reading\nP-101A,18.6\nP-101B,17.9\n")
+        out = await sheets.write_sheet(json.dumps([{"column": "Double", "formula": "=B{row}*2"}]), "log.csv")
+        check("a CSV is changed as a workbook copy", "copied into a workbook" in out and "| P-101B | 35.8 | 3 |" in out)
+
+    check("an edit request is told apart from a question",
+          o._wants_sheet_edit("Add the corrosion rate and remaining life to this survey")
+          and not o._wants_sheet_edit("What is the remaining life at the bottom head?"))
+    check("changes JARVIS proposes are read from its block",
+          o._sheet_block('Done.\n```4ce-sheet\n[{"cell": "G2", "value": 1}]\n```') == [{"cell": "G2", "value": 1}])
+    check("an attached workbook is found by name", o._attached_sheets(
+        {"files": [{"type": "file", "name": "survey.xlsx"}, {"type": "file", "name": "photo.png"}]}) == ["survey.xlsx"])
 
 
 async def test_execution_check() -> None:
@@ -689,6 +899,8 @@ async def main() -> None:
     await test_deliverables()
     await test_sovereignty()
     await test_egress()
+    await test_audit_trail()
+    await test_workspace_tools()
     await test_execution_check()
     await test_figure_check()
     await test_calculations()

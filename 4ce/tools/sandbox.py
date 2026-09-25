@@ -6,6 +6,7 @@ description: Executes generated Python inside a disposable, network-disabled con
 """
 
 import asyncio
+import hashlib
 import io
 import json
 import mimetypes
@@ -20,6 +21,16 @@ from pydantic import BaseModel, Field
 
 from open_webui.models.files import FileForm, Files
 from open_webui.storage.provider import Storage
+
+
+def _logged(action: str, **fields) -> None:
+    """An entry in 4CE's audit trail - append-only, hash-chained - when the
+    backend keeps one. Recording never fails the tool."""
+    try:
+        from open_webui.utils.fource_audit import record
+    except Exception:
+        return
+    record(action, **fields)
 
 
 class Tools:
@@ -178,6 +189,8 @@ class Tools:
                     )
                     if record is not None:
                         link = f" - [download](/api/v1/files/{file_id}/content)"
+                        _logged("file.write", tool="run_python", file=Path(name).name, id=file_id,
+                                sha256=hashlib.sha256(item["bytes"]).hexdigest(), bytes=len(item["bytes"]))
                 except Exception as exc:
                     link = f" - could not be registered for download: {exc}"
 

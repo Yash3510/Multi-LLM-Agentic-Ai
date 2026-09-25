@@ -126,7 +126,9 @@ Verified against a running instance with Bionic serving `qwen3-vl-4b`,
 | Human approval | Verified — approve releases and writes the `.docx`; empty box and cancel both withhold, and no file is written |
 | Sandboxed code execution | Verified — 6/6 checks, including blocked network and enforced timeout |
 | Word deliverables | Verified — 7/7 checks, valid OOXML |
-| Sovereignty audit | Verified — 18/18 surfaces pass on the demo configuration |
+| Sovereignty audit | Verified — 19/19 surfaces pass on the demo configuration |
+| Audit trail | Verified — an append-only, hash-chained record of every model call, tool call, file written, approval and release; the Sovereignty page verifies the chain |
+| Files and spreadsheets | Verified — reads and writes confined to one workspace and versioned; a workbook's changes go to a copy, as live formulas |
 | Local RAG | Verified — upload, embed, index and query in ~0.3 s |
 | Multimodal / vision | Verified — read a scanned inspection report and extracted discharge pressure 18.6 bar g, wall thickness 11.2 mm against a 9.5 mm retirement thickness, bearing temperature 71 °C against an 80 °C alarm, and vibration 4.1 mm/s ISO 10816 Zone B. On a handwritten shift log, all five readings in three of three runs, the smudged figure flagged each time; on a P&ID excerpt, all fifteen tags (`eval_vision.py`) |
 | Speech to text | Verified — `faster-whisper` runs locally from a pre-cached model, so the microphone needs no network |
