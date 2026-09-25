@@ -1,12 +1,22 @@
+---
+title: Demo script
+type: workflow
+status: active
+updated: 2026-09-25
+tags:
+  - 4ce
+  - testing
+---
+
 # Demo script
 
-Seven prompts, in order, each chosen because it evidences a different thing the
+Nine prompts, in order, each chosen because it evidences a different thing the
 problem statement asks for. Every one has been run against this build; the
 timings are measured on an RTX 4050 laptop (6 GB) with both models loaded at
 8192 context.
 
 Run `python 4ce/preflight.py --fix` first. If it does not say **Ready**, do not
-start — the most common failure is LM Studio having quietly reloaded a model at
+start — the most common failure is Bionic having quietly reloaded a model at
 65,536 context, which makes everything four to ten times slower with no error
 anywhere.
 

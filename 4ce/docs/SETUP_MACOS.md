@@ -1,3 +1,13 @@
+---
+title: Running 4CE on macOS
+type: deployment
+status: active
+updated: 2026-09-25
+tags:
+  - 4ce
+  - deployment
+---
+
 # Running 4CE on macOS
 
 A first run from a clean machine, start to finish. Works on Apple Silicon and
@@ -179,7 +189,7 @@ cd 4ce
 
 This creates the admin account, uploads the orchestrator and the five tools,
 attaches them to the model, restricts the model picker to the two models the
-chain routes between, blanks the third-party endpoints Open WebUI ships
+chain routes between, blanks the third-party endpoints the platform ships
 configured, and builds the `Plant SOPs` knowledge base from
 `4ce/demo/samples/`. It is safe to re-run at any time — anything already correct
 is left alone.
@@ -238,7 +248,7 @@ Then try these in the browser, in order:
    real exit code and real stdout, then asks you to approve before releasing the
    file.
 
-`4ce/docs/DEMO_SCRIPT.md` has the full sequence with measured timings.
+[DEMO_SCRIPT.md](DEMO_SCRIPT.md) has the full sequence with measured timings.
 
 ---
 
@@ -254,8 +264,9 @@ Then try these in the browser, in order:
 | Preflight fails on **Knowledge attached** | same as above |
 | `npm error code EBADENGINE` | Node is newer than 22. Install `node@22` and put it on the PATH, as in step 1 |
 
-`4ce/docs/HOW_TO_RUN.md` has more, including how to recover from the admin
-**Reset vector DB** action, which deletes more than it appears to.
+[HOW_TO_RUN.md](HOW_TO_RUN.md#recovering-retrieval) has more, including how to
+recover from the admin **Reset vector DB** action, which deletes more than it
+appears to.
 
 ---
 

@@ -1,3 +1,13 @@
+---
+title: How to run 4CE
+type: deployment
+status: active
+updated: 2026-09-25
+tags:
+  - 4ce
+  - deployment
+---
+
 # How to Run 4CE Locally
 
 On macOS, follow [SETUP_MACOS.md](SETUP_MACOS.md) instead — a clean first
@@ -8,32 +18,49 @@ there. This page assumes the environment already exists.
 ## Prerequisites
 
 - **Bionic** running with models loaded (serves on `http://localhost:1234`)
-- **Conda** (Anaconda/Miniconda) installed
-- The `owui` conda environment set up (one-time, see below)
+- **Python 3.11 or 3.12**, **Node 18.13 - 22.x** and **Docker**
+- This repository, with its virtual environment and frontend dependencies
+  installed (one-time, see below)
+
+4CE runs from this repository's source. The backend carries 4CE's own code
+(the egress watch, the `/api/v1/fource` routes, sign-off reconnection) and the
+interface is 4CE's, so a packaged install of the base platform is not a
+substitute.
 
 ---
 
 ## One-Time Setup
 
-### 1. Create the conda environment
+All commands from the repository root. Paths are the Windows spelling; on
+macOS and Linux use `.venv/bin/` for `.venv/Scripts/` and `python3.12` for
+`py -3.12`.
+
+### 1. Create the Python environment
 
 ```bash
-/opt/anaconda3/bin/conda create -n owui python=3.11 -y
+py -3.12 -m venv .venv
+.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
 ```
 
-### 2. Install Open WebUI
+Python 3.11 works too. Not 3.13 or later: some dependencies have no wheels for it.
+
+### 2. Install the frontend dependencies
 
 ```bash
-/opt/anaconda3/envs/owui/bin/pip install open-webui
+npm install
 ```
+
+`.npmrc` sets `engine-strict=true`, so a Node newer than 22 refuses to install
+anything (`EBADENGINE`). Use Node 22.
 
 ### 3. Set up the environment config
 
 ```bash
-cp env.sovereign.example .env
+cp 4ce/env.sovereign.example .env
 ```
 
-Edit `.env` if needed (e.g. change `WEBUI_SECRET_KEY`).
+The backend reads `.env` from the **repository root** only; a copy anywhere
+else is ignored. Edit it if needed (e.g. change `WEBUI_SECRET_KEY`).
 
 ---
 
@@ -62,30 +89,36 @@ Verify with:
 curl http://localhost:1234/v1/models
 ```
 
-### 2. Start Open WebUI
+### 2. Start the backend and the frontend
 
-Run this from the `4ce/` folder:
+Two terminals, from the repository root.
 
-```bash
-/opt/anaconda3/envs/owui/bin/open-webui serve --port 8080
-```
-
-Or to run it in the background:
+**Backend** (API on port 8080):
 
 ```bash
-/opt/anaconda3/envs/owui/bin/open-webui serve --port 8080 > /tmp/owui.log 2>&1 &
+cd backend
+../.venv/Scripts/python.exe -m uvicorn open_webui.main:app --host 127.0.0.1 --port 8080
 ```
 
-Wait ~20 seconds for DB migrations to finish, then open:
+**Frontend** (the interface, on port 5173):
 
-**http://127.0.0.1:8080**
+```bash
+npm run dev
+```
+
+Wait ~20 seconds for DB migrations on the backend's first run, then open:
+
+**http://localhost:5173**
+
+The first page load in development mode compiles for roughly twenty-five
+seconds.
 
 ### 3. Install / refresh the 4CE plugins
 
 Run this after every code change to the plugins:
 
 ```bash
-/opt/anaconda3/envs/owui/bin/python install.py
+.venv/Scripts/python.exe 4ce/install.py
 ```
 
 This creates the admin account on first run, uploads the orchestrator and the
@@ -136,10 +169,10 @@ correctly absent there. It appears in the chat model picker and under
 
 ## Stopping the Server
 
-If running in the background, find and kill the process:
+Press Ctrl+C in each terminal. If the backend was started in the background:
 
 ```bash
-pkill -f "open-webui serve"
+pkill -f "uvicorn open_webui.main:app"
 ```
 
 ---
@@ -158,11 +191,14 @@ pkill -f "open-webui serve"
 
 ## File Reference
 
+Your local config is `.env` at the **repository root**, copied from
+`4ce/env.sovereign.example`.
+
 ```
 4ce/
-├── .env                    ← your local config (copy of env.sovereign.example)
-├── env.sovereign.example   ← template
+├── env.sovereign.example   ← template for the root .env
 ├── install.py              ← uploads plugins to running instance
+├── preflight.py            ← checks the machine is ready to demo
 ├── models.json             ← the model registry the router reads
 ├── test_tools.py           ← runs the test suite against a live instance
 ├── eval_retrieval.py       ← scores retrieval against a golden set of questions
@@ -172,8 +208,12 @@ pkill -f "open-webui serve"
 └── tools/
     ├── sandbox.py          ← sandboxed Python execution via Docker
     ├── deliverables.py     ← .docx, .xlsx and .pptx output
-    └── sovereignty.py      ← off-premise audit
+    ├── sovereignty.py      ← off-premise audit
+    ├── sop_check.py        ← SOP threshold rule pack
+    └── calculations.py     ← remaining-life calculations
 ```
+
+How these fit together: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 

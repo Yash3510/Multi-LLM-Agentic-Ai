@@ -1,4 +1,22 @@
+---
+title: Platform research
+type: research
+status: historical
+updated: 2026-09-25
+tags:
+  - 4ce
+  - research
+---
+
 # Open WebUI — Deep Research for 4CE
+
+> **Research snapshot, 2026-09-08.** Written before the build, from source
+> reading only. Later work superseded parts of it. The outbound paths in §12
+> were more than two: see the 18-surface audit and the observed egress in
+> [ARCHITECTURE.md](ARCHITECTURE.md#trust-boundaries). The platform's native
+> retrieval and tool plumbing did not reach a pipe as §4 expected; see
+> [ADR-0001](decisions/0001-agent-chain-as-a-runtime-plugin.md). What 4CE
+> actually does is in [AGENT_CHAIN.md](AGENT_CHAIN.md).
 
 **Subject:** `open-webui/open-webui` v0.11.3 (shallow clone, this repo)
 **Purpose:** Establish exactly what we inherit by forking, where the seams are, and how 4CE's sovereign agentic workbench (SIH PS 26117) maps onto it.

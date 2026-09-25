@@ -1,4 +1,36 @@
+---
+title: SOP threshold checker - design
+type: design
+status: implemented
+updated: 2026-09-25
+tags:
+  - 4ce
+  - architecture
+  - decision
+---
+
 # SOP Threshold Checker — plan
+
+> **Status: implemented** in `f2c1de6` (2026-09-13) as
+> [`tools/sop_check.py`](../tools/sop_check.py). The plan below is kept as
+> written. Where the implementation now differs:
+>
+> - **Called by the orchestrator, not by JARVIS.** The chain runs the rule pack
+>   itself, once, on the request's own readings or on readings taken from an
+>   image, before FRIDAY. Its table reaches every agent, ULTRON included, marked
+>   as authoritative (`fef00fe`, `7d5e304`, `195cb9f`). It is attached to the
+>   orchestrator alongside four other tools, not three.
+> - **Band schema.** Bands use `below` (strict) or `max` (inclusive), and carry
+>   their own `clause` and `disposition`. Each rule has a `limit` string, which
+>   is the acceptance criterion shown in the table.
+> - **Vibration in mm/s** is reported as given but not assessed, because
+>   SOP-MEC-014 states ISO 10816 zones (`7d5e304`).
+> - **Wall thickness** is also read as "current" and "required" thickness. The
+>   §4.2 interval caps the calculation tool's next inspection (`11f9ac1`).
+> - **Defects reported absent** ("no visible spray") no longer fail, and a
+>   missing guard "bolt" is read (`195cb9f`).
+>
+> Design context: [ADR-0004](decisions/0004-deterministic-tools-for-arithmetic.md).
 
 `tools/sop_check.py` — a fourth 4CE tool. It takes the readings observed in an
 inspection report and decides, against the thresholds written in an SOP, whether
