@@ -222,7 +222,7 @@ seconds. That is once, not every time.
 cd backend && ../.venv/bin/python ../4ce/test_tools.py
 ```
 
-93 checks, all passing.
+130 checks, all passing.
 
 Then try these in the browser, in order:
 

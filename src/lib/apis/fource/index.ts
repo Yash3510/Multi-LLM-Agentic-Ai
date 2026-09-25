@@ -63,6 +63,8 @@ export type Egress = {
 	external: EgressEvent[];
 	lan_out: EgressEvent[];
 	scope: { pid: number; process: string; role: string; listening: number[] }[];
+	// A browser one of them opened: the person's browsing, not watched.
+	excluded?: { pid: number; process: string; role: string }[];
 	live: {
 		process: string;
 		pid: number;

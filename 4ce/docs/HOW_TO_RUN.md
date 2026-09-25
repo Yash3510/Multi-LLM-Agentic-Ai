@@ -165,6 +165,8 @@ pkill -f "open-webui serve"
 ├── install.py              ← uploads plugins to running instance
 ├── models.json             ← the model registry the router reads
 ├── test_tools.py           ← runs the test suite against a live instance
+├── eval_retrieval.py       ← scores retrieval against a golden set of questions
+├── eval_vision.py          ← scores the image reading pass against the answer keys
 ├── functions/
 │   └── orchestrator.py     ← TONY / FRIDAY / JARVIS / ULTRON agent chain
 └── tools/
@@ -292,6 +294,52 @@ The guard is ported from 4CE's first prototype: a passage is only offered to
 the agents when it shares a word of substance with the request, or when its
 similarity is at least `retrieval_strong_score` (0.8). Asked "What is the
 capital of France?", this knowledge base returns the seal leakage SOP at 0.68.
+
+---
+
+## Reading images
+
+A scan, a handwritten note, a drawing or a photograph attached to a request is
+read twice. First a reading pass asks the vision model for the image's fields as
+JSON - each value or tag, its unit, how sure the model is, and the box on the
+image it was read from. 4CE parses that, types each P&ID tag from its ISA 5.1
+letters where it knows them (FE-101 is an instrument whatever the model filed
+it under), draws the boxes on a copy numbered as the table is, and hands the
+table to FRIDAY, who analyses the image with it. Readings go to the SOP rule
+pack like a request's own. The table and the boxed copy go into the draft the
+reviewer approves, the released answer and the Word report; anything read with
+less than full confidence is marked **check** and listed under the checks, so
+the reviewer compares it with its box before approving.
+
+The size an image is sent at depends on what it is. The request's words decide
+("P&ID", "drawing", "log", "scan"...), else whether it looks like paper:
+
+| Kind | Sent at up to | Valve |
+|---|---|---|
+| Photograph | 900 px | `vision_max_edge` |
+| Page or drawing | 2200 px | `vision_page_edge` |
+
+`4ce/eval_vision.py` measures the reading pass against the two demo images'
+answer keys, `4ce/demo/samples/shift_log_P-101_answer_key.txt` and
+`pid_P-101_excerpt_answer_key.txt`:
+
+```bash
+cd backend && ../.venv/bin/python ../4ce/eval_vision.py --runs 3   # Windows: ../.venv/Scripts/python.exe
+```
+
+On this build, qwen3-vl-4b at an 8192 context, three runs at each size:
+
+| Size | Handwritten log complete | Its smudged figure flagged | P&ID tags, of 15 | Time, log / P&ID |
+|---|---|---|---|---|
+| 900 px | 0 of 3 | 0 of 3 | 14.7 | ~11 s / ~17 s |
+| 1400 px | 3 of 3 | 2 of 3 | 15.0 | ~11 s / ~36 s |
+| 2200 px | 3 of 3 | 3 of 3 | 15.0 | ~11 s / ~31 s |
+
+The flag rests on the model's own confidence, which varies run to run - that is
+why every field carries its box. The boxes are approximate: on the handwritten
+log they sit on the right line; on the P&ID most sit on or beside their tag and
+one or two are a label away. Re-run the script after changing the vision model,
+its context, the reading prompts or the valves.
 
 ---
 

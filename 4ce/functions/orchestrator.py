@@ -128,7 +128,19 @@ class Pipe:
         )
         vision_max_edge: int = Field(
             default=900,
-            description="Longest edge, in pixels, an image is downscaled to before it reaches the vision model. Smaller is markedly faster on modest GPUs. Set 0 to send images untouched.",
+            description="Longest edge, in pixels, a photograph is downscaled to before it reaches the vision model. Smaller is markedly faster on modest GPUs. Set 0 to send photographs untouched.",
+        )
+        vision_page_edge: int = Field(
+            default=2200,
+            description="Longest edge for a page or a drawing - a scan, a handwritten log, a P&ID. Handwriting needs the pixels: over three runs on qwen3-vl-4b the demo shift log lost a reading every time at 900 px and its smudged figure was never flagged; at 2200 px every reading came back and the smudge was flagged each time, in the same ~11 s. eval_vision.py measures it. Set 0 to send pages untouched.",
+        )
+        vision_extraction: bool = Field(
+            default=True,
+            description="Before FRIDAY analyses an image, read it once into numbered fields - tag, value, unit and how sure - each with the box it was read from, and draw those boxes on a copy the reviewer checks the values against.",
+        )
+        extraction_max_tokens: int = Field(
+            default=2400,
+            description="Reply budget for that reading pass. A P&ID excerpt's tag list ran to 1,600 tokens, which max_tokens would have cut off mid-list.",
         )
         max_tokens: int = Field(
             default=900,
@@ -325,7 +337,7 @@ class Pipe:
         # after them and showed TONY as "<0.1s".
         await _status(__event_emitter__, "tony", "TONY: reading the request")
 
-        prompt = _text_of(messages[-1])
+        prompt = _request_text(messages[-1])
         has_image = _has_image(messages[-1])
         retrieved = _retrieved_context(messages)
         grounding = _grounding_text(messages)
@@ -492,6 +504,24 @@ class Pipe:
             else:
                 audit = ""
 
+        # An image is sent at the size its kind needs. A photograph survives
+        # 900 px; a page does not: over three runs of eval_vision.py, the
+        # handwritten log lost a reading every time at 900 px and its smudged
+        # figure was never flagged, where at 2200 px every reading came back
+        # and the smudge was flagged each time. Then, before FRIDAY, one pass
+        # reads the image into numbered fields with the box each came from:
+        # the values the rule pack assesses, and what the reviewer checks
+        # against the pixels.
+        image_kind, image_edge, reading = "", None, None
+        if has_image:
+            image_kind = _image_kind(prompt, _decode_image(_first_image(messages[-1])))
+            image_edge = self.valves.vision_max_edge if image_kind == "photo" else self.valves.vision_page_edge
+            if self.valves.vision_extraction:
+                reading = await self._read_image(
+                    __request__, user, agent_models["FRIDAY"], messages[-1], image_kind,
+                    image_edge, __event_emitter__, steps, trace,
+                )
+
         # Threshold arithmetic belongs to the authored rule pack, not to a model.
         # ULTRON reading 6.2 mm against a 6.0 mm retirement limit as a breach is
         # precisely the failure this removes. Readings come from the request, or
@@ -507,10 +537,20 @@ class Pipe:
         # the rule pack took whichever numbers it met first - the sample
         # inspection report's, quoted by FRIDAY - so one request came back "4/4
         # within limits" on its first try and "2/3" on its second.
+        #
+        # Readings read from a page are the page's own data, like a request's,
+        # and are assessed once on the same terms - including a defect written
+        # with no number, such as a missing guard bolt.
+        sop_input = "\n".join(
+            text for text in (
+                prompt if task_type in ("document", "analysis", "vision") and _has_readings(prompt) else "",
+                reading["readings"] if reading else "",
+            ) if text
+        )
         request_sop = ""
-        if task_type in ("document", "analysis", "vision") and _has_readings(prompt):
+        if sop_input:
             request_sop = await self._sop_check(
-                __tools__, __event_emitter__, prompt, tools_used, steps, trace, ""
+                __tools__, __event_emitter__, sop_input, tools_used, steps, trace, ""
             )
 
         # Engineering arithmetic is done in code too, with every step shown: a
@@ -555,6 +595,15 @@ class Pipe:
                     )
                     + (_CITE_RULE.format(numbers=_source_numbers(sources)) if sources else "")
                     + (_NOT_FOUND if searched and not sources and task_type == "document" else "")
+                    + (_image_rules(image_kind, bool(reading)) if has_image else "")
+                    + (
+                        "\n\nREAD FROM THE IMAGE - a separate reading pass, numbered as the boxes on "
+                        "the annotated copy the reviewer sees. A value marked check was read with less "
+                        "than full confidence: carry it as uncertain, and never firm it up.\n"
+                        + reading["table"]
+                        if reading
+                        else ""
+                    )
                     + (
                         "\n\nSOP THRESHOLD ASSESSMENT of the readings in the request "
                         "(deterministic rule pack; authoritative - build on its verdicts and "
@@ -574,6 +623,7 @@ class Pipe:
                     challenge,
                 ),
                 pass_images=has_image,
+                image_edge=image_edge,
             )
             analysis = friday["text"]
             if analysis.startswith(_ERR):
@@ -583,9 +633,10 @@ class Pipe:
             trace.append(f"**FRIDAY** analysed the request in {friday['seconds']:.1f}s.")
 
             sop = request_sop
-            # A scan or a photo: its readings exist nowhere but in FRIDAY's
-            # extraction, so they are assessed from that, on every try.
-            if not sop and task_type == "vision":
+            # A scan or a photo the reading pass could not read: its readings
+            # exist nowhere but in FRIDAY's analysis, so they are assessed from
+            # that, on every try. A drawing carries tags, not readings.
+            if not sop and task_type == "vision" and reading is None and image_kind != "drawing":
                 sop = await self._sop_check(
                     __tools__, __event_emitter__, analysis, tools_used, steps, trace, round_label
                 )
@@ -651,6 +702,13 @@ class Pipe:
                         else ""
                     )
                     + _office_guidance(_office_formats(prompt))
+                    + (
+                        "\n\nThe fields read from the image are appended to your deliverable by "
+                        "4CE: the numbered table, and the image with each field boxed. Refer to a "
+                        "field by its number, as #2, and do not reproduce the table."
+                        if reading
+                        else ""
+                    )
                     + "\n\nProduce the finished deliverable the request actually asked "
                     "for. Show working for any calculation. Do not claim you performed an "
                     "action unless it is supported by the analysis above. Where a section "
@@ -666,6 +724,10 @@ class Pipe:
             # Tidied before ULTRON reads it, so the text it checks is the text
             # that is released, fingerprinted and written into the report.
             deliverable = _tidy(deliverable)
+            if reading:
+                # What was read, where, and how sure: in the draft the reviewer
+                # approves, the answer released and the report filed.
+                deliverable += "\n\n" + reading["section"]
             steps.append({**jarvis, "agent": "JARVIS", "label": f"deliverable{round_label}"})
             trace.append(f"**JARVIS** produced the deliverable in {jarvis['seconds']:.1f}s.")
 
@@ -722,9 +784,12 @@ class Pipe:
                     f"ORIGINAL REQUEST\n{prompt}\n\n"
                     + (
                         "SOURCE NOTE: the request carried a scanned document or image. FRIDAY "
-                        "read it; you cannot see it. Judge internal consistency, arithmetic and "
-                        "whether the result claims more than an extraction can support. Do NOT "
-                        "fail it merely because you cannot inspect the source yourself.\n\n"
+                        "read it; you cannot see it. The fields read from it are listed at the end "
+                        "of the result, numbered as the boxes the reviewer checks them against. "
+                        "Judge internal consistency, arithmetic and whether the result claims more "
+                        "than an extraction can support - above all, a value the table marks check "
+                        "stated as certain. Do NOT fail it merely because you cannot inspect the "
+                        "source yourself.\n\n"
                         if has_image else ""
                     )
                     + (
@@ -752,19 +817,27 @@ class Pipe:
             # ULTRON's own checks.
             verdict["checks"] = (
                 ([ran] if ran else [])
-                + _figure_checks(deliverable, sources, prompt, _sop_clauses(sop), calculation, sop)
+                + (_reading_checks(reading) if reading else [])
+                # A figure read from the image is the requester's data, as a
+                # figure typed into the request is.
+                + _figure_checks(
+                    deliverable, sources, prompt, _sop_clauses(sop), calculation, sop,
+                    read=reading["readings"] if reading else "",
+                )
+                + _verdict_checks(deliverable, sop)
                 + _parse_checks(verdict["detail"])
             )
             verdict["cited_text"] = deliverable
             # A figure cited to a document that does not contain it is wrong
             # whatever ULTRON concluded: the answer fails and goes round again.
-            mismatched = [c["text"] for c in verdict["checks"] if c.get("by") == "4CE" and c["kind"] == "problem"]
+            own = [c for c in verdict["checks"] if c.get("by") == "4CE" and c["kind"] == "problem"]
+            mismatched = [c["text"] for c in own]
             if mismatched and verdict["passed"]:
                 verdict.update(
                     status="FAIL",
                     passed=False,
                     failed_by="4CE",
-                    failed_on="execution" if ran and ran["kind"] == "problem" else "figure",
+                    failed_on="execution" if ran and ran["kind"] == "problem" else own[0].get("on", "figure"),
                     summary=_clip(mismatched[0]),
                     detail="\n".join(f"PROBLEM: {m}" for m in mismatched) + "\n" + verdict["detail"],
                 )
@@ -1362,9 +1435,84 @@ class Pipe:
             return fallback, f"{need}, and no served model in the registry has it; fell back to {fallback}", candidates
         return None, "no local model available", candidates
 
+    async def _read_image(
+        self, request: Any, user: Any, model: str, message: dict, kind: str,
+        edge: int | None, emitter: Any, steps: list[dict], trace: list[str],
+    ) -> dict | None:
+        """One pass over the image for its fields - tag, value, unit and how
+        sure - each with the box it was read from. The boxes are drawn on a
+        copy, numbered as the table is, so a reviewer checks "approx 6" against
+        the smudge it came from rather than taking a model's word for it.
+
+        None when there is nothing to show: no readable image, a failed call,
+        or no field in the reply. FRIDAY then reads the image unaided."""
+        part = _first_image(message)
+        image = _decode_image(part)
+        if image is None:
+            return None
+        await _status(
+            emitter, "friday", "FRIDAY: reading the image into fields",
+            facts=[
+                f"Read as a {kind}",
+                f"Sent at up to {edge} px on its longest edge" if edge else "Sent at full size",
+                f"Running on {model}",
+            ],
+        )
+        read = await self._agent_call(
+            request, user, model, [{"role": "user", "content": [part]}],
+            system=_READER_SYSTEM, instruction=_READ_PROMPTS[kind], pass_images=True,
+            think=False, image_edge=edge, max_tokens=self.valves.extraction_max_tokens,
+        )
+        if read["text"].startswith(_ERR):
+            trace.append("**FRIDAY**'s reading pass failed, so FRIDAY read the image unaided.")
+            return None
+        sent = _sent_size(image.size, edge)
+        fields = _parse_fields(read["text"], kind, sent)
+        if not fields:
+            steps.append({**read, "agent": "FRIDAY", "label": "reading pass — no fields"})
+            trace.append("**FRIDAY**'s reading pass returned no field 4CE could use, so FRIDAY read the image unaided.")
+            return None
+
+        table = _fields_table(fields, kind, image.size)
+        annotated = await asyncio.to_thread(_annotate, image, fields)
+        url = await _store_image(user.id, annotated, "4CE_read_from_image.png")
+        flagged = sum(1 for f in fields if f["check"])
+        section = (
+            "### Read from the image\n\n" + table
+            + (f"\n\n![Each field boxed where it was read]({url})" if url else "")
+            + "\n\n*Each number marks where the vision model read that field. The boxes are "
+            "approximate - on a drawing one can sit beside its label - so take a value from the "
+            "image, not the box. " + (
+                "Orange marks a field read with less than full confidence: check it against the "
+                "original before relying on it.*" if flagged else "Every field was read with full confidence.*"
+            )
+            + ("\n\n*Types follow the ISA 5.1 letter code wherever it is one 4CE knows.*" if kind == "drawing" else "")
+        )
+        steps.append({
+            **read,
+            "agent": "FRIDAY",
+            "label": f"reading pass — {_count(len(fields), 'field')}",
+            "text": table + "\n\n**As the model returned it**\n\n```json\n" + read["text"].strip() + "\n```",
+        })
+        trace.append(
+            f"**FRIDAY** read the image as a {kind}, sent at {max(sent)} px, into "
+            f"{_count(len(fields), 'field')} in {read['seconds']:.1f}s"
+            + (f", {flagged} with less than full confidence" if flagged else "")
+            + ". 4CE drew each field's box on a copy for the reviewer."
+        )
+        return {
+            "kind": kind,
+            "fields": fields,
+            "table": table,
+            "section": section,
+            "readings": _readings_text(fields) if kind != "drawing" else "",
+            "image_url": url,
+        }
+
     async def _agent_call(
         self, request: Any, user: Any, model: str, messages: list[dict],
         system: str, instruction: str, pass_images: bool = False, think: bool = True,
+        image_edge: int | None = None, max_tokens: int | None = None,
     ) -> str:
         if not think:
             # Qwen3's switch for answering without a reasoning pass. ULTRON's
@@ -1375,7 +1523,7 @@ class Pipe:
         if pass_images:
             parts = [p for p in (messages[-1].get("content") or []) if isinstance(p, dict) and p.get("type") == "image_url"]
             if parts:
-                limit = self.valves.vision_max_edge
+                limit = self.valves.vision_max_edge if image_edge is None else image_edge
                 parts = [_shrink_image(p, limit) for p in parts] if limit else parts
                 content = [{"type": "text", "text": instruction}, *parts]
 
@@ -1384,8 +1532,9 @@ class Pipe:
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
             "stream": False,
         }
-        if self.valves.max_tokens:
-            payload["max_tokens"] = self.valves.max_tokens
+        budget = self.valves.max_tokens if max_tokens is None else max_tokens
+        if budget:
+            payload["max_tokens"] = budget
         started = time.monotonic()
         try:
             response = await generate_chat_completion(request, form_data=payload, user=user, bypass_filter=True)
@@ -1418,6 +1567,44 @@ _FRIDAY_SYSTEM = (
     "systems or the internet. Separate established fact from assumption, and say plainly "
     "when the supplied evidence is insufficient."
 )
+_READER_SYSTEM = (
+    "You read images for a sovereign on-premise workbench. You report only what is visible, "
+    "exactly as written, and you reply with JSON only."
+)
+# One reading pass per kind of image. Measured on qwen3-vl-4b against the demo
+# samples' answer keys: every reading of the handwritten log and every tag of
+# the P&ID, each with a box on the 0-1000 grid Qwen3-VL answers in.
+_READ_PROMPTS = {
+    "page": (
+        "Read every measured value, reading and observation written on this page. Reply with JSON "
+        "only: a list with one object per value, with keys \"tag\" (the equipment tag it belongs "
+        "to, or \"\"), \"item\" (what was measured or observed, in a few words), \"value\" "
+        "(exactly as written), \"unit\" (as written, or \"\"), \"time\" (if one is written "
+        "beside it, else \"\"), \"confidence\" (\"high\", \"medium\" or \"low\") and "
+        "\"bbox_2d\" [x1, y1, x2, y2] around where the value is written. Where a digit or word is "
+        "smudged, faint or unclear, give your best reading followed by [?] and set confidence to "
+        "\"low\" - never fill in a digit you cannot actually see."
+    ),
+    "drawing": (
+        "List every tag and line number on this engineering drawing. Reply with JSON only: a list "
+        "with one object per tag, with keys \"tag\" (exactly as written - an instrument bubble "
+        "with letters above a number, such as PT over 101, is the tag PT-101), \"type\" "
+        "(\"equipment\", \"valve\", \"instrument\", \"line\" or \"other\"), \"confidence\" "
+        "(\"high\", \"medium\" or \"low\") and \"bbox_2d\" [x1, y1, x2, y2]. Mark a tag you "
+        "are not sure of with [?] and set its confidence to \"low\". Do not list anything that is "
+        "not on the drawing."
+    ),
+    "photo": (
+        "Read every gauge, display, nameplate, tag and label visible in this photograph, and note "
+        "each visible defect - a leak, corrosion, a crack, a missing part. Reply with JSON only: a "
+        "list with one object per reading or defect, with keys \"tag\" (the equipment tag, if one "
+        "is visible, else \"\"), \"item\" (what it is, in a few words), \"value\" (as shown - "
+        "a needle between two marks is read to the nearer mark - or the defect seen), \"unit\", "
+        "\"time\" (\"\"), \"confidence\" (\"high\", \"medium\" or \"low\") and "
+        "\"bbox_2d\" [x1, y1, x2, y2]. Where a digit is unclear, give your best reading followed "
+        "by [?] and set confidence to \"low\" - never fill in a digit you cannot actually see."
+    ),
+}
 _JARVIS_SYSTEM = (
     "You are JARVIS, the execution agent of a sovereign on-premise AI workbench. "
     "You turn analysis into a finished, well-structured deliverable. Show your working for "
@@ -1825,6 +2012,7 @@ _REQUEST_OPENERS = (
     "show", "provide", "prepare", "compose", "summarise", "summarize", "list",
     "me", "a", "an", "the", "some", "please", "us", "code", "for",
     "calculate", "compute", "estimate", "determine", "work", "out",
+    "extract", "read", "identify", "find", "describe", "tell", "put", "every", "all",
 )
 
 
@@ -1851,7 +2039,12 @@ _TITLE_VERB = re.compile(
 )
 
 
-_TITLE_BREAKS = ("what", "how", "when", "why", "whether", "which", "who", "where", "if", "also")
+_TITLE_BREAKS = (
+    "what", "how", "when", "why", "whether", "which", "who", "where", "if", "also",
+    # "... from this P&ID excerpt and describe how the pumps connect" asks a second thing.
+    "describe", "explain", "tell", "list", "give", "show", "summarise", "summarize", "check",
+    "draft", "write", "calculate", "compare", "identify", "flag",
+)
 _TITLE_DANGLING = ("and", "or", "of", "the", "a", "an", "to", "for", "in", "on", "under", "with", "by", "at", "what", "how")
 
 
@@ -1866,6 +2059,12 @@ _TITLE_FORMAT = re.compile(
 _TITLE_FORMAT_LEAD = re.compile(
     r"^(?:\w+\s+){0,3}?(?:an?\s+|the\s+)?(?:excel\s+workbook|spreadsheet|workbook|power\s?point\s+deck|"
     r"power\s?point|slide\s+deck|deck|presentation|slides)\s+(?:on|about|of|covering)\s+",
+    re.I,
+)
+
+
+_TITLE_HANDOVER = re.compile(
+    r"^(?:here\s+is|here\s+are|here['’]s|this\s+is|attached\s+is|see\s+attached|please\s+find)\s+",
     re.I,
 )
 
@@ -1902,10 +2101,13 @@ def _document_title(prompt: str) -> str:
     first = _TITLE_FORMAT.sub("", first)
     # "a deck on replacing the seal" is about replacing the seal.
     first = _TITLE_FORMAT_LEAD.sub("", first)
+    # "Here is last night's shift log ..." hands something over; the thing is the subject.
+    first = _TITLE_HANDOVER.sub("", first)
     asked = _TITLE_ASK.sub("", first)
     if asked != first:
         asked = _TITLE_VERB.sub("", asked)
-    words = re.findall(r"[A-Za-z0-9-]+(?:\.[0-9]+)*", asked)
+    # A possessive keeps its apostrophe: "night's", not "night s".
+    words = re.findall(r"[A-Za-z0-9-]+(?:&[A-Za-z0-9]+)?(?:['’][a-z]{1,2}\b)?(?:\.[0-9]+)*", asked)
     while words and words[0].lower() in _REQUEST_OPENERS + ("and", "run", "execute"):
         words.pop(0)
     # A request that asks two things ("the leakage limit, and what must happen
@@ -2021,6 +2223,17 @@ def _grounding_text(messages: list[dict]) -> str:
     return "\n\n".join(found)
 
 
+_ATTACHED_FILES = re.compile(r"<attached_files>.*?</attached_files>\s*", re.S)
+
+
+def _request_text(message: dict) -> str:
+    """What the requester wrote. The platform puts an <attached_files> block
+    of file ids in front of any message that carries a file; left in, it named
+    a shift log's Word report "Attached files file type file id c5f9849e..."
+    and rode along in every retrieval query."""
+    return _ATTACHED_FILES.sub("", _text_of(message)).strip()
+
+
 def _text_of(message: dict) -> str:
     content = message.get("content")
     if isinstance(content, str):
@@ -2053,6 +2266,374 @@ def _shrink_image(part: dict, max_edge: int) -> dict:
     except Exception:
         # Never fail the turn over a resize; send the original instead.
         return part
+
+
+def _first_image(message: dict) -> dict | None:
+    content = message.get("content")
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "image_url":
+                return part
+    return None
+
+
+def _decode_image(part: dict | None) -> Any:
+    """The inline image as a PIL image, or None."""
+    url = ((part or {}).get("image_url") or {}).get("url", "")
+    if not url.startswith("data:image") or "base64," not in url:
+        return None
+    try:
+        import base64
+        import io
+
+        from PIL import Image
+
+        image = Image.open(io.BytesIO(base64.b64decode(url.split("base64,", 1)[1])))
+        image.load()
+        return image
+    except Exception:
+        return None
+
+
+_DRAWING_WORDS = re.compile(
+    r"p\s*&\s*ids?\b|\bpids?\b|piping and instrument|\bdrawings?\b|\bdiagram|\bschematic"
+    r"|\bisometric|\bpfd\b|flow\s?sheet|\bloop sheet|\blayout\b|\bgeneral arrangement",
+    re.I,
+)
+_PAGE_WORDS = re.compile(
+    r"\bhandwrit|\bnotes?\b|\blog(?:s|book|sheet)?\b|\bscan|\bpage\b|\bform\b|\breport\b"
+    r"|\bregister\b|\bchecklist\b|\bletter\b|\bdata ?sheet",
+    re.I,
+)
+
+
+def _image_kind(prompt: str, image: Any) -> str:
+    """"drawing", "page" or "photo": what the request calls it, else whether it
+    looks like paper."""
+    if _DRAWING_WORDS.search(prompt or ""):
+        return "drawing"
+    if _PAGE_WORDS.search(prompt or "") or (image is not None and _looks_like_paper(image)):
+        return "page"
+    return "photo"
+
+
+def _looks_like_paper(image: Any) -> bool:
+    """Mostly light and unsaturated: a scan, a form, a drawing - not a pump."""
+    try:
+        pixels = list(image.convert("RGB").resize((64, 64)).getdata())
+    except Exception:
+        return False
+    light = sum(1 for r, g, b in pixels if min(r, g, b) > 170 and max(r, g, b) - min(r, g, b) < 40)
+    return light / len(pixels) > 0.6
+
+
+def _sent_size(size: tuple[int, int], edge: int | None) -> tuple[int, int]:
+    """The size an image reaches the model at, after _shrink_image."""
+    width, height = size
+    if edge and max(width, height) > edge:
+        scale = edge / max(width, height)
+        return max(1, round(width * scale)), max(1, round(height * scale))
+    return width, height
+
+
+def _image_rules(kind: str, read: bool = False) -> str:
+    """How FRIDAY reads an image of each kind: what PS 26117 asks of a scan, a
+    handwritten note and a drawing, against what a small vision model does
+    unprompted - fill in a smudged digit, or file an instrument under valves."""
+    rules = (
+        "\n\nREADING THE IMAGE: work only from what is visible. Where a word or digit is smudged, "
+        "faint or cut off, give your best reading followed by [?] - never fill in a digit you "
+        "cannot actually see, and never state an uncertain value as certain."
+    )
+    if kind == "drawing":
+        return rules + (
+            " This is an engineering drawing."
+            + (" Its tags have been read into the numbered table below." if read else
+               " List its tags exactly as written, grouped as equipment, valves, instruments and line "
+               "numbers - an instrument bubble with letters above a number, such as PT over 101, is "
+               "the tag PT-101.")
+            + " Say what connects to what, following the lines and flow arrows; a dashed line is a "
+            "signal, not flow. Do not name a tag that is not on the drawing."
+        )
+    if kind == "page":
+        return rules + (
+            " This is a page - a scan, a form or a handwritten note."
+            + (" Its readings have been read into the numbered table below: analyse them, refer to "
+               "each by its number, as #3, and do not transcribe the page again." if read else
+               " Transcribe the lines that carry readings or observations, as written, then give "
+               "each reading as time, equipment, parameter, value and unit, with your confidence "
+               "in it: high, medium or low.")
+        )
+    return rules + (
+        " This is a photograph. Describe only what is visible - equipment, gauges, nameplates, and "
+        "defects such as a leak, corrosion or a missing part - and read a gauge to the nearest mark, "
+        "saying so."
+        + (" What it shows has been read into the numbered table below; refer to each by its "
+           "number." if read else "")
+    )
+
+
+_VALVE_CODES = frozenset(
+    "HV FV PV LV TV XV NRV CV PSV PRV SDV BDV MOV ESDV FCV PCV LCV TCV HCV".split()
+)
+_INSTRUMENT_CODES = frozenset(
+    "FE FT FI FIC FC FR FY FQ FS PT PI PIC PC PG PS PSH PSL PDT PDI TT TI TIC TC TE TG TS TW "
+    "LT LI LIC LC LG LS LSH LSL AT AI AE SE ST SI VT VE VI ZT ZS ZI".split()
+)
+_TAG_TOKEN = re.compile(r'\d+(?:\.\d+)?"-[\w-]+|\b[A-Z]{1,5}-\d{2,5}[A-Z]?(?:/[A-Z])?\b')
+_TYPE_ORDER = ("equipment", "valve", "instrument", "line", "other")
+
+
+def _normal_tag(label: str) -> str:
+    """A tag as it is written in a register. An ISA bubble puts the letters
+    above the number, and the model reads it as it looks: "PT 101"."""
+    label = " ".join(str(label).replace("\u201d", '"').replace("\u2033", '"').split())
+    bubble = re.fullmatch(r"([A-Z]{1,5})\s+(\d{2,5}[A-Z]?)", label)
+    return f"{bubble.group(1)}-{bubble.group(2)}" if bubble else label
+
+
+def _tag_type(tag: str, stated: Any) -> str:
+    """From the tag's own letters where they settle it - FE-101 is an
+    instrument whatever the model filed it under - else what the model said."""
+    if re.match(r'\d+(?:\.\d+)?"', tag):
+        return "line"
+    letters = re.match(r"[A-Z]+", tag)
+    code = letters.group(0) if letters else ""
+    if code in _VALVE_CODES:
+        return "valve"
+    if code in _INSTRUMENT_CODES:
+        return "instrument"
+    if len(code) == 1 and re.search(r"\d", tag):
+        return "equipment"
+    stated = str(stated or "").strip().lower()
+    return stated if stated in _TYPE_ORDER else "other"
+
+
+def _parse_fields(text: str, kind: str, sent: tuple[int, int] = (1000, 1000)) -> list[dict]:
+    """The reading pass's fields, whole or salvaged: a reply cut off by its
+    token budget still yields every object it finished. Numbered in reading
+    order - a drawing's by type, then tag - which is the order of the boxes."""
+    fields: list[dict] = []
+    seen: set = set()
+    for chunk in re.findall(r"\{[^{}]*\}", text or ""):
+        try:
+            item = json.loads(chunk)
+        except ValueError:
+            continue
+        if not isinstance(item, dict):
+            continue
+        box = item.get("bbox_2d")
+        if isinstance(box, list) and len(box) == 4 and all(isinstance(v, (int, float)) for v in box):
+            # Qwen3-VL answers on a 0-1000 grid. A model that answers in the
+            # pixels of the image it was sent is brought onto the same grid.
+            if max(box) > 1000:
+                box = [box[0] * 1000 / sent[0], box[1] * 1000 / sent[1], box[2] * 1000 / sent[0], box[3] * 1000 / sent[1]]
+            x1, x2 = sorted(min(1000, max(0, v)) for v in (box[0], box[2]))
+            y1, y2 = sorted(min(1000, max(0, v)) for v in (box[1], box[3]))
+            box = (x1, y1, x2, y2) if x2 > x1 and y2 > y1 else None
+        else:
+            box = None
+        confidence = str(item.get("confidence") or "").strip().lower()
+        if confidence not in ("high", "medium", "low"):
+            confidence = "unstated"
+        if kind == "drawing":
+            tag = _normal_tag(item.get("tag") or "")
+            words = tag.split()
+            if len(words) > 1:
+                # An off-page connector's "TO E-101" names a tag; a title
+                # block's line does not.
+                found = _TAG_TOKEN.search(tag)
+                if not found or len(words) > 3:
+                    continue
+                tag = found.group(0)
+            elif not _TAG_TOKEN.search(tag.replace("[?]", "")):
+                continue
+            key = tag.lower()
+            field = {"tag": tag, "type": _tag_type(tag, item.get("type")), "value": tag}
+        else:
+            value = " ".join(str(item.get("value") or "").split())
+            if not value:
+                continue
+            unit = " ".join(str(item.get("unit") or "").split())
+            # "18.6 bar g" with its unit given again: the unit once, in its column.
+            if unit and value.lower().endswith(unit.lower()) and value[: -len(unit)].strip():
+                value = value[: -len(unit)].strip()
+            field = {
+                "tag": _normal_tag(item.get("tag") or ""),
+                "item": " ".join(str(item.get("item") or "").split()),
+                "value": value,
+                "unit": unit,
+                "time": " ".join(str(item.get("time") or "").split()),
+            }
+            key = (field["tag"].lower(), field["item"].lower(), value.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        field.update(
+            confidence=confidence,
+            box=box,
+            check=confidence != "high" or "?" in field["value"],
+        )
+        fields.append(field)
+    if kind == "drawing":
+        fields.sort(key=lambda f: (_TYPE_ORDER.index(f["type"]), f["tag"]))
+    else:
+        fields.sort(key=lambda f: (f["box"] is None, f["box"][1] if f["box"] else 0, f["box"][0] if f["box"] else 0))
+    for n, field in enumerate(fields[:60], 1):
+        field["n"] = n
+    return fields[:60]
+
+
+def _where(box: tuple | None, size: tuple[int, int]) -> str:
+    if not box:
+        return "-"
+    width, height = size
+    x1, y1, x2, y2 = box
+    return f"{round(x1 * width / 1000)},{round(y1 * height / 1000)} → {round(x2 * width / 1000)},{round(y2 * height / 1000)}"
+
+
+def _fields_table(fields: list[dict], kind: str, size: tuple[int, int]) -> str:
+    """The fields as the reviewer reads them: number, what, how sure, and
+    where on the original, in its pixels."""
+    def cell(text: str) -> str:
+        return (str(text) or "-").replace("|", "/").strip() or "-"
+
+    def sure(field: dict) -> str:
+        return field["confidence"] + (" · **check**" if field["check"] else "")
+
+    if kind == "drawing":
+        lines = ["| # | Tag | Type | Confidence | Where (px) |", "|---|---|---|---|---|"]
+        lines += [
+            f"| {f['n']} | {cell(f['tag'])} | {f['type'].capitalize()} | {sure(f)} | {_where(f['box'], size)} |"
+            for f in fields
+        ]
+        return "\n".join(lines)
+    timed = any(f["time"] for f in fields)
+    lines = [
+        "| # |" + (" Time |" if timed else "") + " Tag | Item | Value | Unit | Confidence | Where (px) |",
+        "|---|" + ("---|" if timed else "") + "---|---|---|---|---|---|",
+    ]
+    lines += [
+        f"| {f['n']} |" + (f" {cell(f['time'])} |" if timed else "")
+        + f" {cell(f['tag'])} | {cell(f['item'])} | {cell(f['value'])} | {cell(f['unit'])} | {sure(f)} | {_where(f['box'], size)} |"
+        for f in fields
+    ]
+    return "\n".join(lines)
+
+
+def _readings_text(fields: list[dict]) -> str:
+    """The fields as lines the SOP rule pack reads, one per reading. A [?]
+    is left out here - the rule pack assesses the value as read - and kept
+    in the table and the checks, where the doubt is shown."""
+    lines = []
+    for f in fields:
+        value = f["value"].replace("[?]", "").strip()
+        lead = " ".join(part for part in (f["time"], f["tag"], f["item"]) if part)
+        lines.append(f"{lead}: {value} {f['unit']}".strip())
+    return "\n".join(lines)
+
+
+def _count(n: int, noun: str) -> str:
+    return f"{n} {noun}" + ("" if n == 1 else "s")
+
+
+def _reading_checks(reading: dict) -> list[dict]:
+    """What the reading pass settled, and what it leaves to the reviewer."""
+    fields = reading.get("fields") or []
+    if not fields:
+        return []
+    flagged = [f for f in fields if f["check"]]
+    where = "drawing" if reading.get("kind") == "drawing" else "image"
+    checks = [{
+        "kind": "ok",
+        "text": f"{_count(len(fields), 'field')} read from the {where}, each boxed where it was read"
+        + (f"; {len(fields) - len(flagged)} with full confidence" if flagged else ", all with full confidence"),
+        "by": "4CE",
+    }]
+    for f in flagged[:4]:
+        what = f["tag"] if reading.get("kind") == "drawing" else " ".join(
+            part for part in (f["tag"], f["item"]) if part
+        ) + f", {f['value']}" + (f" {f['unit']}" if f["unit"] else "")
+        checks.append({
+            "kind": "unverified",
+            "text": f"#{f['n']} {what}, was read with {f['confidence']} confidence - check it against box {f['n']}",
+            "by": "4CE",
+        })
+    return checks
+
+
+def _annotate(image: Any, fields: list[dict]) -> bytes:
+    """The image with each field's box drawn and numbered as the table is:
+    indigo when read with full confidence, the accent orange when not."""
+    import io
+
+    from PIL import Image, ImageDraw, ImageFont
+
+    canvas = image.convert("RGB")
+    if max(canvas.size) > 2200:
+        canvas.thumbnail((2200, 2200), Image.LANCZOS)
+    width, height = canvas.size
+    draw = ImageDraw.Draw(canvas)
+    stroke = max(2, round(max(width, height) / 700))
+    size = max(14, round(max(width, height) / 75))
+    font = None
+    for name in ("arialbd.ttf", "DejaVuSans-Bold.ttf", "Arial Bold.ttf"):
+        try:
+            font = ImageFont.truetype(name, size)
+            break
+        except OSError:
+            continue
+    if font is None:
+        try:
+            font = ImageFont.load_default(size)
+        except TypeError:
+            font = ImageFont.load_default()
+    pad = 0.006
+    for field in fields:
+        if not field.get("box"):
+            continue
+        x1, y1, x2, y2 = field["box"]
+        box = (
+            max(0, (x1 / 1000 - pad) * width), max(0, (y1 / 1000 - pad) * height),
+            min(width - 1, (x2 / 1000 + pad) * width), min(height - 1, (y2 / 1000 + pad) * height),
+        )
+        colour = (194, 65, 12) if field["check"] else (60, 60, 142)
+        draw.rectangle(box, outline=colour, width=stroke)
+        left, top, right, bottom = draw.textbbox((0, 0), str(field["n"]), font=font)
+        w, h = right - left + 2 * stroke + 6, bottom - top + 2 * stroke + 4
+        tx = box[0]
+        ty = box[1] - h if box[1] - h >= 0 else box[1]
+        draw.rectangle((tx, ty, tx + w, ty + h), fill=colour)
+        draw.text((tx + stroke + 3 - left, ty + stroke + 2 - top), str(field["n"]), font=font, fill=(255, 255, 255))
+    buffer = io.BytesIO()
+    canvas.save(buffer, "PNG", optimize=True)
+    return buffer.getvalue()
+
+
+async def _store_image(user_id: str, payload: bytes, filename: str) -> str:
+    """Register an image 4CE drew in this machine's file store, as the tools
+    register their files. Its URL, or "" when it could not be stored."""
+    try:
+        import io
+        import uuid
+
+        from open_webui.models.files import FileForm, Files
+        from open_webui.storage.provider import Storage
+
+        file_id = str(uuid.uuid4())
+        contents, path = await asyncio.to_thread(
+            Storage.upload_file, io.BytesIO(payload), f"{file_id}_{filename}", {}
+        )
+        record = await Files.insert_new_file(
+            user_id,
+            FileForm(
+                id=file_id, filename=filename, path=path, data={},
+                meta={"name": filename, "content_type": "image/png", "size": len(contents)},
+            ),
+        )
+        return f"/api/v1/files/{file_id}/content" if record else ""
+    except Exception:
+        return ""
 
 
 def _has_image(message: dict) -> bool:
@@ -2148,12 +2729,22 @@ _NEGATION = re.compile(
 _FIGURE = re.compile(r"(?<![\w.\-])\d+(?:[.,]\d+)?(?![\w])")
 
 
-def _doc_label(name: str) -> str:
+def _doc_label(name: str, others: list[str] | tuple = ()) -> str:
     """A document as a reader names it: its code ("SOP-MEC-014") when the
-    file name starts with one, else the file name without extension."""
+    file name starts with one, else the file name without extension. When
+    another source shares the code, the rest of the name follows it, as the
+    chat's chips do: "cited to SOP-MEC-014" named two documents at once."""
+    def code_of(title: str) -> str:
+        found = re.match(r"[A-Z]{2,}(?:-[A-Z0-9]+)*-\d+", title.rsplit(".", 1)[0])
+        return found.group(0) if found else ""
+
     stem = name.rsplit(".", 1)[0]
-    code = re.match(r"[A-Z]{2,}(?:-[A-Z0-9]+)*-\d+", stem)
-    return code.group(0) if code else stem.replace("_", " ")
+    code = code_of(name)
+    if not code:
+        return stem.replace("_", " ")
+    rest = re.sub(r"^[\s_\-.]+", "", stem[len(code):]).replace("_", " ").strip()
+    shared = any(other != name and code_of(other) == code for other in others)
+    return f"{code} · {rest}" if shared and rest else code
 
 
 _CLAUSE_REF = re.compile(r"(?:§\s*|\bclauses?\s+|\bsections?\s+)(\d+(?:\.\d+)*)", re.I)
@@ -2207,7 +2798,7 @@ def _sop_clauses(sop: str) -> set[str]:
 
 def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
                    clauses: set[str] | frozenset = frozenset(), computed: str = "",
-                   ruled: str = "") -> list[dict]:
+                   ruled: str = "", read: str = "") -> list[dict]:
     """4CE's own check, made without a model: every figure in a sentence that
     cites [n] must appear in document n. A model can write "within 30 days
     [1]" when the document says 14; this catches that, and says so.
@@ -2221,12 +2812,18 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
     if not sources:
         return []
     texts = {n: " ".join(p["text"] for p in src["passages"]) for n, src in enumerate(sources, 1)}
-    prose = re.sub(r"```[\s\S]*?```|`[^`\n]*`", " ", deliverable or "")
-    # A numbered list's "1." is a position, not a figure.
+    every = [src["name"] for src in sources]
+    # 4CE's own table of what an image showed is the image's, not a claim.
+    prose = (deliverable or "").split("### Read from the image", 1)[0]
+    prose = re.sub(r"```[\s\S]*?```|`[^`\n]*`", " ", prose)
+    # A numbered list's "1." is a position, not a figure; a clock's "06:05" is
+    # when something happened, not a figure a document could hold.
     prose = re.sub(r"(?m)^\s*\d{1,3}[.)]\s+", "", prose)
+    prose = re.sub(r"\b\d{1,2}:\d{2}(?::\d{2})?\b", " ", prose)
     found: list[str] = []
     missing: list[tuple[str, str]] = []
     borrowed: list[tuple[str, str]] = []
+    misplaced: list[tuple[str, str, str]] = []
 
     def present(figure: str, text: str) -> bool:
         return re.search(rf"(?<![\w.]){re.escape(figure)}(?![\w])", text or "") is not None
@@ -2246,11 +2843,12 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
                         if figure not in unsourced:
                             unsourced.append(figure)
             continue
-        names = ", ".join(dict.fromkeys(_doc_label(sources[n - 1]["name"]) for n in cited))
+        names = ", ".join(dict.fromkeys(_doc_label(sources[n - 1]["name"], every) for n in cited))
         bare = _strip_citations(sentence)
         for ref in _CLAUSE_REF.findall(bare):
             if ref not in clauses and not any(present(ref, texts[n]) for n in cited):
-                missing.append((f"Clause {ref}", names))
+                if (f"Clause {ref}", names) not in missing:
+                    missing.append((f"Clause {ref}", names))
         for figure in _FIGURE.findall(_CLAUSE_REF.sub(" ", bare)):
             if any(present(figure, texts[n]) for n in cited):
                 if figure not in found:
@@ -2258,13 +2856,28 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
             elif present(figure, request):
                 if all(figure != b[0] for b in borrowed):
                     borrowed.append((figure, names))
+            elif present(figure, read):
+                if all(figure != b[0] for b in borrowed):
+                    borrowed.append((figure, names, "read from the image"))
             elif present(figure, computed):
                 if all(figure != b[0] for b in borrowed):
                     borrowed.append((figure, names, "4CE's own calculation"))
             else:
-                missing.append((figure, names))
+                # Held by another source, or by the rule pack authored from the
+                # SOP: a true figure given the wrong document, not an invented
+                # one. "30 days", from SOP-MEC-014 §2.2, cited to the log of
+                # readings failed a shift-log answer as if it were made up.
+                elsewhere = [m for m in texts if m not in cited and present(figure, texts[m])]
+                if elsewhere:
+                    if all(figure != m[0] for m in misplaced):
+                        misplaced.append((figure, names, _doc_label(sources[elsewhere[0] - 1]["name"], every)))
+                elif present(figure, ruled):
+                    if all(figure != b[0] for b in borrowed):
+                        borrowed.append((figure, names, "the SOP rule pack's figure"))
+                elif (figure, names) not in missing:
+                    missing.append((figure, names))
     checks: list[dict] = []
-    if found and not missing and not unsourced:
+    if found and not missing and not unsourced and not misplaced:
         figures = ", ".join(found[:6]) + ("…" if len(found) > 6 else "")
         checks.append({
             "kind": "ok",
@@ -2283,6 +2896,12 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
             "text": f"{figure} is stated as the SOP's with no citation, and no source, reading or check contains it",
             "by": "4CE",
         })
+    for figure, names, other in misplaced[:3]:
+        checks.append({
+            "kind": "unverified",
+            "text": f"{figure} is in {other}, but is cited to {names}",
+            "by": "4CE",
+        })
     for figure, names, *origin in borrowed[:3]:
         where = origin[0] if origin else "the request's own figure"
         checks.append({
@@ -2290,6 +2909,45 @@ def _figure_checks(deliverable: str, sources: list[dict], request: str = "",
             "text": f"{figure} is {where}, cited to {names} as if the document gave it",
             "by": "4CE",
         })
+    return checks
+
+
+_WITHIN_LIMITS = re.compile(
+    r"\b(?:is|are|was|were|remains?|stays?)\s+(?:well\s+|still\s+)?within\s+(?:the\s+)?"
+    r"(?:acceptable\s+|allowable\s+|permissible\s+|sop\s+|its\s+)?limits?\b"
+    r"|\b(?:is|are)\s+(?:still\s+)?acceptable\b",
+    re.I,
+)
+
+
+def _verdict_checks(deliverable: str, sop: str) -> list[dict]:
+    """A reading the rule pack did not pass, called within limits in the
+    answer. The rule pack is authoritative, and on a shift log a small model
+    wrote "seal leakage at 6 drops per minute is within acceptable limits
+    under Clause 2.1" beside the rule pack's REVIEW under §2.2."""
+    table = _first_table(sop)
+    if not table:
+        return []
+    prose = (deliverable or "").split("### Read from the image", 1)[0]
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+|\n", prose) if s.strip()]
+    checks: list[dict] = []
+    for line in table.splitlines()[2:]:
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 5 or cells[-1].upper() not in ("REVIEW", "FAIL"):
+            continue
+        parameter = re.split(r"[(/]", cells[0])[0].strip().lower()
+        words = parameter.split()
+        if not words:
+            continue
+        for sentence in sentences:
+            if all(word in sentence.lower() for word in words) and _WITHIN_LIMITS.search(sentence):
+                checks.append({
+                    "kind": "problem",
+                    "text": f"The answer calls {parameter} within limits; the SOP rule pack's verdict is {cells[-1].upper()} under {cells[3]}",
+                    "by": "4CE",
+                    "on": "verdict",
+                })
+                break
     return checks
 
 
@@ -2777,7 +3435,11 @@ def _objection(verdict: dict) -> str:
     as stated, not the verifier's raw text - which, from a small model, could
     open with "Okay, let me try to figure this out..."."""
     problems = [c for c in verdict.get("checks") or [] if c["kind"] == "problem"]
-    who = "4CE's figure check" if verdict.get("failed_by") == "4CE" else "ULTRON"
+    who = (
+        ("4CE's rule-pack check" if verdict.get("failed_on") == "verdict" else "4CE's figure check")
+        if verdict.get("failed_by") == "4CE"
+        else "ULTRON"
+    )
     if problems:
         return f"{who} objected: " + "; ".join(c["text"].rstrip(".") for c in problems[:3]) + "."
     summary = (verdict.get("summary") or "").strip()

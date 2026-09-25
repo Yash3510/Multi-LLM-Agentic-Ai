@@ -53,8 +53,9 @@ LIMITS = (
     "between two samples can be missed; a packet capture on the uplink closes that gap.",
     "DNS lookups are made by the operating system's resolver on a process's behalf, so "
     "they do not appear among the workbench's own connections.",
-    "Scope is the backend, the model server and the frontend, with their child processes. "
-    "The browser, the operating system and other programs are outside it.",
+    "Scope is the backend, the model server and the frontend, with their child processes - "
+    "except a web browser one of them opened, which is the person's own browsing. The "
+    "operating system and other programs are outside it too.",
     "Sandbox containers run with --network none, so they have no interface to connect with.",
 )
 
@@ -79,7 +80,39 @@ def classify(ip: str) -> str:
     return "external"
 
 
-def _family(pid: int) -> dict[int, tuple[str, str]]:
+# A web browser opened from a model server's window - a link clicked in its
+# UI - is the person's browsing, not the workbench's. Counted as a descendant,
+# its tabs' connections to GitHub and Google were charged to the model server.
+BROWSERS = frozenset({
+    "brave.exe", "chrome.exe", "msedge.exe", "firefox.exe", "opera.exe", "vivaldi.exe",
+    "iexplore.exe", "arc.exe", "brave", "brave browser", "chrome", "chromium",
+    "google chrome", "firefox", "opera", "vivaldi", "safari", "microsoft edge",
+})
+
+
+def _descendants(process, excluded: dict | None = None) -> list:
+    """Every descendant, less any browser and what that browser started.
+    A browser left out is noted in `excluded`, so the page can say so."""
+    found = []
+    try:
+        children = process.children()
+    except psutil.Error:
+        return found
+    for child in children:
+        try:
+            name = child.name()
+        except psutil.Error:
+            continue
+        if name.lower() in BROWSERS:
+            if excluded is not None:
+                excluded[child.pid] = name
+            continue
+        found.append(child)
+        found.extend(_descendants(child, excluded))
+    return found
+
+
+def _family(pid: int, excluded: dict | None = None) -> dict[int, tuple[str, str]]:
     """A process, the same-program ancestors that launched it, and every descendant.
 
     Climbing matters on Windows, where a virtual environment's python.exe is a
@@ -94,7 +127,7 @@ def _family(pid: int) -> dict[int, tuple[str, str]]:
             if parent is None or parent.name() != name:
                 break
             root = parent
-        members = [root, *root.children(recursive=True)]
+        members = [root, *_descendants(root, excluded)]
     except psutil.Error:
         return {}
     family = {}
@@ -129,6 +162,7 @@ class EgressWatch:
         self._model_ports: set[int] = set()
         self._expected: set[tuple[str, int]] = set()
         self._scope: dict[int, dict] = {}
+        self._excluded: dict[int, dict] = {}
         self._scope_at = 0.0
         self.generation = 0
         self._clear()
@@ -244,14 +278,18 @@ class EgressWatch:
         with self._lock:
             model_ports = set(self._model_ports)
         scope: dict[int, dict] = {}
+        excluded: dict[int, dict] = {}
 
         def add(pids, role: str) -> None:
             for pid in pids:
-                for member, (name, exe) in _family(pid).items():
+                left_out: dict[int, str] = {}
+                for member, (name, exe) in _family(pid, left_out).items():
                     scope.setdefault(member, {
                         "name": name, "exe": exe, "role": role,
                         "listening": listening.get(member, set()),
                     })
+                for member, name in left_out.items():
+                    excluded.setdefault(member, {"name": name, "role": role})
 
         add([os.getpid()], "backend")
         for port in sorted(model_ports):
@@ -260,6 +298,7 @@ class EgressWatch:
 
         with self._lock:
             self._scope = scope
+            self._excluded = excluded
             self._scope_at = time.time()
 
     def _connections(self, pids) -> list[tuple[int, object]]:
@@ -423,6 +462,10 @@ class EgressWatch:
                 "external": sorted(self._events["external"].values(), key=lambda e: -e["last"]),
                 "lan_out": sorted(self._events["lan_out"].values(), key=lambda e: -e["last"]),
                 "scope": scope,
+                "excluded": [
+                    {"pid": pid, "process": m["name"], "role": m["role"]}
+                    for pid, m in sorted(self._excluded.items())
+                ],
                 "live": list(self._live),
                 "canaries": list(self.canaries),
                 "canary_target": CANARY_TARGET,

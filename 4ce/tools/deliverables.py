@@ -132,10 +132,11 @@ class Tools:
 
         await _emit(__event_emitter__, "deliverable", f"JARVIS: writing '{title}' as a Word document")
 
+        images = await _load_images(body)
         try:
             payload = await asyncio.to_thread(
                 self._build_docx, title, body, reference, document_type, __signoff__, __record__,
-                __sources__, __revision__, __checks__, __passages__, __cited__,
+                __sources__, __revision__, __checks__, __passages__, __cited__, images,
             )
         except ImportError:
             return (
@@ -332,9 +333,10 @@ class Tools:
         if refused:
             return refused
         await _emit(__event_emitter__, "deliverable", f"JARVIS: writing '{title}' as a PowerPoint deck")
+        images = await _load_images(body)
         try:
             payload = await asyncio.to_thread(
-                _build_pptx, title, body, document_type, __record__ or [], __sources__ or []
+                _build_pptx, title, body, document_type, __record__ or [], __sources__ or [], images
             )
         except ImportError:
             return "The `python-pptx` package is not available in this backend, so the deck could not be made."
@@ -399,10 +401,11 @@ class Tools:
         checks: list | None = None,
         passages: list | None = None,
         cited: list | None = None,
+        images: dict | None = None,
     ) -> bytes:
         return _Report(
             self.valves, title, body, reference, document_type, signoff or {}, record or [], sources,
-            revision, checks, passages, cited,
+            revision, checks, passages, cited, images,
         ).build()
 
 
@@ -681,6 +684,9 @@ _QUOTE = re.compile(r"^\s{0,3}>\s?(.*)$")
 _ITEM = re.compile(r"^(\s*)([-*+•]|\d{1,3}[.)])\s+(.*)$")
 _TABLE_SEP = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
 _LABEL_ONLY = re.compile(r"^\*\*([^*]{1,80}?)\*\*:?$")
+# An image the answer shows from this machine's file store - the orchestrator's
+# annotated copy of a scan, with each field it read boxed and numbered.
+_IMAGE_LINE = re.compile(r"^\s*!\[([^\]]*)\]\(/api/v1/files/([0-9a-fA-F-]{36})/content\)\s*$", re.M)
 _INLINE = re.compile(
     r"\*\*\*(?=\S)(?P<bi>.+?)(?<=\S)\*\*\*"
     r"|\*\*(?=\S)(?P<b>.+?)(?<=\S)\*\*"
@@ -708,8 +714,10 @@ class _Report:
         checks: list | None = None,
         passages: list | None = None,
         cited: list | None = None,
+        images: dict | None = None,
     ):
         self.valves = valves
+        self.images = images or {}
         self.checks = [c for c in (checks or []) if isinstance(c, dict) and str(c.get("text", "")).strip()]
         self.passages = [str(p or "") for p in (passages or [])]
         # Which sources the text cites (1-based); None when not told.
@@ -983,6 +991,11 @@ class _Report:
                     i += 1
                 self._code(block)
                 i += 1
+            elif _IMAGE_LINE.match(line):
+                flush()
+                alt, file_id = _IMAGE_LINE.match(line).groups()
+                self._image(file_id, alt)
+                i += 1
             elif line.lstrip().startswith("|") and i + 1 < len(lines) and _TABLE_SEP.match(lines[i + 1]):
                 flush()
                 rows = []
@@ -1040,6 +1053,24 @@ class _Report:
     def _heading(self, text: str, level: int) -> None:
         paragraph = self.doc.add_paragraph(style=f"Heading {level}")
         self._inline(paragraph, _clean(text), heading=True)
+
+    def _image(self, file_id: str, alt: str) -> None:
+        """The picture itself, the width of the text, with its caption. A link
+        would open nothing for someone reading the file away from 4CE."""
+        from docx.shared import Cm
+
+        data = self.images.get(file_id)
+        if data:
+            paragraph = self.doc.add_paragraph()
+            _spacing(paragraph, 4, 2, 1.0)
+            try:
+                paragraph.add_run().add_picture(io.BytesIO(data), width=Cm(TEXT_W))
+            except Exception:
+                data = None
+        caption = self.doc.add_paragraph()
+        _spacing(caption, 0, 8, 1.15)
+        _run(caption, (alt.strip() or "Image") + ("" if data else " - held in 4CE, not embedded"),
+             size=9, colour=MUTED, italic=True)
 
     def _rule(self) -> None:
         paragraph = self.doc.add_paragraph()
@@ -1138,9 +1169,22 @@ class _Report:
         align += [WD_ALIGN_PARAGRAPH.LEFT] * (count - len(align))
 
         # Share the width by how much each column says, within limits, so a
-        # column of short codes does not get the same room as the prose.
-        weight = [min(40, max(6, max(len(_clean(r[c])) for r in rows))) for c in range(count)]
-        widths = [TEXT_W * w / sum(weight) for w in weight]
+        # column of short codes does not get the same room as the prose - but
+        # never less than its longest word. Shared by length alone, an
+        # eight-column table of readings broke "P-101B" as "P-/101B" and
+        # "02:10" as "02:1/0".
+        per_char, pad = 0.19, 0.4  # cm: 9.5 pt Arial, and the cell's own padding
+        texts = [[_clean(r[c]) for r in rows] for c in range(count)]
+        least = [pad + per_char * max([len(word) for text in col for word in text.split()] or [1]) for col in texts]
+        want = [max(low, pad + per_char * min(40, max(len(text) for text in col))) for low, col in zip(least, texts)]
+        if sum(want) <= TEXT_W:
+            widths = [TEXT_W * w / sum(want) for w in want]
+        elif sum(least) >= TEXT_W:
+            widths = [TEXT_W * w / sum(least) for w in least]
+        else:
+            spare = TEXT_W - sum(least)
+            extra = [w - low for w, low in zip(want, least)]
+            widths = [low + spare * e / sum(extra) for low, e in zip(least, extra)]
 
         table = self.doc.add_table(rows=len(rows), cols=count)
         _frame(table, outer=("top", "bottom"), inside_h=True)
@@ -1431,7 +1475,8 @@ def _refusal(title: str, body: str, user: dict | None) -> str:
 
 def _blocks(text: str) -> list[tuple]:
     """An answer as ("heading", level, text), ("para", text), ("list", [items]),
-    ("table", header, rows) and ("code", text) blocks, in order."""
+    ("table", header, rows), ("code", text) and ("image", alt, file_id)
+    blocks, in order."""
     lines = (text or "").replace("\r\n", "\n").replace("\t", "    ").split("\n")
     out: list[tuple] = []
     prose: list[str] = []
@@ -1454,6 +1499,11 @@ def _blocks(text: str) -> list[tuple]:
                 block.append(lines[i])
                 i += 1
             out.append(("code", "\n".join(block)))
+            i += 1
+        elif _IMAGE_LINE.match(line):
+            flush()
+            alt, file_id = _IMAGE_LINE.match(line).groups()
+            out.append(("image", alt, file_id))
             i += 1
         elif line.lstrip().startswith("|") and i + 1 < len(lines) and _TABLE_SEP.match(lines[i + 1]):
             flush()
@@ -1726,7 +1776,8 @@ def _remaining_life_sheet(book, calculation: dict, used: set, bold, fill, rule, 
     sheet.freeze_panes = "B2"
 
 
-def _build_pptx(title: str, body: str, document_type: str, record: list, sources: list) -> bytes:
+def _build_pptx(title: str, body: str, document_type: str, record: list, sources: list,
+                images: dict | None = None) -> bytes:
     from pptx import Presentation
     from pptx.dml.color import RGBColor
     from pptx.enum.text import MSO_ANCHOR
@@ -1814,7 +1865,7 @@ def _build_pptx(title: str, body: str, document_type: str, record: list, sources
         if not blocks:
             continue
         notes = "\n".join(
-            _plain(b[1]) if b[0] in ("para", "code") else
+            _plain(b[1]) if b[0] in ("para", "code", "image") else
             "\n".join("- " + _plain(i) for i in b[1]) if b[0] == "list" else
             " | ".join(_plain(c) for c in b[1]) for b in blocks
         )
@@ -1831,6 +1882,18 @@ def _build_pptx(title: str, body: str, document_type: str, record: list, sources
                     bullets(heading, items, notes)
                     items = []
                 table(heading, block[1], block[2], notes)
+            elif block[0] == "image" and (images or {}).get(block[2]):
+                if items:
+                    bullets(heading, items, notes)
+                    items = []
+                page = slide(heading, notes)
+                picture = page.shapes.add_picture(io.BytesIO(images[block[2]]), Inches(0.85), Inches(1.5))
+                # Fitted inside the slide below the heading, keeping its shape.
+                scale = min(Inches(11.8) / picture.width, Inches(5.0) / picture.height)
+                picture.width, picture.height = int(picture.width * scale), int(picture.height * scale)
+                picture.left = int((deck.slide_width - picture.width) / 2)
+                if block[1].strip():
+                    text(page, 0.85, 6.55, 11.8, 0.35, _plain(block[1]), 11, "muted")
             elif block[0] == "code":
                 if items:
                     bullets(heading, items, notes)
@@ -1861,6 +1924,22 @@ def _build_pptx(title: str, body: str, document_type: str, record: list, sources
     buffer = io.BytesIO()
     deck.save(buffer)
     return buffer.getvalue()
+
+
+async def _load_images(body: str) -> dict[str, bytes]:
+    """The images an answer shows, read from this machine's file store by id.
+    Only images: a link to anything else stays a link."""
+    images: dict[str, bytes] = {}
+    for file_id in dict.fromkeys(m.group(2) for m in _IMAGE_LINE.finditer(body or "")):
+        try:
+            record = await Files.get_file_by_id(file_id)
+            if not record or not str((record.meta or {}).get("content_type", "")).startswith("image/"):
+                continue
+            local = await asyncio.to_thread(Storage.get_file, record.path)
+            images[file_id] = await asyncio.to_thread(Path(local).read_bytes)
+        except Exception:
+            continue
+    return images
 
 
 async def _emit(emitter, action: str, description: str, done: bool = False) -> None:

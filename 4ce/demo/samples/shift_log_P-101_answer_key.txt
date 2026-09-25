@@ -1,0 +1,24 @@
+Answer key - handwritten shift log (shift_log_P-101.png)
+
+Transcription, line by line:
+Shift log - CDU pump house - night shift 23/09
+02:10  P-101B seal weeping again, approx 6 drops/min.
+       Informed shift supervisor.
+03:45  P-101A running. Disch press 18.6 bar g, vib 3.9 mm/s.
+05:20  P-101B brg temp 74 C - rising? recheck at 06:00
+06:05  Coupling guard bolt missing on P-101B.
+       Tagged out - NOT to be started.
+Handed over to day shift.   K. Menon
+
+Deliberately unclear: the seal leakage figure on the 02:10 line is smudged.
+A good reading flags it as uncertain (it was written as 6) rather than
+stating it with confidence.
+
+Readings a good extraction lists:
+| Time  | Equipment | Parameter            | Value | Unit       |
+|-------|-----------|----------------------|-------|------------|
+| 02:10 | P-101B    | Seal leakage         | 6 (?) | drops/min  |
+| 03:45 | P-101A    | Discharge pressure   | 18.6  | bar g      |
+| 03:45 | P-101A    | Vibration            | 3.9   | mm/s       |
+| 05:20 | P-101B    | Bearing temperature  | 74    | C          |
+| 06:05 | P-101B    | Coupling guard bolt  | missing | -        |

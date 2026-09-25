@@ -139,6 +139,31 @@ async def test_deliverables() -> None:
     out = await tool.create_word_document("Title", "   ", __user__={"id": uid})
     check("empty body rejected", "empty" in out.lower())
 
+    # An image the answer shows is embedded, not left as a link nobody
+    # reading the file away from 4CE could open.
+    import io
+    import uuid as _uuid
+    from docx import Document
+    from PIL import Image
+
+    swatch = io.BytesIO()
+    Image.new("RGB", (400, 200), (250, 248, 240)).save(swatch, "PNG")
+    image_id = str(_uuid.uuid4())
+    body = "Findings.\n\n![Each field boxed where it was read](/api/v1/files/" + image_id + "/content)\n"
+    spec = importlib.util.spec_from_file_location("deliverables_module", TOOLS / "deliverables.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    blocks = module._blocks(body)
+    check("an image line is a block of its own", [b[0] for b in blocks] == ["para", "image"])
+    plain = Document(io.BytesIO(tool._build_docx("T", body, "", images={})))
+    shown = Document(io.BytesIO(tool._build_docx("T", body, "", images={image_id: swatch.getvalue()})))
+    check("the Word report embeds the image", len(shown.inline_shapes) == len(plain.inline_shapes) + 1)
+    deck = module._build_pptx("T", "### Read from the image\n\n" + body, "Deliverable", [], [],
+                              {image_id: swatch.getvalue()})
+    from pptx import Presentation
+    pictures = [s for slide in Presentation(io.BytesIO(deck)).slides for s in slide.shapes if s.shape_type == 13]
+    check("the deck gives the image a slide", len(pictures) == 1)
+
     out = await tool.create_word_document("", "content", __user__={"id": uid})
     check("missing title rejected", "title is required" in out.lower())
 
@@ -213,7 +238,7 @@ async def test_egress() -> None:
     ]
     real_table, real_family = egress.psutil.net_connections, egress._family
     egress.psutil.net_connections = lambda kind="inet": listening + table
-    egress._family = lambda pid: {pid: ("backend.exe" if pid == me else "model.exe", "")} \
+    egress._family = lambda pid, excluded=None: {pid: ("backend.exe" if pid == me else "model.exe", "")} \
         if pid in (me, model) else {}
     try:
         w = egress.EgressWatch()
@@ -254,6 +279,23 @@ async def test_egress() -> None:
         sample(c(("10.0.0.5", 50400), ("1.1.1.1", 443)))
         check("the canary is logged apart, not counted external",
               w.flows["canary"] == 1 and w.flows["external"] == 1)
+
+        class Proc:
+            def __init__(self, pid, name, kids=()):
+                self.pid, self._name, self._kids = pid, name, list(kids)
+
+            def name(self):
+                return self._name
+
+            def children(self):
+                return self._kids
+
+        left_out: dict = {}
+        tree = Proc(1, "Bionic.exe", [Proc(2, "llmster.exe", [Proc(3, "node.exe")]),
+                                      Proc(4, "brave.exe", [Proc(5, "brave.exe")])])
+        kept = [p.pid for p in egress._descendants(tree, left_out)]
+        check("a browser the model server opened is not the model server",
+              kept == [2, 3] and left_out == {4: "brave.exe"})
 
         w.reset()
         check("a new window starts from zero", w.samples == 0 and w.flows["external"] == 0)
@@ -330,6 +372,38 @@ async def test_figure_check() -> None:
     checks = judge("SOP-MEC-014 requires replacement within 30 days.", sources)
     check("an uncited SOP figure a source holds is not called invented",
           not any(c["kind"] == "problem" for c in checks))
+
+    # A shift-log answer: a clock time, a figure given the wrong document, and
+    # two documents that share a code.
+    both = sources + [{"name": "SOP-MEC-014_readings_P-101B.txt", "passages": [{"text":
+        "Seal weeping 3-4 drops per minute. Coupling guard fastener missing."}]}]
+    checks = judge("The guard was found at 06:05 missing a fastener [2].", both)
+    check("a clock time is not a figure", not any(c["text"].startswith("06") for c in checks))
+    checks = judge("Schedule the replacement within 30 days [2].", both)
+    check("a figure in another source is shown as mis-cited, not invented",
+          any(c["kind"] == "unverified" and c["text"] == "30 is in SOP-MEC-014 · seal leakage, but is cited to "
+              "SOP-MEC-014 · readings P-101B" for c in checks) and not any(c["kind"] == "problem" for c in checks))
+    ruled = "| Seal leakage | 6 drops/min | below 5 drops/min | §2.2 | REVIEW |\n- **§2.2** - Replace within 45 days."
+    checks = judge("Replace within 45 days [1].", sources, "", set(), "", ruled)
+    check("a rule-pack figure is not called invented",
+          any("the SOP rule pack's figure" in c["text"] for c in checks) and not any(c["kind"] == "problem" for c in checks))
+    checks = judge("Replace within 30 days [2]. Then within 30 days [2].", both)
+    check("one mis-citation is listed once", sum(c["text"].startswith("30 ") for c in checks) == 1)
+    check("a document code shared by two sources is followed by the rest of the name",
+          orchestrator._doc_label("SOP-MEC-014_readings_P-101B.txt", [s["name"] for s in both])
+          == "SOP-MEC-014 · readings P-101B"
+          and orchestrator._doc_label("SOP-MEC-014_seal_leakage.txt") == "SOP-MEC-014")
+
+    table = ("| Parameter | Measured | Acceptance limit | Clause | Verdict |\n|---|---|---|---|---|\n"
+             "| Seal leakage | 6 drops/min | below 5 drops/min | §2.2 | REVIEW |\n"
+             "| Coupling guard | not reported | no coupling guard fastener missing | §5.1 | PASS |")
+    verdicts = orchestrator._verdict_checks
+    found = verdicts("Seal leakage at 6 drops per minute is within acceptable limits under Clause 2.1.", table)
+    check("an answer calling a REVIEW reading within limits is a problem",
+          len(found) == 1 and found[0]["kind"] == "problem" and found[0]["on"] == "verdict" and "§2.2" in found[0]["text"])
+    check("an answer that agrees with the rule pack is left alone",
+          verdicts("Seal leakage at 6 drops per minute exceeds the acceptable limit of 5.", table) == []
+          and verdicts("The coupling guard is within limits.", table) == [])
 
     relevant = orchestrator._relevant
     passages = [{"text": "Seal leakage below 5 drops per minute is acceptable.", "name": "SOP-MEC-014", "distance": 0.68},
@@ -437,6 +511,89 @@ async def test_routing() -> None:
     check("an override in the valves still wins, and says so", model == "qwen/qwen3-vl-4b" and "override" in why)
 
 
+async def test_vision() -> None:
+    """Reading an image: its kind, its fields, and what is left to the reviewer."""
+    print("\n4CE Orchestrator: reading an image")
+    import io
+    from PIL import Image
+
+    spec = importlib.util.spec_from_file_location(
+        "orchestrator", str(Path(__file__).parent / "functions" / "orchestrator.py")
+    )
+    o = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(o)
+
+    paper = Image.new("RGB", (1654, 1180), (250, 248, 240))
+    pump = Image.new("RGB", (1200, 900), (70, 110, 60))
+    check("a P&ID is read as a drawing", o._image_kind("Extract the tags from this P&ID excerpt", paper) == "drawing")
+    check("a shift log is read as a page", o._image_kind("Here is last night's shift log", pump) == "page")
+    check("paper with no word for it is a page", o._image_kind("What does this say?", paper) == "page")
+    check("anything else is a photograph", o._image_kind("What is wrong here?", pump) == "photo")
+    check("a page is sent large, a photo small",
+          o.Pipe().valves.vision_page_edge >= 2200 and o.Pipe().valves.vision_max_edge == 900)
+    check("the size an image is sent at", o._sent_size((2200, 1300), 900) == (900, 532))
+
+    # A reply as qwen3-vl-4b gave it for the shift log, with a line repeated
+    # and the last object cut off by the token budget.
+    reply = """```json
+[
+  {"tag": "P-101A", "item": "discharge pressure", "value": "18.6 bar g", "unit": "bar g", "time": "03:45", "confidence": "high", "bbox_2d": [97, 368, 605, 418]},
+  {"tag": "P-101B", "item": "seal weeping", "value": "approx 6", "unit": "drops/min", "time": "02:10", "confidence": "medium", "bbox_2d": [97, 173, 703, 224]},
+  {"tag": "P-101B", "item": "coupling guard bolt", "value": "missing", "unit": "", "time": "06:05", "confidence": "high", "bbox_2d": [97, 557, 598, 607]},
+  {"tag": "P-101A", "item": "discharge pressure", "value": "18.6 bar g", "unit": "bar g", "time": "03:45", "confidence": "high", "bbox_2d": [97, 368, 605, 418]},
+  {"tag": "P-101B", "item": "brg temp", "value": "7"""
+    fields = o._parse_fields(reply, "page")
+    check("every finished field is kept, once, from a reply cut off mid-object", len(fields) == 3)
+    check("fields are numbered in reading order", [f["item"] for f in fields][:2] == ["seal weeping", "discharge pressure"])
+    check("a unit is written once, in its column", fields[1]["value"] == "18.6" and fields[1]["unit"] == "bar g")
+    check("less than full confidence is marked for checking", fields[0]["check"] and not fields[1]["check"])
+    table = o._fields_table(fields, "page", paper.size)
+    check("the table says where, in the image's pixels", "160,204 → 1163,264" in table and "**check**" in table)
+    lines = o._readings_text(fields)
+    check("the rule pack gets one line per reading", "02:10 P-101B seal weeping: approx 6 drops/min" in lines)
+    sop = load("sop_check")
+    assessed = await sop.check_sop_thresholds(lines)
+    check("a page's readings reach the rule pack", "§2.2 | REVIEW" in assessed and "§5.1 | FAIL" in assessed)
+    checks = o._reading_checks({"fields": fields, "kind": "page"})
+    check("the doubtful field is left to the reviewer, by number",
+          checks[0]["kind"] == "ok" and any(c["kind"] == "unverified" and "#1" in c["text"] for c in checks))
+
+    drawing = """[
+  {"tag": "PT 101", "type": "instrument", "confidence": "high", "bbox_2d": [590, 333, 620, 376]},
+  {"tag": "FE-101", "type": "equipment", "confidence": "high", "bbox_2d": [670, 507, 705, 533]},
+  {"tag": "TO E-101", "type": "other", "confidence": "high", "bbox_2d": [832, 507, 900, 533]},
+  {"tag": "CRUDE FEED TANK", "type": "other", "confidence": "high", "bbox_2d": [57, 549, 151, 576]},
+  {"tag": "P&ID EXCERPT - CRUDE CHARGE PUMPS P-101A/B", "type": "other", "confidence": "high", "bbox_2d": [651, 825, 918, 857]},
+  {"tag": "HV-101A", "type": "valve", "confidence": "low", "bbox_2d": [1130, 780, 1333, 860]},
+  {"tag": "8\\"-P-1001-A1A", "type": "line", "confidence": "high", "bbox_2d": [134, 439, 200, 464]}
+]"""
+    tags = {f["tag"]: f for f in o._parse_fields(drawing, "drawing", (2200, 1300))}
+    check("an ISA bubble read as PT 101 is the tag PT-101", "PT-101" in tags and tags["PT-101"]["type"] == "instrument")
+    check("a tag's letters settle its type: FE is an instrument", tags.get("FE-101", {}).get("type") == "instrument")
+    check("an off-page connector names its tag", tags.get("E-101", {}).get("type") == "equipment")
+    check("labels and the title block are not tags", len(tags) == 5 and "CRUDE FEED TANK" not in tags)
+    check("a box in the sent image's pixels comes onto the grid", 500 < tags["HV-101A"]["box"][0] < 530)
+    check("a line number is typed as a line", tags.get('8"-P-1001-A1A', {}).get("type") == "line")
+
+    png = o._annotate(paper, fields)
+    check("the annotated copy is a PNG the image's size", Image.open(io.BytesIO(png)).size == paper.size)
+
+    # The platform puts a block of file ids in front of a message with a file.
+    message = {"role": "user", "content": [
+        {"type": "text", "text": '<attached_files>\n<file type="file" id="c5f9849e" name="shift_log_P-101.png"/>\n'
+                                 "</attached_files>\n\n"},
+        {"type": "text", "text": "Here is last night's handwritten shift log for the P-101 pumps. Read it."},
+    ]}
+    asked = o._request_text(message)
+    check("the request is what the requester wrote, without the file block",
+          asked.startswith("Here is last night's") and "attached_files" not in asked)
+    check("a hand-over is titled by what is handed over",
+          o._document_title(asked) == "Last night's handwritten shift log for the P-101 pumps")
+    check("a second request after 'and' is not in the title", o._document_title(
+        "Extract every tag and line number from this P&ID excerpt and describe how the pumps connect to E-101."
+    ) == "Tag and line number from this P&ID excerpt")
+
+
 async def test_sop_check() -> None:
     print("\n4CE SOP Threshold Check")
     tool = load("sop_check")
@@ -503,6 +660,14 @@ async def test_sop_check() -> None:
     out = await tool.check_sop_thresholds(DEMO_REPORT)
     check("states its own limitation", "only for the parameters in its rule pack" in out)
 
+    out = await tool.check_sop_thresholds("06:05 Coupling guard bolt missing on P-101B.")
+    check("a missing guard bolt, as a shift log puts it, fails on 5.1", "§5.1 | FAIL" in out)
+    out = await tool.check_sop_thresholds(
+        "Coupling guard fasteners: none missing. No visible spray from the seal. Seal leakage 2 drops/min."
+    )
+    check("a defect reported absent is not failed", "§5.1 | PASS" in out and "§2.3 | PASS" in out
+          and "REMOVE FROM SERVICE" not in out)
+
     out = await tool.check_sop_thresholds("seal leak 18 drops/min, vibration 7.1 mm/s, bearing temperature 71 C")
     check("a velocity is named, not called missing", "7.1 mm/s was given" in out and "state the zone" in out)
     check("18 drops/min needs the supervisor under §2.2", "| 18 drops/min |" in out and "§2.2 | REVIEW" in out)
@@ -528,6 +693,7 @@ async def main() -> None:
     await test_figure_check()
     await test_calculations()
     await test_routing()
+    await test_vision()
     await test_sop_check()
 
     failed = [label for label, ok, _ in RESULTS if not ok]

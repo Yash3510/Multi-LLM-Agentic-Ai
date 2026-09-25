@@ -62,7 +62,7 @@ content stripped out of the deliverable and shown separately.
 | **Verified** | ULTRON challenges JARVIS's output and can force a replan. Run it on a *different* model so nothing grades its own work. |
 | **Human-gated** | The approval dialog fails closed — an empty box, a wrong word, a cancel or a timeout all withhold the deliverable. |
 | **Auditable** | An execution trace is appended to every answer. |
-| **Multimodal** | Image parts are detected and routed to the vision model. |
+| **Multimodal** | A scan, a handwritten note, a drawing or a photo is read once into numbered fields - value, unit, confidence - each boxed on a copy of the image, so the reviewer checks a doubtful value against the pixels it came from. |
 
 ---
 
@@ -128,7 +128,7 @@ Verified against a running instance with Bionic serving `qwen3-vl-4b`,
 | Word deliverables | Verified — 7/7 checks, valid OOXML |
 | Sovereignty audit | Verified — 18/18 surfaces pass on the demo configuration |
 | Local RAG | Verified — upload, embed, index and query in ~0.3 s |
-| Multimodal / vision | Verified — read a scanned inspection report and extracted discharge pressure 18.6 bar g, wall thickness 11.2 mm against a 9.5 mm retirement thickness, bearing temperature 71 °C against an 80 °C alarm, and vibration 4.1 mm/s ISO 10816 Zone B |
+| Multimodal / vision | Verified — read a scanned inspection report and extracted discharge pressure 18.6 bar g, wall thickness 11.2 mm against a 9.5 mm retirement thickness, bearing temperature 71 °C against an 80 °C alarm, and vibration 4.1 mm/s ISO 10816 Zone B. On a handwritten shift log, all five readings in three of three runs, the smudged figure flagged each time; on a P&ID excerpt, all fifteen tags (`eval_vision.py`) |
 | Speech to text | Verified — `faster-whisper` runs locally from a pre-cached model, so the microphone needs no network |
 
 ---

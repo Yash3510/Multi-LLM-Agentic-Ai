@@ -101,7 +101,9 @@
 									? `the code failed in the sandbox${tries}`
 									: data.failed_on === 'not executed'
 										? 'the code was never run'
-										: `failed on a cited figure${tries}`
+										: data.failed_on === 'verdict'
+											? `contradicted the SOP rule pack${tries}`
+											: `failed on a cited figure${tries}`
 								: `ULTRON failed it${tries}`,
 						tone: 'warn'
 					}

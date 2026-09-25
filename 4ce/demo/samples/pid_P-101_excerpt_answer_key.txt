@@ -1,0 +1,29 @@
+Answer key - P&ID excerpt (pid_P-101_excerpt.png)
+
+Equipment:
+- T-101    Crude feed tank
+- P-101A   Crude charge pump (duty)
+- P-101B   Crude charge pump (standby)
+
+Valves:
+- HV-101A, HV-101B   Suction isolation valves, one per pump
+- NRV-101A, NRV-101B Non-return valves on each pump discharge
+- FV-101             Flow control valve on the common discharge header
+
+Instruments:
+- PT-101   Pressure transmitter on the discharge header (field-mounted)
+- FE-101   Flow element: an orifice plate in the discharge header
+- FT-101   Flow transmitter across FE-101 (field-mounted)
+- FIC-101  Flow indicating controller in the control room: reads FT-101,
+           drives FV-101
+
+Lines:
+- 8"-P-1001-A1A   T-101 to the pump suction header
+- 6"-P-1002-A1A   Pump discharge header to E-101
+
+Connections:
+T-101 -> 8"-P-1001-A1A -> HV-101A -> P-101A -> NRV-101A -> discharge header
+T-101 -> 8"-P-1001-A1A -> HV-101B -> P-101B -> NRV-101B -> discharge header
+discharge header -> FE-101 -> FV-101 -> 6"-P-1002-A1A -> E-101 (preheat exchanger)
+PT-101 taps the discharge header upstream of FE-101
+FE-101 -> FT-101 -> FIC-101 -> FV-101 (dashed lines: electrical signals)

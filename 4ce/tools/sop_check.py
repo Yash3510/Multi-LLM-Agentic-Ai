@@ -153,9 +153,10 @@ DEFAULT_RULE_PACK: dict[str, Any] = {
             "parameter": "Coupling guard",
             "type": "presence",
             "limit": "no coupling guard fastener missing",
+            # A shift log says "bolt" where an inspection form says "fastener".
             "defect_patterns": [
-                r"(?:coupling\s+)?guard[^.\n]{0,60}fastener[^.\n]{0,40}missing[^.\n]{0,30}",
-                r"missing[^.\n]{0,30}(?:coupling\s+)?guard\s+fastener",
+                r"(?:coupling\s+)?guard[^.\n]{0,60}(?:fastener|bolt|screw|nut|fixing)s?[^.\n]{0,40}missing[^.\n]{0,30}",
+                r"missing[^.\n]{0,30}(?:coupling\s+)?guard\s+(?:fastener|bolt|screw|nut|fixing)s?",
             ],
             "defect": {
                 "verdict": "FAIL",
@@ -404,10 +405,20 @@ def _assess_margin(rule: dict[str, Any], text: str) -> tuple[Finding, list[tuple
     return finding, spans
 
 
+# "No visible spray" and "guard fasteners: none missing" report the defect
+# absent. Matched as they stood, both failed the equipment - the first with
+# REMOVE FROM SERVICE.
+_DENIED_BEFORE = re.compile(r"\b(?:no|not|nil|without)\s+(?:\w+\s+){0,2}$", re.IGNORECASE)
+_DENIED_WITHIN = re.compile(r"\b(?:none|nothing|not|no)\s+missing\b", re.IGNORECASE)
+
+
 def _assess_presence(rule: dict[str, Any], text: str) -> tuple[Finding, list[tuple[int, int]]]:
-    match = _first_match(rule.get("defect_patterns", []), text)
-    if match:
-        return _finding(rule, match.group(0).strip(), rule["defect"], rule.get("limit", "")), [match.span()]
+    for pattern in rule.get("defect_patterns", []):
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            before = text[max(0, match.start() - 30):match.start()]
+            if _DENIED_BEFORE.search(before) or _DENIED_WITHIN.search(match.group(0)):
+                continue
+            return _finding(rule, match.group(0).strip(), rule["defect"], rule.get("limit", "")), [match.span()]
     return _finding(rule, "not reported", rule["clear"], rule.get("limit", "")), []
 
 

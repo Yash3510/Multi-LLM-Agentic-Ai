@@ -48,7 +48,10 @@ agent follows whatever the router chose, so routing stays the default behaviour:
 
 | Valve | Purpose |
 |---|---|
-| `vision_max_edge` | Longest edge an image is downscaled to before it reaches the vision model (default 900). A full-page 200 dpi scan costs minutes on a 6 GB GPU; downscaling is the single biggest win. 0 sends the image untouched. |
+| `vision_max_edge` | Longest edge a photograph is downscaled to before it reaches the vision model (default 900). A full-page 200 dpi scan costs minutes on a 6 GB GPU; downscaling is the single biggest win. 0 sends it untouched. |
+| `vision_page_edge` | Longest edge for a page or a drawing - a scan, a handwritten log, a P&ID (default 2200). Handwriting needs the pixels: over three runs the demo shift log lost a reading every time at 900 px and its smudge was never flagged; at 2200 px every reading came back and the smudge was flagged each time. `eval_vision.py` measures it. |
+| `vision_extraction` | Read an image once into numbered fields - tag, value, unit, confidence - each boxed where it was read, before FRIDAY analyses it (default on). The boxed copy and the table go into the draft, the answer and the Word report. |
+| `extraction_max_tokens` | Reply budget for that reading pass (default 2400). A P&ID's tag list runs to about 1,600 tokens. |
 | `max_tokens` | Upper bound per agent reply (default 900). A reasoning model left unbounded will happily run for minutes. |
 | `chat_model` | Small, fast model for greetings and questions about the assistant |
 | `orchestrate_small_talk` | Send greetings through the full chain too. Off by default. |

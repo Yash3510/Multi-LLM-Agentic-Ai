@@ -197,19 +197,62 @@ folder you choose, such as an inspection share.
 
 ---
 
-## P7 · Multimodal, on the real artefact
+## P7 · Multimodal: a scan, a handwritten log, a drawing
 
-Attach `4ce/demo/samples/inspection_report_P-101B.png`, then:
+Three images, one path. Each is read once into numbered fields - the value, its
+unit, how sure the model is, and a box on the image where it was read - before
+FRIDAY analyses it. The table and a copy of the image with every field boxed go
+into the draft you approve, the answer and the Word report.
+
+**The handwritten shift log.** Attach `4ce/demo/samples/shift_log_P-101.png`:
+
+> Here is last night's handwritten shift log for the P-101 pumps. Read the readings and tell me what needs action before the day shift.
+
+**~70 s; about two minutes when ULTRON sends the draft back.** All five readings
+come back, each boxed on the page: seal weeping on P-101B, discharge pressure
+and vibration on P-101A, bearing temperature, the missing guard bolt. The
+leakage figure is smudged on purpose. It is boxed in orange, marked **check**
+in the table and listed under the checks as read with less than full
+confidence. The rule pack takes the readings as it takes a request's own:
+6 drops/min is REVIEW under §2.2, the missing guard bolt FAIL under §5.1.
+
+Say: the model says how sure it is, and 4CE shows where it looked. The reviewer
+compares box 1 with the smudge before approving - a model's word is not a
+reading.
+
+**The P&ID.** Attach `4ce/demo/samples/pid_P-101_excerpt.png`:
+
+> Extract every tag and line number from this P&ID excerpt and describe how the pumps connect to E-101.
+
+**~2-3 min.** All fifteen tags, in a register grouped by type: T-101, both pump
+trains with their isolation and non-return valves, PT-101, FE-101, FT-101,
+FIC-101, FV-101, both line numbers and E-101. The type comes from the tag's
+ISA 5.1 letters, not the model - FE-101 is an instrument even when the model
+files it as equipment. FRIDAY then traces the flow: tank, suction header, the
+pumps in parallel, the common discharge header, the flow loop, E-101.
+
+Say: on a drawing the boxes are approximate - most sit on their tag, one or two
+beside it. The register is what you check; the box says where to look.
+
+**The scanned report.** Attach `4ce/demo/samples/inspection_report_P-101B.png`:
 
 > Read this scanned inspection report and list every measured value.
 
-**~36 s.** Extracts discharge pressure 18.6 bar g, minimum measured wall
-thickness 11.2 mm against a 9.5 mm retirement thickness, bearing housing
-temperature 71 °C against an 80 °C alarm limit, vibration 4.1 mm/s in ISO 10816
-zone B, and the missing coupling guard fastener.
+**~2 min; about four when ULTRON sends the draft back.** The reading pass
+takes about a minute and returns thirteen fields, the report's header among
+them: seal weeping 3 to 4 drops/min, bearing housing temperature 71 °C,
+vibration 4.1 mm/s RMS, the coupling guard fastener missing at position 3 of
+4, suction and discharge pressure 2.4 and 18.6 bar g, and minimum wall
+thickness 11.2 mm against a 9.5 mm retirement thickness - each boxed on the
+page.
 
-Say: a scanned page, read on the machine, by an open-weight model, with nothing
-leaving the building.
+Say: a scanned page, a handwritten note and a drawing, read on the machine by
+an open-weight model, with nothing leaving the building - and every value
+shown where it was read.
+
+Answer keys for the log and the P&ID sit beside them in `4ce/demo/samples/`, and
+`4ce/eval_vision.py` scores the reading pass against them - see "Reading images"
+in `HOW_TO_RUN.md`.
 
 ---
 

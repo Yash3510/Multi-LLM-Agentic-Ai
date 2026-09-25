@@ -307,6 +307,13 @@
 					</div>
 				{/each}
 			</div>
+			{#if egress.excluded?.length}
+				<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+					Not watched: {egress.excluded.map((e) => `${e.process} ${e.pid}`).join(', ')}, a web
+					browser opened from the {egress.excluded[0].role}. Its tabs are your own browsing, not
+					the workbench's.
+				</p>
+			{/if}
 		</section>
 
 		<section class="mt-6">
