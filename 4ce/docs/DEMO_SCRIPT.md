@@ -10,7 +10,7 @@ tags:
 
 # Demo script
 
-Nine prompts, in order, each chosen because it evidences a different thing the
+Ten prompts, in order, each chosen because it evidences a different thing the
 problem statement asks for. Every one has been run against this build; the
 timings are measured on an RTX 4050 laptop (6 GB) with both models loaded at
 8192 context.
@@ -279,6 +279,42 @@ in `HOW_TO_RUN.md` uses a model already on the demo box), run `install.py`,
 and refresh: it is in the table. Ask anything and the routing line in the
 answer's provenance lists it among the candidates - chosen, "lacks coding",
 or "not served" - with no code touched.
+
+---
+
+## P9 · A spreadsheet, changed only in a copy - and the trail it leaves
+
+Attach `4ce/demo/samples/thickness_survey_P-101B.xlsx`, then:
+
+> Add the corrosion rate and remaining life for each location to this thickness survey.
+
+**~1 min; about two when the draft is sent back.** The workbook is read by a
+tool, cell by cell with its formulas, and its five locations go to the SOP
+rule pack one by one: four have less than 2.0 mm of margin, so SOP-MEC-014
+§4.2's six months caps their next inspection - on the shell east, 0.5 years
+where half the remaining life alone would say 3.2. The calculation works
+every location in code.
+
+Before you approve, point at **The workbook, on approval** at the end of the
+draft: the four columns a copy will get - corrosion rate, remaining life, the
+SOP interval, next inspection - as formulas, and what Excel will calculate
+them to. Approve, and the copy appears as a download; the file that was
+attached is not changed. Open it in Excel: the formulas are live, and change a
+reading to see them recalculate.
+
+Say: the reviewer approved exactly what was written, and the original was
+never at risk. A formula that could reach outside the workbook - a web
+service, another file - is refused.
+
+Then open the Sovereignty page, **Audit trail**. The run's entries are at the
+top: the request, the sources, the sheet read with its SHA-256, each rule-pack
+check, each model call with the hashes of what went in and out, the verdict,
+your approval, the copy written, and the release, whose fingerprint is the
+receipt's. Press **Verify the whole chain**.
+
+Say: each entry is sealed with the hash of the one before. Change or remove
+one, and the chain breaks at that entry - this page and preflight both say
+where.
 
 ---
 

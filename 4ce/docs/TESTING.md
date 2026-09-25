@@ -45,15 +45,17 @@ The current total is recorded in [SETUP_MACOS.md](SETUP_MACOS.md#12-confirm-it-a
 | Suite | What it asserts |
 |---|---|
 | `test_sandbox` | Code executes and returns stdout; outbound network is blocked; the workspace is read-only; the wall-clock limit is enforced; files written to `/output` are returned, and oversized ones are refused; failures are reported honestly |
-| `test_deliverables` | Valid OOXML with the content and classification banner; empty or unattributed requests are refused |
+| `test_deliverables` | Valid OOXML with the content and classification banner; empty or unattributed requests are refused; an image the answer shows is embedded in the Word report and given a slide in the deck |
 | `test_sovereignty` | Produces the audit table and a verdict, states its own limits and whether egress was observed; loopback and private addresses classify as on-premise, public hosts as external |
-| `test_egress` | A flow is counted once across samples; the model server is in scope by its port; LAN clients and the configured LAN endpoint are not leaks, other outbound flows are flagged with the process that made them; the canary is logged apart; a new window starts from zero |
+| `test_egress` | A flow is counted once across samples; the model server is in scope by its port; LAN clients and the configured LAN endpoint are not leaks, other outbound flows are flagged with the process that made them; the canary is logged apart; a browser the model server opened is not counted as the model server; a new window starts from zero |
+| `test_audit_trail` | Each entry follows the one before, from the genesis hash; entries carry their run; an untouched trail verifies; a reopened trail continues the same chain; an entry changed after writing, or removed, breaks the chain at that entry; a trail that cannot be written says so and does not raise; offline mode refuses a guarded library's download when its module is first imported, including the document loader's spaCy download |
+| `test_workspace_tools` | Writes stay inside the workspace and keep the earlier version; `..`, absolute paths, executable types and the kept versions are refused; a workbook is read with its cell letters and formulas; a survey's formulas use its own columns and go to a copy while the source is untouched; the copy's formulas give what the calculation gives; each survey location gets the interval the rule pack gives it; a preview writes nothing; a formula reaching outside the workbook and overwriting the source are refused; a CSV becomes a workbook copy; an answer claiming the workbook already has the results, or that a clause the rule pack applied does not apply, is a problem |
 | `test_execution_check` | 4CE's own verdict on a sandbox report: crash, timeout, missing code block, printed nothing, asserted or not |
-| `test_figure_check` | A figure cited to a source that does not contain it fails; a requester's own figure, or a clause the rule pack cited, does not; an invented SOP limit fails; the relevance guard keeps only passages that share words with the request or match strongly |
+| `test_figure_check` | A figure cited to a source that does not contain it fails; a requester's own figure, or a clause the rule pack cited, does not; an invented SOP limit fails; a clock time is not a figure; a figure another source holds, or the rule pack gives, is shown as mis-cited rather than invented; two documents sharing a code are named apart; an answer calling a REVIEW reading within limits fails; the relevance guard keeps only passages that share words with the request or match strongly |
 | `test_calculations` | Corrosion rate, remaining life and next inspection against the worked example (0.267 mm/year, 6.4 years), including the SOP-required interval cap |
 | `test_routing` | Task types route by registry capability; a new registry entry appears with no code change; a valve override still wins and says so; the orchestrator's built-in registry matches [`models.json`](../models.json) |
 | `test_vision` | Image kind decides the size (P&ID and shift log as pages, anything else a photo); fields kept from a reply cut off mid-object, numbered, with units and pixel boxes; low confidence marked for checking; ISA tag typing (`PT 101` is `PT-101`, `FE` is an instrument); labels and title blocks are not tags; page readings reach the rule pack; the annotated copy is a PNG of the image's size |
-| `test_sop_check` | Band boundaries, the worse end of a range, `NO DATA` for a missing reading, unassessed readings listed, malformed rule packs rejected |
+| `test_sop_check` | Band boundaries, the worse end of a range, `NO DATA` for a missing reading, unassessed readings listed, malformed rule packs rejected; a missing guard "bolt" fails §5.1 and a defect reported absent ("no visible spray") passes |
 
 **Does not cover:** model output. Nothing here calls a language model, so the
 suite says nothing about answer quality. The evals and the demo prompts cover
@@ -69,7 +71,7 @@ python 4ce/preflight.py --fix    # also load the models at the context 4CE needs
 python 4ce/preflight.py --base http://127.0.0.1:8081
 ```
 
-Fourteen checks, each added because it once failed and cost real time to
+Fifteen checks, each added because it once failed and cost real time to
 diagnose:
 
 | Check | Fails when |
@@ -79,15 +81,16 @@ diagnose:
 | Sandbox image | `python:3.12-alpine` not pulled |
 | Backend | `/health` unreachable |
 | Admin sign-in | The demo account is rejected |
-| Tools installed | Any of the five `ace_*` tools is missing |
+| Tools installed | Any of the seven `ace_*` tools is missing |
 | Orchestrator model | The pipe is not served |
 | Tools attached | The tools are not on the orchestrator's model record |
 | Approval gate | `require_approval` is off (a warning) |
 | Speech to text | Whisper weights not cached, or a non-local engine (a warning) |
 | Knowledge attached | No intact knowledge base on the orchestrator |
 | Egress watch | Not running, or something has left the machine (a warning, naming the process and address) |
+| Audit trail | Not served, broken at an entry, or entries that could not be written (a warning) |
 
-A fifteenth line, **Egress rule**, appears as a warning when the canary
+A sixteenth line, **Egress rule**, appears as a warning when the canary
 reached the internet, meaning nothing on the host blocks egress.
 
 **Does not cover:** whether the models answer well, or how fast.
@@ -141,6 +144,9 @@ Recorded in the commit that made each change, with the evidence there.
 | Sandbox on Windows after the macOS environment fix | Docker reachable both ways; tool suite 44/44 at the time | `52b927e` |
 | Egress watch on first run | Caught the model server contacting a Cloudflare address for updates while the configuration audit read 18/18 | `91152df` |
 | Production build | Completed in 2 m 8 s with a 6 GB Node heap | `1d69f02` |
+| Audit trail, one approval note end to end | Eleven entries - request to release - verified; the released fingerprint equals the verified draft's hash | `a729426` |
+| Survey workbook copy, opened in Excel | Excel calculates the copy's formulas to the calculation tool's values (0.267 mm/year, 6.375 years, next inspection 0.5 years at §4.2 locations) | `a729426` |
+| Egress watch on the first spreadsheet upload | Caught the backend reaching GitHub: the document loader installing spaCy's `en_core_web_sm` at run time, with the configuration audit reading 18/18 | `a729426` |
 
 ---
 

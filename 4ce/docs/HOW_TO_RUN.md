@@ -44,6 +44,19 @@ py -3.12 -m venv .venv
 
 Python 3.11 works too. Not 3.13 or later: some dependencies have no wheels for it.
 
+Then the language model the platform's document loader uses for Excel, Word
+and PowerPoint uploads - the exact wheel it pins:
+
+```bash
+.venv/Scripts/python.exe -m pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+```
+
+Left out, the loader downloads and installs it itself on the first such
+upload. 4CE's egress watch caught exactly that; offline mode now refuses the
+download, so the upload would fail instead, and the Sovereignty page's
+configuration audit shows **Document parsing model: NOT INSTALLED** until this
+is done.
+
 ### 2. Install the frontend dependencies
 
 ```bash

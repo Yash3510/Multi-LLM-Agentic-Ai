@@ -22,6 +22,28 @@ The root `CHANGELOG.md` belongs to the upstream platform, not to 4CE.
 
 ### Added
 
+- An append-only, hash-chained audit trail: each run's request, sources,
+  route, model and tool calls with input and output hashes, file writes,
+  verdict, approval and release. Shown live and verified on the Sovereignty
+  page, named in each answer's provenance, checked by preflight (`a729426`).
+- Workspace file tools - read, list and write in one folder, earlier versions
+  kept - and spreadsheet tools that read a workbook with its formulas and write
+  changes to a copy as live formulas (`a729426`).
+- A thickness survey attached to a request is assessed location by location
+  against the SOP rule pack, and the copy's changes are previewed in the draft
+  for the reviewer to approve (`a729426`).
+- 4CE checks for an answer saying a workbook already holds what 4CE is about
+  to add, and for one saying a clause the rule pack applied does not apply
+  (`a729426`).
+- A thickness survey workbook among the demo samples (`a729426`).
+
+### Security
+
+- The document loader installed spaCy's `en_core_web_sm` from GitHub while
+  processing the first spreadsheet uploaded. Offline mode now refuses run-time
+  downloads, and the configuration audit checks the model is installed
+  (`a729426`).
+
 - An image reading pass. Scans, handwriting and drawings are read into
   numbered fields with units, confidence and pixel boxes, and drawn on a
   numbered copy for the reviewer (`195cb9f`).

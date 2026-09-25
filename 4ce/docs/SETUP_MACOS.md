@@ -75,6 +75,9 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r backend/requirements.txt
+# The document loader's language model, installed now rather than downloaded
+# by the loader on the first Excel, Word or PowerPoint upload.
+pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 ```
 
 On macOS the virtual environment's binaries are in `.venv/bin/`. Anywhere the
@@ -232,7 +235,7 @@ seconds. That is once, not every time.
 cd backend && ../.venv/bin/python ../4ce/test_tools.py
 ```
 
-130 checks, all passing.
+173 checks, all passing.
 
 Then try these in the browser, in order:
 

@@ -68,12 +68,14 @@ Loaded into the running application at runtime by
 | [`tools/sovereignty.py`](../tools/sovereignty.py) | `ace_sovereignty` | `verify_sovereignty` |
 | [`tools/sop_check.py`](../tools/sop_check.py) | `ace_sop_check` | `check_sop_thresholds` |
 | [`tools/calculations.py`](../tools/calculations.py) | `ace_calculations` | `calculate_remaining_life` |
+| [`tools/files.py`](../tools/files.py) | `ace_files` | `list_files`, `read_file`, `write_file` - one workspace folder, versioned |
+| [`tools/sheets.py`](../tools/sheets.py) | `ace_sheets` | `read_sheet`, `write_sheet` - workbooks read with their formulas, changed only in a copy |
 | [`models.json`](../models.json) | written into the orchestrator's `model_registry` valve | the routing registry |
 
 Plugin ids are `ace_*` because the runtime requires valid Python identifiers,
 and `4ce_*` starts with a digit.
 
-Besides deploying the plugins, `install.py` attaches the five tools to the
+Besides deploying the plugins, `install.py` attaches the seven tools to the
 orchestrator's model record, restricts the chat model picker to the routed
 models, blanks the third-party image and speech endpoints the platform ships
 with, sets the starter prompts, and rebuilds the **Plant SOPs** knowledge base
@@ -88,8 +90,10 @@ changed:
 | File | What it adds |
 |---|---|
 | `utils/fource_egress.py` | The egress watch: samples the socket table every 250 ms and classifies each connection held by the backend, the model server and the frontend dev server. See [ADR-0007](decisions/0007-observe-egress-rather-than-assert-it.md). |
-| `routers/fource.py` | `/api/v1/fource/egress`, `/egress/canary`, `/egress/reset`, `/models`, `/audit` |
-| `main.py` | Starts and stops the egress watch with the app, and mounts the router |
+| `utils/fource_audit.py` | The audit trail: an append-only, hash-chained record of each run's request, sources, route, model and tool calls (with input and output hashes), file writes, verdict, approval and release, in `DATA_DIR/4ce/audit.jsonl` |
+| `utils/fource_offline.py` | In offline mode, refuses a library's attempt to download a model while running - the document loader's spaCy install - and records it |
+| `routers/fource.py` | `/api/v1/fource/egress`, `/egress/canary`, `/egress/reset`, `/models`, `/audit`, `/audit-trail` |
+| `main.py` | Starts and stops the egress watch with the app, installs the offline download guard, and mounts the router |
 | `socket/main.py` | Re-sends a pending sign-off to the same user's live sessions when the reviewer's tab reconnects |
 | `utils/fource.py`, `models/chats.py`, `routers/chats.py` | Reads each chat's run outcome (released, withheld, stopped) for the sidebar marks |
 
@@ -155,24 +159,32 @@ flowchart TD
    the box it was read from), and 4CE draws the boxes on a numbered copy.
    Pages and drawings are sent at up to 2200 px, photographs at 900.
 4. **Deterministic steps.** Retrieval runs for document, vision and
-   analysis tasks. An audit request runs `verify_sovereignty`. Readings in the
-   request, or read from the image, go to the SOP rule pack, and a
-   remaining-life request goes to the calculation tool. Their output reaches
-   the agents marked as authoritative.
+   analysis tasks. An audit request runs `verify_sovereignty`. An attached
+   spreadsheet is read by `read_sheet`, cell by cell with its formulas.
+   Readings in the request, or read from the image, go to the SOP rule pack;
+   a survey's locations go to it one by one; and a remaining-life request goes
+   to the calculation tool. Their output reaches the agents marked as
+   authoritative.
 5. **FRIDAY, then JARVIS.** FRIDAY grounds and analyses; JARVIS writes the
    deliverable. Generated code is then executed in the sandbox.
 6. **Verify.** ULTRON, on a different model from JARVIS by default, returns
    PASS or FAIL with one line per claim. 4CE's own checks can fail the result
    whatever ULTRON concluded: a failed execution, a figure cited to a source
-   that does not contain it, or a reading called within limits that the rule
-   pack did not pass.
+   that does not contain it, a reading called within limits that the rule
+   pack did not pass, a clause the rule pack applied called inapplicable, or
+   a workbook said to hold what 4CE has yet to write to it.
 7. **Replan once.** On a FAIL, FRIDAY and JARVIS run again with the objections
    attached. A second FAIL is delivered with the failure recorded.
 8. **Sign-off.** The reviewer must type `approve`; anything else withholds.
    See [ADR-0002](decisions/0002-fail-closed-human-approval.md).
 9. **Release.** The answer is fingerprinted with SHA-256, code blocks become
-   typed files, and a Word, Excel or PowerPoint file is written as the request
-   asks. Every answer carries a receipt and a provenance table.
+   typed files, a Word, Excel or PowerPoint file is written as the request
+   asks, and an attached workbook's approved changes go to a copy as live
+   formulas. Every answer carries a receipt and a provenance table.
+
+Every step from the request to the release is also appended to the audit
+trail, with the hashes of what went in and out, under the chat and message it
+belongs to.
 
 Live status events are emitted at each step, so the interface's stage rail
 shows the chain as it actually runs.
@@ -189,6 +201,8 @@ shows the chain as it actually runs.
 | Plugin source | App database, deployed from `4ce/` by `install.py` |
 | Model registry | `4ce/models.json`, copied into the orchestrator's valve on install |
 | Knowledge base definition | `install.py` and `4ce/demo/samples/`, so it can be rebuilt |
+| Audit trail | `backend/data/4ce/audit.jsonl`, append-only |
+| Workspace files and workbook copies | `backend/data/4ce/workspace/`, earlier versions under `.versions/` |
 
 ---
 
@@ -197,7 +211,7 @@ shows the chain as it actually runs.
 The full threat model is in [`SECURITY.md`](../../SECURITY.md). In short:
 
 - **Inference and embeddings** go only to the configured local endpoint.
-  `verify_sovereignty` audits that configuration across 18 surfaces.
+  `verify_sovereignty` audits that configuration across 19 surfaces.
 - **Egress is observed, not prevented.** The egress watch samples sockets; it
   does not capture packets, and it misses connections that open and close
   between samples, and DNS. A host firewall rule is what prevents egress, and
@@ -205,6 +219,11 @@ The full threat model is in [`SECURITY.md`](../../SECURITY.md). In short:
 - **Generated code** runs in a container with no network, a read-only root,
   all capabilities dropped, and CPU, memory, process and time caps.
 - **Plugins run with the server's privileges.** They are trusted code.
+- **Files stay in one folder.** The file and spreadsheet tools write only in
+  the workspace, keep earlier versions, never change a spreadsheet's source,
+  and refuse formulas that could reach outside the workbook.
+- **The audit trail is tamper-evident.** A changed or removed entry breaks the
+  chain; rewriting the whole chain after it is not prevented.
 - **Release requires a person.** With no interactive session the approval is
   recorded as *not obtained*, never as granted.
 
@@ -213,9 +232,10 @@ The full threat model is in [`SECURITY.md`](../../SECURITY.md). In short:
 ## External dependencies at runtime
 
 None beyond the machine. Building needs the network (npm packages, the
-Pyodide bundle, Python wheels, model downloads); running does not. The one
-background connection observed on the demo machine was the model server
-checking for its own updates. It is documented, with the firewall rule that
+Pyodide bundle, Python wheels, model downloads); running does not. Two
+connections have been observed on the demo machine: the model server checking
+for its own updates, and the document loader installing spaCy's model on the
+first spreadsheet uploaded, which offline mode now refuses. It is documented, with the firewall rule that
 blocks it, in [HOW_TO_RUN.md](HOW_TO_RUN.md#making-it-physical).
 
 ---
