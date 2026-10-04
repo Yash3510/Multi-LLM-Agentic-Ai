@@ -1,4 +1,4 @@
-// Builds the Team Kern SIH 2026 deck in the 4CE chat UI's design system: the app's greys and
+// Builds the Team Kern 4CE deck in the 4CE chat UI's design system: the app's greys and
 // violet, Apple's SF Pro with New York italics for emphasis, and the chat UI's own components
 // (input box, agent stepper, status chips, approval bar, file cards, checklist).
 //
@@ -37,7 +37,7 @@ pres.layout = "LAYOUT_WIDE";
 pres.theme = { headFontFace: THEME.headFontFace, bodyFontFace: THEME.bodyFontFace };
 pres.title = "4CE - Sovereign On-Premise Agentic AI Workbench";
 pres.author = "Team Kern";
-pres.subject = "Smart India Hackathon 2026 - SIH26117";
+pres.subject = "Sovereign On-Premise Agentic AI Workbench";
 const C = pres.SchemeColor;
 
 // Colour roles for the two scenes. A dark card on a light slide is drawn with DARK.
@@ -210,27 +210,28 @@ function fileCard(m, x, y, w, h, iconName, head, meta, btn, url, at) {
 
 // ================================================================= 1. TITLE (dark)
 startSlide("Opening",
-	"Smart India Hackathon 2026, problem statement SIH26117: a sovereign, on-premise agentic AI workbench that runs " +
-	"open-weight multimodal LLMs on confidential industrial data. Theme Smart Automation, category Software. We are Team Kern, and this is 4CE.");
+	"4CE is a sovereign, on-premise agentic AI workbench that runs open-weight multimodal LLMs on confidential industrial data. " +
+	"We are Team Kern.");
 text("4CE", { x: 6.12, y: 1.35, w: 3.4, h: 1.45, fontFace: HEAD, bold: true, fontSize: 100, charSpacing: -2, color: C.accent2, valign: "middle" }, "fade", 0);
 title("Sovereign ", "AI Workbench", { x: 0.6, y: 2.95, w: 12.13, h: 0.7, fontSize: 30, align: "center" });
 text("Sovereign On-Premise Agentic AI Workbench using Open-Weight Multimodal LLMs for Confidential Industrial Work",
 	{ x: 2.67, y: 3.7, w: 8.0, h: 0.62, fontSize: 15, align: "center", ...DARK.muted }, "up", 150);
-// the chat input box carries the hackathon details
+// the chat input box, as the 4CE chat opens
 {
 	const x = 2.67, y = 4.65, w = 8.0, at = 400;
 	card(DARK, x, y, w, 1.32, "up", at);
-	text("Smart India Hackathon 2026  ·  Problem statement SIH26117", { x: x + 0.3, y: y + 0.2, w: w - 0.6, h: 0.4, fontSize: 15, color: C.background1, valign: "middle" }, "up", at);
+	text("Ask about your documents, or give 4CE a task", { x: x + 0.3, y: y + 0.2, w: w - 0.6, h: 0.4, fontSize: 15, valign: "middle", ...DARK.muted }, "up", at);
 	icon("plus", "muted", x + 0.3, y + 0.86, 0.22, "up", at);
 	icon("sliders", "muted", x + 0.66, y + 0.86, 0.22, "up", at);
-	let cx = x + 1.05;
-	cx += chip(DARK, cx, y + 0.81, "Theme · Smart Automation", "plain", "zoom", at + 300) + 0.1;
-	chip(DARK, cx, y + 0.81, "Category · Software", "plain", "zoom", at + 380);
-	text("Team Kern  ·  4CE (ACE)", { x: x + 4.95, y: y + 0.81, w: 2.0, h: 0.32, fontSize: 11, align: "right", valign: "middle", ...DARK.muted }, "up", at);
-	icon("chevron", "muted", x + 7.0, y + 0.86, 0.2, "up", at);
+	icon("wrench", "muted", x + 1.02, y + 0.86, 0.2, "up", at);
+	text("7", { x: x + 1.26, y: y + 0.81, w: 0.3, h: 0.32, fontSize: 11, valign: "middle", ...DARK.muted }, "up", at);
+	text("4CE / TONY (Orchestrator)", { x: x + 4.2, y: y + 0.81, w: 2.3, h: 0.32, fontSize: 11, align: "right", valign: "middle", ...DARK.muted }, "up", at);
+	icon("chevron", "muted", x + 6.55, y + 0.86, 0.2, "up", at);
+	icon("mic", "muted", x + 6.92, y + 0.86, 0.22, "up", at);
 	shape(pres.ShapeType.ellipse, { x: x + 7.32, y: y + 0.78, w: 0.38, h: 0.38, fill: { color: C.background1 } }, "zoom", at + 500);
 	icon("arrowUp", "dark", x + 7.41, y + 0.87, 0.2, "zoom", at + 500);
 }
+text("TEAM KERN  ·  4CE (ACE)", { x: 0.6, y: 6.3, w: 12.13, h: 0.3, fontSize: 11, bold: true, charSpacing: 2, align: "center", ...DARK.muted }, "fade", 900);
 
 // ================================================================= 2. OUR SOLUTION (light)
 startSlide("Solution",

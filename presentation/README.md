@@ -1,6 +1,6 @@
-# Team Kern · SIH 2026 deck
+# 4CE deck · Team Kern
 
-`Team-Kern-SIH2026-Sovereign-AI.pptx` is the 10-slide pitch for problem statement SIH26117. It uses the 4CE chat UI's own design system, taken from the demo video and the app source:
+`4CE-Sovereign-AI-Workbench.pptx` is the 10-slide pitch for 4CE, the sovereign on-premise agentic AI workbench. It uses the 4CE chat UI's own design system, taken from the demo video and the app source:
 
 - **Colours:** chat-page grey `#171717`, cards `#262626`, light canvas `#EEEFF1`, muted greys `#9B9B9B` (on dark) and `#666666` (on light), and violet `#7C3AED` / `#A78BFA` as the only accent. Green `#34D399` means passed or observed, and amber `#FBBF24` means checked, as they do in the app.
 - **Scenes:** dark chat-UI slides alternate with light statement slides, like the demo.
@@ -8,7 +8,7 @@
 
 Open it in **PowerPoint 2019 or Microsoft 365** and present from slide 1. Every slide uses a Morph transition: the light canvas sweeps across between dark and light slides, the violet pixel blocks drift and the 4CE mark turns. Content builds in automatically after each morph lands. Older PowerPoint versions and Google Slides fall back to a fade.
 
-`Team-Kern-SIH2026-Sovereign-AI-preview.pdf` and `preview.jpg` are static previews with no motion. They were rendered with stand-in fonts.
+`4CE-Sovereign-AI-Workbench-preview.pdf` and `preview.jpg` are static previews with no motion. They were rendered with stand-in fonts.
 
 ## Fonts
 
