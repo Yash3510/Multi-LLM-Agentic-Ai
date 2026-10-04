@@ -1,6 +1,6 @@
 """Adds what pptxgenjs cannot write: a Morph transition on every slide, auto-playing entrance
-animations (from anim.json) that run once each morph lands, mint-to-cyan gradient titles, and
-the deck's own colour scheme (from theme.json, which build.cjs writes next to anim.json).
+animations (from anim.json) that run once each morph lands, and the deck's own colour scheme
+(from theme.json, which build.cjs writes next to anim.json).
 
     python postprocess.py deck.raw.pptx anim.json deck.pptx
 
@@ -24,14 +24,6 @@ TRANSITION = (
     '<mc:Fallback><p:transition spd="slow"><p:fade/></p:transition></mc:Fallback>'
     "</mc:AlternateContent>"
 ).format(ms=MORPH_MS)
-
-GRADIENT = (
-    '<a:gradFill flip="none" rotWithShape="1"><a:gsLst>'
-    '<a:gs pos="0"><a:schemeClr val="accent2"/></a:gs>'
-    '<a:gs pos="100000"><a:schemeClr val="accent3"/></a:gs>'
-    '</a:gsLst><a:lin ang="0" scaled="1"/></a:gradFill>'
-)
-
 
 class Ids:
     def __init__(self):
@@ -135,17 +127,6 @@ def shape_map(xml):
     return {m.group(3): (m.group(2), kinds[m.group(1)]) for m in SHAPE_RE.finditer(xml)}
 
 
-def gradient_title(xml):
-    start = xml.find('name="!!title"')
-    if start < 0:
-        return xml
-    s = xml.rfind("<p:sp>", 0, start)
-    e = xml.find("</p:sp>", start)
-    block = xml[s:e]
-    block = block.replace('<a:solidFill><a:schemeClr val="accent2"/></a:solidFill>', GRADIENT)
-    return xml[:s] + block + xml[e:]
-
-
 HLINK_USE_TEXT_COLOR = (
     '<a:extLst><a:ext uri="{A12FA001-AC4F-418D-AE19-62706E023703}">'
     '<ahyp:hlinkClr xmlns:ahyp="http://schemas.microsoft.com/office/drawing/2018/hyperlinkcolor" val="tx"/>'
@@ -159,7 +140,6 @@ def process_slide(xml, items):
     # PowerPoint paints links in the theme's link colour unless told to keep the run's colour,
     # which would put light-blue text on the white link buttons.
     xml = re.sub(r"<a:hlinkClick([^>]*)/>", r"<a:hlinkClick\1>" + HLINK_USE_TEXT_COLOR + "</a:hlinkClick>", xml)
-    xml = gradient_title(xml)
     shapes = shape_map(xml)
     missing = [it["name"] for it in items if it["name"] not in shapes]
     if missing:
