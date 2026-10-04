@@ -8,18 +8,11 @@
 
 Open it in **PowerPoint 2019 or Microsoft 365** and present from slide 1. Every slide uses a Morph transition: the light canvas sweeps across between dark and light slides, the violet pixel blocks drift and the 4CE mark turns. Content builds in automatically after each morph lands. Older PowerPoint versions and Google Slides fall back to a fade.
 
-`4CE-Sovereign-AI-Workbench-preview.pdf` and `preview.jpg` are static previews with no motion. They were rendered with stand-in fonts.
+`4CE-Sovereign-AI-Workbench-preview.pdf` and `preview.jpg` are static previews with no motion. They were rendered with the deck's own fonts.
 
 ## Fonts
 
-All the fonts are Apple's, set from the theme and the generator:
-
-- **SF Pro Display** for headings
-- **SF Pro Text** for body text
-- **New York** italic for the violet emphasis words
-- **SF Mono** for the sandbox flags
-
-Office doesn't include them, so install them from developer.apple.com/fonts on the machine you present from. Without them, PowerPoint substitutes the nearest kind of font: Arial, a serif and a monospace. If you can't install fonts at the venue, export a video from a machine that has them (File → Export → MP4). The video keeps both the fonts and the Morph motion.
+The deck uses the chat UI's own fonts (`src/tailwind.css`, `src/app.css`): **Inter** for all text, and **JetBrains Mono** for the sandbox flags. Both are free and open-licensed. Office doesn't include them, so install them on the machine you present from (Google Fonts has both). The app also ships Inter as `static/assets/fonts/Inter-Variable.ttf`. Without them, PowerPoint substitutes Arial and a monospace face. If you can't install fonts at the venue, export a video from a machine that has them (File → Export → MP4). The video keeps both the fonts and the Morph motion.
 
 ## Editing
 

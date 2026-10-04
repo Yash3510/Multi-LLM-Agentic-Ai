@@ -128,8 +128,7 @@ def shape_map(xml):
 
 
 FONT_HINTS = {
-    "New York": 'panose="02040503050406030204" pitchFamily="18" charset="0"',  # serif, like Georgia
-    "SF Mono": 'panose="020B0509030504030204" pitchFamily="49" charset="0"',  # monospace
+    "JetBrains Mono": 'panose="020B0509030504030204" pitchFamily="49" charset="0"',  # monospace
 }
 
 HLINK_USE_TEXT_COLOR = (
@@ -142,8 +141,8 @@ HLINK_USE_TEXT_COLOR = (
 def process_slide(xml, items):
     # pptxgenjs writes the source file path as the description of a picture with no alt text
     xml = re.sub(r'descr="/[^"]*"', 'descr=""', xml)
-    # Runs set in New York or SF Mono name the font directly. Give them a serif or monospace
-    # pitch family and PANOSE so a machine without Apple's fonts substitutes the same kind of face.
+    # Runs set in JetBrains Mono name the font directly. Give them a monospace pitch family and
+    # PANOSE so a machine without it substitutes another monospace face.
     for face, hint in FONT_HINTS.items():
         xml = re.sub(rf'(<a:(?:latin|ea|cs) typeface="{face}")[^/]*/>', rf"\1 {hint}/>", xml)
     # PowerPoint paints links in the theme's link colour unless told to keep the run's colour,
@@ -175,7 +174,7 @@ def apply_theme(xml, theme):
     slots = "".join(f'<a:{k}><a:srgbClr val="{colors[k]}"/></a:{k}>' for k in SLOTS)
     xml, n = re.subn(r"<a:clrScheme [^>]*>.*?</a:clrScheme>", f'<a:clrScheme name="{theme["name"]}">{slots}</a:clrScheme>', xml, flags=re.S)
     assert n == 1
-    # SF Pro is not installed with Office. A sans-serif PANOSE and pitch family on the theme fonts
+    # Inter is not installed with Office. A sans-serif PANOSE and pitch family on the theme fonts
     # make PowerPoint substitute a plain sans (Arial) on machines without it, rather than a serif.
     xml, n = re.subn(
         r'(<a:(?:major|minor)Font><a:latin typeface="[^"]*")/>',

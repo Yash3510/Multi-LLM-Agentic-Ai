@@ -1,5 +1,5 @@
 // Builds the Team Kern 4CE deck in the 4CE chat UI's design system: the app's greys and
-// violet, Apple's SF Pro with New York italics for emphasis, and the chat UI's own components
+// violet, its fonts (Inter, JetBrains Mono for code) and the chat UI's own components
 // (input box, agent stepper, status chips, approval bar, file cards, checklist).
 //
 // Every slide carries the same named "actors" - !!glow, !!canvas, !!px1-7, !!mark, !!eyebrow,
@@ -20,8 +20,9 @@ const W = 13.333, H = 7.5;
 // amber-400 for "checked".
 const THEME = {
 	name: "4CE",
-	headFontFace: "SF Pro Display",
-	bodyFontFace: "SF Pro Text",
+	// the chat UI's fonts (src/tailwind.css, src/app.css): Inter, with JetBrains Mono for code
+	headFontFace: "Inter",
+	bodyFontFace: "Inter",
 	colors: {
 		dk1: "171717", lt1: "EEEFF1", dk2: "262626", lt2: "FFFFFF",
 		accent1: "7C3AED", accent2: "A78BFA", accent3: "34D399", accent4: "FBBF24",
@@ -29,8 +30,7 @@ const THEME = {
 	},
 };
 const HEAD = "+mj-lt";
-const SERIF = "New York"; // Apple's serif, for the demo's italic emphasis words
-const MONO = "SF Mono";
+const MONO = "JetBrains Mono";
 
 const pres = new pptxgen();
 pres.layout = "LAYOUT_WIDE";
@@ -125,12 +125,12 @@ function shape(type, o, fx, at) {
 function icon(name, tone, x, y, s, fx, at) {
 	cur.slide.addImage({ path: A(`icon-${name}-${tone}.png`), x, y, w: s, h: s, objectName: nm(fx, at), altText: "" });
 }
-// Title in the demo's voice: a plain clause, then an italic New York clause in violet.
+// Title in the demo's voice: a plain clause, then a clause in violet.
 function title(plain, accent, o = {}) {
 	const m = cur.m;
 	text([
 		{ text: plain, options: { fontFace: HEAD, color: m.text, charSpacing: -0.5 } },
-		{ text: accent, options: { fontFace: SERIF, italic: true, color: m.accent } },
+		{ text: accent, options: { fontFace: HEAD, color: m.accent, charSpacing: -0.5 } },
 	], { objectName: "!!title", x: 0.6, y: 0.75, w: 9.2, h: 0.85, fontSize: 36, valign: "middle", ...o });
 }
 const label = (m, t, x, y, w, fx, at) =>
@@ -319,7 +319,7 @@ const COLS = [0.6, 4.81, 9.02], CW = 3.71;
 		text(mdl, { x: x + 0.2, y: y + 2.72 + k * 0.32, w: 2.4, h: 0.3, fontSize: 11.5, color: k === 0 ? C.background1 : C.accent5, valign: "middle" }, "up", at + 200 + k * 80);
 		if (k === 0) icon("check", "lilac", x + 2.75, y + 2.78, 0.2, "zoom", at + 300);
 	});
-	text("Change the model, not the architecture.", { x, y: y + 4.18, w: 3.11, h: 0.55, fontFace: SERIF, italic: true, fontSize: 13, color: C.accent2 }, "up", at + 600);
+	text("Change the model, not the architecture.", { x, y: y + 4.18, w: 3.11, h: 0.55, fontSize: 13, color: C.accent2 }, "up", at + 600);
 }
 
 // ================================================================= 4. TECHNICAL APPROACH (light)
@@ -445,7 +445,7 @@ title("Real value, ", "higher control.");
 ].forEach(([n, h, pts, x, y, w], i) => {
 	const at = i * 200;
 	card(DARK, x, y, w, 2.3, "up", at);
-	text(n, { x: x + 0.3, y: y + 0.22, w: 1, h: 0.5, fontFace: SERIF, italic: true, fontSize: 26, color: C.accent2, valign: "middle" }, "up", at);
+	text(n, { x: x + 0.3, y: y + 0.22, w: 1, h: 0.5, fontFace: HEAD, bold: true, fontSize: 24, color: C.accent2, valign: "middle" }, "up", at);
 	text(h, { x: x + 0.3, y: y + 0.8, w: w - 0.6, h: 0.4, fontSize: 16, bold: true, color: C.background1, valign: "middle" }, "up", at);
 	chips(DARK, x + 0.3, y + 1.35, w - 0.6, pts, "plain", at + 150);
 });
@@ -473,7 +473,7 @@ title("From workbench to ", "control layer.");
 	stepper(DARK, cxs[0] - 0.08, 3.28, cxs[4] - cxs[0], steps.map(() => ({})), { dashed: true, highlight: 4, at: at + 300 });
 	steps.forEach(([h, d], i) => {
 		const sat = at + 300 + i * 160;
-		text(`0${i + 1}`, { x: cxs[i] - 1.1, y: 2.86, w: 2.2, h: 0.34, fontFace: SERIF, italic: true, fontSize: 16, color: C.accent2, align: "center", valign: "middle" }, "up", sat);
+		text(`0${i + 1}`, { x: cxs[i] - 1.1, y: 2.86, w: 2.2, h: 0.34, bold: true, fontSize: 14, color: C.accent2, align: "center", valign: "middle" }, "up", sat);
 		text(h, { x: cxs[i] - 1.1, y: 3.6, w: 2.2, h: 0.55, fontSize: 13.5, bold: true, color: C.background1, align: "center", valign: "middle" }, "up", sat);
 		text(d, { x: cxs[i] - 1.1, y: 4.2, w: 2.2, h: 1.15, fontSize: 11.5, align: "center", ...DARK.muted }, "up", sat);
 	});
@@ -541,7 +541,7 @@ shape(pres.ShapeType.roundRect, { x: 2.67, y: 5.0, w: 8.0, h: 0.72, rectRadius: 
 	shadow: { type: "outer", color: THEME.colors.accent1, opacity: 0.3, blur: 14, offset: 0, angle: 90 } }, "zoom", 800);
 text([
 	{ text: "Powerful enough for enterprises. ", options: { color: C.text1 } },
-	{ text: "Controlled enough to trust.", options: { fontFace: SERIF, italic: true, color: C.accent1 } },
+	{ text: "Controlled enough to trust.", options: { color: C.accent1 } },
 ], { x: 2.67, y: 5.0, w: 8.0, h: 0.72, fontSize: 17, align: "center", valign: "middle" }, "zoom", 800);
 text("THANK YOU  ·  TEAM KERN  ·  4CE (ACE)", { x: 0.6, y: 6.25, w: 12.13, h: 0.3, fontSize: 11, bold: true, charSpacing: 2, align: "center", ...LIGHT.muted }, "fade", 1100);
 
