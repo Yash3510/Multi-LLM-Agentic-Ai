@@ -10,6 +10,17 @@ Open it in **PowerPoint 2019 or Microsoft 365** and present from slide 1. Every 
 
 `4CE-Sovereign-AI-Workbench-static.pptx` is the same deck with no motion at all: no Morph transitions and no entrance animations. Every slide appears complete when you advance to it. Use it where animations misbehave, for printing, or for sharing as a document.
 
+`4CE-Sovereign-AI-Workbench.html` is the fallback if PowerPoint misbehaves. It is one self-contained file, with fonts, icons and images embedded, that opens offline in any modern browser. It has the same slides with the same motion: the shared shapes glide between slides as they do with Morph, and content builds in after each move. Controls:
+
+- **→, Space, Page Down or a click:** next slide (a clicker works too)
+- **←:** previous slide
+- **F:** full screen
+- **N:** speaker notes
+- **M:** motion on or off
+- **?:** help
+
+Add `?static` to the address to open it with no motion. Printing from the browser gives one slide per page.
+
 `4CE-Sovereign-AI-Workbench-preview.pdf` and `preview.jpg` are static previews with no motion. They were rendered with the deck's own fonts.
 
 ## Fonts
@@ -28,6 +39,9 @@ node generator/assets.cjs                                  # icons, glow, pixel 
 node generator/build.cjs deck.raw.pptx                     # slides, plus anim.json and theme.json
 python generator/postprocess.py deck.raw.pptx anim.json deck.pptx   # Morph, entrance animations, theme colours
 python generator/postprocess.py deck.raw.pptx anim.json deck-static.pptx --static   # the no-motion version
+node generator/html.cjs deck.html                          # the browser version (also needs @fontsource/jetbrains-mono)
 ```
+
+`html.cjs` draws the same slides as `build.cjs`: it loads `build.cjs` with a stand-in for pptxgenjs and renders each shape as HTML. It trims the app's Inter font to the deck's characters with Python's fontTools (with `brotli` installed), and embeds the whole font if fontTools is missing.
 
 The palette is defined once, in `THEME` at the top of `build.cjs`.

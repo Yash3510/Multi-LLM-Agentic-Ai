@@ -546,9 +546,13 @@ text([
 text("THANK YOU  ·  TEAM KERN  ·  4CE (ACE)", { x: 0.6, y: 6.25, w: 12.13, h: 0.3, fontSize: 11, bold: true, charSpacing: 2, align: "center", ...LIGHT.muted }, "fade", 1100);
 
 // ---------------------------------------------------------------- write
-(async () => {
-	await pres.writeFile({ fileName: OUT });
-	fs.writeFileSync(path.join(path.dirname(OUT), "anim.json"), JSON.stringify(ANIM, null, 1));
-	fs.writeFileSync(path.join(path.dirname(OUT), "theme.json"), JSON.stringify(THEME, null, 1));
-	console.log("wrote", OUT);
-})();
+// html.cjs loads this file with a stand-in for pptxgenjs and draws the same slides as HTML.
+module.exports = { ANIM, THEME, MORPH_MS: 1500 };
+if (require.main === module) {
+	(async () => {
+		await pres.writeFile({ fileName: OUT });
+		fs.writeFileSync(path.join(path.dirname(OUT), "anim.json"), JSON.stringify(ANIM, null, 1));
+		fs.writeFileSync(path.join(path.dirname(OUT), "theme.json"), JSON.stringify(THEME, null, 1));
+		console.log("wrote", OUT);
+	})();
+}
