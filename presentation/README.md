@@ -10,7 +10,7 @@ Open it in **PowerPoint 2019 or Microsoft 365** and present from slide 1. Every 
 
 The pieces that morph share a name on every slide: `!!band`, `!!wheel`, `!!ringA`, `!!ringB`, `!!ghost` and `!!title`. To edit or rearrange one, open Home → Arrange → Selection Pane. Keep the names, or Morph will stop matching the shapes from slide to slide.
 
-Headings use Arial Black and body text uses Calibri, both set in the theme. To use League Spartan instead, change the heading font once under Design → Variants → Fonts.
+Headings use **SF Pro Display** and body text uses **SF Pro Text**, Apple's San Francisco fonts, both set in the theme. Office doesn't include them, so install SF Pro from Apple's developer fonts page (developer.apple.com/fonts) on the machine you present from. Without it, PowerPoint falls back to Arial. To present on a computer you can't install fonts on, export a video from a machine that has them (File → Export → MP4). The video keeps both the fonts and the Morph motion.
 
 ## Rebuilding
 

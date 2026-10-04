@@ -11,8 +11,9 @@ const A = (f) => path.join(__dirname, "assets", f);
 
 const THEME = {
 	name: "Graphite Signal",
-	headFontFace: "Arial Black",
-	bodyFontFace: "Calibri",
+	// Apple's San Francisco: Display for headings, Text for body copy
+	headFontFace: "SF Pro Display",
+	bodyFontFace: "SF Pro Text",
 	// graphite and bone, with safety orange as the only accent
 	colors: {
 		dk1: "141414", lt1: "F2F2EE", dk2: "1F1F1D", lt2: "A3A39C",
@@ -70,7 +71,7 @@ function startSlide(section, notes) {
 	});
 	slide.addText("4CE", {
 		isTextBox: true, objectName: "!!ghost", x: st.ghost[0], y: st.ghost[1], w: 9.6, h: 3.8, margin: 0,
-		fontFace: HEAD, fontSize: 250, color: K.card, valign: "middle",
+		fontFace: HEAD, bold: true, fontSize: 250, color: K.card, valign: "middle",
 	});
 	const [bx, by, bw, bh, br] = st.band;
 	slide.addShape(pres.ShapeType.roundRect, { objectName: "!!band", x: bx, y: by, w: bw, h: bh, rectRadius: br, fill: { color: K.accent } });
@@ -106,13 +107,13 @@ function badge(iconName, x, y, d, fill, tone, fx, at, ring = false) {
 }
 function title(t, o = {}) {
 	text(t, {
-		objectName: "!!title", x: 0.6, y: 0.42, w: 9.8, h: 0.75, fontFace: HEAD, fontSize: 30,
-		color: K.ink, valign: "middle", ...o,
+		objectName: "!!title", x: 0.6, y: 0.42, w: 9.8, h: 0.75, fontFace: HEAD, bold: true, fontSize: 32,
+		charSpacing: -0.5, color: K.ink, valign: "middle", ...o,
 	});
 }
 // Small caps label above a group of content.
 const label = (t, x, y, w, color, fx, at) =>
-	text(t, { x, y, w, h: 0.35, fontSize: 13, bold: true, color, charSpacing: 3 }, fx, at);
+	text(t, { x, y, w, h: 0.35, fontSize: 13, bold: true, color, charSpacing: 2 }, fx, at);
 // Dark panel with a hairline edge; pass another fill (and line = null) for cards on the orange band.
 const card = (x, y, w, h, fx, at, fill = { color: K.card }, line = { color: K.line, width: 0.75 }) =>
 	shape(pres.ShapeType.roundRect, { x, y, w, h, rectRadius: 0.1, fill, ...(line ? { line } : {}) }, fx, at);
@@ -123,21 +124,22 @@ startSlide("Opening",
 	"that runs open-weight multimodal LLMs on confidential industrial data. Theme Smart Automation, category Software. " +
 	"We are Team Kern, and the project is 4CE (ACE).");
 label("SMART INDIA HACKATHON 2026", 0.6, 1.15, 5.5, K.accent, "up", 0);
-title("SOVEREIGN", { x: 0.6, y: 1.65, w: 6.2, h: 1.1, fontSize: 60 });
-text("AGENTIC AI WORKBENCH", { x: 0.6, y: 2.78, w: 6.0, h: 0.6, fontFace: HEAD, fontSize: 26, color: K.accent, valign: "middle" }, "up", 150);
+title("SOVEREIGN", { x: 0.6, y: 1.65, w: 6.2, h: 1.1, fontSize: 64, charSpacing: -1.5 });
+text("AGENTIC AI WORKBENCH", { x: 0.6, y: 2.78, w: 6.0, h: 0.6, fontFace: HEAD, bold: true, fontSize: 26, color: K.accent, valign: "middle" }, "up", 150);
 text("Sovereign On-Premise Agentic AI Workbench using Open-Weight Multimodal LLMs for Confidential Industrial Work",
-	{ x: 0.6, y: 3.6, w: 5.75, h: 0.8, fontSize: 16, color: K.muted }, "up", 300);
-[["PS ID", "SIH26117"], ["THEME", "Smart Automation"], ["CATEGORY", "Software"]].forEach(([k, v], i) => {
-	const x = 0.6 + i * 1.97, at = 450 + i * 120;
-	card(x, 4.62, 1.85, 0.8, "up", at);
-	text(k, { x: x + 0.18, y: 4.7, w: 1.6, h: 0.28, fontSize: 11, bold: true, color: K.muted, charSpacing: 2 }, "up", at);
-	text(v, { x: x + 0.18, y: 4.98, w: 1.62, h: 0.34, fontSize: 15, bold: true, color: K.ink }, "up", at);
-});
+	{ x: 0.6, y: 3.55, w: 5.8, h: 0.8, fontSize: 15, color: K.muted }, "up", 300);
+[["PS ID", "SIH26117", 1.55], ["THEME", "Smart Automation", 2.3], ["CATEGORY", "Software", 1.7]].reduce((x, [k, v, w], i) => {
+	const at = 450 + i * 120;
+	card(x, 4.7, w, 0.8, "up", at);
+	text(k, { x: x + 0.18, y: 4.78, w: w - 0.3, h: 0.28, fontSize: 11, bold: true, color: K.muted, charSpacing: 2 }, "up", at);
+	text(v, { x: x + 0.18, y: 5.06, w: w - 0.25, h: 0.34, fontSize: 15, bold: true, color: K.ink }, "up", at);
+	return x + w + 0.15;
+}, 0.6);
 text([
 	{ text: "TEAM KERN", options: { color: K.ink } },
 	{ text: "   /   ", options: { color: K.muted } },
 	{ text: "4CE (ACE)", options: { color: K.accent } },
-], { x: 0.6, y: 5.75, w: 5.8, h: 0.5, fontFace: HEAD, fontSize: 20, valign: "middle" }, "up", 850);
+], { x: 0.6, y: 5.85, w: 5.8, h: 0.5, fontFace: HEAD, bold: true, fontSize: 20, valign: "middle" }, "up", 850);
 
 // ================================================================= 2. OUR SOLUTION
 startSlide("Solution",
@@ -153,7 +155,7 @@ title("OUR SOLUTION");
 	const y = 1.72 + i * 1.28, at = i * 160;
 	card(6.2, y, 6.2, 1.08, "up", at, { color: K.bg, transparency: 88 }, null);
 	badge(ic, 6.4, y + 0.19, 0.7, K.bg, "orange", "zoom", at + 200);
-	text(h, { x: 7.35, y: y + 0.14, w: 4.9, h: 0.4, fontFace: HEAD, fontSize: 16, color: K.onAccent, charSpacing: 1 }, "up", at);
+	text(h, { x: 7.35, y: y + 0.14, w: 4.9, h: 0.4, fontFace: HEAD, bold: true, fontSize: 16, color: K.onAccent, charSpacing: 1 }, "up", at);
 	text(d, { x: 7.35, y: y + 0.56, w: 4.9, h: 0.38, fontSize: 16, color: K.onAccent }, "up", at);
 });
 
@@ -162,7 +164,7 @@ startSlide(null,
 	"Why it is different. Generated code never runs on the host: it goes to an isolated sandbox for controlled execution. " +
 	"Every action passes a central control layer for authorization, and sensitive actions need a human to approve them. " +
 	"The architecture is model-independent: Qwen, Gemma, Mistral or another open model - change the model, not the architecture.");
-title("WHY\nDIFFERENT", { x: 0.6, y: 0.75, w: 3.8, h: 1.6, fontSize: 34, color: K.onAccent, valign: "top" });
+title("WHY\nDIFFERENT", { x: 0.6, y: 0.75, w: 3.8, h: 1.6, fontSize: 38, charSpacing: -0.5, color: K.onAccent, valign: "top" });
 text("Three design choices make agentic AI safe to run on confidential data.",
 	{ x: 0.6, y: 2.55, w: 3.6, h: 1.0, fontSize: 17, color: K.onAccent }, "up", 100);
 
@@ -170,15 +172,15 @@ text("Three design choices make agentic AI safe to run on confidential data.",
 function chips(x, y, items, arrows, at) {
 	let cx = x;
 	items.forEach((t, i) => {
-		const w = t.length * 0.088 + 0.36;
+		const w = t.length * 0.094 + 0.34;
 		const last = arrows && i === items.length - 1;
 		shape(pres.ShapeType.roundRect, { x: cx, y, w, h: 0.42, rectRadius: 0.21, fill: { color: last ? K.accent : K.raised }, ...(last ? {} : { line: { color: K.line, width: 0.75 } }) }, "wipe", at + i * 140);
-		text(t, { x: cx, y, w, h: 0.42, fontSize: 13, bold: true, color: last ? K.onAccent : K.ink, align: "center", valign: "middle" }, "wipe", at + i * 140);
+		text(t, { x: cx, y, w, h: 0.42, fontSize: 12, bold: true, color: last ? K.onAccent : K.ink, align: "center", valign: "middle" }, "wipe", at + i * 140);
 		cx += w;
 		if (i < items.length - 1) {
 			if (arrows) {
-				text("→", { x: cx, y, w: 0.38, h: 0.42, fontSize: 18, bold: true, color: K.accent, align: "center", valign: "middle" }, "wipe", at + i * 140 + 70);
-				cx += 0.38;
+				text("→", { x: cx, y, w: 0.34, h: 0.42, fontSize: 18, bold: true, color: K.accent, align: "center", valign: "middle" }, "wipe", at + i * 140 + 70);
+				cx += 0.34;
 			} else cx += 0.15;
 		}
 	});
@@ -225,9 +227,9 @@ STACK.forEach(([h, d, ic], i) => {
 	const x = 0.6 + (full ? 0 : col * 4.05), y = 1.45 + row * 1.38, w = full ? 7.85 : 3.8;
 	const at = i * 110;
 	card(x, y, w, 1.2, "up", at);
-	badge(ic, x + 0.22, y + 0.3, 0.6, K.raised, "bone", "zoom", at + 150);
-	text(h, { x: x + 1.0, y: y + 0.16, w: w - 1.2, h: 0.36, fontSize: 15, bold: true, color: K.ink, valign: "middle" }, "up", at);
-	text(d, { x: x + 1.0, y: y + 0.55, w: w - 1.15, h: 0.56, fontSize: 13, color: K.muted }, "up", at);
+	badge(ic, x + 0.2, y + 0.32, 0.56, K.raised, "bone", "zoom", at + 150);
+	text(h, { x: x + 0.92, y: y + 0.14, w: w - 1.05, h: 0.36, fontSize: 15, bold: true, color: K.ink, valign: "middle" }, "up", at);
+	text(d, { x: x + 0.92, y: y + 0.52, w: w - 1.0, h: 0.62, fontSize: 13, color: K.muted }, "up", at);
 });
 label("BUILD STATUS", 9.35, 0.75, 3.5, K.onAccent, "up", 300);
 cur.slide.addChart(pres.ChartType.doughnut, [{ name: "Prototype", labels: ["Completed", "Remaining"], values: [75, 25] }], {
@@ -236,7 +238,7 @@ cur.slide.addChart(pres.ChartType.doughnut, [{ name: "Prototype", labels: ["Comp
 	dataBorder: { pt: 0, color: THEME.colors.accent1 }, objectName: nm("zoom", 450),
 	altText: "Doughnut chart: over 75 percent of the prototype completed",
 });
-text("75%+", { x: 9.5, y: 2.42, w: 3.2, h: 0.75, fontFace: HEAD, fontSize: 30, color: K.onAccent, align: "center", valign: "middle" }, "zoom", 750);
+text("75%+", { x: 9.5, y: 2.42, w: 3.2, h: 0.75, fontFace: HEAD, bold: true, fontSize: 30, color: K.onAccent, align: "center", valign: "middle" }, "zoom", 750);
 text("of the prototype is already built", { x: 9.35, y: 4.55, w: 3.6, h: 0.65, fontSize: 16, color: K.onAccent, align: "center" }, "up", 900);
 shape(pres.ShapeType.roundRect, { x: 9.4, y: 5.38, w: 3.5, h: 0.6, rectRadius: 0.3, fill: { color: K.bg } }, "up", 1050);
 icon("github", "bone", 9.65, 5.52, 0.32, "up", 1050);
@@ -314,14 +316,14 @@ const IMPACT = [
 IMPACT.forEach(([n, h, pts, x, y], i) => {
 	const at = 150 + i * 220;
 	card(x, y, 4.0, 1.7, "up", at);
-	text(n, { x: x + 0.25, y: y + 0.2, w: 0.75, h: 0.45, fontFace: HEAD, fontSize: 22, color: K.accent, valign: "middle" }, "up", at);
-	text(h, { x: x + 1.0, y: y + 0.2, w: 2.85, h: 0.45, fontSize: 16, bold: true, color: K.ink, valign: "middle" }, "up", at);
+	text(n, { x: x + 0.25, y: y + 0.2, w: 0.75, h: 0.45, fontFace: HEAD, bold: true, fontSize: 22, color: K.accent, valign: "middle" }, "up", at);
+	text(h, { x: x + 0.9, y: y + 0.2, w: 3.0, h: 0.45, fontSize: 15, bold: true, color: K.ink, valign: "middle" }, "up", at);
 	text(pts.map((p, k) => ({ text: p, options: { bullet: { indent: 14 }, breakLine: k < pts.length - 1 } })),
 		{ x: x + 0.25, y: y + 0.75, w: 3.6, h: 0.85, fontSize: 14, color: K.muted, paraSpaceAfter: 2 }, "up", at);
 });
 card(4.17, 5.8, 5.0, 1.2, "up", 1050);
-text("05", { x: 4.42, y: 5.92, w: 0.75, h: 0.42, fontFace: HEAD, fontSize: 22, color: K.accent, valign: "middle" }, "up", 1050);
-text("ECONOMIC & INDUSTRIAL IMPACT", { x: 5.17, y: 5.92, w: 3.85, h: 0.42, fontSize: 16, bold: true, color: K.ink, valign: "middle" }, "up", 1050);
+text("05", { x: 4.42, y: 5.92, w: 0.75, h: 0.42, fontFace: HEAD, bold: true, fontSize: 22, color: K.accent, valign: "middle" }, "up", 1050);
+text("ECONOMIC & INDUSTRIAL IMPACT", { x: 5.07, y: 5.92, w: 3.95, h: 0.42, fontSize: 15, bold: true, color: K.ink, valign: "middle" }, "up", 1050);
 text("Lower recurring AI costs · secure enterprise adoption · regulated industries",
 	{ x: 4.42, y: 6.38, w: 4.6, h: 0.55, fontSize: 14, color: K.muted }, "up", 1050);
 
@@ -391,7 +393,7 @@ REFS.forEach(([h, ic, items], i) => {
 			options: { ...r.options, ...(r.options.hyperlink ? { color: K.ink } : {}), breakLine: j === words.length - 1 && k < items.length - 1 },
 		}));
 	});
-	text(runs, { x: x + 0.25, y: 2.5, w: 3.25, h: 2.55, fontSize: 15, color: K.muted, paraSpaceAfter: 10 }, "up", at + 100);
+	text(runs, { x: x + 0.25, y: 2.45, w: 3.3, h: 2.6, fontSize: 14, color: K.muted, paraSpaceAfter: 7 }, "up", at + 100);
 });
 text("LINKS", { x: 1.05, y: 5.845, w: 1.3, h: 0.56, fontSize: 13, bold: true, color: K.onAccent, charSpacing: 3, valign: "middle" }, "fade", 700);
 [
@@ -410,18 +412,18 @@ text("LINKS", { x: 1.05, y: 5.845, w: 1.3, h: 0.56, fontSize: 13, bold: true, co
 startSlide("Close",
 	"Your data stays yours. Sovereign, secure, verifiable, actionable: it turns private organisational knowledge into actionable intelligence " +
 	"and automates real workflows while keeping humans in control. Powerful enough for enterprises, controlled enough to trust. Thank you.");
-title("YOUR DATA\nSTAYS YOURS", { x: 0.6, y: 1.0, w: 6.6, h: 2.2, fontSize: 48, color: K.onAccent, valign: "top" });
+title("YOUR DATA\nSTAYS YOURS", { x: 0.6, y: 1.0, w: 6.6, h: 2.2, fontSize: 54, charSpacing: -1, color: K.onAccent, valign: "top" });
 text("Sovereign. Secure. Verifiable. Actionable.", { x: 0.6, y: 3.35, w: 6.6, h: 0.5, fontSize: 21, bold: true, color: K.onAccent }, "up", 100);
 text([
 	{ text: "Turns private organisational knowledge into actionable intelligence.", options: { bullet: { indent: 16 }, breakLine: true } },
 	{ text: "Automates real workflows while keeping humans in control.", options: { bullet: { indent: 16 } } },
-], { x: 0.6, y: 3.95, w: 6.4, h: 0.95, fontSize: 16, color: K.onAccent, paraSpaceAfter: 4 }, "up", 300);
-text("Powerful enough for enterprises. Controlled enough to trust.", { x: 0.6, y: 5.0, w: 6.4, h: 0.45, fontSize: 16, italic: true, color: K.onAccent }, "up", 500);
-shape(pres.ShapeType.roundRect, { x: 0.6, y: 5.75, w: 5.2, h: 0.7, rectRadius: 0.35, fill: { color: K.bg } }, "fly", 700);
+], { x: 0.6, y: 3.9, w: 6.6, h: 1.15, fontSize: 15, color: K.onAccent, paraSpaceAfter: 4 }, "up", 300);
+text("Powerful enough for enterprises. Controlled enough to trust.", { x: 0.6, y: 5.15, w: 6.6, h: 0.4, fontSize: 15, italic: true, color: K.onAccent }, "up", 500);
+shape(pres.ShapeType.roundRect, { x: 0.6, y: 5.85, w: 5.2, h: 0.7, rectRadius: 0.35, fill: { color: K.bg } }, "fly", 700);
 text([
-	{ text: "THANK YOU", options: { fontFace: HEAD, color: K.accent } },
+	{ text: "THANK YOU", options: { fontFace: HEAD, bold: true, color: K.accent } },
 	{ text: "   Team Kern · 4CE (ACE)", options: { bold: true, color: K.ink } },
-], { x: 0.85, y: 5.75, w: 4.9, h: 0.7, fontSize: 17, valign: "middle" }, "fly", 700);
+], { x: 0.85, y: 5.85, w: 4.9, h: 0.7, fontSize: 17, valign: "middle" }, "fly", 700);
 
 // ---------------------------------------------------------------- write
 (async () => {

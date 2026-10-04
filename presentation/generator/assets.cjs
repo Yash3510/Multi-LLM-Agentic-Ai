@@ -125,7 +125,7 @@ async function renderWheel() {
 		const [lx, ly] = pt(475, s.mid);
 		let rot = s.mid + 90;
 		if (s.mid === 90) rot = 0; // bottom label reads upright
-		body += `<text x="${lx}" y="${ly}" transform="rotate(${rot} ${lx} ${ly})" text-anchor="middle" dominant-baseline="central" font-family="Liberation Sans, Arial, sans-serif" font-weight="700" font-size="50" letter-spacing="6" fill="${COLORS.black}">${s.label}</text>`;
+		body += `<text x="${lx}" y="${ly}" transform="rotate(${rot} ${lx} ${ly})" text-anchor="middle" dominant-baseline="central" font-family="Inter, Liberation Sans, sans-serif" font-weight="700" font-size="50" letter-spacing="6" fill="${COLORS.black}">${s.label}</text>`;
 	});
 
 	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">

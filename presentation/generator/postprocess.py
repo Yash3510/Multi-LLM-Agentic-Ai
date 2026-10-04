@@ -166,6 +166,14 @@ def apply_theme(xml, theme):
     slots = "".join(f'<a:{k}><a:srgbClr val="{colors[k]}"/></a:{k}>' for k in SLOTS)
     xml, n = re.subn(r"<a:clrScheme [^>]*>.*?</a:clrScheme>", f'<a:clrScheme name="{theme["name"]}">{slots}</a:clrScheme>', xml, flags=re.S)
     assert n == 1
+    # SF Pro is not installed with Office. A sans-serif PANOSE and pitch family on the theme fonts
+    # make PowerPoint substitute a plain sans (Arial) on machines without it, rather than a serif.
+    xml, n = re.subn(
+        r'(<a:(?:major|minor)Font><a:latin typeface="[^"]*")/>',
+        r'\1 panose="020B0604020202020204" pitchFamily="34" charset="0"/>',
+        xml,
+    )
+    assert n == 2
     return re.sub(r'(<a:theme [^>]*name=")[^"]*"', rf'\g<1>{theme["name"]}"', xml, count=1)
 
 
