@@ -1,5 +1,6 @@
-// Renders the picture assets the deck uses: the four-pillar wheel and every icon (as PNG, so
-// PowerPoint never needs the icon font).
+// Renders the picture assets the deck uses, all in the 4CE chat UI's palette: every icon (as
+// PNG, so PowerPoint never needs the icon font), the violet corner glow of the dark scenes, the
+// pixel-block wave, and logo.json - the 4CE mark as polygon points for a native vector shape.
 const fs = require("fs");
 const path = require("path");
 const sharp = require("sharp");
@@ -11,10 +12,15 @@ const fa = require("react-icons/fa6");
 const OUT = path.join(__dirname, "assets");
 fs.mkdirSync(OUT, { recursive: true });
 
+// 4CE chat UI: page #171717, light canvas #EEEFF1, violet-600/400, emerald-400, amber-400
 const COLORS = {
-	black: "#141414",
-	bone: "#F2F2EE",
-	orange: "#FF5B1A",
+	dark: "#171717",
+	light: "#EEEFF1",
+	muted: "#9B9B9B",
+	violet: "#7C3AED",
+	lilac: "#A78BFA",
+	green: "#34D399",
+	amber: "#FBBF24",
 };
 
 // ---------- icons ----------
@@ -30,10 +36,7 @@ const ICONS = {
 	server: lu.LuServer,
 	brain: lu.LuBrain,
 	database: lu.LuDatabase,
-	container: lu.LuContainer,
-	fileText: lu.LuFileText,
 	wrench: lu.LuWrench,
-	arrow: lu.LuArrowRight,
 	hardDrive: lu.LuHardDrive,
 	layers: lu.LuLayers,
 	trendDown: lu.LuTrendingDown,
@@ -49,10 +52,18 @@ const ICONS = {
 	bot: lu.LuBot,
 	book: lu.LuBookOpen,
 	fileCode: lu.LuFileCode,
+	fileText: lu.LuFileText,
 	chart: lu.LuChartBar,
-	link: lu.LuLink,
 	play: lu.LuCirclePlay,
 	lock: lu.LuLock,
+	plus: lu.LuPlus,
+	mic: lu.LuMic,
+	arrowUp: lu.LuArrowUp,
+	chevron: lu.LuChevronDown,
+	check: lu.LuCheck,
+	download: lu.LuDownload,
+	external: lu.LuExternalLink,
+	sparkle: lu.LuSparkles,
 	github: fa.FaGithub,
 	docker: fa.FaDocker,
 };
@@ -61,85 +72,59 @@ function iconSvg(Comp, color, size) {
 	return ReactDOMServer.renderToStaticMarkup(React.createElement(Comp, { color, size: String(size) }));
 }
 
-// Inner <svg> markup of an icon, for embedding inside a larger SVG.
-function iconInner(Comp, color) {
-	const svg = iconSvg(Comp, color, 24);
-	const viewBox = /viewBox="([^"]+)"/.exec(svg)[1];
-	const inner = svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
-	const attrs = /^<svg([^>]*)>/.exec(svg)[1];
-	const stroke = /stroke="([^"]+)"/.exec(attrs);
-	const fill = /fill="([^"]+)"/.exec(attrs);
-	const sw = /stroke-width="([^"]+)"/.exec(attrs);
-	const lc = /stroke-linecap="([^"]+)"/.exec(attrs);
-	const lj = /stroke-linejoin="([^"]+)"/.exec(attrs);
-	const g = [
-		stroke ? `stroke="${stroke[1]}"` : "",
-		fill ? `fill="${fill[1]}"` : "",
-		sw ? `stroke-width="${sw[1]}"` : "",
-		lc ? `stroke-linecap="${lc[1]}"` : "",
-		lj ? `stroke-linejoin="${lj[1]}"` : "",
-	].join(" ");
-	return { viewBox, inner, g };
-}
-
 async function renderIcons() {
-	const tones = COLORS;
 	for (const [name, Comp] of Object.entries(ICONS)) {
-		for (const [tone, color] of Object.entries(tones)) {
+		for (const [tone, color] of Object.entries(COLORS)) {
 			const svg = iconSvg(Comp, color, 256).replace(/currentColor/g, color);
 			await sharp(Buffer.from(svg)).resize(256, 256).png().toFile(path.join(OUT, `icon-${name}-${tone}.png`));
 		}
 	}
 }
 
-// ---------- the four-pillar wheel ----------
-// One picture whose canvas is the whole wheel, so turning the picture turns the wheel
-// about its own centre - Morph then spins it between slides.
-async function renderWheel() {
-	const S = 1200, c = S / 2;
-	const rOut = 560, rIn = 150, gap = 3.2; // gap in degrees between segments
-	const segs = [
-		{ label: "SOVEREIGNTY", icon: ICONS.shield, mid: -90 },
-		{ label: "INGESTION", icon: ICONS.fileIn, mid: 0 },
-		{ label: "GOVERNANCE", icon: ICONS.userCheck, mid: 90 },
-		{ label: "TRUST", icon: ICONS.badge, mid: 180 },
-	];
-	const rad = (d) => (d * Math.PI) / 180;
-	const pt = (r, d) => [c + r * Math.cos(rad(d)), c + r * Math.sin(rad(d))];
+// ---------- violet corner glow (the dark scenes in the demo) ----------
+async function renderGlow() {
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800">
+	<defs><radialGradient id="g" cx="50%" cy="50%" r="50%">
+		<stop offset="0%" stop-color="${COLORS.violet}" stop-opacity="0.30"/>
+		<stop offset="45%" stop-color="${COLORS.violet}" stop-opacity="0.12"/>
+		<stop offset="100%" stop-color="${COLORS.violet}" stop-opacity="0"/>
+	</radialGradient></defs>
+	<circle cx="400" cy="400" r="400" fill="url(#g)"/></svg>`;
+	await sharp(Buffer.from(svg)).png().toFile(path.join(OUT, "glow.png"));
+}
 
-	let body = "";
-	segs.forEach((s, i) => {
-		const a0 = s.mid - 45 + gap / 2, a1 = s.mid + 45 - gap / 2;
-		const [x0, y0] = pt(rOut, a0), [x1, y1] = pt(rOut, a1);
-		const [x2, y2] = pt(rIn, a1), [x3, y3] = pt(rIn, a0);
-		const d = `M${x0},${y0} A${rOut},${rOut} 0 0 1 ${x1},${y1} L${x2},${y2} A${rIn},${rIn} 0 0 0 ${x3},${y3} Z`;
-		body += `<path d="${d}" fill="${COLORS.bone}"/>`;
+// ---------- pixel-block wave (the "Nothing leaves the building" band) ----------
+// Columns of stacked violet squares, darkest next to the band, fading outwards.
+async function renderWave() {
+	const cols = 96, cell = 20, rows = 5, W = cols * cell, H = rows * cell;
+	const tiers = ["#5836A6", "#6B45BC", "#7C57C8", "#9C7FD9", "#C9B8F0"];
+	let rects = "";
+	for (let c = 0; c < cols; c++) {
+		// two slow waves give the stepped silhouette its rhythm
+		const h = 1.6 + 1.6 * Math.sin(c / 7.5) + 1.2 * Math.sin(c / 3.1 + 1.3);
+		const n = Math.max(1, Math.min(rows, Math.round(h)));
+		for (let r = 0; r < n; r++) {
+			rects += `<rect x="${c * cell}" y="${H - (r + 1) * cell}" width="${cell}" height="${cell}" fill="${tiers[r]}"/>`;
+		}
+	}
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${rects}</svg>`;
+	await sharp(Buffer.from(svg)).png().toFile(path.join(OUT, "wave.png"));
+	await sharp(Buffer.from(svg)).flip().png().toFile(path.join(OUT, "wave-down.png")); // for the band's lower edge
+}
 
-		// icon on the segment's centre line
-		const ic = iconInner(s.icon, COLORS.black);
-		const [ix, iy] = pt(330, s.mid);
-		const isz = 150;
-		body += `<svg x="${ix - isz / 2}" y="${iy - isz / 2}" width="${isz}" height="${isz}" viewBox="${ic.viewBox}"><g ${ic.g.replace(/currentColor/g, COLORS.black)}>${ic.inner.replace(/currentColor/g, COLORS.black)}</g></svg>`;
-
-		// label set along the rim, rotated tangentially
-		const [lx, ly] = pt(475, s.mid);
-		let rot = s.mid + 90;
-		if (s.mid === 90) rot = 0; // bottom label reads upright
-		body += `<text x="${lx}" y="${ly}" transform="rotate(${rot} ${lx} ${ly})" text-anchor="middle" dominant-baseline="central" font-family="Inter, Liberation Sans, sans-serif" font-weight="700" font-size="50" letter-spacing="6" fill="${COLORS.black}">${s.label}</text>`;
-	});
-
-	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">
-	${body}
-	<circle cx="${c}" cy="${c}" r="${rIn - 22}" fill="${COLORS.black}"/>
-	<circle cx="${c}" cy="${c}" r="${rIn - 56}" fill="none" stroke="${COLORS.orange}" stroke-width="10"/>
-	<circle cx="${c}" cy="${c}" r="24" fill="${COLORS.orange}"/>
-</svg>`;
-	fs.writeFileSync(path.join(OUT, "wheel.svg"), svg);
-	await sharp(Buffer.from(svg)).png().toFile(path.join(OUT, "wheel.png"));
+// ---------- the 4CE mark as polygon rings, from 4ce/branding/logo-mark.svg ----------
+function logoRings() {
+	const svg = fs.readFileSync(path.join(__dirname, "..", "..", "4ce", "branding", "logo-mark.svg"), "utf8");
+	const size = Number(/viewBox="0 0 ([\d.]+)/.exec(svg)[1]);
+	const d = /\bd="([^"]+)"/.exec(svg)[1];
+	return d.split("Z").map((s) => s.replace("M", "").trim()).filter(Boolean).map((ring) =>
+		ring.split(/\s+/).map((pair) => pair.split(",").map((v) => Number(v) / size)));
 }
 
 (async () => {
-	await renderWheel();
+	fs.writeFileSync(path.join(OUT, "logo.json"), JSON.stringify(logoRings()));
+	await renderGlow();
+	await renderWave();
 	await renderIcons();
 	console.log("assets written to", OUT);
 })();

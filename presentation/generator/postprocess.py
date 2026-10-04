@@ -127,6 +127,11 @@ def shape_map(xml):
     return {m.group(3): (m.group(2), kinds[m.group(1)]) for m in SHAPE_RE.finditer(xml)}
 
 
+FONT_HINTS = {
+    "New York": 'panose="02040503050406030204" pitchFamily="18" charset="0"',  # serif, like Georgia
+    "SF Mono": 'panose="020B0509030504030204" pitchFamily="49" charset="0"',  # monospace
+}
+
 HLINK_USE_TEXT_COLOR = (
     '<a:extLst><a:ext uri="{A12FA001-AC4F-418D-AE19-62706E023703}">'
     '<ahyp:hlinkClr xmlns:ahyp="http://schemas.microsoft.com/office/drawing/2018/hyperlinkcolor" val="tx"/>'
@@ -137,6 +142,10 @@ HLINK_USE_TEXT_COLOR = (
 def process_slide(xml, items):
     # pptxgenjs writes the source file path as the description of a picture with no alt text
     xml = re.sub(r'descr="/[^"]*"', 'descr=""', xml)
+    # Runs set in New York or SF Mono name the font directly. Give them a serif or monospace
+    # pitch family and PANOSE so a machine without Apple's fonts substitutes the same kind of face.
+    for face, hint in FONT_HINTS.items():
+        xml = re.sub(rf'(<a:(?:latin|ea|cs) typeface="{face}")[^/]*/>', rf"\1 {hint}/>", xml)
     # PowerPoint paints links in the theme's link colour unless told to keep the run's colour,
     # which would put light-blue text on the white link buttons.
     xml = re.sub(r"<a:hlinkClick([^>]*)/>", r"<a:hlinkClick\1>" + HLINK_USE_TEXT_COLOR + "</a:hlinkClick>", xml)
