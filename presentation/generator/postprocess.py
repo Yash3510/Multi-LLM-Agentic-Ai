@@ -3,6 +3,7 @@ animations (from anim.json) that run once each morph lands, and the deck's own c
 (from theme.json, which build.cjs writes next to anim.json).
 
     python postprocess.py deck.raw.pptx anim.json deck.pptx
+    python postprocess.py deck.raw.pptx anim.json deck-static.pptx --static   # no motion at all
 
 Edits are plain string insertions into each slide's XML, so namespaces and element order
 stay exactly as pptxgenjs wrote them.
@@ -138,7 +139,7 @@ HLINK_USE_TEXT_COLOR = (
 )
 
 
-def process_slide(xml, items):
+def process_slide(xml, items, static=False):
     # pptxgenjs writes the source file path as the description of a picture with no alt text
     xml = re.sub(r'descr="/[^"]*"', 'descr=""', xml)
     # Runs set in JetBrains Mono name the font directly. Give them a monospace pitch family and
@@ -152,6 +153,8 @@ def process_slide(xml, items):
     missing = [it["name"] for it in items if it["name"] not in shapes]
     if missing:
         raise SystemExit(f"animated shapes not found: {missing}")
+    if static:  # no transition and no entrance animations: every slide shows complete at once
+        return xml
     extra = TRANSITION
     if items:
         extra += (
@@ -185,7 +188,7 @@ def apply_theme(xml, theme):
     return re.sub(r'(<a:theme [^>]*name=")[^"]*"', rf'\g<1>{theme["name"]}"', xml, count=1)
 
 
-def main(src, anim_path, dst):
+def main(src, anim_path, dst, static=False):
     plan = {a["slide"]: a["items"] for a in json.load(open(anim_path))}
     theme = json.load(open(os.path.join(os.path.dirname(anim_path), "theme.json")))
     zin = zipfile.ZipFile(src)
@@ -194,7 +197,7 @@ def main(src, anim_path, dst):
             data = zin.read(info.filename)
             m = re.fullmatch(r"ppt/slides/slide(\d+)\.xml", info.filename)
             if m:
-                data = process_slide(data.decode("utf-8"), plan.get(int(m.group(1)), [])).encode("utf-8")
+                data = process_slide(data.decode("utf-8"), plan.get(int(m.group(1)), []), static).encode("utf-8")
             elif info.filename == "ppt/theme/theme1.xml":
                 data = apply_theme(data.decode("utf-8"), theme).encode("utf-8")
             zout.writestr(info, data)
@@ -202,4 +205,4 @@ def main(src, anim_path, dst):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:4])
+    main(*sys.argv[1:4], static="--static" in sys.argv[4:])

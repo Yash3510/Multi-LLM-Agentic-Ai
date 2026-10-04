@@ -8,6 +8,8 @@
 
 Open it in **PowerPoint 2019 or Microsoft 365** and present from slide 1. Every slide uses a Morph transition: the light canvas sweeps across between dark and light slides, the violet pixel blocks drift and the 4CE mark turns. Content builds in automatically after each morph lands. Older PowerPoint versions and Google Slides fall back to a fade.
 
+`4CE-Sovereign-AI-Workbench-static.pptx` is the same deck with no motion at all: no Morph transitions and no entrance animations. Every slide appears complete when you advance to it. Use it where animations misbehave, for printing, or for sharing as a document.
+
 `4CE-Sovereign-AI-Workbench-preview.pdf` and `preview.jpg` are static previews with no motion. They were rendered with the deck's own fonts.
 
 ## Fonts
@@ -25,6 +27,7 @@ npm install pptxgenjs react-icons react react-dom sharp   # in any folder; point
 node generator/assets.cjs                                  # icons, glow, pixel wave, logo outline
 node generator/build.cjs deck.raw.pptx                     # slides, plus anim.json and theme.json
 python generator/postprocess.py deck.raw.pptx anim.json deck.pptx   # Morph, entrance animations, theme colours
+python generator/postprocess.py deck.raw.pptx anim.json deck-static.pptx --static   # the no-motion version
 ```
 
 The palette is defined once, in `THEME` at the top of `build.cjs`.
