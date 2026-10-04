@@ -16,7 +16,7 @@ Headings use Arial Black and body text uses Calibri, both set in the theme. To u
 
 ```bash
 npm install pptxgenjs react-icons react react-dom sharp   # in any folder; point NODE_PATH at its node_modules
-node generator/assets.cjs                                  # wheel, glow and icon PNGs
+node generator/assets.cjs                                  # wheel and icon PNGs
 node generator/build.cjs deck.raw.pptx                     # slides, plus anim.json and theme.json
 python generator/postprocess.py deck.raw.pptx anim.json deck.pptx   # Morph, entrance animations, theme colours
 ```
