@@ -10,7 +10,7 @@ default:
 # Install Python through uv, sync every package and install the git hooks
 setup:
     uv python install
-    uv sync --all-packages
+    uv sync --all-packages --locked
     uv tool install pre-commit
     pre-commit install --install-hooks --allow-missing-config
 

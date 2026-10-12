@@ -168,7 +168,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 
 | Command | Does |
 | --- | --- |
-| `just setup` | Install Python through uv, sync every package, and install pre-commit and its git hooks |
+| `just setup` | Install Python through uv, sync every package from the lockfile (failing if it is out of date), and install pre-commit and its git hooks |
 | `just test` | Unit tests |
 | `just lint` | Formatting, lint and types |
 | `just repo-check` | The repo check |
