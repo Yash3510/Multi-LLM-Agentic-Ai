@@ -57,6 +57,8 @@ def check_imports(
                         problems.append(
                             f"{path}: imports {name}; {dist} is allowed only in {where}"
                         )
+                elif key not in licences:
+                    problems.append(f"{path}: imports {name} from {dist}, which is not in the SBOM")
                 elif licence_gate.denied(licence):
                     problems.append(
                         f"{path}: imports {name} from {dist} ({licence}), "

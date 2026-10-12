@@ -18,6 +18,7 @@ import json
 import re
 import sys
 import tomllib
+from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
@@ -46,7 +47,6 @@ DENIED = re.compile(r"A?GPL-.*|SSPL-.*|BUSL-.*|RSAL.*|Elastic-.*|Commons-Clause|
 # signed before the first install outside the team; the import scan limits where it is used.
 COMMERCIAL = {"pymupdf"}
 
-OWN_PACKAGE = re.compile(r"fource(-.*)?")
 REVIEWED_FILE = Path(__file__).with_name("licence-review.toml")
 
 REPO = Path(__file__).resolve().parent.parent
@@ -93,14 +93,31 @@ def licence_texts(component: dict[str, Any]) -> list[str]:
     return texts
 
 
+def own_packages(repo: Path) -> set[str]:
+    """The workspace's own packages, read from its pyproject files: 4CE's code carries no
+    licence field, so these are skipped. A lookalike name from PyPI is still checked."""
+    paths = [repo / "pyproject.toml", *repo.glob("core/*/pyproject.toml")]
+    paths += repo.glob("apps/*/pyproject.toml")
+    names: set[str] = set()
+    for path in paths:
+        if path.exists():
+            project = tomllib.loads(path.read_text(encoding="utf-8")).get("project", {})
+            if "name" in project:
+                names.add(normalise(project["name"]))
+    return names
+
+
 def check_components(
-    components: list[dict[str, Any]], reviewed: dict[tuple[str, str], str]
+    components: list[dict[str, Any]],
+    reviewed: dict[tuple[str, str], str],
+    own: Collection[str] = frozenset(),
 ) -> list[str]:
+    ours = {normalise(name) for name in own}
     problems: list[str] = []
     for component in components:
         name, version = component["name"], component.get("version", "")
         key = normalise(name)
-        if OWN_PACKAGE.fullmatch(key) or key in COMMERCIAL:
+        if key in ours or key in COMMERCIAL:
             continue
         texts = (
             [reviewed[(key, version)]] if (key, version) in reviewed else licence_texts(component)
@@ -212,10 +229,13 @@ def main(argv: list[str]) -> int:
         print(__doc__)
         return 2
     reviewed = load_reviewed(REVIEWED_FILE.read_text(encoding="utf-8"))
+    own = own_packages(REPO)
     problems: list[str] = []
     for sbom in argv:
         components = json.loads(Path(sbom).read_text(encoding="utf-8")).get("components", [])
-        problems += check_components(components, reviewed)
+        if not components:
+            problems.append(f"{sbom}: no components; was the environment synced?")
+        problems += check_components(components, reviewed, own)
         print(f"{sbom}: {len(components)} components checked")
     for line in problems:
         print(line)
