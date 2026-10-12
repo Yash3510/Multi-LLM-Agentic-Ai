@@ -1,0 +1,22 @@
+# Packages whose metadata doesn't name an SPDX licence (often just "BSD License").
+# A person read each one's LICENSE file and recorded the licence it actually grants.
+# The version is pinned, so an update is read again before the gate passes it.
+# R4 reviews every change to this file.
+
+[[package]]
+name = "grimp"
+version = "3.17"
+licence = "BSD-2-Clause"
+checked = "LICENSE file in the wheel's dist-info, 2026-10-12"
+
+[[package]]
+name = "import-linter"
+version = "2.15"
+licence = "BSD-2-Clause"
+checked = "LICENSE file in the wheel's dist-info, 2026-10-12"
+
+[[package]]
+name = "nodeenv"
+version = "1.11.0"
+licence = "BSD-3-Clause"
+checked = "LICENSE file in the wheel's dist-info, 2026-10-12 (three clauses, incl. no endorsement)"
