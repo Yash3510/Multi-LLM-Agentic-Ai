@@ -12,6 +12,11 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
+import yaml
+from jsonschema import Draft202012Validator
+
+from fource.packs import schema
+
 ROOT_ENTRIES = {
     ".github",
     ".obsidian",
@@ -79,6 +84,7 @@ TODO_WITHOUT_ISSUE = re.compile(r"(#|//)\s*TODO(?!\(#\d+\))")
 CODE_SUFFIXES = {".py", ".ts", ".js", ".svelte", ".sh", ".yml", ".yaml", ".toml"}
 
 MAX_BYTES = 1_000_000
+PACK_MANIFEST = re.compile(r"packs/[^/]+/[^/]+/pack\.yaml")
 
 COMMIT_SUBJECT = re.compile(
     r"(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\([a-z0-9][a-z0-9-]*\))?!?: \S.*"
@@ -146,6 +152,34 @@ def _package_problems(paths: list[str]) -> list[str]:
             problems.append(f"{package}: package has no README.md")
         if not any(f.startswith("tests/") for f in files):
             problems.append(f"{package}: package has no tests")
+    pack_folders = {"/".join(p.split("/")[:3]) for p in paths if p.count("/") >= 3}
+    for pack in sorted(f for f in pack_folders if f.startswith("packs/")):
+        if f"{pack}/pack.yaml" not in paths:
+            problems.append(f"{pack}: pack has no pack.yaml")
+    return problems
+
+
+def check_packs(manifests: dict[str, str]) -> list[str]:
+    """Every pack.yaml validates against the published spec and sits under its id and kind."""
+    validator = Draft202012Validator(schema("pack"))
+    problems: list[str] = []
+    for path, text in sorted(manifests.items()):
+        _, kind, folder, _ = PurePosixPath(path).parts
+        try:
+            manifest = yaml.safe_load(text)
+        except yaml.YAMLError as error:
+            problems.append(f"{path}: not valid YAML ({error})")
+            continue
+        for error in validator.iter_errors(manifest):
+            where = "/".join(str(p) for p in error.absolute_path) or "manifest"
+            problems.append(f"{path}: {where}: {error.message}")
+        if isinstance(manifest, dict):
+            if manifest.get("id") != folder:
+                problems.append(f"{path}: id '{manifest.get('id')}' must match its folder {folder}")
+            if manifest.get("kind") != kind:
+                problems.append(
+                    f"{path}: kind '{manifest.get('kind')}' must match its folder {kind}"
+                )
     return problems
 
 
@@ -245,7 +279,10 @@ def main(argv: list[str]) -> int:
     elif not argv:
         sizes = _files(repo)
         paths = sorted(sizes)
-        problems = check_paths(paths) + check_contents(_texts(repo, paths)) + check_sizes(sizes)
+        texts = _texts(repo, paths)
+        manifests = {p: t for p, t in texts.items() if PACK_MANIFEST.fullmatch(p)}
+        problems = check_paths(paths) + check_contents(texts) + check_sizes(sizes)
+        problems += check_packs(manifests)
     else:
         print(__doc__)
         return 2
