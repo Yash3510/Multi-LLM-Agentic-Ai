@@ -170,6 +170,8 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just repo-check` | The repo check |
 | `just neutrality` | The neutrality check |
 | `just docs` | The docs check; add `--base origin/main` for the PR rules |
+| `just new-package <name>` | Scaffold `core/<name>/` from the package template and install it |
+| `just new-doc <type> <name>` | Create a docs page or work-log entry from its template (`just new-doc log <branch-name>`) |
 | `just check` | Every check, as CI runs it |
 
 ### Dependencies: uv for everything Python
