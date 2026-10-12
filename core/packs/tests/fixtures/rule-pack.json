@@ -1,0 +1,82 @@
+{
+  "pack": "example-sector/example-rules",
+  "title": "Example rule pack",
+  "source": {
+    "document": "EX-001",
+    "revision": "3",
+    "owner": "customer",
+    "licence_note": "clause references and limits only; no source text"
+  },
+  "authored_by": "author@site",
+  "approved_by": "approver@site",
+  "effective_from": "2026-10-01",
+  "parameters": [
+    { "id": "length", "label": "Measured length", "unit": "mm", "aliases": ["size"] },
+    { "id": "amount", "label": "Requested amount", "unit": "INR" },
+    { "id": "grade", "label": "Grade" },
+    { "id": "signature", "label": "Signature" },
+    { "id": "valid_until", "label": "Valid until" }
+  ],
+  "rules": [
+    {
+      "id": "R1",
+      "parameter": "length",
+      "type": "band",
+      "bands": [
+        { "below": 5, "verdict": "PASS", "clause": "1.1", "disposition": "ACCEPT" },
+        { "max": 20, "verdict": "REVIEW", "clause": "1.2", "disposition": "RECHECK" },
+        { "else": true, "verdict": "FAIL", "clause": "1.3", "disposition": "REJECT" }
+      ]
+    },
+    {
+      "id": "R2",
+      "parameter": "length",
+      "type": "expression",
+      "expr": "value > minimum_length",
+      "inputs": { "minimum_length": "9.5 mm" },
+      "pass": { "verdict": "PASS", "clause": "2.1" },
+      "fail": { "verdict": "FAIL", "clause": "2.1" }
+    },
+    {
+      "id": "R3",
+      "parameter": "grade",
+      "type": "enum",
+      "values": [
+        { "value": "A", "verdict": "PASS", "clause": "3.1" },
+        { "value": "B", "verdict": "REVIEW", "clause": "3.2" }
+      ],
+      "else": { "verdict": "FAIL", "clause": "3.3" }
+    },
+    {
+      "id": "R4",
+      "parameter": "signature",
+      "type": "presence",
+      "present": { "verdict": "PASS", "clause": "4.1" },
+      "absent": { "verdict": "FAIL", "clause": "4.1" }
+    },
+    {
+      "id": "R5",
+      "parameter": "valid_until",
+      "type": "date",
+      "compare": "on_or_after",
+      "reference": "run_date",
+      "pass": { "verdict": "PASS", "clause": "5.1" },
+      "fail": { "verdict": "FAIL", "clause": "5.1" }
+    },
+    {
+      "id": "R6",
+      "parameter": "amount",
+      "type": "authority",
+      "matrix": [
+        { "max": "5 lakh INR", "category": "any", "approver_role": "Department Head", "clause": "6.1" },
+        { "max": "50 lakh INR", "category": "any", "approver_role": "Committee", "clause": "6.2" },
+        { "else": true, "approver_role": "Board", "clause": "6.3" }
+      ]
+    }
+  ],
+  "missing_reading": "NO DATA",
+  "tests": [
+    { "readings": { "length": "18 mm" }, "expect": { "R1": "REVIEW" } },
+    { "readings": {}, "expect": { "R1": "NO DATA" } }
+  ]
+}

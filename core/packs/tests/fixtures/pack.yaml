@@ -1,0 +1,33 @@
+# A neutral manifest with every field the spec allows (master plan Appendix D).
+id: example-sector
+title: Example Sector
+version: 0.3.0
+kind: sector
+risk_tier: 2
+summary: Decisions about example records against an example rulebook.
+depends:
+  - { id: example-department, version: ">=0.2 <1.0" }
+locales: [en-IN, hi-IN]
+min_profile: workstation-24gb
+subjects:
+  - { id: record, label: { en-IN: Record, hi-IN: अभिलेख }, identifier: record_no }
+roles:
+  - { id: preparer, label: Preparer, core_role: Author }
+contents:
+  vocabulary: vocabulary/
+  documents: documents/
+  rules: rules/
+  calculators: calculators/
+  workflows: workflows/
+  intents: intents/
+  prompts: prompts/
+  skills: skills/
+  templates: templates/
+  policies: policies/
+  connectors: connectors/
+  evals: evals/
+  demo: demo/
+code: []
+signatures:
+  author: { key: "ed25519:example-author", signed_at: "2026-10-12T10:00:00Z" }
+  approver: { key: "ed25519:example-approver", signed_at: "2026-10-12T11:00:00Z" }
