@@ -44,3 +44,7 @@ Master plan Appendix A. Changing it is R4's decision, recorded in an ADR; it is 
 ## Measured
 
 On 2026-10-12, on Linux: `just licences` checked 23 components and scanned 3 files with no problems. Without `licence-review.toml`, exactly the three packages it lists (grimp, import-linter, nodeenv) fail.
+
+## Decisions
+
+[ADR-0015](../adr/0015-licence-allowlist-and-sbom-gate.md) (the gate) and [ADR-0023](../adr/0023-third-party-services.md) (third-party services); [ADR-0036](../adr/0036-mpl-build-tools-and-licence-mapping.md) is proposed.

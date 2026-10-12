@@ -135,3 +135,7 @@ Every PR adds exactly one entry, `docs/log/YYYY/MM/YYYY-MM-DD-<branch-name>.md`,
 ## Definition of "documented"
 
 A change is documented when its log entry exists, every page describing the touched code is updated, any decision has an ADR, the index lists any new page, and the docs check is green.
+
+## Decisions
+
+[ADR-0031](../adr/0031-documentation-knowledge-base.md).

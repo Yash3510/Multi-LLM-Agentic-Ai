@@ -97,3 +97,7 @@ The frontend's foundations are proposed in [ADR-0035](../adr/0035-frontend-found
 - [Repository layout and working rules](repository.md)
 - [Documentation rules](documentation.md)
 - [Decision records](../adr/README.md)
+
+## Decisions
+
+[ADR-0009](../adr/0009-own-core-and-clean-room.md) (own core and clean room) and [ADR-0018](../adr/0018-sector-neutral-core.md) (a sector-neutral core).

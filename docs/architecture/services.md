@@ -49,4 +49,14 @@ MinIO's community edition is archived and publishes source only, so [`minio.dock
 
 ## Measured
 
-On 2026-10-12, on the Debian laptop (Docker 26.1.5): `docker compose config` accepts the merged files with `.env.example`, and refuses to start without the passwords. The start-up result is recorded in the [work log](../log/README.md).
+On 2026-10-12, on the Debian laptop (Docker 26.1.5), with a `.env` of random passwords:
+
+- `docker compose config` accepts the merged files, and refuses to start without the passwords.
+- `just dev` pulled the images, built MinIO from source and reported all five containers healthy; `just down` stopped them.
+- PostgreSQL answered `select version()` with 18.6; Redis answered `PONG` with the password and `WRONGPASS` without it; `minio --version` reported `RELEASE.2025-10-15T17-29-55Z` at commit `9e49d5e7`; Prometheus's `/-/ready` returned 200 and reported revision `5241a27f`; Grafana's `/api/health` reported 13.2.3, and an anonymous dashboard request got 401.
+
+Unverified: the stack on Windows (WSL2) and macOS (Lima), and that the internal network has no route out when `dev.yml` is left off.
+
+## Decisions
+
+[ADR-0023](../adr/0023-third-party-services.md) (third-party services); ADR-0025 (MinIO and its patch source) is open.

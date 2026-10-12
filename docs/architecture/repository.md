@@ -207,3 +207,7 @@ uv installs Python, creates environments, adds packages, locks and runs. pip is 
 - `.gitattributes` forces LF line endings and routes PDF, PNG, JPG, XLSX, DOCX and PPTX files through Git LFS.
 - `.editorconfig` sets 4-space indents for Python and 2 for everything else, a final newline, and trimmed trailing whitespace.
 - Anything over 1 MB that isn't in LFS fails the repo check.
+
+## Decisions
+
+[ADR-0029](../adr/0029-repository-layout-and-working-rules.md) (layout and working rules) and [ADR-0032](../adr/0032-agent-instructions.md) (agent instructions).
