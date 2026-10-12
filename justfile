@@ -41,6 +41,10 @@ new-package name:
     uv run python tools/scaffold.py package {{name}}
     uv sync --all-packages
 
+# Scaffold a pack: just new-pack <sector|cross> <id>
+new-pack kind id:
+    uv run python tools/scaffold.py pack {{kind}} {{id}}
+
 # Create a docs page or work-log entry from its template
 new-doc type name:
     uv run python tools/scaffold.py doc {{type}} {{name}}

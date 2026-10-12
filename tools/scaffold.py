@@ -1,6 +1,7 @@
 """Create new packages and docs pages from the templates, never by hand.
 
     uv run python tools/scaffold.py package <name>        core/<name>/ (just new-package)
+    uv run python tools/scaffold.py pack <kind> <id>      packs/<kind>/<id>/ (just new-pack)
     uv run python tools/scaffold.py doc <type> <name>     a docs page (just new-doc)
 
 Doc types: architecture, adr, assurance, history, index, log, pack, research, runbook,
@@ -105,6 +106,57 @@ def new_package(root: Path, name: str) -> Path:
     return package
 
 
+PACK_MANIFEST = """\
+# The pack's identity (docs: core/packs/README.md). Lower risk_tier only on purpose:
+# a tier sets defaults that the pack can tighten but never loosen.
+id: {pack_id}
+title: {title}
+version: 0.1.0
+kind: {kind}
+risk_tier: 3
+summary: One sentence on the decisions this pack supports.
+locales: [en-IN]
+"""
+
+PACK_README = """\
+# {title}
+
+What this pack covers: its subjects, the evidence it reads, the rulebooks it applies and the
+deliverables it produces.
+
+**Owner:** R2 · **Domain expert:** who authors and reviews the rules · **Sources:** the
+rulebooks it cites, and who licenses them (clause references and limits only, never their text).
+"""
+
+PACK_CHANGELOG = """\
+# Changelog
+
+## 0.1.0
+
+- Created.
+"""
+
+
+def new_pack(root: Path, kind: str, pack_id: str) -> Path:
+    if kind not in ("sector", "cross"):
+        raise ValueError(f"a pack is 'sector' or 'cross', not '{kind}'")
+    if not KEBAB.fullmatch(pack_id):
+        raise ValueError(f"'{pack_id}' is not a kebab-case pack id")
+    pack = root / "packs" / kind / pack_id
+    if pack.exists():
+        raise FileExistsError(pack)
+    pack.mkdir(parents=True)
+    title = _title(pack_id)
+    for name, template in (
+        ("pack.yaml", PACK_MANIFEST),
+        ("README.md", PACK_README),
+        ("CHANGELOG.md", PACK_CHANGELOG),
+    ):
+        text = template.format(pack_id=pack_id, kind=kind, title=title)
+        (pack / name).write_text(text, encoding="utf-8")
+    return pack
+
+
 def _title(name: str) -> str:
     words = re.sub(r"^\d+-", "", name).replace("-", " ").replace("_", " ")
     return words[:1].upper() + words[1:]
@@ -148,6 +200,9 @@ def main(argv: list[str]) -> int:
     if argv[:1] == ["package"] and len(argv) == 2:
         created = new_package(root, argv[1])
         print(f"created {created.relative_to(root)}; run `just setup` to install it")
+    elif argv[:1] == ["pack"] and len(argv) == 3:
+        created = new_pack(root, argv[1], argv[2])
+        print(f"created {created.relative_to(root)}; fill in pack.yaml and README.md")
     elif argv[:1] == ["doc"] and len(argv) == 3:
         created = new_doc(root, argv[1], argv[2], date.today())
         print(f"created {created.relative_to(root)}; link it from its folder's README.md")
