@@ -1,3 +1,4 @@
+import tomllib
 from datetime import date
 from pathlib import Path
 
@@ -19,6 +20,7 @@ def repo(tmp_path: Path) -> Path:
         (templates / template.name).write_text(template.read_text())
     (tmp_path / "docs" / "adr").mkdir()
     (tmp_path / "docs" / "adr" / "0035-frontend-foundations.md").write_text("x")
+    (tmp_path / "pyproject.toml").write_text('[tool.importlinter]\nroot_packages = ["fource"]\n')
     return tmp_path
 
 
@@ -39,6 +41,19 @@ def test_new_package_has_the_package_shape(repo: Path) -> None:
     assert 'name = "fource-deep-cache"' in pyproject
     assert 'module-name = "fource.deep_cache"' in pyproject
     assert repo_check.check_paths(files_under(repo, "core")) == []
+
+
+def test_new_package_protects_its_internals(repo: Path) -> None:
+    scaffold.new_package(repo, "deep-cache")
+    config = tomllib.loads((repo / "pyproject.toml").read_text())
+    assert config["tool"]["importlinter"]["contracts"] == [
+        {
+            "name": "Only the public API of fource.deep_cache is imported from outside it",
+            "type": "protected",
+            "protected_modules": ["fource.deep_cache.*"],
+            "allowed_importers": ["fource.deep_cache"],
+        }
+    ]
 
 
 def test_new_package_refuses_bad_or_taken_names(repo: Path) -> None:
