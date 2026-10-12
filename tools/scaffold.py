@@ -65,6 +65,14 @@ INIT = '''\
 __all__: list[str] = []
 '''
 
+PUBLIC_API_CONTRACT = """
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.{module} is imported from outside it"
+type = "protected"
+protected_modules = ["fource.{module}.*"]
+allowed_importers = ["fource.{module}"]
+"""
+
 FIRST_TEST = """\
 import fource.{module}
 
@@ -92,6 +100,8 @@ def new_package(root: Path, name: str) -> Path:
         path = package / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(template.format(name=name, module=module), encoding="utf-8")
+    with (root / "pyproject.toml").open("a", encoding="utf-8") as config:
+        config.write(PUBLIC_API_CONTRACT.format(module=module))
     return package
 
 
