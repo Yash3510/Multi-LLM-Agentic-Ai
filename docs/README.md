@@ -29,6 +29,7 @@ The project's memory: what 4CE does, why it is built this way, what changed and 
 | [Architecture overview](architecture/overview.md) | architecture | active |
 | [Repository layout and working rules](architecture/repository.md) | architecture | active |
 | [Documentation rules](architecture/documentation.md) | architecture | active |
+| [Licences and the licence gate](architecture/licences.md) | architecture | active |
 | [Design system](architecture/design-system.md) | architecture | planned |
 | [Decision records](adr/README.md) | index | active |
 | [Work log](log/README.md) | index | active |

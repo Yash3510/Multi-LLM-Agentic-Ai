@@ -158,7 +158,8 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | Tests | pytest | built |
 | Frontend formatting, lint and types | prettier, eslint, svelte-check | _planned_ with `apps/web` |
 | Package boundaries | import-linter (`just imports`) | built |
-| Licences, imports, SBOM, third-party bundle | `tools/licence_gate.py`, `tools/import_scan.py` | _planned_ |
+| Licences, imports and SBOM | [`tools/licence_gate.py`](../../tools/licence_gate.py), [`tools/import_scan.py`](../../tools/import_scan.py) ([licences](licences.md)) | built |
+| Third-party bundle | `tools/licence_gate.py` | _planned_ with the Compose stack |
 | Secrets | gitleaks | _planned_ |
 | Docs | [`tools/docs_check.py`](../../tools/docs_check.py) | built |
 
@@ -172,6 +173,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just repo-check` | The repo check |
 | `just imports` | The package-boundary contracts |
 | `just neutrality` | The neutrality check |
+| `just licences` | The SBOM, licence gate and import scan |
 | `just docs` | The docs check; add `--base origin/main` for the PR rules |
 | `just new-package <name>` | Scaffold `core/<name>/` from the package template and install it |
 | `just new-doc <type> <name>` | Create a docs page or work-log entry from its template (`just new-doc log <branch-name>`) |
