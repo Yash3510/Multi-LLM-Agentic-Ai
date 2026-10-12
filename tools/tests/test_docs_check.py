@@ -203,3 +203,12 @@ def test_accepted_adrs_are_never_edited() -> None:
     assert docs_check.check_adrs({path: superseded}, {path: ACCEPTED}) == []
     proposed = ACCEPTED.replace("accepted", "proposed")
     assert docs_check.check_adrs({path: edited}, {path: proposed}) == []
+
+
+def test_an_accepted_adr_can_only_become_superseded_by_a_named_record() -> None:
+    path = "docs/adr/0009-own-core.md"
+    # Flipping it back to proposed would let the next PR edit it freely.
+    reopened = ACCEPTED.replace("decision_status: accepted", "decision_status: proposed")
+    assert docs_check.check_adrs({path: reopened}, {path: ACCEPTED}) != []
+    unnamed = ACCEPTED.replace("decision_status: accepted", "decision_status: superseded")
+    assert docs_check.check_adrs({path: unnamed}, {path: ACCEPTED}) != []
