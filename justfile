@@ -54,6 +54,7 @@ licences:
     uv run python tools/sbom.py
     uv run python tools/licence_gate.py build/sbom/python.cdx.json
     uv run python tools/import_scan.py build/sbom/python.cdx.json
+    uv run python tools/licence_gate.py --bundle
 
 # Start the bundled services on localhost and wait until they are healthy (needs .env)
 dev:

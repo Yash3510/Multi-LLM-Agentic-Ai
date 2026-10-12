@@ -1,6 +1,11 @@
 """Fail the build on any dependency whose licence the policy doesn't allow (master plan §2.5).
 
     uv run python tools/licence_gate.py build/sbom/python.cdx.json [more SBOMs]
+    uv run python tools/licence_gate.py --bundle     the third-party bundle
+
+The bundle check (§2.7): every image in deploy/compose/ has deploy/third-party/<name>/ with
+LICENSE, NOTICE, VERSION and SOURCE; VERSION's first line is the exact image in use, and
+pulled images are pinned by digest.
 
 The policy is master plan Appendix A; changing it is R4's decision, not a code change made
 to get a build green. Every licence, and every option of an OR expression, must be allowed
@@ -15,6 +20,8 @@ import sys
 import tomllib
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 ALLOWED_ANYWHERE = {
     "MIT",
@@ -41,6 +48,11 @@ COMMERCIAL = {"pymupdf"}
 
 OWN_PACKAGE = re.compile(r"fource(-.*)?")
 REVIEWED_FILE = Path(__file__).with_name("licence-review.toml")
+
+REPO = Path(__file__).resolve().parent.parent
+COMPOSE_DIR = REPO / "deploy" / "compose"
+BUNDLE_DIR = REPO / "deploy" / "third-party"
+BUNDLE_FILES = ("LICENSE", "NOTICE", "VERSION", "SOURCE")
 
 
 def normalise(name: str) -> str:
@@ -107,7 +119,61 @@ def load_reviewed(text: str) -> dict[tuple[str, str], str]:
     return {(normalise(e["name"]), e["version"]): e["licence"] for e in entries}
 
 
+def component(image: str) -> str:
+    """The bundle folder for an image: its repository's last path segment."""
+    return image.split("@")[0].rsplit(":", 1)[0].rsplit("/", 1)[-1]
+
+
+def check_bundle(
+    services: dict[str, dict[str, Any]], bundle: dict[str, dict[str, str]]
+) -> list[str]:
+    """Every bundled service ships its licence, notices, exact version and source (§2.7)."""
+    problems: list[str] = []
+    used: set[str] = set()
+    for service, spec in sorted(services.items()):
+        image = spec.get("image", "")
+        name = component(image)
+        used.add(name)
+        if "@sha256:" not in image and "build" not in spec:
+            problems.append(f"{service}: image {image} is not pinned by digest")
+        files = bundle.get(name)
+        if files is None:
+            problems.append(f"{service}: no deploy/third-party/{name}/ for {image}")
+            continue
+        missing = [f for f in BUNDLE_FILES if not files.get(f, "").strip()]
+        if missing:
+            problems.append(f"deploy/third-party/{name}: missing {', '.join(missing)}")
+        elif files["VERSION"].splitlines()[0] != image:
+            problems.append(f"deploy/third-party/{name}/VERSION: does not name {image}")
+    unused = sorted(set(bundle) - used)
+    return problems + [f"deploy/third-party/{n}: no compose service uses it" for n in unused]
+
+
+def _compose_services() -> dict[str, dict[str, Any]]:
+    services: dict[str, dict[str, Any]] = {}
+    for path in sorted(COMPOSE_DIR.glob("*.yml")):
+        for name, spec in (
+            (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("services", {}).items()
+        ):
+            services.setdefault(name, {}).update(spec)
+    return {name: spec for name, spec in services.items() if "image" in spec}
+
+
+def _bundle() -> dict[str, dict[str, str]]:
+    return {
+        folder.name: {f.name: f.read_text(encoding="utf-8") for f in folder.iterdir()}
+        for folder in sorted(BUNDLE_DIR.glob("*"))
+        if folder.is_dir()
+    }
+
+
 def main(argv: list[str]) -> int:
+    if argv == ["--bundle"]:
+        problems = check_bundle(_compose_services(), _bundle())
+        for line in problems:
+            print(line)
+        print(f"{len(_compose_services())} bundled services checked")
+        return 1 if problems else 0
     if not argv:
         print(__doc__)
         return 2
