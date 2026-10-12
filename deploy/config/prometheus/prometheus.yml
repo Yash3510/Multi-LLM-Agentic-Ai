@@ -1,0 +1,8 @@
+# Operations metrics. 4ce-server and the workers join as scrape targets when they exist.
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

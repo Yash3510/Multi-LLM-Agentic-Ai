@@ -1,0 +1,22 @@
+# Development only, on top of core.yml: publish each service on localhost so 4CE can run on
+# the host. Publishing needs a second, non-internal network, which also gives the services a
+# route out, so this file never ships in an appliance.
+services:
+  postgres:
+    networks: [core, host-access]
+    ports: ["127.0.0.1:5432:5432"]
+  redis:
+    networks: [core, host-access]
+    ports: ["127.0.0.1:6379:6379"]
+  minio:
+    networks: [core, host-access]
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
+  prometheus:
+    networks: [core, host-access]
+    ports: ["127.0.0.1:9090:9090"]
+  grafana:
+    networks: [core, host-access]
+    ports: ["127.0.0.1:3000:3000"]
+
+networks:
+  host-access: {}

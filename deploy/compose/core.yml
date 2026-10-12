@@ -1,0 +1,131 @@
+# The bundled services 4CE talks to over the network, each unmodified (master plan §2.7).
+# They sit on an internal network with no route out. Images are pinned by digest; each one's
+# licence, notices and source are in deploy/third-party/<service>/.
+# Secrets come from .env (see .env.example); the stack refuses to start without them.
+name: fource
+
+x-hardened: &hardened
+  restart: unless-stopped
+  read_only: true
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  networks: [core]
+
+services:
+  postgres:
+    <<: *hardened
+    image: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    # The entrypoint prepares the data folder as root, then drops to the postgres user.
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    environment:
+      POSTGRES_USER: fource
+      POSTGRES_DB: fource
+      POSTGRES_PASSWORD: ${FOURCE_POSTGRES_PASSWORD:?set FOURCE_POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    tmpfs: [/var/run/postgresql, /tmp]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "fource", "-d", "fource"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    <<: *hardened
+    image: redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+    cap_add: [CHOWN, SETGID, SETUID]
+    command:
+      - redis-server
+      - --requirepass
+      - ${FOURCE_REDIS_PASSWORD:?set FOURCE_REDIS_PASSWORD in .env}
+      - --appendonly
+      - "yes"
+    environment:
+      REDISCLI_AUTH: ${FOURCE_REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    <<: *hardened
+    image: fource/minio:RELEASE.2025-10-15T17-29-55Z
+    build:
+      context: ../config/minio
+      dockerfile: minio.dockerfile
+    command: ["server", "/data", "--console-address", ":9001", "--certs-dir", "/tmp/certs"]
+    environment:
+      MINIO_ROOT_USER: ${FOURCE_S3_ACCESS_KEY:?set FOURCE_S3_ACCESS_KEY in .env}
+      MINIO_ROOT_PASSWORD: ${FOURCE_S3_SECRET_KEY:?set FOURCE_S3_SECRET_KEY in .env}
+      MINIO_UPDATE: "off"
+      MINIO_CALLHOME_ENABLE: "off"
+    volumes:
+      - minio-data:/data
+    tmpfs: [/tmp]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  prometheus:
+    <<: *hardened
+    image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ../config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  grafana:
+    <<: *hardened
+    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${FOURCE_GRAFANA_ADMIN_PASSWORD:?set FOURCE_GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      # Nothing phones home (master plan §7.20).
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_ANALYTICS_FEEDBACK_LINKS_ENABLED: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_SNAPSHOTS_EXTERNAL_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_PLUGINS_PUBLIC_KEY_RETRIEVAL_DISABLED: "true"
+      GF_PLUGINS_PLUGIN_ADMIN_ENABLED: "false"
+    volumes:
+      - ../config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    tmpfs: [/tmp]
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+networks:
+  core:
+    internal: true
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  prometheus-data:
+  grafana-data:

@@ -55,6 +55,14 @@ licences:
     uv run python tools/licence_gate.py build/sbom/python.cdx.json
     uv run python tools/import_scan.py build/sbom/python.cdx.json
 
+# Start the bundled services on localhost and wait until they are healthy (needs .env)
+dev:
+    docker compose --env-file .env -f deploy/compose/core.yml -f deploy/compose/dev.yml up --detach --build --wait
+
+# Stop the bundled services; their data volumes are kept
+down:
+    docker compose --env-file .env -f deploy/compose/core.yml -f deploy/compose/dev.yml down
+
 # No secrets anywhere in the branch's history (gitleaks)
 secrets:
     pre-commit run gitleaks-history --hook-stage manual --all-files
