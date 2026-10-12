@@ -8,10 +8,10 @@ The `4ce-core` branch of this repository is the owned rebuild, with its own hist
 
 ## Set up
 
-You need [uv](https://docs.astral.sh/uv/) and git. Then:
+You need [uv](https://docs.astral.sh/uv/) and git 2.38 or newer. Then:
 
 ```
-uv tool install rust-just
+uv tool install rust-just==1.58.0
 git clone --branch 4ce-core https://github.com/Yash3510/Multi-LLM-Agentic-Ai.git 4ce
 cd 4ce
 just setup
