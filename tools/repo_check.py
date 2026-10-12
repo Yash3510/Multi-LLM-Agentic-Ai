@@ -1,6 +1,6 @@
 """Keep the repository's shape as master plan §6.4 and §6.5 define it.
 
-    uv run python tools/repo_check.py                    every file git tracks or would add
+    uv run python tools/repo_check.py                    every file in git's index
     uv run python tools/repo_check.py --commits A..B     the commits in a range
     uv run python tools/repo_check.py --commit-msg FILE  a commit message (git hook)
 
@@ -244,17 +244,14 @@ def _git(repo: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
-def _files(repo: Path) -> dict[str, int]:
-    """Every file git tracks or would add, with its size: the stored blob for tracked files
-    (an LFS pointer is tiny), the file on disk for ones not added yet."""
+def tracked_sizes(repo: Path) -> dict[str, int]:
+    """Every file in git's index with its stored size (an LFS pointer is tiny). Untracked
+    files aren't checked: an editor's or the OS's junk never blocks a commit."""
     listing = _git(repo, "ls-files", "-z", "--format=%(objectsize) %(path)")
     sizes: dict[str, int] = {}
     for entry in filter(None, listing.split("\0")):
         size, path = entry.split(" ", 1)
         sizes[path] = int(size)
-    untracked = _git(repo, "ls-files", "-z", "--others", "--exclude-standard")
-    for path in filter(None, untracked.split("\0")):
-        sizes[path] = (repo / path).stat().st_size
     return sizes
 
 
@@ -277,7 +274,7 @@ def main(argv: list[str]) -> int:
         subject = next((line for line in lines if line and not line.startswith("#")), "")
         problems = check_subject(subject)
     elif not argv:
-        sizes = _files(repo)
+        sizes = tracked_sizes(repo)
         paths = sorted(sizes)
         texts = _texts(repo, paths)
         manifests = {p: t for p, t in texts.items() if PACK_MANIFEST.fullmatch(p)}
