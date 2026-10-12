@@ -30,7 +30,7 @@ Folders marked _planned_ don't exist yet; they arrive with their work packages.
 | `.github/` | `CODEOWNERS`, `pull_request_template.md`, `ISSUE_TEMPLATE/`, `dependabot.yml`, `workflows/` | partly built |
 | `.obsidian/` | shared vault settings only: `app.json`, `core-plugins.json`, `templates.json` | built |
 | `apps/server/` | the FastAPI app: thin wiring, no business logic | _planned_ |
-| `apps/web/` | the SvelteKit UI and Pack Studio | _planned_ |
+| `apps/web/` | the SvelteKit UI and Pack Studio | _planned_; on hold here while Pranay, the frontend owner, develops it |
 | `core/<package>/` | sector-neutral Python packages, all uv workspace members | `common` and `packs` built |
 | `packs/sector/<pack-id>/`, `packs/cross/<pack-id>/` | one industry or one department each | _planned_ |
 | `skills/<skill-name>/` | 4CE's built-in skills | _planned_ |

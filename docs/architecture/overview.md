@@ -90,7 +90,7 @@ PostgreSQL, Redis, MinIO, Prometheus and Grafana run as unmodified separate serv
 | `core/sovereignty` | Egress monitor, surface audit, offline guard, canary | _planned_ |
 | `core/web` | Web broker and the Firecrawl adapter (off by default) | _planned_ |
 
-The frontend's foundations are proposed in [ADR-0035](../adr/0035-frontend-foundations.md) and its design values in the [design system](design-system.md).
+The frontend's foundations are proposed in [ADR-0035](../adr/0035-frontend-foundations.md) and its design values in the [design system](design-system.md). Pranay, the frontend owner, develops it; on `4ce-core` the backend and the database come first, and the server's OpenAPI document is the contract between the two.
 
 ## Related pages
 
