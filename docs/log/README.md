@@ -13,4 +13,5 @@ One entry per PR, newest first, named `YYYY/MM/YYYY-MM-DD-<branch-name>.md` and 
 
 | Date | Entry | Work package |
 | --- | --- | --- |
+| 2026-10-12 | [Phase 0 foundations](2026/10/2026-10-12-4ce-core.md) | WP-F-02 to F-05, F-10, F-12, F-14 to F-16, WP-PK-01; F-01 and F-13 in part |
 | 2026-10-08 | [Frontend foundations decided](2026/10/2026-10-08-4ce-core.md) | — |
