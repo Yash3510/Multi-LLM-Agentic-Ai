@@ -37,3 +37,11 @@ def test_a_commercial_library_only_where_its_adapter_lives() -> None:
 def test_unknown_imports_fail_closed() -> None:
     problems = scan({"core/x/src/fource/x/a.py": "import mystery\n"})
     assert problems and "no installed package" in problems[0]
+
+
+def test_a_package_missing_from_the_sbom_fails_closed() -> None:
+    dists = DISTS | {"stray": ["stray-lib"]}
+    problems = import_scan.check_imports(
+        {"core/x/src/fource/x/a.py": "import stray\n"}, dists, LICENCES, {}
+    )
+    assert problems and "stray-lib" in problems[0] and "not in the SBOM" in problems[0]
