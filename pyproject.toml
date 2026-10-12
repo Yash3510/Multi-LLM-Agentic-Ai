@@ -38,6 +38,21 @@ include = ["core", "tools"]
 strict = ["core"]
 extraPaths = ["tools"]
 
+[tool.importlinter]
+root_packages = ["fource"]
+
+[[tool.importlinter.contracts]]
+name = "common depends on no other 4CE package"
+type = "forbidden"
+source_modules = ["fource.common"]
+forbidden_modules = ["fource.*"]
+
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.common is imported from outside it"
+type = "protected"
+protected_modules = ["fource.common.*"]
+allowed_importers = ["fource.common"]
+
 [tool.pytest.ini_options]
 # Every package has a tests/ folder, so test file names repeat across packages.
 addopts = ["--import-mode=importlib"]

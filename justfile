@@ -43,5 +43,9 @@ new-package name:
 new-doc type name:
     uv run python tools/scaffold.py doc {{type}} {{name}}
 
+# Package boundaries: only public APIs cross packages (§6.4)
+imports:
+    uv run lint-imports
+
 # Every CI check, locally, exactly as CI runs it
-check: lint repo-check neutrality docs test
+check: lint imports repo-check neutrality docs test
