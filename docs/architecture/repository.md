@@ -158,7 +158,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | Package boundaries | import-linter | _planned_ |
 | Licences, imports, SBOM, third-party bundle | `tools/licence_gate.py`, `tools/import_scan.py` | _planned_ |
 | Secrets | gitleaks | _planned_ |
-| Docs | `tools/docs_check.py` | _planned_ |
+| Docs | [`tools/docs_check.py`](../../tools/docs_check.py) | built |
 
 ### Commands
 
@@ -169,6 +169,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just lint` | Formatting, lint and types |
 | `just repo-check` | The repo check |
 | `just neutrality` | The neutrality check |
+| `just docs` | The docs check; add `--base origin/main` for the PR rules |
 | `just check` | Every check, as CI runs it |
 
 ### Dependencies: uv for everything Python

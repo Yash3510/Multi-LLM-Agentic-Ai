@@ -7,6 +7,7 @@ updated: 2026-10-12
 covers:
   - docs/templates/
   - .obsidian/
+  - tools/docs_check.py
 tags: [4ce, architecture, documentation]
 ---
 
@@ -117,7 +118,7 @@ Every PR adds exactly one entry, `docs/log/YYYY/MM/YYYY-MM-DD-<branch-name>.md`,
 
 ## The docs check
 
-`tools/docs_check.py` is _planned_ (WP-F-15). It will fail a PR when:
+[`tools/docs_check.py`](../../tools/docs_check.py) runs in `just check` (`just docs`). The PR rules (work log, drift, ADRs) need the branch the PR targets: `just docs --base origin/main`, plus `--allow-drift` only when the PR carries the `docs-unaffected` label. It fails when:
 
 | Check | Fails when |
 | --- | --- |
