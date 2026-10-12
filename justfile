@@ -22,5 +22,9 @@ lint:
     uv run ruff check .
     uv run pyright
 
+# Layout, naming, package and dependency-file rules (§6.4, §6.5)
+repo-check:
+    uv run python tools/repo_check.py
+
 # Every CI check, locally, exactly as CI runs it
-check: lint test
+check: lint repo-check test
