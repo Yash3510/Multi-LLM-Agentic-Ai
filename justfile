@@ -7,10 +7,12 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 default:
     @just --list
 
-# Install Python through uv and sync every package
+# Install Python through uv, sync every package and install the git hooks
 setup:
     uv python install
     uv sync --all-packages
+    uv tool install pre-commit
+    pre-commit install --install-hooks --allow-missing-config
 
 # Unit and integration tests
 test:
@@ -53,5 +55,9 @@ licences:
     uv run python tools/licence_gate.py build/sbom/python.cdx.json
     uv run python tools/import_scan.py build/sbom/python.cdx.json
 
+# No secrets anywhere in the branch's history (gitleaks)
+secrets:
+    pre-commit run gitleaks-history --hook-stage manual
+
 # Every CI check, locally, exactly as CI runs it
-check: lint imports repo-check neutrality docs licences test
+check: lint imports repo-check neutrality docs licences secrets test
