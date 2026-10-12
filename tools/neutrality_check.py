@@ -43,7 +43,10 @@ def find_terms(path: str, text: str, terms: list[str]) -> list[str]:
 def main() -> int:
     terms = load_terms(TERMS_FILE.read_text(encoding="utf-8"))
     listing = subprocess.run(
-        ["git", "ls-files", "-z", *SCANNED], check=True, capture_output=True, text=True
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", *SCANNED],
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
     problems: list[str] = []
     for path in filter(None, listing.split("\0")):

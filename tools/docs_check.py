@@ -257,7 +257,8 @@ def _git(*args: str) -> str:
 
 
 def _docs_pages() -> dict[str, str]:
-    paths = [p for p in _git("ls-files", "-z", "docs").split("\0") if p.endswith(".md")]
+    listing = _git("ls-files", "-z", "--cached", "--others", "--exclude-standard", "docs")
+    paths = [p for p in listing.split("\0") if p.endswith(".md")]
     return {p: Path(p).read_text(encoding="utf-8") for p in paths if Path(p).exists()}
 
 
