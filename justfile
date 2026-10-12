@@ -14,6 +14,10 @@ setup:
     uv tool install pre-commit
     pre-commit install --install-hooks --allow-missing-config
 
+# Start of every session: fast-forward 4ce-core from GitHub and list the docs that changed
+sync:
+    uv run python tools/sync.py
+
 # Unit and integration tests
 test:
     uv run pytest
