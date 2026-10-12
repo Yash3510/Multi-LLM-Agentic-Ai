@@ -10,11 +10,9 @@ def test_ids_are_version_7_with_the_standard_variant() -> None:
     assert value.variant == uuid.RFC_4122
 
 
-def test_ids_sort_by_creation_time() -> None:
-    first = new_id()
-    time.sleep(0.002)
-    second = new_id()
-    assert first < second
+def test_ids_made_in_a_row_are_already_in_order() -> None:
+    ids = [new_id() for _ in range(10_000)]
+    assert ids == sorted(ids)
 
 
 def test_ids_carry_the_current_time_in_milliseconds() -> None:
