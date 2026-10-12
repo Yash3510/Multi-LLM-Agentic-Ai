@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fource:schema:pack:draft-1",
+  "title": "4CE pack manifest (pack.yaml)",
+  "description": "Draft 1. Identity, version, risk tier, dependencies, locales, contents and signatures of one pack.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "version", "kind", "risk_tier", "summary", "locales"],
+  "properties": {
+    "id": { "$ref": "#/$defs/pack_id" },
+    "title": { "type": "string", "minLength": 1 },
+    "version": { "$ref": "#/$defs/semver" },
+    "kind": { "enum": ["sector", "cross"] },
+    "risk_tier": {
+      "description": "1 office, 2 financial and legal, 3 safety and life. Sets defaults a pack can tighten but never loosen.",
+      "enum": [1, 2, 3]
+    },
+    "summary": { "type": "string", "minLength": 1 },
+    "depends": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version"],
+        "properties": {
+          "id": { "$ref": "#/$defs/pack_id" },
+          "version": { "description": "A version range, e.g. \">=0.2 <1.0\".", "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "locales": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$" }
+    },
+    "min_profile": { "description": "The smallest hardware profile the pack runs on.", "type": "string" },
+    "subjects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label"],
+        "properties": {
+          "id": { "$ref": "#/$defs/local_id" },
+          "label": { "$ref": "#/$defs/label" },
+          "identifier": { "$ref": "#/$defs/local_id" }
+        }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "core_role"],
+        "properties": {
+          "id": { "$ref": "#/$defs/local_id" },
+          "label": { "$ref": "#/$defs/label" },
+          "core_role": {
+            "description": "The core role this pack role maps to. The list of core roles is set by ADR-0017.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "contents": {
+      "description": "The folders the pack ships, relative to the pack root.",
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "vocabulary", "documents", "rules", "calculators", "workflows", "intents", "prompts",
+          "skills", "templates", "policies", "connectors", "evals", "demo"
+        ]
+      },
+      "additionalProperties": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*/$" }
+    },
+    "code": {
+      "description": "Signed code the pack carries. Empty for a declarative pack.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "purpose"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "purpose": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "signatures": {
+      "description": "Absent while authoring; required before a pack can be activated.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["author"],
+      "properties": {
+        "author": { "$ref": "#/$defs/signature" },
+        "approver": { "$ref": "#/$defs/signature" }
+      }
+    }
+  },
+  "$defs": {
+    "pack_id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "local_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "semver": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "label": {
+      "description": "One label, or one per locale.",
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$" },
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      ]
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "signed_at"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "signed_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
