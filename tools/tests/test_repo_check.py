@@ -206,6 +206,35 @@ def test_commit_subjects_are_conventional() -> None:
     assert repo_check.check_subject("feature(rules): unknown type") != []
 
 
+def test_git_default_revert_subjects_are_accepted() -> None:
+    assert repo_check.check_subject('Revert "feat(rules): add authority rule type"') == []
+
+
+def test_todos_in_build_files_and_scripts_need_an_issue_too() -> None:
+    marker = "TO" + "DO"
+    problems = repo_check.check_contents(
+        {
+            "deploy/config/minio/minio.dockerfile": f"# {marker}: pin the base image\n",
+            "justfile": f"# {marker}: add release\n",
+            "deploy/installer/windows/setup.ps1": f"# {marker}: sign it\n",
+        }
+    )
+    assert len(problems) == 3
+
+
+def test_database_migrations_keep_their_numbered_names() -> None:
+    migration = "core/domain/src/fource/domain/migrations/versions/0007_add_cases_table.py"
+    assert repo_check.check_paths([migration]) == []
+
+
+def test_pack_signature_times_must_be_real_timestamps() -> None:
+    signed = MANIFEST + 'signatures:\n  author: { key: "k", signed_at: "last tuesday" }\n'
+    problems = repo_check.check_packs({"packs/sector/example-sector/pack.yaml": signed})
+    assert problems and "signed_at" in problems[0]
+    valid = MANIFEST + 'signatures:\n  author: { key: "k", signed_at: "2026-10-12T10:00:00Z" }\n'
+    assert repo_check.check_packs({"packs/sector/example-sector/pack.yaml": valid}) == []
+
+
 def git(repo: Path, *args: str) -> str:
     # Signing is switched off so a developer's global commit.gpgsign can't prompt or fail.
     command = ["git", "-c", "commit.gpgsign=false", "-C", str(repo), *args]
