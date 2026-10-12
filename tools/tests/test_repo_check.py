@@ -212,6 +212,16 @@ def git(repo: Path, *args: str) -> str:
     return subprocess.run(command, check=True, capture_output=True, text=True).stdout.strip()
 
 
+def test_only_files_git_would_commit_are_checked(tmp_path: Path) -> None:
+    git(tmp_path, "init", "-q")
+    (tmp_path / "README.md").write_text("# x\n")
+    git(tmp_path, "add", "README.md")
+    (tmp_path / ".DS_Store").write_text("finder junk")
+    (tmp_path / ".idea").mkdir()
+    (tmp_path / ".idea" / "workspace.xml").write_text("<project/>")
+    assert list(repo_check.tracked_sizes(tmp_path)) == ["README.md"]
+
+
 def test_empty_and_whitespace_only_commits_are_rejected(tmp_path: Path) -> None:
     git(tmp_path, "init", "-q")
     git(tmp_path, "config", "user.email", "dev@example.com")
