@@ -11,7 +11,7 @@ default:
 setup:
     uv python install
     uv sync --all-packages --locked
-    uv tool install pre-commit
+    uv tool install pre-commit==4.6.2
     pre-commit install --install-hooks --allow-missing-config
 
 # Start of every session: fast-forward 4ce-core from GitHub and list the docs that changed

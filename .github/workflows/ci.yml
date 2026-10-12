@@ -28,7 +28,7 @@ jobs:
         with:
           version: "0.13.0"
           enable-cache: true
-      - run: uv tool install rust-just
+      - run: uv tool install rust-just==1.58.0
       - run: just setup
       - run: just check
 
