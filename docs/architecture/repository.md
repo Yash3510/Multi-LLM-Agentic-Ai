@@ -208,6 +208,7 @@ uv installs Python, creates environments, adds packages, locks and runs. pip is 
 
 - `pyproject.toml` declares dependencies and the one `uv.lock` pins them. No `requirements.txt`, `setup.py`, `Pipfile` or `poetry.lock`.
 - A new dependency is named in its PR with its licence.
+- Dependabot opens weekly grouped update PRs against `4ce-core`, titled `chore(deps): …`. They pass every check like any other PR; the person reviewing one adds its work-log entry (`just new-doc log <branch-name>`) before merging.
 - The frontend uses npm with its committed `package-lock.json`.
 
 ### Line endings, editors and large files
