@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+    # edited and (un)labeled re-run the PR rules when the title or docs-unaffected changes.
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   push:
     branches: [4ce-core]
 
@@ -11,6 +13,8 @@ permissions:
 jobs:
   check:
     name: just check (${{ matrix.os }})
+    # The code is unchanged by a title or label edit, so the matrix runs only for code.
+    if: github.event_name == 'push' || contains(fromJSON('["opened", "synchronize", "reopened"]'), github.event.action)
     strategy:
       fail-fast: false
       matrix:
