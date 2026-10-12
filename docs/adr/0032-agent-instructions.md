@@ -21,7 +21,7 @@ Team members may use coding agents, each person possibly a different one. Each t
 
 1. **One file, [`AGENTS.md`](../../AGENTS.md), at the root,** holds the rules every coding agent follows, whatever the tool. A package or pack may add a short `AGENTS.md` that adds rules but never relaxes the root ones.
 2. **Tool-specific instruction or configuration files are never committed.** A developer whose tool wants another file name keeps a local pointer, excluded in their own `.git/info/exclude`. The repo check rejects committed ones through its allowlists.
-3. **Human-only actions:** agents never merge, approve, push to `main`, force-push, sign anything, or change CI, branch protection, CODEOWNERS, the licence policy, the risk tiers or `AGENTS.md`.
+3. **Human-only actions:** agents never merge, approve, push to `4ce-core`, force-push, sign anything, or change CI, branch protection, CODEOWNERS, the licence policy, the risk tiers or `AGENTS.md`.
 4. **Least privilege:** a developer's normal repository access and nothing more; no production or customer environments, credentials or signing keys.
 5. **No tool attribution** in commits, PRs, comments or docs. The person who opens the PR is its author and is accountable for every line.
 
