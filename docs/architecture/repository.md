@@ -176,6 +176,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | Command | Does |
 | --- | --- |
 | `just setup` | Install Python through uv, sync every package from the lockfile (failing if it is out of date), and install pre-commit and its git hooks |
+| `just sync` | Start of every session: fast-forward `4ce-core` from GitHub and list the docs pages changed since your last sync. It never overwrites local commits. |
 | `just test` | Unit tests |
 | `just lint` | Formatting, lint and types |
 | `just repo-check` | The repo check |
