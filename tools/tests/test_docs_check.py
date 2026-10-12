@@ -1,4 +1,6 @@
+import subprocess
 from datetime import date
+from pathlib import Path
 
 import docs_check
 
@@ -212,3 +214,67 @@ def test_an_accepted_adr_can_only_become_superseded_by_a_named_record() -> None:
     assert docs_check.check_adrs({path: reopened}, {path: ACCEPTED}) != []
     unnamed = ACCEPTED.replace("decision_status: accepted", "decision_status: superseded")
     assert docs_check.check_adrs({path: unnamed}, {path: ACCEPTED}) != []
+
+
+def test_adr_pages_never_drift() -> None:
+    # An accepted ADR is never edited, so code changes can't require updating it.
+    adr = ACCEPTED.replace("tags: [4ce, adr]", "covers:\n  - core/rules/\ntags: [4ce, adr]")
+    pages = docs(**{"docs/adr/0009-own-core.md": adr})
+    problems = docs_check.check_drift(pages, ["core/rules/engine.py"])
+    assert not any("0009" in p for p in problems)
+
+
+def test_covers_must_exist_and_folders_end_with_a_slash() -> None:
+    files = {"core/rules/engine.py"}
+    folders = {"core/rules"}
+    covers = "  - core/rules\n  - core/gone.py\n  - core/rules/engine.py"
+    page = RULES.replace("  - core/rules/", covers)
+    planned = RULES.replace("status: active", "status: planned").replace("core/rules/", "apps/x/")
+    pages = docs(**{"docs/architecture/rules.md": page, "docs/architecture/web.md": planned})
+
+    def exists(path: str) -> bool:
+        return path.rstrip("/") in files | folders
+
+    def is_dir(path: str) -> bool:
+        return path.rstrip("/") in folders
+
+    problems = docs_check.check_covers(pages, exists, is_dir)
+    assert any("core/rules" in p and "trailing /" in p for p in problems)
+    assert any("core/gone.py" in p and "doesn't exist" in p for p in problems)
+    assert not any("engine.py" in p for p in problems)
+    assert not any("web.md" in p for p in problems)  # a planned page may cover what isn't built
+
+
+def run(repo: Path, *args: str) -> None:
+    command = ["git", "-c", "commit.gpgsign=false", "-C", str(repo), *args]
+    subprocess.run(command, check=True, capture_output=True)
+
+
+def test_pr_rules_against_the_target_branch(tmp_path: Path) -> None:
+    run(tmp_path, "init", "-q", "-b", "trunk")
+    run(tmp_path, "config", "user.email", "d@example.com")
+    run(tmp_path, "config", "user.name", "D")
+    files = {
+        "docs/README.md": INDEX,
+        "docs/architecture/rules.md": RULES,
+        "docs/adr/0009-own-core.md": ACCEPTED,
+        "core/rules/engine.py": "x = 1\n",
+    }
+    for path, text in files.items():
+        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / path).write_text(text, encoding="utf-8")
+    run(tmp_path, "add", ".")
+    run(tmp_path, "commit", "-q", "-m", "docs: start")
+    run(tmp_path, "switch", "-q", "-c", "wp/x")
+    # Moving the covered file out of core/rules/ still touches core/rules/.
+    run(tmp_path, "mv", "core/rules/engine.py", "core/engine.py")
+    adr = tmp_path / "docs/adr/0009-own-core.md"
+    adr.write_text(ACCEPTED.replace("every line", "most lines"), encoding="utf-8")
+    run(tmp_path, "commit", "-q", "-am", "refactor: move the engine")
+
+    problems = docs_check.pr_problems(tmp_path, "trunk")
+    assert any(p.startswith("docs/log/") and "found none" in p for p in problems)
+    assert any(p.startswith("docs/architecture/rules.md: covers core/rules/") for p in problems)
+    assert any(p.startswith("docs/adr/0009-own-core.md:") for p in problems)
+    lenient = docs_check.pr_problems(tmp_path, "trunk", allow_drift=True)
+    assert not any("rules.md" in p for p in lenient)
