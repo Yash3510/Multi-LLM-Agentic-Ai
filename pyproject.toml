@@ -1,0 +1,41 @@
+# The uv workspace root. It is not a package: every package lives under core/ or apps/
+# and declares its own dependencies. Shared tool settings live here.
+
+[project]
+name = "fource-workspace"
+version = "0.0.0"
+requires-python = ">=3.12"
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.15",
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.17.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["core/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fource"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+include = ["core", "tools"]
+strict = ["core"]
+
+[tool.pytest.ini_options]
+# Every package has a tests/ folder, so test file names repeat across packages.
+addopts = ["--import-mode=importlib"]
+testpaths = ["core", "tools"]
