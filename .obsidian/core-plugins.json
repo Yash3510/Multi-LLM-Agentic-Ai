@@ -1,0 +1,15 @@
+{
+  "templates": true,
+  "properties": true,
+  "backlink": true,
+  "graph": true,
+  "bases": true,
+  "file-explorer": true,
+  "global-search": true,
+  "switcher": true,
+  "outline": true,
+  "daily-notes": false,
+  "canvas": false,
+  "sync": false,
+  "publish": false
+}

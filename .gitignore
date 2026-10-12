@@ -20,7 +20,8 @@ __pycache__/
 # Logs
 *.log
 
-# Obsidian per-person files; only app.json and core-plugins.json are shared.
+# Obsidian per-person files; only the three shared settings are committed.
 .obsidian/*
 !.obsidian/app.json
 !.obsidian/core-plugins.json
+!.obsidian/templates.json

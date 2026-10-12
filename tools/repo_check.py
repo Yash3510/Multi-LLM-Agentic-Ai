@@ -49,7 +49,7 @@ GITHUB_ENTRIES = {
     "dependabot.yml",
     "workflows",
 }
-OBSIDIAN_ENTRIES = {"app.json", "core-plugins.json"}
+OBSIDIAN_ENTRIES = {"app.json", "core-plugins.json", "templates.json"}
 
 # Upper-case names allowed below the root. Everything else is lower case, so a tool's own
 # instruction file (FOO.md, .foorules, .foo/) never slips in unnoticed.

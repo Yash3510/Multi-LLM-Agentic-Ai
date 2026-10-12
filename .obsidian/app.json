@@ -1,0 +1,16 @@
+{
+  "userIgnoreFilters": [
+    "apps/",
+    "core/",
+    "deploy/",
+    "evals/",
+    "packs/",
+    "skills/",
+    "tests/",
+    "tools/",
+    "node_modules/",
+    ".venv/"
+  ],
+  "useMarkdownLinks": true,
+  "newLinkFormat": "relative"
+}
