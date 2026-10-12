@@ -27,7 +27,7 @@ tags: [4ce, architecture, documentation]
 4. **Every change leaves a record:** one work-log entry per PR, written in that PR.
 5. **Capture, organise, distil.** Log entries capture each change; history pages organise them into milestones; the state page, the changelog and the index distil them.
 6. **Human knowledge is preserved.** Research and meeting notes are kept and labelled by type. A page is never deleted to tidy up: it is marked `deprecated` or `historical`, with a link to what replaced it.
-7. **The docs live on GitHub, not on laptops.** `main` on GitHub is the knowledge base everyone reads.
+7. **The docs live on GitHub, not on laptops.** `4ce-core` on GitHub is the knowledge base everyone reads.
 
 ## The vault
 
@@ -112,13 +112,13 @@ Every PR adds exactly one entry, `docs/log/YYYY/MM/YYYY-MM-DD-<branch-name>.md`,
 ## Keeping everyone current
 
 - **Push as you go,** and open a draft PR after the first push.
-- **Docs reach `main` only through merged PRs.**
+- **Docs reach `4ce-core` only through merged PRs.**
 - **Docs-only fast lane:** a PR that changes only `docs/` needs one approval, from the owner of the pages it touches, and is merged the same day.
 - **Pull before you start** with `just sync`.
 
 ## The docs check
 
-[`tools/docs_check.py`](../../tools/docs_check.py) runs in `just check` (`just docs`). The PR rules (work log, drift, ADRs) need the branch the PR targets: `just docs --base origin/main`, plus `--allow-drift` only when the PR carries the `docs-unaffected` label. It fails when:
+[`tools/docs_check.py`](../../tools/docs_check.py) runs in `just check` (`just docs`). The PR rules (work log, drift, ADRs) need the branch the PR targets: `just docs --base origin/4ce-core`, plus `--allow-drift` only when the PR carries the `docs-unaffected` label. It fails when:
 
 | Check | Fails when |
 | --- | --- |

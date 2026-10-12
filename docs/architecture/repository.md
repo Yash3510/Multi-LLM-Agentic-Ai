@@ -126,11 +126,18 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 
 ## Working rules
 
+### Where 4CE lives
+
+- **The repository is [Yash3510/Multi-LLM-Agentic-Ai](https://github.com/Yash3510/Multi-LLM-Agentic-Ai), and `4ce-core` is the trunk.** It has its own history, shared with nothing else in the repository.
+- **The other branches (`main`, `4ce`, `4ce-production`) are the old Open WebUI fork.** They are never merged into `4ce-core`, and they are frozen at M1 ([ADR-0009](../adr/0009-own-core-and-clean-room.md)).
+- **`4ce-core` should be the default branch on GitHub.** GitHub reads the Dependabot settings and the issue and pull request templates from the default branch only.
+- **Git hooks are shared by every branch of a clone.** `just setup` installs them with `--allow-missing-config`, so they do nothing on the fork's branches, which have no hook configuration.
+
 ### Branches
 
-- **`main` is always releasable** and protected: no direct or force pushes, linear history, required checks, signed commits only.
-- **All work happens on short-lived branches off `main`:** `wp/<WP-id>-<short-title>`, `fix/<topic>`, `docs/<topic>`, `chore/<topic>`, `pack/<pack-id>-<topic>`.
-- **`release/<x.y>` branches** exist only to patch a version installed at a customer; fixes land on `main` first.
+- **`4ce-core` is always releasable** and protected: no direct or force pushes, linear history, required checks, signed commits only.
+- **All work happens on short-lived branches off `4ce-core`:** `wp/<WP-id>-<short-title>`, `fix/<topic>`, `docs/<topic>`, `chore/<topic>`, `pack/<pack-id>-<topic>`.
+- **`release/<x.y>` branches** exist only to patch a version installed at a customer; fixes land on `4ce-core` first.
 
 ### Commits
 
@@ -143,7 +150,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 
 - **One work package or one fix per PR,** under about 400 changed lines plus tests. The title is a Conventional Commit.
 - **To merge:** every check green, every touched folder's code owner approved, all conversations resolved. Trust-critical code (`core/policy`, `core/ledger`, `core/signoff`, `core/sandbox`, pack signing) needs two approvals.
-- **Rebase and merge only, never squash,** so every commit lands on `main` with its author intact.
+- **Rebase and merge only, never squash,** so every commit lands on `4ce-core` with its author intact.
 - **Push as you go:** push after every finished step and before stopping; open a draft PR after the first push.
 
 ### Checks
@@ -178,7 +185,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just secrets` | gitleaks over the branch's whole history |
 | `just dev` | Start the bundled services on localhost and wait until they are healthy |
 | `just down` | Stop the bundled services, keeping their data |
-| `just docs` | The docs check; add `--base origin/main` for the PR rules |
+| `just docs` | The docs check; add `--base origin/4ce-core` for the PR rules |
 | `just new-package <name>` | Scaffold `core/<name>/` from the package template and install it |
 | `just new-pack <sector\|cross> <id>` | Scaffold a pack with a valid `pack.yaml` (risk tier 3 until lowered on purpose) |
 | `just new-doc <type> <name>` | Create a docs page or work-log entry from its template (`just new-doc log <branch-name>`) |

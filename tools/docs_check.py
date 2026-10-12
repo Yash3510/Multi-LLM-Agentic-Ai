@@ -1,7 +1,7 @@
 """Keep docs/ true and connected, as docs/architecture/documentation.md defines.
 
     uv run python tools/docs_check.py                     every page as it is now
-    uv run python tools/docs_check.py --base origin/main  also the rules for a PR
+    uv run python tools/docs_check.py --base origin/4ce-core  also the rules for a PR
 
 The PR rules (one work-log entry, drift against `covers`, accepted ADRs unchanged) compare
 against --base. --allow-drift skips the drift rule; CI passes it only when the PR carries

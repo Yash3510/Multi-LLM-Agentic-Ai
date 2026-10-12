@@ -4,8 +4,8 @@ The short version of how we work. The full rules, and the reasons for them, are 
 
 ## Every working session
 
-1. Start from the latest `main`.
-2. Work from an issue, on a branch named `wp/<WP-id>-<short-title>` (or `fix/`, `docs/`, `chore/`, `pack/`). Never on `main`.
+1. Start from the latest `4ce-core`.
+2. Work from an issue, on a branch named `wp/<WP-id>-<short-title>` (or `fix/`, `docs/`, `chore/`, `pack/`). Never on `4ce-core`.
 3. Read [docs/state.md](docs/state.md) and the docs pages for the area you will touch.
 
 ## Making a change
@@ -30,5 +30,5 @@ Anyone may use a coding agent. It works under the same rules as a person, plus [
 
 - **One instruction file.** `AGENTS.md` is the only agent instruction file in the repository. If your tool wants another file name, create a one-line local pointer to `AGENTS.md` and exclude it in your own `.git/info/exclude`. The repo check fails a committed tool-specific file.
 - **Least privilege.** An agent gets a developer's normal repository access and nothing more: no production or customer environments, no cloud credentials, no signing keys. It connects only to local or R4-approved services.
-- **Human-only actions.** Agents never merge, approve, push to `main`, force-push, sign anything, or change CI, branch protection, CODEOWNERS, the licence policy, the risk tiers or `AGENTS.md`.
+- **Human-only actions.** Agents never merge, approve, push to `4ce-core`, force-push, sign anything, or change CI, branch protection, CODEOWNERS, the licence policy, the risk tiers or `AGENTS.md`.
 - **You are the author.** The person who opens the PR is accountable for every line. Commits, PRs, comments and docs carry no tool attribution.
