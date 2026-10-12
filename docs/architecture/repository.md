@@ -154,7 +154,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | --- | --- | --- |
 | Python formatting and lint | ruff | built |
 | Python types | pyright (strict for `core/`) | built |
-| Repo hygiene | [`tools/repo_check.py`](../../tools/repo_check.py) | built |
+| Repo hygiene, and every pack's `pack.yaml` against the spec | [`tools/repo_check.py`](../../tools/repo_check.py) | built |
 | Sector neutrality | [`tools/neutrality_check.py`](../../tools/neutrality_check.py) | built |
 | Tests | pytest | built |
 | Frontend formatting, lint and types | prettier, eslint, svelte-check | _planned_ with `apps/web` |
@@ -180,6 +180,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just down` | Stop the bundled services, keeping their data |
 | `just docs` | The docs check; add `--base origin/main` for the PR rules |
 | `just new-package <name>` | Scaffold `core/<name>/` from the package template and install it |
+| `just new-pack <sector\|cross> <id>` | Scaffold a pack with a valid `pack.yaml` (risk tier 3 until lowered on purpose) |
 | `just new-doc <type> <name>` | Create a docs page or work-log entry from its template (`just new-doc log <branch-name>`) |
 | `just check` | Every check, as CI runs it |
 
