@@ -17,10 +17,14 @@ def repo(tmp_path: Path) -> Path:
     templates = tmp_path / "docs" / "templates"
     templates.mkdir(parents=True)
     for template in TEMPLATES.glob("*.md"):
-        (templates / template.name).write_text(template.read_text())
+        (templates / template.name).write_text(
+            template.read_text(encoding="utf-8"), encoding="utf-8"
+        )
     (tmp_path / "docs" / "adr").mkdir()
-    (tmp_path / "docs" / "adr" / "0035-frontend-foundations.md").write_text("x")
-    (tmp_path / "pyproject.toml").write_text('[tool.importlinter]\nroot_packages = ["fource"]\n')
+    (tmp_path / "docs" / "adr" / "0035-frontend-foundations.md").write_text("x", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.importlinter]\nroot_packages = ["fource"]\n', encoding="utf-8"
+    )
     return tmp_path
 
 
@@ -37,7 +41,7 @@ def test_new_package_has_the_package_shape(repo: Path) -> None:
         "core/deep-cache/src/fource/deep_cache/py.typed",
         "core/deep-cache/tests/test_deep_cache.py",
     ]
-    pyproject = (repo / "core/deep-cache/pyproject.toml").read_text()
+    pyproject = (repo / "core/deep-cache/pyproject.toml").read_text(encoding="utf-8")
     assert 'name = "fource-deep-cache"' in pyproject
     assert 'module-name = "fource.deep_cache"' in pyproject
     assert repo_check.check_paths(files_under(repo, "core")) == []
@@ -45,7 +49,7 @@ def test_new_package_has_the_package_shape(repo: Path) -> None:
 
 def test_new_package_protects_its_internals(repo: Path) -> None:
     scaffold.new_package(repo, "deep-cache")
-    config = tomllib.loads((repo / "pyproject.toml").read_text())
+    config = tomllib.loads((repo / "pyproject.toml").read_text(encoding="utf-8"))
     assert config["tool"]["importlinter"]["contracts"] == [
         {
             "name": "Only the public API of fource.deep_cache is imported from outside it",
@@ -63,7 +67,7 @@ def test_new_pack_is_valid_and_starts_at_the_strictest_tier(repo: Path) -> None:
         "packs/cross/example-department/README.md",
         "packs/cross/example-department/pack.yaml",
     ]
-    manifest = (repo / "packs/cross/example-department/pack.yaml").read_text()
+    manifest = (repo / "packs/cross/example-department/pack.yaml").read_text(encoding="utf-8")
     problems = repo_check.check_packs({"packs/cross/example-department/pack.yaml": manifest})
     assert problems == []
     assert "risk_tier: 3" in manifest
@@ -107,7 +111,7 @@ def test_new_doc_lands_where_the_rules_say(repo: Path, kind: str, name: str, exp
 
 
 def test_new_doc_fills_in_the_placeholders(repo: Path) -> None:
-    text = scaffold.new_doc(repo, "architecture", "rule-engine", TODAY).read_text()
+    text = scaffold.new_doc(repo, "architecture", "rule-engine", TODAY).read_text(encoding="utf-8")
     meta, body = docs_check.split(text)
     assert meta is not None
     assert meta["title"] == "Rule engine"
@@ -116,7 +120,9 @@ def test_new_doc_fills_in_the_placeholders(repo: Path) -> None:
 
 
 def test_new_log_entry_records_its_branch(repo: Path) -> None:
-    text = scaffold.new_doc(repo, "log", "wp/RL-01-rule-engine-core", TODAY).read_text()
+    text = scaffold.new_doc(repo, "log", "wp/RL-01-rule-engine-core", TODAY).read_text(
+        encoding="utf-8"
+    )
     meta, _ = docs_check.split(text)
     assert meta is not None
     assert meta["branch"] == "wp/RL-01-rule-engine-core"
@@ -124,7 +130,7 @@ def test_new_log_entry_records_its_branch(repo: Path) -> None:
 
 
 def test_new_adr_is_numbered(repo: Path) -> None:
-    text = scaffold.new_doc(repo, "adr", "own-core", TODAY).read_text()
+    text = scaffold.new_doc(repo, "adr", "own-core", TODAY).read_text(encoding="utf-8")
     meta, body = docs_check.split(text)
     assert meta is not None and meta["number"] == 36
     assert "# ADR-0036: Own core" in body
