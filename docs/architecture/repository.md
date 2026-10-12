@@ -31,7 +31,7 @@ Folders marked _planned_ don't exist yet; they arrive with their work packages.
 | `.obsidian/` | shared vault settings only: `app.json`, `core-plugins.json`, `templates.json` | built |
 | `apps/server/` | the FastAPI app: thin wiring, no business logic | _planned_ |
 | `apps/web/` | the SvelteKit UI and Pack Studio | _planned_ |
-| `core/<package>/` | sector-neutral Python packages, all uv workspace members | `common` built |
+| `core/<package>/` | sector-neutral Python packages, all uv workspace members | `common` and `packs` built |
 | `packs/sector/<pack-id>/`, `packs/cross/<pack-id>/` | one industry or one department each | _planned_ |
 | `skills/<skill-name>/` | 4CE's built-in skills | _planned_ |
 | `tests/` | tests that cross package boundaries: `integration/`, `e2e/`, `security/` | _planned_ |

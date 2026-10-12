@@ -43,7 +43,7 @@ Master plan Appendix A. Changing it is R4's decision, recorded in an ADR; it is 
 
 ## Measured
 
-On 2026-10-12, on Linux: `just licences` checked 23 components and scanned 3 files with no problems. Without `licence-review.toml`, exactly the three packages it lists (grimp, import-linter, nodeenv) fail.
+On 2026-10-12, at commit `99ccbf9`, on Linux: `just licences` checked 30 components and scanned 6 files with no problems. On Windows (CI) the environment also holds `colorama`, whose metadata only says "BSD License"; its LICENSE.txt was read and recorded as BSD-3-Clause. Without `licence-review.toml`, exactly the packages it lists fail.
 
 ## Decisions
 
