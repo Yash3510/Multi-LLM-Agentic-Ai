@@ -16,9 +16,9 @@ superseded_by: null
 
 ## Context
 
-The master plan (v3.8) chooses SvelteKit, Tailwind CSS and an owned component library for the UI (§6.3), puts it in `apps/web` (§6.4), and requires a clean room: nothing from Open WebUI, including its CSS, strings, icons and configuration (§2.4). It leaves several choices open: how the UI is served, which icon set and font, accessibility, theming, languages, devices and testing. Some of its choices also disagree with later decisions (icons) or with each other (role names: four in §1, seven in §2.6, six in WP-PS-02).
+The master plan (v3.8) chooses SvelteKit, Tailwind CSS and an owned component library for the UI (§6.3), puts it in `apps/web` (§6.4), and requires a clean room: nothing from the upstream project, including its CSS, strings, icons and configuration (§2.4). It leaves several choices open: how the UI is served, which icon set and font, accessibility, theming, languages, devices and testing. Some of its choices also disagree with later decisions (icons) or with each other (role names: four in §1, seven in §2.6, six in WP-PS-02).
 
-Today's chat UI is the Open WebUI fork. The 4CE team wrote about 30 of its components (about 6,300 lines in 26 files by one author, plus the Sovereignty page). Everything around them is upstream and has to be built new. An audit of our own components (2026-10-08) found:
+Today's chat UI is the earlier fork. The 4CE team wrote about 30 of its components (about 6,300 lines in 26 files by one author, plus the Sovereignty page). Everything around them is upstream and has to be built new. An audit of our own components (2026-10-08) found:
 
 - about 40 animation durations and 13 easing curves across 15 files
 - seven focus styles, none reaching 3:1 contrast

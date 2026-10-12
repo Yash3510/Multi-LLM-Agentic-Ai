@@ -129,7 +129,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 ### Where 4CE lives
 
 - **The repository is [Yash3510/Multi-LLM-Agentic-Ai](https://github.com/Yash3510/Multi-LLM-Agentic-Ai), and `4ce-core` is the trunk.** It has its own history, shared with nothing else in the repository.
-- **The other branches (`main`, `4ce`, `4ce-production`) are the old Open WebUI fork.** They are never merged into `4ce-core`, and they are frozen at M1 ([ADR-0009](../adr/0009-own-core-and-clean-room.md)).
+- **The other branches (`main`, `4ce`, `4ce-production`) are the earlier fork 4CE replaces.** They are never merged into `4ce-core`, and they are frozen at M1 ([ADR-0009](../adr/0009-own-core-and-clean-room.md)).
 - **`4ce-core` should be the default branch on GitHub.** GitHub reads the Dependabot settings and the issue and pull request templates from the default branch only.
 - **Git hooks are shared by every branch of a clone.** `just setup` installs them with `--allow-missing-config`, so they do nothing on the fork's branches, which have no hook configuration.
 

@@ -4,7 +4,7 @@
 
 4CE is a self-hosted engine that turns an organisation's documents and rulebooks into decisions it can sign: grounded in its evidence, checked against its rules, approved by a named person, recorded as proof, and nothing leaves the building. The core is sector-neutral; each industry or department arrives as a pack.
 
-The `4ce-core` branch of this repository is the owned rebuild, with its own history; the other branches are the old Open WebUI fork. It is in Phase 0: the repository, its checks and the knowledge base exist; the product does not yet. [docs/state.md](docs/state.md) says what works today.
+The `4ce-core` branch of this repository is the owned rebuild, with its own history; the other branches hold the earlier fork it replaces. It is in Phase 0: the repository, its checks and the knowledge base exist; the product does not yet. [docs/state.md](docs/state.md) says what works today.
 
 ## Set up
 

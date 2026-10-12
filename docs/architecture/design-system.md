@@ -11,7 +11,7 @@ tags: [4ce, architecture, frontend]
 
 # Design system
 
-The 4CE design system: tokens, type, shape, depth, motion, states, icons and the rules that keep them consistent. It is decided in [ADR-0035](../adr/0035-frontend-foundations.md). Everything here is **planned**: no code exists yet. All values are our own; nothing is taken from Open WebUI (master plan §2.4).
+The 4CE design system: tokens, type, shape, depth, motion, states, icons and the rules that keep them consistent. It is decided in [ADR-0035](../adr/0035-frontend-foundations.md). Everything here is **planned**: no code exists yet. All values are our own; nothing is taken from the upstream project (master plan §2.4).
 
 The bar is set above today's UI. It keeps the calm, slow, premium feel that was approved, and it makes "a checker finds nothing inconsistent" something CI enforces rather than something remembered.
 
