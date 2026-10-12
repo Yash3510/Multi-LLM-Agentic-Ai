@@ -1,0 +1,8 @@
+Copyright (c) 2026 the 4CE authors. All rights reserved.
+
+This software and its documentation are proprietary. No licence is granted to
+use, copy, modify, distribute or sublicense any part of it without the prior
+written permission of the copyright holders.
+
+Third-party components keep their own licences. Each bundled service's
+licence, notices and source are listed in deploy/third-party/.
