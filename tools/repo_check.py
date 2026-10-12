@@ -218,7 +218,7 @@ def check_commits(rev_range: str, repo: Path) -> list[str]:
         parent = f"{commit}^" if _has_parent(repo, commit) else EMPTY_TREE
         if not _differs(repo, parent, commit):
             problems.append(f"{label}: empty commit")
-        elif not _differs(repo, parent, commit, "-w", "--ignore-blank-lines"):
+        elif not _differs(repo, parent, commit, "--ignore-space-at-eol", "--ignore-blank-lines"):
             problems.append(f"{label}: whitespace-only commit")
     return problems
 
