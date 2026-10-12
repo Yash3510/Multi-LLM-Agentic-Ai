@@ -100,8 +100,8 @@ def new_package(root: Path, name: str) -> Path:
     for relative, template in files.items():
         path = package / relative
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(template.format(name=name, module=module), encoding="utf-8")
-    with (root / "pyproject.toml").open("a", encoding="utf-8") as config:
+        path.write_text(template.format(name=name, module=module), encoding="utf-8", newline="\n")
+    with (root / "pyproject.toml").open("a", encoding="utf-8", newline="\n") as config:
         config.write(PUBLIC_API_CONTRACT.format(module=module))
     return package
 
@@ -153,7 +153,7 @@ def new_pack(root: Path, kind: str, pack_id: str) -> Path:
         ("CHANGELOG.md", PACK_CHANGELOG),
     ):
         text = template.format(pack_id=pack_id, kind=kind, title=title)
-        (pack / name).write_text(text, encoding="utf-8")
+        (pack / name).write_text(text, encoding="utf-8", newline="\n")
     return pack
 
 
@@ -191,7 +191,7 @@ def new_doc(root: Path, kind: str, name: str, today: date) -> Path:
     text = text.replace('"{{date}}"', today.isoformat()).replace("{{date}}", today.isoformat())
     text = text.replace("{{title}}", title)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    path.write_text(text, encoding="utf-8", newline="\n")
     return path
 
 
