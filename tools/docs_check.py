@@ -8,6 +8,7 @@ against --base. --allow-drift skips the drift rule; CI passes it only when the P
 the `docs-unaffected` label, which the page owner approves.
 """
 
+import argparse
 import posixpath
 import re
 import subprocess
@@ -209,11 +210,31 @@ def _covered(path: str, cover: str) -> bool:
     return path.startswith(cover) if cover.endswith("/") else path == cover
 
 
-def check_drift(pages: dict[str, str], changed: list[str]) -> list[str]:
+def check_covers(
+    pages: dict[str, str], exists: Callable[[str], bool], is_dir: Callable[[str], bool]
+) -> list[str]:
+    """A page's `covers` must name real paths, folders with a trailing /, or drift goes quiet.
+    A planned page may cover what isn't built yet."""
     problems: list[str] = []
     for page, text in sorted(pages.items()):
         meta, _ = split(text)
-        if meta is None or page in changed:
+        if meta is None or meta.get("status") == "planned" or page.startswith("docs/templates/"):
+            continue
+        for cover in meta.get("covers") or []:
+            if not exists(cover):
+                problems.append(f"{page}: covers {cover}, which doesn't exist")
+            elif is_dir(cover) and not cover.endswith("/"):
+                problems.append(f"{page}: covers the folder {cover}; write it with a trailing /")
+    return problems
+
+
+def check_drift(pages: dict[str, str], changed: list[str]) -> list[str]:
+    """Pages whose covered code changed in this PR without the page changing too. ADRs are
+    records that are never edited once accepted, so they never drift."""
+    problems: list[str] = []
+    for page, text in sorted(pages.items()):
+        meta, _ = split(text)
+        if meta is None or page in changed or meta.get("type") == "adr":
             continue
         for cover in meta.get("covers") or []:
             if any(_covered(path, cover) for path in changed):
@@ -258,42 +279,54 @@ def check_adrs(pages: dict[str, str], base: dict[str, str]) -> list[str]:
     return problems
 
 
-def _git(*args: str) -> str:
-    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
+def _git(repo: Path, *args: str) -> str:
+    command = ["git", "-C", str(repo), *args]
+    return subprocess.run(command, check=True, capture_output=True, text=True).stdout
 
 
-def _docs_pages() -> dict[str, str]:
-    listing = _git("ls-files", "-z", "--cached", "--others", "--exclude-standard", "docs")
-    paths = [p for p in listing.split("\0") if p.endswith(".md")]
-    return {p: Path(p).read_text(encoding="utf-8") for p in paths if Path(p).exists()}
+def _docs_pages(repo: Path) -> dict[str, str]:
+    listing = _git(repo, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "docs")
+    paths = [p for p in listing.split("\0") if p.endswith(".md") and (repo / p).exists()]
+    return {p: (repo / p).read_text(encoding="utf-8") for p in paths}
 
 
-def _processed_commits(pages: dict[str, str]) -> list[str]:
+def _processed_commits(repo: Path, pages: dict[str, str]) -> list[str]:
     meta, _ = split(pages.get(HISTORY_INDEX, ""))
     last = (meta or {}).get("last_processed_commit")
-    return _git("rev-list", str(last)).split() if last else []
+    return _git(repo, "rev-list", str(last)).split() if last else []
+
+
+def pr_problems(repo: Path, base: str, allow_drift: bool = False) -> list[str]:
+    """The rules for a PR into `base`: one log entry, no drift, accepted ADRs untouched.
+    --no-renames lists a moved file under its old path too, so moving covered code drifts."""
+    span = f"{base}...HEAD"
+    changed = _git(repo, "diff", "--name-only", "--no-renames", span).split()
+    added = _git(repo, "diff", "--name-only", "--no-renames", "--diff-filter=A", span).split()
+    adr_paths = _git(repo, "ls-tree", "-r", "--name-only", base, "--", "docs/adr/").split()
+    base_adrs = {p: _git(repo, "show", f"{base}:{p}") for p in adr_paths}
+    pages = _docs_pages(repo)
+    problems = check_work_log(added)
+    if not allow_drift:
+        problems += check_drift(pages, changed)
+    return problems + check_adrs(pages, base_adrs)
 
 
 def main(argv: list[str]) -> int:
-    base = argv[argv.index("--base") + 1] if "--base" in argv else None
-    pages = _docs_pages()
+    parser = argparse.ArgumentParser(description="Check docs/ against the documentation rules.")
+    parser.add_argument("--base", help="the branch a PR targets, e.g. origin/4ce-core")
+    parser.add_argument("--allow-drift", action="store_true", help="the docs-unaffected label")
+    args = parser.parse_args(argv)
+    repo = Path(_git(Path.cwd(), "rev-parse", "--show-toplevel").strip())
+    pages = _docs_pages(repo)
     problems = check_frontmatter(pages)
-    problems += check_links(pages, lambda p: Path(p).exists())
+    problems += check_links(pages, lambda p: (repo / p).exists())
+    problems += check_covers(pages, lambda p: (repo / p).exists(), lambda p: (repo / p).is_dir())
     problems += check_orphans(pages)
     problems += [p for p in repo_check.check_paths(list(pages)) if p.startswith("docs/")]
     problems += check_state(pages, date.today())
-    problems += check_history(pages, _processed_commits(pages))
-    if base:
-        changed = _git("diff", "--name-only", f"{base}...HEAD").split()
-        added = _git("diff", "--name-only", "--diff-filter=A", f"{base}...HEAD").split()
-        base_adrs = {
-            p: _git("show", f"{base}:{p}")
-            for p in _git("ls-tree", "-r", "--name-only", base, "docs/adr/").split()
-        }
-        problems += check_work_log(added)
-        if "--allow-drift" not in argv:
-            problems += check_drift(pages, changed)
-        problems += check_adrs(pages, base_adrs)
+    problems += check_history(pages, _processed_commits(repo, pages))
+    if args.base:
+        problems += pr_problems(repo, args.base, args.allow_drift)
     else:
         print("no --base given: skipped the work-log, drift and ADR rules", file=sys.stderr)
     for problem in problems:
