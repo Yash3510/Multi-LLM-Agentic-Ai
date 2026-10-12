@@ -249,6 +249,12 @@ def check_adrs(pages: dict[str, str], base: dict[str, str]) -> list[str]:
         changed = {k for k in {*old_meta, *new_meta} if new_meta.get(k) != old_meta.get(k)}
         if new_body != old_body or changed - ADR_MUTABLE:
             problems.append(f"{path}: an accepted ADR is never edited; write a new one")
+        elif changed and not (
+            new_meta.get("decision_status") == "superseded" and new_meta.get("superseded_by")
+        ):
+            problems.append(
+                f"{path}: an accepted ADR only changes to superseded, naming its successor"
+            )
     return problems
 
 
