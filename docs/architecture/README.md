@@ -18,4 +18,5 @@ One canonical page per subsystem. Start with the [overview](overview.md).
 | [Documentation rules](documentation.md) | active |
 | [Licences and the licence gate](licences.md) | active |
 | [Bundled services](services.md) | active |
+| [Frontend](frontend.md) | planned |
 | [Design system](design-system.md) | planned |

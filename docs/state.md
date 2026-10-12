@@ -25,7 +25,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 **The backend and the database come first.** The next work packages build the server and its PostgreSQL foundations, towards Phase 0's "app with a login" as an API.
 
-**The frontend is on hold in this stream.** Pranay, the frontend owner, develops `apps/web` separately, following [ADR-0035](adr/0035-frontend-foundations.md) and the [design system](architecture/design-system.md). The backend's API is the contract between the two: the frontend codes against its OpenAPI document (ADR-0035 §4).
+**The frontend is on hold in this stream.** Pranay, the frontend owner, develops `apps/web` separately; the [frontend page](architecture/frontend.md) has everything needed to do that independently. The backend's API is the contract between the two: the frontend codes against its OpenAPI document (ADR-0035 §4).
 
 ## Open questions
 

@@ -31,6 +31,7 @@ The project's memory: what 4CE does, why it is built this way, what changed and 
 | [Documentation rules](architecture/documentation.md) | architecture | active |
 | [Licences and the licence gate](architecture/licences.md) | architecture | active |
 | [Bundled services](architecture/services.md) | architecture | active |
+| [Frontend](architecture/frontend.md) | architecture | planned |
 | [Design system](architecture/design-system.md) | architecture | planned |
 | [Decision records](adr/README.md) | index | active |
 | [Work log](log/README.md) | index | active |
