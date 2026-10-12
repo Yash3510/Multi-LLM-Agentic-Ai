@@ -56,6 +56,26 @@ def test_new_package_protects_its_internals(repo: Path) -> None:
     ]
 
 
+def test_new_pack_is_valid_and_starts_at_the_strictest_tier(repo: Path) -> None:
+    scaffold.new_pack(repo, "cross", "example-department")
+    assert files_under(repo, "packs") == [
+        "packs/cross/example-department/CHANGELOG.md",
+        "packs/cross/example-department/README.md",
+        "packs/cross/example-department/pack.yaml",
+    ]
+    manifest = (repo / "packs/cross/example-department/pack.yaml").read_text()
+    problems = repo_check.check_packs({"packs/cross/example-department/pack.yaml": manifest})
+    assert problems == []
+    assert "risk_tier: 3" in manifest
+
+
+def test_new_pack_refuses_unknown_kinds_and_bad_ids(repo: Path) -> None:
+    with pytest.raises(ValueError):
+        scaffold.new_pack(repo, "industry", "x")
+    with pytest.raises(ValueError):
+        scaffold.new_pack(repo, "sector", "Bad_Id")
+
+
 def test_new_package_refuses_bad_or_taken_names(repo: Path) -> None:
     with pytest.raises(ValueError):
         scaffold.new_package(repo, "Deep_Cache")

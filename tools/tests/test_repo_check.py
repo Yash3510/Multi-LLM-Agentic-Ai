@@ -28,6 +28,7 @@ def test_good_layout_passes() -> None:
         "docs/log/2026/10/2026-10-12-wp-f-12-repo-check.md",
         "docs/history/2026-10-12-owned-skeleton.md",
         "deploy/third-party/minio/LICENSE",
+        "packs/sector/industrial-energy/pack.yaml",
         "packs/sector/industrial-energy/rules/sop-mec-014.json",
         "core/rules/AGENTS.md",
         "docs/architecture/renewal.md",  # "new" inside a word is fine
@@ -161,6 +162,39 @@ def test_files_over_one_megabyte_must_be_in_lfs() -> None:
     )
     assert flagged(problems, "packs/sector/x/demo/report.pdf")
     assert len(problems) == 1
+
+
+MANIFEST = """\
+id: example-sector
+title: Example Sector
+version: 0.1.0
+kind: sector
+risk_tier: 3
+summary: An example.
+locales: [en-IN]
+"""
+
+
+def test_every_pack_manifest_validates() -> None:
+    good = {"packs/sector/example-sector/pack.yaml": MANIFEST}
+    assert repo_check.check_packs(good) == []
+    bad = {
+        "packs/sector/example-sector/pack.yaml": MANIFEST.replace("risk_tier: 3", "risk_tier: 9")
+    }
+    problems = repo_check.check_packs(bad)
+    assert problems and problems[0].startswith("packs/sector/example-sector/pack.yaml:")
+
+
+def test_a_pack_lives_under_its_own_id_and_kind() -> None:
+    misplaced = {"packs/cross/other-name/pack.yaml": MANIFEST}
+    problems = repo_check.check_packs(misplaced)
+    assert any("other-name" in p for p in problems)
+    assert any("cross" in p for p in problems)
+
+
+def test_a_pack_folder_needs_a_manifest() -> None:
+    problems = repo_check.check_paths(["packs/sector/example-sector/README.md"])
+    assert problems == ["packs/sector/example-sector: pack has no pack.yaml"]
 
 
 def test_commit_subjects_are_conventional() -> None:
