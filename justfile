@@ -57,7 +57,7 @@ licences:
 
 # No secrets anywhere in the branch's history (gitleaks)
 secrets:
-    pre-commit run gitleaks-history --hook-stage manual
+    pre-commit run gitleaks-history --hook-stage manual --all-files
 
 # Every CI check, locally, exactly as CI runs it
 check: lint imports repo-check neutrality docs licences secrets test

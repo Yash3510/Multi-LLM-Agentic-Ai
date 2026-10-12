@@ -13,6 +13,7 @@ repos:
         name: Detect hardcoded secrets in the branch's history
         entry: gitleaks git --redact --verbose --log-opts=HEAD
         stages: [manual]
+        always_run: true # it scans history, so it must run even with nothing staged
 
   - repo: local
     hooks:
