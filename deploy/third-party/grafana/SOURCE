@@ -1,0 +1,6 @@
+https://github.com/grafana/grafana/tree/v13.2.3
+commit 6193dc03311b631b9727b560d24369e683dc396e
+archive https://github.com/grafana/grafana/archive/6193dc03311b631b9727b560d24369e683dc396e.tar.gz
+The image reports build commit 90ffed056f0884267356c12a0eeb72a022af53f1, which is not in the
+public repository (checked 2026-10-12); the public source of this release is the tag above.
+Raise this in the legal review (ADR-0023) before the image ships outside the team.

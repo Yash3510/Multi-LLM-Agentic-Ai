@@ -1,0 +1,4 @@
+Redis Open Source 8.10.2, used unmodified as a separate service through the
+official Docker image. Redis 8 is offered under RSALv2, SSPLv1 or AGPLv3; 4CE
+uses it under the GNU Affero General Public License v3 (AGPLv3), whose text is
+in LICENSE together with the other two. Redis is a trademark of Redis Ltd.

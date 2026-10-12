@@ -1,0 +1,4 @@
+https://github.com/minio/minio/tree/RELEASE.2025-10-15T17-29-55Z
+commit 9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a
+archive https://github.com/minio/minio/archive/9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a.tar.gz
+Built unmodified from that commit by deploy/config/minio/minio.dockerfile; upstream publishes this release as source only.

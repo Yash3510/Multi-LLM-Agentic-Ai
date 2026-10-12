@@ -1,0 +1,4 @@
+PostgreSQL 18.6, used unmodified as a separate service through the official
+Docker image. Portions Copyright (c) 1996-2026, PostgreSQL Global Development Group;
+Portions Copyright (c) 1994, The Regents of the University of California.
+Upstream ships no NOTICE file; its licence and copyright are in LICENSE.
