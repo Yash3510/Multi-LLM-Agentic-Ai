@@ -47,5 +47,11 @@ new-doc type name:
 imports:
     uv run lint-imports
 
+# SBOM, licence gate and import scan (§2.5); the SBOM lands in build/sbom/
+licences:
+    uv run python tools/sbom.py
+    uv run python tools/licence_gate.py build/sbom/python.cdx.json
+    uv run python tools/import_scan.py build/sbom/python.cdx.json
+
 # Every CI check, locally, exactly as CI runs it
-check: lint imports repo-check neutrality docs test
+check: lint imports repo-check neutrality docs licences test
