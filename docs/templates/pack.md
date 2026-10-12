@@ -1,9 +1,9 @@
 ---
-title: {{title}}
+title: "{{title}}"
 type: pack
 status: planned
 owner: R2
-updated: {{date}}
+updated: "{{date}}"
 covers:
   - packs/<sector|cross>/<pack-id>/
 tags: [4ce, pack]

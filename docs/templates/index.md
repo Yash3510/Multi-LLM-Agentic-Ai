@@ -1,9 +1,9 @@
 ---
-title: {{title}}
+title: "{{title}}"
 type: index
 status: active
 owner: R1
-updated: {{date}}
+updated: "{{date}}"
 tags: [4ce, index]
 ---
 

@@ -1,9 +1,9 @@
 ---
-title: {{title}}
+title: "{{title}}"
 type: architecture
 status: planned
 owner: R1
-updated: {{date}}
+updated: "{{date}}"
 covers:
   - core/<package>/
 tags: [4ce, architecture]

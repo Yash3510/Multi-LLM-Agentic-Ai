@@ -1,9 +1,9 @@
 ---
-title: {{title}}
+title: "{{title}}"
 type: research
 status: unverified
 owner: R1
-updated: {{date}}
+updated: "{{date}}"
 tags: [4ce, research]
 ---
 

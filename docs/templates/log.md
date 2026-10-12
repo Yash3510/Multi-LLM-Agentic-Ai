@@ -1,10 +1,10 @@
 ---
-title: {{title}}
+title: "{{title}}"
 type: log
 status: implemented
 owner: R1
-updated: {{date}}
-date: {{date}}
+updated: "{{date}}"
+date: "{{date}}"
 branch: <branch-name>
 pr: null
 work_package: null

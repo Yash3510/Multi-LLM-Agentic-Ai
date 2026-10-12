@@ -1,9 +1,9 @@
 ---
-title: {{title}}
+title: "{{title}}"
 type: runbook
 status: planned
 owner: R4
-updated: {{date}}
+updated: "{{date}}"
 tags: [4ce, runbook]
 ---
 

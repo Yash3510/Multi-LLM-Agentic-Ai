@@ -1,9 +1,9 @@
 ---
-title: {{title}}
+title: "{{title}}"
 type: testing
 status: planned
 owner: R2
-updated: {{date}}
+updated: "{{date}}"
 tags: [4ce, testing]
 ---
 

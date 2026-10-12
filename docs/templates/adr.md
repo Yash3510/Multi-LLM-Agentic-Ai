@@ -1,9 +1,9 @@
 ---
-title: {{title}}
+title: "{{title}}"
 type: adr
 status: planned
 owner: R1
-updated: {{date}}
+updated: "{{date}}"
 covers: []
 tags: [4ce, adr]
 number: 0
