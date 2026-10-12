@@ -1,10 +1,14 @@
 # Weekly, grouped update PRs. They go through every check like any other change.
-# The npm ecosystem is added with apps/web. Updates target the 4CE trunk, 4ce-core.
+# The npm ecosystem is added with apps/web. Updates target the 4CE trunk, 4ce-core, with
+# Conventional Commit titles ("chore(deps): ..."); the reviewer adds the work-log entry.
 version: 2
 updates:
   - package-ecosystem: uv
     directory: /
     target-branch: 4ce-core
+    commit-message:
+      prefix: chore
+      include: scope
     schedule:
       interval: weekly
     groups:
@@ -13,6 +17,9 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     target-branch: 4ce-core
+    commit-message:
+      prefix: chore
+      include: scope
     schedule:
       interval: weekly
     groups:
