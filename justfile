@@ -34,5 +34,14 @@ neutrality:
 docs *args:
     uv run python tools/docs_check.py {{args}}
 
+# Scaffold a core package from the template
+new-package name:
+    uv run python tools/scaffold.py package {{name}}
+    uv sync --all-packages
+
+# Create a docs page or work-log entry from its template
+new-doc type name:
+    uv run python tools/scaffold.py doc {{type}} {{name}}
+
 # Every CI check, locally, exactly as CI runs it
 check: lint repo-check neutrality docs test
