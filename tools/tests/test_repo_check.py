@@ -207,10 +207,9 @@ def test_commit_subjects_are_conventional() -> None:
 
 
 def git(repo: Path, *args: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
-    )
-    return result.stdout.strip()
+    # Signing is switched off so a developer's global commit.gpgsign can't prompt or fail.
+    command = ["git", "-c", "commit.gpgsign=false", "-C", str(repo), *args]
+    return subprocess.run(command, check=True, capture_output=True, text=True).stdout.strip()
 
 
 def test_empty_and_whitespace_only_commits_are_rejected(tmp_path: Path) -> None:
@@ -226,8 +225,15 @@ def test_empty_and_whitespace_only_commits_are_rejected(tmp_path: Path) -> None:
     git(tmp_path, "commit", "-q", "-am", "chore: spaces")
     (tmp_path / "a.txt").write_text("two\n")
     git(tmp_path, "commit", "-q", "-am", "feat: real change")
+    (tmp_path / "loop.py").write_text("for x in y:\n    f(x)\n    return x\n")
+    git(tmp_path, "add", "loop.py")
+    git(tmp_path, "commit", "-q", "-m", "feat: add the loop")
+    (tmp_path / "loop.py").write_text("for x in y:\n    f(x)\nreturn x\n")
+    git(tmp_path, "commit", "-q", "-am", "fix: return after the loop")
 
     problems = repo_check.check_commits(f"{base}..HEAD", tmp_path)
     assert any("chore: nothing" in p and "empty" in p for p in problems)
     assert any("chore: spaces" in p and "whitespace" in p for p in problems)
     assert not any("feat: real change" in p for p in problems)
+    # Indentation is meaning in Python and YAML, so changing it is never "whitespace only".
+    assert not any("return after the loop" in p for p in problems)
