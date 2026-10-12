@@ -1,0 +1,26 @@
+# Secrets: only .env.example is committed.
+.env
+.env.*
+!.env.example
+
+# Build outputs
+node_modules/
+.venv/
+.svelte-kit/
+build/
+dist/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Logs
+*.log
+
+# Obsidian per-person files; only app.json and core-plugins.json are shared.
+.obsidian/*
+!.obsidian/app.json
+!.obsidian/core-plugins.json
