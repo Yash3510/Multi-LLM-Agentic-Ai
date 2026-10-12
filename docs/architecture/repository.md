@@ -71,6 +71,8 @@ core/rules/
 - `apps/*` wire everything together and hold no business logic.
 - `tools/` may import anything, and nothing imports `tools/`.
 
+import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. The apps-above-core contract arrives with `apps/server`, and the packs rule with the Pack SDK.
+
 ## Naming
 
 | Thing | Convention | Example |
@@ -155,7 +157,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | Sector neutrality | [`tools/neutrality_check.py`](../../tools/neutrality_check.py) | built |
 | Tests | pytest | built |
 | Frontend formatting, lint and types | prettier, eslint, svelte-check | _planned_ with `apps/web` |
-| Package boundaries | import-linter | _planned_ |
+| Package boundaries | import-linter (`just imports`) | built |
 | Licences, imports, SBOM, third-party bundle | `tools/licence_gate.py`, `tools/import_scan.py` | _planned_ |
 | Secrets | gitleaks | _planned_ |
 | Docs | [`tools/docs_check.py`](../../tools/docs_check.py) | built |
@@ -168,6 +170,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just test` | Unit tests |
 | `just lint` | Formatting, lint and types |
 | `just repo-check` | The repo check |
+| `just imports` | The package-boundary contracts |
 | `just neutrality` | The neutrality check |
 | `just docs` | The docs check; add `--base origin/main` for the PR rules |
 | `just new-package <name>` | Scaffold `core/<name>/` from the package template and install it |
