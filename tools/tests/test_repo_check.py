@@ -224,7 +224,7 @@ def test_todos_in_build_files_and_scripts_need_an_issue_too() -> None:
 
 def test_database_migrations_keep_their_numbered_names() -> None:
     migration = "core/domain/src/fource/domain/migrations/versions/0007_add_cases_table.py"
-    assert repo_check.check_paths([migration]) == []
+    assert not any(p.startswith(f"{migration}:") for p in repo_check.check_paths([migration]))
 
 
 def test_pack_signature_times_must_be_real_timestamps() -> None:

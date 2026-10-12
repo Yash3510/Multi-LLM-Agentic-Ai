@@ -10,10 +10,11 @@ Each problem is printed as "<path or commit>: <what is wrong>". Exit code 1 if a
 import re
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 
 import yaml
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 from fource.packs import schema
 
@@ -70,7 +71,8 @@ UPPERCASE_NAMES = {
 
 KEBAB = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 SNAKE = re.compile(r"_?[a-z][a-z0-9_]*")
-PYTHON_FILE = re.compile(r"_{0,2}[a-z][a-z0-9_]*\.py")
+# A module name, or a numbered database migration such as 0007_add_cases_table.py.
+PYTHON_FILE = re.compile(r"_{0,2}[a-z][a-z0-9_]*\.py|[0-9]{4}_[a-z][a-z0-9_]*\.py")
 OTHER_FILE = re.compile(r"[a-z0-9][a-z0-9.-]*")
 
 BANNED_WORDS = {"final", "new", "old", "backup", "copy", "temp", "tmp"}
@@ -81,14 +83,39 @@ DATED_FOLDERS = ("docs/log/", "docs/history/", "docs/assurance/")
 NON_UV_FILES = re.compile(r"requirements.*\.txt|setup\.py|Pipfile|Pipfile\.lock|poetry\.lock")
 PIP_INSTALL = re.compile(r"\bpip3?\s+install\b")
 TODO_WITHOUT_ISSUE = re.compile(r"(#|//)\s*TODO(?!\(#\d+\))")
-CODE_SUFFIXES = {".py", ".ts", ".js", ".svelte", ".sh", ".yml", ".yaml", ".toml"}
+CODE_SUFFIXES = {
+    ".py",
+    ".ts",
+    ".js",
+    ".svelte",
+    ".sh",
+    ".ps1",
+    ".yml",
+    ".yaml",
+    ".toml",
+    ".dockerfile",
+}
+CODE_NAMES = {"justfile"}
 
 MAX_BYTES = 1_000_000
 PACK_MANIFEST = re.compile(r"packs/[^/]+/[^/]+/pack\.yaml")
 
 COMMIT_SUBJECT = re.compile(
     r"(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\([a-z0-9][a-z0-9-]*\))?!?: \S.*"
+    r'|Revert ".+"'  # what git revert writes
 )
+
+FORMATS = FormatChecker()
+
+
+@FORMATS.checks("date-time", raises=ValueError)
+def _is_date_time(value: object) -> bool:
+    """jsonschema only checks date-time with an extra package; Python parses ISO 8601 itself."""
+    if isinstance(value, str):
+        if "T" not in value:
+            raise ValueError(f"{value!r} has no time")
+        datetime.fromisoformat(value)
+    return True
 
 
 def check_paths(paths: list[str]) -> list[str]:
@@ -161,7 +188,7 @@ def _package_problems(paths: list[str]) -> list[str]:
 
 def check_packs(manifests: dict[str, str]) -> list[str]:
     """Every pack.yaml validates against the published spec and sits under its id and kind."""
-    validator = Draft202012Validator(schema("pack"))
+    validator = Draft202012Validator(schema("pack"), format_checker=FORMATS)
     problems: list[str] = []
     for path, text in sorted(manifests.items()):
         _, kind, folder, _ = PurePosixPath(path).parts
@@ -189,7 +216,9 @@ def check_contents(files: dict[str, str]) -> list[str]:
     for path, text in files.items():
         if PIP_INSTALL.search(text):
             problems.append(f"{path}: uses pip; use uv (see §6.5)")
-        if PurePosixPath(path).suffix in CODE_SUFFIXES and TODO_WITHOUT_ISSUE.search(text):
+        name = PurePosixPath(path)
+        is_code = name.suffix in CODE_SUFFIXES or name.name in CODE_NAMES
+        if is_code and TODO_WITHOUT_ISSUE.search(text):
             problems.append(f"{path}: a TODO without an issue number, e.g. TODO(#123)")
     return problems
 
