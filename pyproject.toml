@@ -34,8 +34,10 @@ known-first-party = ["fource"]
 pythonVersion = "3.12"
 include = ["core", "tools"]
 strict = ["core"]
+extraPaths = ["tools"]
 
 [tool.pytest.ini_options]
 # Every package has a tests/ folder, so test file names repeat across packages.
 addopts = ["--import-mode=importlib"]
 testpaths = ["core", "tools"]
+pythonpath = ["tools"]
