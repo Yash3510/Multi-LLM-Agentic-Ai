@@ -120,18 +120,31 @@ def load_reviewed(text: str) -> dict[tuple[str, str], str]:
 
 
 def component(image: str) -> str:
-    """The bundle folder for an image: its repository's last path segment."""
-    return image.split("@")[0].rsplit(":", 1)[0].rsplit("/", 1)[-1]
+    """The bundle folder for an image: its repository's last path segment, without the tag.
+    A registry host may carry a port (localhost:5000/minio), so the tag is cut last."""
+    return image.split("@")[0].rsplit("/", 1)[-1].split(":")[0]
+
+
+BUILT_COMMIT = re.compile(r"^ARG\s+\w+_COMMIT=([0-9a-f]{40})\s*$", re.MULTILINE)
 
 
 def check_bundle(
-    services: dict[str, dict[str, Any]], bundle: dict[str, dict[str, str]]
+    services: dict[str, dict[str, Any]],
+    bundle: dict[str, dict[str, str]],
+    dockerfiles: dict[str, str] | None = None,
 ) -> list[str]:
-    """Every bundled service ships its licence, notices, exact version and source (§2.7)."""
+    """Every bundled service ships its licence, notices, exact version and source (§2.7).
+
+    `dockerfiles` maps each built service to its build file, whose `ARG <NAME>_COMMIT=`
+    must be the upstream commit that the service's SOURCE records.
+    """
     problems: list[str] = []
     used: set[str] = set()
     for service, spec in sorted(services.items()):
         image = spec.get("image", "")
+        if not image:
+            problems.append(f"{service}: has no image name, so its bundle folder cannot be found")
+            continue
         name = component(image)
         used.add(name)
         if "@sha256:" not in image and "build" not in spec:
@@ -143,20 +156,40 @@ def check_bundle(
         missing = [f for f in BUNDLE_FILES if not files.get(f, "").strip()]
         if missing:
             problems.append(f"deploy/third-party/{name}: missing {', '.join(missing)}")
-        elif files["VERSION"].splitlines()[0] != image:
+            continue
+        if files["VERSION"].splitlines()[0] != image:
             problems.append(f"deploy/third-party/{name}/VERSION: does not name {image}")
+        if "build" in spec and dockerfiles is not None:
+            commits = BUILT_COMMIT.findall(dockerfiles.get(service, ""))
+            if not commits:
+                problems.append(f"{service}: its build file records no ARG <NAME>_COMMIT=<sha>")
+            problems += [
+                f"deploy/third-party/{name}/SOURCE: does not record built commit {c[:8]}"
+                for c in commits
+                if c not in files["SOURCE"]
+            ]
     unused = sorted(set(bundle) - used)
     return problems + [f"deploy/third-party/{n}: no compose service uses it" for n in unused]
 
 
-def _compose_services() -> dict[str, dict[str, Any]]:
+def compose_services(directory: Path) -> dict[str, dict[str, Any]]:
+    """Every service in the compose files of a folder, overrides merged by service name."""
     services: dict[str, dict[str, Any]] = {}
-    for path in sorted(COMPOSE_DIR.glob("*.yml")):
-        for name, spec in (
-            (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("services", {}).items()
-        ):
+    for path in sorted([*directory.glob("*.yml"), *directory.glob("*.yaml")]):
+        document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for name, spec in document.get("services", {}).items():
             services.setdefault(name, {}).update(spec)
-    return {name: spec for name, spec in services.items() if "image" in spec}
+    return services
+
+
+def _dockerfiles(services: dict[str, dict[str, Any]], directory: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for name, spec in services.items():
+        build = spec.get("build")
+        if isinstance(build, dict):
+            path = directory / build.get("context", ".") / build.get("dockerfile", "Dockerfile")
+            files[name] = path.read_text(encoding="utf-8") if path.exists() else ""
+    return files
 
 
 def _bundle() -> dict[str, dict[str, str]]:
@@ -169,10 +202,11 @@ def _bundle() -> dict[str, dict[str, str]]:
 
 def main(argv: list[str]) -> int:
     if argv == ["--bundle"]:
-        problems = check_bundle(_compose_services(), _bundle())
+        services = compose_services(COMPOSE_DIR)
+        problems = check_bundle(services, _bundle(), _dockerfiles(services, COMPOSE_DIR))
         for line in problems:
             print(line)
-        print(f"{len(_compose_services())} bundled services checked")
+        print(f"{len(services)} bundled services checked")
         return 1 if problems else 0
     if not argv:
         print(__doc__)
