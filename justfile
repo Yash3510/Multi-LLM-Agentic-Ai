@@ -30,5 +30,9 @@ repo-check:
 neutrality:
     uv run python tools/neutrality_check.py
 
+# Frontmatter, links, orphans, names, state and history of docs/ (§6.6)
+docs *args:
+    uv run python tools/docs_check.py {{args}}
+
 # Every CI check, locally, exactly as CI runs it
-check: lint repo-check neutrality test
+check: lint repo-check neutrality docs test
