@@ -11,4 +11,6 @@ tags: [4ce, index]
 
 Studies, spikes, competitor notes and meeting notes, kept and labelled by type.
 
-No pages yet.
+| Page | Status |
+| --- | --- |
+| [MinIO patch source](minio-patch-source.md) | unverified |
