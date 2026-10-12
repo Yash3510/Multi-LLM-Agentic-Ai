@@ -83,5 +83,5 @@ def test_a_built_service_records_its_upstream_commit_in_source() -> None:
 
 def test_both_compose_file_extensions_are_read(tmp_path: Path) -> None:
     (tmp_path / "core.yml").write_text("services:\n  a:\n    image: a:1\n", encoding="utf-8")
-    (tmp_path / "addon.yaml").write_text("services:\\n  b:\\n    image: b:1\\n", encoding="utf-8")
+    (tmp_path / "addon.yaml").write_text("services:\n  b:\n    image: b:1\n", encoding="utf-8")
     assert sorted(licence_gate.compose_services(tmp_path)) == ["a", "b"]
