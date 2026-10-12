@@ -11,6 +11,7 @@ covers:
   - .editorconfig
   - .gitattributes
   - .gitignore
+  - .pre-commit-config.yaml
 tags: [4ce, architecture, repository]
 ---
 
@@ -147,7 +148,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 
 ### Checks
 
-`just check` runs every check locally, exactly as CI does.
+`just check` runs every check locally, exactly as CI does. Before each commit, the git hooks (`.pre-commit-config.yaml`, installed by `just setup`) run the fast ones: ruff, the repo, neutrality and docs checks, and gitleaks on the staged changes; the commit-message hook rejects anything that isn't a Conventional Commit.
 
 | Check | Tool | State |
 | --- | --- | --- |
@@ -160,20 +161,21 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | Package boundaries | import-linter (`just imports`) | built |
 | Licences, imports and SBOM | [`tools/licence_gate.py`](../../tools/licence_gate.py), [`tools/import_scan.py`](../../tools/import_scan.py) ([licences](licences.md)) | built |
 | Third-party bundle | `tools/licence_gate.py` | _planned_ with the Compose stack |
-| Secrets | gitleaks | _planned_ |
+| Secrets | gitleaks: staged changes before each commit, the whole branch history in `just secrets` | built |
 | Docs | [`tools/docs_check.py`](../../tools/docs_check.py) | built |
 
 ### Commands
 
 | Command | Does |
 | --- | --- |
-| `just setup` | Install Python through uv and sync every package |
+| `just setup` | Install Python through uv, sync every package, and install pre-commit and its git hooks |
 | `just test` | Unit tests |
 | `just lint` | Formatting, lint and types |
 | `just repo-check` | The repo check |
 | `just imports` | The package-boundary contracts |
 | `just neutrality` | The neutrality check |
 | `just licences` | The SBOM, licence gate and import scan |
+| `just secrets` | gitleaks over the branch's whole history |
 | `just docs` | The docs check; add `--base origin/main` for the PR rules |
 | `just new-package <name>` | Scaffold `core/<name>/` from the package template and install it |
 | `just new-doc <type> <name>` | Create a docs page or work-log entry from its template (`just new-doc log <branch-name>`) |
