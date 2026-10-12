@@ -37,7 +37,9 @@ Master plan Appendix A. Changing it is R4's decision, recorded in an ADR; it is 
    - **4CE's own packages** (`fource-*`) are skipped, and commercially licensed libraries pass here; the import scan limits where they are used.
 3. **Import scan.** [`tools/import_scan.py`](../../tools/import_scan.py) parses every import in `core/`, `apps/` and `packs/`, finds the package that provides it, and fails if that package is copyleft without a commercial licence. A commercial library may be imported only where its adapter lives; PyMuPDF has no adapter yet, so it may be imported nowhere. An import that no installed package provides also fails.
 
-**Scope today:** the Python environment, including development tools. The npm side arrives with `apps/web`. The third-party bundle check (licence, notices and source for every bundled service) arrives with the Compose stack.
+4. **Third-party bundle.** `tools/licence_gate.py --bundle` checks that every bundled service ships its licence, notices, exact version and source; see [bundled services](services.md#the-third-party-bundle).
+
+**Scope today:** the Python environment, including development tools, and the bundled services. The npm side arrives with `apps/web`.
 
 ## Measured
 

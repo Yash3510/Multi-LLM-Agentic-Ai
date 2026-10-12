@@ -36,7 +36,7 @@ Folders marked _planned_ don't exist yet; they arrive with their work packages.
 | `skills/<skill-name>/` | 4CE's built-in skills | _planned_ |
 | `tests/` | tests that cross package boundaries: `integration/`, `e2e/`, `security/` | _planned_ |
 | `evals/` | the eval harness; golden data lives in each pack | _planned_ |
-| `deploy/` | `compose/`, `config/<service>/`, `installer/`, `systemd/`, `third-party/<component>/` | _planned_ |
+| `deploy/` | `compose/`, `config/<service>/` and `third-party/<component>/` ([bundled services](services.md)); `installer/` and `systemd/` later | partly built |
 | `docs/` | the knowledge base and Obsidian vault ([documentation rules](documentation.md)) | built |
 | `tools/` | repository scripts, each run through a `just` command | built |
 
@@ -160,7 +160,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | Frontend formatting, lint and types | prettier, eslint, svelte-check | _planned_ with `apps/web` |
 | Package boundaries | import-linter (`just imports`) | built |
 | Licences, imports and SBOM | [`tools/licence_gate.py`](../../tools/licence_gate.py), [`tools/import_scan.py`](../../tools/import_scan.py) ([licences](licences.md)) | built |
-| Third-party bundle | `tools/licence_gate.py` | _planned_ with the Compose stack |
+| Third-party bundle | `tools/licence_gate.py --bundle` ([bundled services](services.md#the-third-party-bundle)) | built |
 | Secrets | gitleaks: staged changes before each commit, the whole branch history in `just secrets` | built |
 | Docs | [`tools/docs_check.py`](../../tools/docs_check.py) | built |
 
@@ -176,6 +176,8 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just neutrality` | The neutrality check |
 | `just licences` | The SBOM, licence gate and import scan |
 | `just secrets` | gitleaks over the branch's whole history |
+| `just dev` | Start the bundled services on localhost and wait until they are healthy |
+| `just down` | Stop the bundled services, keeping their data |
 | `just docs` | The docs check; add `--base origin/main` for the PR rules |
 | `just new-package <name>` | Scaffold `core/<name>/` from the package template and install it |
 | `just new-doc <type> <name>` | Create a docs page or work-log entry from its template (`just new-doc log <branch-name>`) |

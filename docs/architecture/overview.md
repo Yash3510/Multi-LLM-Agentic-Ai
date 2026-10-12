@@ -11,7 +11,7 @@ tags: [4ce, architecture]
 
 4CE is a self-hosted engine that turns an organisation's documents and rulebooks into decisions it can sign: grounded in its evidence, checked against its rules, approved by a named person, recorded as proof, and nothing leaves the building.
 
-This page is the map. Each subsystem gets its own canonical page as it is built. Today only the repository tooling and `core/common` exist; everything marked _planned_ is design, not code.
+This page is the map. Each subsystem gets its own canonical page as it is built. Today only the repository tooling, `core/common` and the [bundled services](services.md) exist; everything marked _planned_ is design, not code.
 
 ## The universal loop
 
@@ -66,7 +66,7 @@ PostgreSQL, Redis, MinIO, Prometheus and Grafana run as unmodified separate serv
 | Package | Responsibility | State |
 | --- | --- | --- |
 | [`core/common`](../../core/common/README.md) | Typed settings | built |
-| `core/packs` | Pack spec, loader, validator, signing, registry, namespacing | _planned_ |
+| [`core/packs`](../../core/packs/README.md) | Pack spec, loader, validator, signing, registry, namespacing | draft specs built; the rest _planned_ |
 | `core/domain` | Subjects, cases, evidence, observations, assessments | _planned_ |
 | `core/identity` | Users, sessions, groups, roles, OIDC/SAML client | _planned_ |
 | `core/policy` | Policy store, evaluator, decisions, risk tiers | _planned_ |
