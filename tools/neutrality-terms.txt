@@ -1,0 +1,108 @@
+# Sector terms that must never appear in core/ or apps/ (master plan §6.1, §9).
+# One term per line; a space also matches _ and - between words; plurals match too.
+# Add terms as packs bring new vocabulary. Removing one weakens a check: it needs review.
+# Words that are also core concepts (asset, receipt, contract, clause, policy, scheme,
+# pipeline, vendor, crop) are deliberately absent.
+
+# Industrial & Energy
+pump
+turbine
+boiler
+valve
+vessel
+flange
+weld
+refinery
+inspection
+P&ID
+SOP
+corrosion
+vibration
+seal leak
+thickness survey
+remaining life
+fit for service
+shift log
+lifting equipment
+
+# Banking & Lending
+loan
+lending
+lender
+borrower
+mortgage
+collateral
+underwriting
+credit policy
+credit appraisal
+debt to income
+EMI
+FOIR
+KYC
+salary slip
+bank statement
+
+# Insurance
+claim
+insurer
+policyholder
+surveyor
+deductible
+
+# Healthcare
+patient
+hospital
+clinical
+diagnosis
+discharge
+prescription
+formulary
+
+# Pharma & Food QA
+batch record
+certificate of analysis
+pharma
+
+# Construction & Infrastructure
+measurement book
+bill of quantities
+
+# Public Services
+beneficiary
+ration card
+
+# Education
+answer script
+mark sheet
+marking scheme
+
+# Agriculture
+farmer
+soil test
+
+# Logistics & Transport
+shipment
+consignment
+waybill
+freight
+
+# Procurement
+tender
+bidder
+purchase order
+delegation of powers
+
+# Finance & Expenses
+invoice
+expense
+reimbursement
+GST
+
+# Contracts
+indemnity
+annexure
+
+# HR
+employee
+payroll
+salary

@@ -26,5 +26,9 @@ lint:
 repo-check:
     uv run python tools/repo_check.py
 
+# No sector vocabulary in core/ or apps/ (§9)
+neutrality:
+    uv run python tools/neutrality_check.py
+
 # Every CI check, locally, exactly as CI runs it
-check: lint repo-check test
+check: lint repo-check neutrality test
