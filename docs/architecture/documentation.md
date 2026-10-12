@@ -127,10 +127,11 @@ Every PR adds exactly one entry, `docs/log/YYYY/MM/YYYY-MM-DD-<branch-name>.md`,
 | Orphans | A page isn't reachable from `docs/README.md` |
 | Names | A file breaks the naming or banned-name rules |
 | Work log | A PR has no log entry, or more than one |
-| Drift | Code under a page's `covers` changed but the page didn't. The only override is the `docs-unaffected` label, approved by the page owner. |
+| Drift | Code under a page's `covers` changed, renames included, but the page didn't. ADR pages never drift: they are records. The only override is the `docs-unaffected` label, approved by the page owner. |
+| Covers | A `covers` path doesn't exist, or names a folder without its trailing `/` (pages marked `planned` may cover what isn't built yet) |
 | History | A commit up to `last_processed_commit` is in no milestone, or in more than one |
 | State | `docs/state.md` is more than 7 days old |
-| ADRs | An accepted ADR's body was edited |
+| ADRs | An accepted ADR was edited, or changed to anything but `superseded` with `superseded_by` set |
 
 ## Definition of "documented"
 
