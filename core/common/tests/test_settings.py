@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,8 @@ REQUIRED = {
 @pytest.fixture
 def env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
     monkeypatch.chdir(Path(__file__).parent)  # so no stray .env file is picked up
+    for name in [n for n in os.environ if n.startswith("FOURCE_")]:
+        monkeypatch.delenv(name)  # nor anything already set in the developer's shell
     for name, value in REQUIRED.items():
         monkeypatch.setenv(name, value)
     return monkeypatch
