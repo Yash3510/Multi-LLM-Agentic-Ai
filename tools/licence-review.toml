@@ -20,3 +20,9 @@ name = "nodeenv"
 version = "1.11.0"
 licence = "BSD-3-Clause"
 checked = "LICENSE file in the wheel's dist-info, 2026-10-12 (three clauses, incl. no endorsement)"
+
+[[package]]
+name = "colorama"
+version = "0.4.6"
+licence = "BSD-3-Clause"
+checked = "LICENSE.txt at tag 0.4.6 (commit 3de9f013), 2026-10-12; installed on Windows only"
