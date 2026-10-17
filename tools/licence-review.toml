@@ -33,6 +33,18 @@ version = "0.23.0"
 licence = "MIT OR Apache-2.0"
 checked = "LICENSE-MIT and LICENSE-APACHE (Apache 2.0 text) in the wheel's dist-info, 2026-10-17; dual-licensed; installed on Linux and macOS only"
 
+[[package]]
+name = "httpx"
+version = "0.28.1"
+licence = "BSD-3-Clause"
+checked = "LICENSE.md in the wheel's dist-info, 2026-10-17 (three clauses, incl. no endorsement); metadata says only the classifier 'BSD License'"
+
+[[package]]
+name = "certifi"
+version = "2026.7.22"
+licence = "MPL-2.0"
+checked = "LICENSE in the wheel's dist-info, 2026-10-17 (the MPL 2.0 notice for the CA bundle); metadata names MPL-2.0 as an SPDX id and again as a classifier text the gate can't match, and the ADR-0037 approval below needs a single value"
+
 # Review-required licences approved by an ADR. Each passes only for this package and only
 # while its licence stays exactly as written; any other package with the licence still fails.
 
