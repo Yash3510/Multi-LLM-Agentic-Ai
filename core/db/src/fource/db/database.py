@@ -49,6 +49,10 @@ def _stamp(session: Session, flush_context: Any, instances: Any) -> None:
                 row.org_id = org_id
             elif current != org_id:
                 raise CrossOrgWrite("A record can only be written within its own organisation.")
+    # A deleted row is never stamped: it must already belong to this organisation.
+    for row in session.deleted:
+        if isinstance(row, OrgScoped) and row.org_id != org_id:
+            raise CrossOrgWrite("A record can only be deleted within its own organisation.")
 
 
 @event.listens_for(ScopedSession, "after_begin")
