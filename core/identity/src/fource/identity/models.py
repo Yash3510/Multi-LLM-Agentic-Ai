@@ -6,13 +6,16 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from fource.db import Base, OrgScoped, UtcDateTime
 
+EMAIL_LENGTH = 320
+DISPLAY_NAME_LENGTH = 200
+
 
 class User(OrgScoped, Base):
     __tablename__ = "users"
     __table_args__ = (UniqueConstraint("org_id", "email"),)
 
-    email: Mapped[str] = mapped_column(String(320))
-    display_name: Mapped[str] = mapped_column(String(200), default="")
+    email: Mapped[str] = mapped_column(String(EMAIL_LENGTH))
+    display_name: Mapped[str] = mapped_column(String(DISPLAY_NAME_LENGTH), default="")
     password_hash: Mapped[str] = mapped_column(String(255))
     roles: Mapped[list[str]] = mapped_column(JSON, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

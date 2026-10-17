@@ -29,3 +29,8 @@ class InvalidEmail(FourceError):
 class EmailTaken(FourceError):
     code = "email_taken"
     status = 409
+
+
+class InvalidDisplayName(FourceError):
+    code = "validation_failed"
+    status = 422

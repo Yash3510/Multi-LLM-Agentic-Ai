@@ -12,10 +12,11 @@ from fource.identity.errors import (
     AccountLocked,
     EmailTaken,
     InvalidCredentials,
+    InvalidDisplayName,
     InvalidEmail,
     NotAuthenticated,
 )
-from fource.identity.models import RevokedToken, User
+from fource.identity.models import DISPLAY_NAME_LENGTH, EMAIL_LENGTH, RevokedToken, User
 from fource.identity.passwords import (
     hash_password,
     needs_rehash,
@@ -44,7 +45,10 @@ def normalise_email(email: str) -> str:
 
 
 def _storable(text: str) -> bool:
-    """False for text with a lone surrogate: it has no UTF-8 form, so the database refuses it."""
+    """False for text the database refuses: PostgreSQL can't hold NUL, and a lone surrogate
+    has no UTF-8 form."""
+    if "\x00" in text:
+        return False
     try:
         text.encode()
     except UnicodeEncodeError:
@@ -62,8 +66,12 @@ async def create_user(
 ) -> User:
     address = normalise_email(email)
     local, _, domain = address.partition("@")
-    if not local or "." not in domain or not _storable(address):
+    if not local or "." not in domain or len(address) > EMAIL_LENGTH or not _storable(address):
         raise InvalidEmail("That doesn't look like an email address.")
+    if len(display_name) > DISPLAY_NAME_LENGTH or not _storable(display_name):
+        raise InvalidDisplayName(
+            f"A display name is plain text of up to {DISPLAY_NAME_LENGTH} characters."
+        )
     granted = [Role(role).value for role in roles]
     if await session.scalar(select(User.id).where(User.email == address)) is not None:
         raise EmailTaken("A user with that email already exists.")
