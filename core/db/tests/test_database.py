@@ -119,6 +119,19 @@ async def test_reassigning_an_expired_row_is_refused(
         assert owners.all() == [second]
 
 
+async def test_a_session_can_still_change_and_delete_its_own_rows(database: Database) -> None:
+    first, _ = await two_orgs(database)
+    async with database.org_session(first) as session:
+        note = (await session.scalars(select(Note))).one()
+        note.text = "changed"
+    async with database.org_session(first) as session:
+        note = (await session.scalars(select(Note))).one()
+        assert note.text == "changed"
+        await session.delete(note)
+    async with database.org_session(first) as session:
+        assert (await session.scalars(select(Note.text))).all() == []
+
+
 async def test_bulk_deletes_stay_inside_the_organisation(database: Database) -> None:
     first, second = await two_orgs(database)
     async with database.org_session(first) as session:
