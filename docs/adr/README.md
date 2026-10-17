@@ -18,6 +18,7 @@ Numbers 0009 to 0034 are reserved by the master plan (§15) for the decisions it
 | ADR                                                 | Title                                                 | Decision status |
 | --------------------------------------------------- | ----------------------------------------------------- | --------------- |
 | [0009](0009-own-core-and-clean-room.md)             | Own core and clean room                               | proposed        |
+| [0010](0010-modular-monolith-on-one-database.md) | A modular monolith on one database | proposed |
 | [0015](0015-licence-allowlist-and-sbom-gate.md)     | Licence allowlist and SBOM gate                       | proposed        |
 | [0018](0018-sector-neutral-core.md)                 | A sector-neutral core; industries as packs            | proposed        |
 | [0023](0023-third-party-services.md)                | Third-party services: unmodified, separate, with source | proposed      |
