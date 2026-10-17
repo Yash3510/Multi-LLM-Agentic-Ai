@@ -15,6 +15,7 @@ Database engines, sessions and organisation scoping for every 4CE package. SQLit
 | `Base`, `OrgScoped`, `Org` | The declarative base, the mixin every organisation's table uses (`id`, `org_id`, `created_at`), and the organisations table |
 | `UtcDateTime` | A timestamp stored in UTC and read back aware on both engines |
 | `CrossOrgWrite` | The error for writing into another organisation |
+| `APP_ROLE`, `org_isolation_sql(table)` | The role the server connects as on PostgreSQL, and the statements a migration runs to put a table under row-level security |
 
 ## Tests
 
