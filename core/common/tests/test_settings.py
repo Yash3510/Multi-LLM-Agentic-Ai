@@ -10,8 +10,8 @@ SECRET = "x" * 40
 
 
 @pytest.fixture
-def env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
-    monkeypatch.chdir(Path(__file__).parent)  # so no stray .env file is picked up
+def env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> pytest.MonkeyPatch:
+    monkeypatch.chdir(tmp_path)  # an empty folder, so no stray .env file is picked up
     for name in [n for n in os.environ if n.startswith("FOURCE_")]:
         monkeypatch.delenv(name)  # nor anything already set in the developer's shell
     monkeypatch.setenv("FOURCE_SECRET_KEY", SECRET)
