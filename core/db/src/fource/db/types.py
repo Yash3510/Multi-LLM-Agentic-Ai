@@ -17,7 +17,12 @@ class UtcDateTime(TypeDecorator[datetime]):
     def process_bind_param(
         self, value: datetime | None, dialect: Dialect | None
     ) -> datetime | None:
-        return None if value is None else value.astimezone(UTC).replace(tzinfo=None)
+        if value is None:
+            return None
+        if value.utcoffset() is None:
+            # astimezone() would read a naive time in the machine's zone, a silent guess.
+            raise ValueError("A timestamp needs a time zone; pass an aware datetime.")
+        return value.astimezone(UTC).replace(tzinfo=None)
 
     def process_result_value(
         self, value: datetime | None, dialect: Dialect | None
