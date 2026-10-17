@@ -4,11 +4,17 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, cast
 
-from sqlalchemy import Connection, event, select, text
+from sqlalchemy import Connection, event, inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import ORMExecuteState, Session, SessionTransaction, with_loader_criteria
+from sqlalchemy.orm import (
+    InstanceState,
+    ORMExecuteState,
+    Session,
+    SessionTransaction,
+    with_loader_criteria,
+)
 
 from fource.common import FourceError
 from fource.db.models import Org, OrgScoped
@@ -53,6 +59,32 @@ def _stamp(session: Session, flush_context: Any, instances: Any) -> None:
     for row in session.deleted:
         if isinstance(row, OrgScoped) and row.org_id != org_id:
             raise CrossOrgWrite("A record can only be deleted within its own organisation.")
+    # Setting org_id before the flush hides where a stored row came from, so a changed or
+    # deleted row must also have been loaded from this organisation.
+    for row in [*session.dirty, *session.deleted]:
+        if isinstance(row, OrgScoped) and _loaded_org_id(row) != org_id:
+            raise CrossOrgWrite(
+                "A record can only be changed or deleted within its own organisation."
+            )
+
+
+def _loaded_org_id(row: OrgScoped) -> uuid.UUID | None:
+    """The organisation a stored row was loaded with, or None when that can't be told.
+
+    A changed org_id keeps its old value in the history. If the old value was never loaded
+    (the row was expired), the row can't be shown to have been this organisation's, so None.
+    """
+    # raiseerr=True is the default, spelled out so the typed result isn't Optional.
+    state: InstanceState[OrgScoped] = inspect(row, raiseerr=True)
+    history = state.attrs.org_id.history
+    if history.deleted:
+        return history.deleted[0]
+    if history.added:
+        return None
+    if history.unchanged:
+        return history.unchanged[0]
+    # Not loaded and not changed: whatever the database holds is what it was loaded with.
+    return row.org_id
 
 
 @event.listens_for(ScopedSession, "after_begin")
