@@ -1,0 +1,26 @@
+[project]
+name = "fource-server"
+version = "0.1.0"
+description = "The 4CE server: API routes, the command line and the database migrations."
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.0",
+    "fastapi>=0.143.0",
+    "fource-common",
+    "fource-db",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+fource-server = "fource.server.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fource.server"
+
+[tool.uv.sources]
+fource-common = { workspace = true }
+fource-db = { workspace = true }

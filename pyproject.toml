@@ -22,7 +22,7 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = ["core/*"]
+members = ["core/*", "apps/*"]
 
 [tool.ruff]
 line-length = 100
@@ -37,8 +37,8 @@ known-first-party = ["fource"]
 
 [tool.pyright]
 pythonVersion = "3.12"
-include = ["core", "tools"]
-strict = ["core"]
+include = ["core", "apps", "tools"]
+strict = ["core", "apps"]
 extraPaths = ["tools"]
 
 [tool.importlinter]
@@ -58,9 +58,10 @@ allowed_importers = ["fource.common"]
 
 [tool.pytest.ini_options]
 # Every package has a tests/ folder, so test file names repeat across packages.
-addopts = ["--import-mode=importlib"]
-testpaths = ["core", "tools"]
+addopts = ["--import-mode=importlib", "--strict-markers"]
+testpaths = ["core", "apps", "tools"]
 pythonpath = ["tools"]
+markers = ["postgres: needs PostgreSQL 18; run with just test-postgres after just services"]
 
 [[tool.importlinter.contracts]]
 name = "Only the public API of fource.packs is imported from outside it"
@@ -73,3 +74,8 @@ name = "Only the public API of fource.db is imported from outside it"
 type = "protected"
 protected_modules = ["fource.db.*"]
 allowed_importers = ["fource.db"]
+
+[[tool.importlinter.contracts]]
+name = "The server sits above the core packages; core never imports it"
+type = "layers"
+layers = ["fource.server", "fource.db", "fource.common"]
