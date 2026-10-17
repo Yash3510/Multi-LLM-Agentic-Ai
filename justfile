@@ -7,10 +7,11 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 default:
     @just --list
 
-# Install Python through uv, sync every package and install the git hooks
+# Install Python through uv, sync every package, create .env, and install the git hooks
 setup:
     uv python install
     uv sync --all-packages --locked
+    uv run python tools/dev/env.py
     uv tool install pre-commit==4.6.2
     pre-commit install --install-hooks --allow-missing-config
 

@@ -20,6 +20,9 @@ __pycache__/
 # Logs
 *.log
 
+# Run-time data: the SQLite database and anything 4CE writes while running.
+/data/
+
 # Obsidian per-person files; only the three shared settings are committed.
 .obsidian/*
 !.obsidian/app.json
