@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
@@ -129,6 +130,16 @@ async def test_a_success_resets_the_failure_count(org: tuple[Database, uuid.UUID
     with pytest.raises(InvalidCredentials):
         await attempt(org, "ada@example.com", "wrong horse battery")
     await attempt(org, "ada@example.com", PASSWORD)  # one failure, not five: not locked
+
+
+async def test_wrong_guesses_sent_together_still_lock_the_account(
+    org: tuple[Database, uuid.UUID],
+) -> None:
+    guesses = [attempt(org, "ada@example.com", "wrong horse battery") for _ in range(10)]
+    outcomes = await asyncio.gather(*guesses, return_exceptions=True)
+    assert all(isinstance(outcome, (InvalidCredentials, AccountLocked)) for outcome in outcomes)
+    with pytest.raises(AccountLocked):
+        await attempt(org, "ada@example.com", PASSWORD)
 
 
 async def test_a_hash_with_older_parameters_is_upgraded_on_sign_in(
