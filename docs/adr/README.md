@@ -28,3 +28,4 @@ Numbers 0009 to 0034 are reserved by the master plan (§15) for the decisions it
 | [0035](0035-frontend-foundations.md)                | Frontend foundations                                  | proposed        |
 | [0036](0036-mpl-build-tools-and-licence-mapping.md) | MPL-2.0 build and test tools, and the licence mapping | proposed        |
 | [0037](0037-licence-approvals-for-the-backend-stack.md) | Licence approvals for the backend stack | proposed |
+| [0038](0038-signed-tokens-for-sign-in.md) | Signed tokens for sign-in | proposed |
