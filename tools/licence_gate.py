@@ -12,6 +12,8 @@ to get a build green. Every licence, and every option of an OR expression, must 
 anywhere. (Electing one option of an OR is what ADR-0036 proposes; until R4 accepts it, the
 gate stays strict.) A package whose metadata doesn't name an SPDX licence is listed in
 tools/licence-review.toml by a person who read its LICENSE file, for that exact version.
+A review-required licence passes only for a package an ADR approved, listed under [[approved]]
+in tools/licence-review.toml with its exact licence.
 """
 
 import json
@@ -111,8 +113,10 @@ def check_components(
     components: list[dict[str, Any]],
     reviewed: dict[tuple[str, str], str],
     own: Collection[str] = frozenset(),
+    approved: dict[str, str] | None = None,
 ) -> list[str]:
     ours = {normalise(name) for name in own}
+    approvals = approved or {}
     problems: list[str] = []
     for component in components:
         name, version = component["name"], component.get("version", "")
@@ -125,6 +129,8 @@ def check_components(
         if not texts:
             problems.append(f"{name} {version}: no licence; read its LICENSE file and record it")
             continue
+        if key in approvals and all(text == approvals[key] for text in texts):
+            continue
         reasons = [reason for text in texts if (reason := problem(text))]
         if reasons:
             problems.append(f"{name} {version}: {'; '.join(reasons)}")
@@ -134,6 +140,12 @@ def check_components(
 def load_reviewed(text: str) -> dict[tuple[str, str], str]:
     entries = tomllib.loads(text).get("package", [])
     return {(normalise(e["name"]), e["version"]): e["licence"] for e in entries}
+
+
+def load_approved(text: str) -> dict[str, str]:
+    """Packages whose review-required licence an ADR approved, with that exact licence."""
+    entries = tomllib.loads(text).get("approved", [])
+    return {normalise(e["name"]): e["licence"] for e in entries}
 
 
 def component(image: str) -> str:
@@ -230,12 +242,13 @@ def main(argv: list[str]) -> int:
         return 2
     reviewed = load_reviewed(REVIEWED_FILE.read_text(encoding="utf-8"))
     own = own_packages(REPO)
+    approved = load_approved(REVIEWED_FILE.read_text(encoding="utf-8"))
     problems: list[str] = []
     for sbom in argv:
         components = json.loads(Path(sbom).read_text(encoding="utf-8")).get("components", [])
         if not components:
             problems.append(f"{sbom}: no components; was the environment synced?")
-        problems += check_components(components, reviewed, own)
+        problems += check_components(components, reviewed, own, approved)
         print(f"{sbom}: {len(components)} components checked")
     for line in problems:
         print(line)
