@@ -1,8 +1,10 @@
+import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fource.common import now
@@ -125,10 +127,14 @@ async def sign_in(
     return SignedIn(user=user, token=token)
 
 
+async def _is_revoked(session: AsyncSession, token_id: uuid.UUID) -> bool:
+    found = await session.scalar(select(RevokedToken.id).where(RevokedToken.token_id == token_id))
+    return found is not None
+
+
 async def authenticate(session: AsyncSession, payload: TokenPayload) -> User:
     """The active user a valid, unrevoked token belongs to; otherwise NotAuthenticated."""
-    revoked = select(RevokedToken.id).where(RevokedToken.token_id == payload.token_id)
-    if await session.scalar(revoked) is not None:
+    if await _is_revoked(session, payload.token_id):
         raise NotAuthenticated(_SIGN_IN_AGAIN)
     user = await session.get(User, payload.user_id)
     if user is None or not user.is_active or user.org_id != payload.org_id:
@@ -137,6 +143,12 @@ async def authenticate(session: AsyncSession, payload: TokenPayload) -> User:
 
 
 async def sign_out(session: AsyncSession, payload: TokenPayload) -> None:
+    """Revoke the token; signing out a token that is already revoked does nothing."""
     await session.execute(delete(RevokedToken).where(RevokedToken.expires_at < now()))
-    session.add(RevokedToken(token_id=payload.token_id, expires_at=payload.expires_at))
-    await session.flush()
+    if await _is_revoked(session, payload.token_id):
+        return
+    try:
+        async with session.begin_nested():
+            session.add(RevokedToken(token_id=payload.token_id, expires_at=payload.expires_at))
+    except IntegrityError:
+        pass  # a sign-out of the same token won the race; the token is revoked either way

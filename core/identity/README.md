@@ -19,7 +19,7 @@ Users, passwords, sign-in tokens, lockout and roles: the roles, the sign-in erro
 | `create_user(session, email=, password=, roles=, display_name=)` | Adds a user. The email is trimmed and lower-cased, so it is unique whatever its case; raises `InvalidEmail`, `EmailTaken` or `WeakPassword`, and `ValueError` for a role that does not exist |
 | `sign_in(session, email=, password=, secret=, ttl=)` | Returns `SignedIn` (the user and a token). An unknown or deactivated user and a wrong password raise the same `InvalidCredentials`, and an unknown email spends the same hashing time as a real attempt. `MAX_FAILED_SIGNINS` (5) wrong passwords lock the account for `LOCK_DURATION` (15 minutes), during which even the right password raises `AccountLocked`; the database adds each failure itself, so guesses sent together can't overwrite each other's count, and the count is committed before the error is raised, so it survives. A success clears the count and upgrades an out-of-date password hash |
 | `authenticate(session, payload)` | The active user a token belongs to, read from the database on every call; a revoked token, a missing or deactivated user and a token from another organisation raise `NotAuthenticated` |
-| `sign_out(session, payload)` | Revokes the token until it would have expired anyway, and forgets revocations that have expired |
+| `sign_out(session, payload)` | Revokes the token until it would have expired anyway, and forgets revocations that have expired. Signing out a token that is already revoked, even by two requests at once, is not an error |
 
 ## Tests
 
