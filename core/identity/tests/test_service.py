@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from argon2 import PasswordHasher
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fource.common import new_id, set_clock
 from fource.db import Base, Database, Org
@@ -182,6 +183,23 @@ async def test_signing_out_twice_is_fine_and_the_token_stays_revoked(
     async with database.org_session(org_id) as session:
         with pytest.raises(NotAuthenticated):
             await authenticate(session, payload)
+        assert len((await session.scalars(select(RevokedToken))).all()) == 1
+
+
+async def test_a_sign_out_that_loses_a_race_still_succeeds(
+    org: tuple[Database, uuid.UUID], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database, org_id = org
+    payload = (await attempt(org, "ada@example.com", PASSWORD)).token.payload
+    async with database.org_session(org_id) as session:
+        await sign_out(session, payload)  # the sign-out that wins the race
+
+    async def not_yet_visible(session: AsyncSession, token_id: uuid.UUID) -> bool:
+        return False  # the loser looked before the winner committed
+
+    monkeypatch.setattr("fource.identity.service._is_revoked", not_yet_visible)
+    async with database.org_session(org_id) as session:
+        await sign_out(session, payload)
         assert len((await session.scalars(select(RevokedToken))).all()) == 1
 
 
