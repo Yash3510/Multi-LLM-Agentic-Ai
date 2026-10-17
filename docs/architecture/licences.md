@@ -48,7 +48,7 @@ On 2026-10-12, at commit `99ccbf9`, on Linux: `just licences` checked 30 compone
 
 On 2026-10-17, with `apps/server` and its dependencies installed on Linux, `just licences` checked 52 components and scanned 27 files with no problems. `uvloop` (pulled in by `uvicorn[standard]` on Linux and macOS) says only "Apache Software License" and "MIT License" as classifiers; its two LICENSE files were read and it is recorded as `MIT OR Apache-2.0`, both options allowed anywhere.
 
-Later on 2026-10-17, with `httpx` added for the API tests, `just licences` checked 62 components and scanned 47 files with no problems. `httpx` says only the classifier "BSD License"; its LICENSE.md was read and recorded as BSD-3-Clause. `certifi` (the certificate bundle `httpx` loads, approved by ADR-0037 as MPL-2.0) names MPL-2.0 twice in its metadata, once as an SPDX id and once as a classifier text the gate cannot match, and an approval needs a single value; its LICENSE file (the MPL 2.0 notice) was read and recorded as MPL-2.0, so the approval holds.
+Later on 2026-10-17, with `httpx` added for the API tests, `just licences` checked 62 components and scanned 47 files with no problems. `httpx` names BSD-3-Clause in its metadata and again the classifier "BSD License", which the gate cannot match; its LICENSE.md was read and recorded as BSD-3-Clause. `certifi` (the certificate bundle `httpx` loads, approved by ADR-0037 as MPL-2.0) names MPL-2.0 twice in its metadata, once as an SPDX id and once as a classifier text the gate cannot match, and an approval needs a single value; its LICENSE file (the MPL 2.0 notice) was read and recorded as MPL-2.0, so the approval holds.
 
 ## Decisions
 

@@ -37,7 +37,7 @@ checked = "LICENSE-MIT and LICENSE-APACHE (Apache 2.0 text) in the wheel's dist-
 name = "httpx"
 version = "0.28.1"
 licence = "BSD-3-Clause"
-checked = "LICENSE.md in the wheel's dist-info, 2026-10-17 (three clauses, incl. no endorsement); metadata says only the classifier 'BSD License'"
+checked = "LICENSE.md in the wheel's dist-info, 2026-10-17 (three clauses, incl. no endorsement); metadata names BSD-3-Clause and again the classifier 'BSD License', which the gate can't match"
 
 [[package]]
 name = "certifi"
