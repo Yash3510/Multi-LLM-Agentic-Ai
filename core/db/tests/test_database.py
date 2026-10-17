@@ -62,6 +62,18 @@ async def test_writing_into_another_organisation_is_refused(database: Database) 
         assert (await session.scalars(select(Note.text))).all() == ["for-second"]
 
 
+async def test_deleting_another_organisations_row_is_refused(database: Database) -> None:
+    first, second = await two_orgs(database)
+    async with database.session() as session:
+        theirs = (await session.scalars(select(Note).where(Note.org_id == second))).one()
+    with pytest.raises(CrossOrgWrite):
+        async with database.org_session(first) as session:
+            await session.delete(theirs)
+    async with database.session() as session:
+        remaining = await session.scalars(select(Note.text).where(Note.org_id == second))
+        assert remaining.all() == ["for-second"]
+
+
 async def test_bulk_deletes_stay_inside_the_organisation(database: Database) -> None:
     first, second = await two_orgs(database)
     async with database.org_session(first) as session:
