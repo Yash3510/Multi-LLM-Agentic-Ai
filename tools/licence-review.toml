@@ -26,3 +26,26 @@ name = "colorama"
 version = "0.4.6"
 licence = "BSD-3-Clause"
 checked = "LICENSE.txt at tag 0.4.6 (commit 3de9f013), 2026-10-12; installed on Windows only"
+
+# Review-required licences approved by an ADR. Each passes only for this package and only
+# while its licence stays exactly as written; any other package with the licence still fails.
+
+[[approved]]
+name = "psycopg"
+licence = "LGPL-3.0-only"
+adr = "ADR-0037"
+
+[[approved]]
+name = "psycopg-binary"
+licence = "LGPL-3.0-only"
+adr = "ADR-0037"
+
+[[approved]]
+name = "certifi"
+licence = "MPL-2.0"
+adr = "ADR-0037"
+
+[[approved]]
+name = "cffi"
+licence = "MIT-0"
+adr = "ADR-0037"

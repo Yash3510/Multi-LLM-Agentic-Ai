@@ -3,7 +3,7 @@ title: Licences and the licence gate
 type: architecture
 status: active
 owner: R4
-updated: 2026-10-12
+updated: 2026-10-17
 covers:
   - tools/licence_gate.py
   - tools/import_scan.py
@@ -34,6 +34,7 @@ Master plan Appendix A. Changing it is R4's decision, recorded in an ADR; it is 
 2. **Licence gate.** [`tools/licence_gate.py`](../../tools/licence_gate.py) reads the SBOM and fails on any component whose licence isn't allowed anywhere:
    - **Expressions are strict.** Every licence in an `AND` or `OR` expression must be allowed. Electing one option of an `OR` is proposed in [ADR-0036](../adr/0036-mpl-build-tools-and-licence-mapping.md) and waits on R4.
    - **Unclear metadata is read by a person.** Some packages only say "BSD License". Someone reads the package's LICENSE file and records the licence in [`tools/licence-review.toml`](../../tools/licence-review.toml), pinned to that version, so an update is read again.
+   - **Approvals by ADR.** A review-required licence passes only for a package an ADR approved: `[[approved]]` in `tools/licence-review.toml` names the package, its exact licence and the ADR ([ADR-0037](../adr/0037-licence-approvals-for-the-backend-stack.md) approves psycopg, psycopg-binary, certifi and cffi). A changed licence lapses the approval.
    - **4CE's own packages** (`fource-*`) are skipped, and commercially licensed libraries pass here; the import scan limits where they are used.
 3. **Import scan.** [`tools/import_scan.py`](../../tools/import_scan.py) parses every import in `core/`, `apps/` and `packs/`, finds the package that provides it, and fails if that package is copyleft without a commercial licence. A commercial library may be imported only where its adapter lives; PyMuPDF has no adapter yet, so it may be imported nowhere. An import that no installed package provides also fails.
 
