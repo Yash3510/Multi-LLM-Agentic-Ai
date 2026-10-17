@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from dev import env
@@ -41,3 +42,15 @@ def test_a_missing_env_file_is_created(tmp_path: Path) -> None:
     (tmp_path / ".env.example").write_text("FOURCE_SECRET_KEY=change-me\n", encoding="utf-8")
     assert env.ensure_env(tmp_path) is True
     assert "change-me" not in (tmp_path / ".env").read_text(encoding="utf-8")
+
+
+def test_the_example_defines_each_variable_before_a_line_refers_to_it() -> None:
+    # python-dotenv fills in ${NAME} only from lines above it, so order matters, even in the
+    # commented-out lines that a developer will uncomment.
+    example = Path(__file__).resolve().parents[2] / ".env.example"
+    assigned: set[str] = set()
+    for number, line in enumerate(example.read_text(encoding="utf-8").splitlines(), start=1):
+        for name in re.findall(r"\$\{([A-Z][A-Z0-9_]*)\}", line):
+            assert name in assigned, f"line {number} refers to ${{{name}}} before it is set"
+        if match := re.match(r"([A-Z][A-Z0-9_]*)=", line):
+            assigned.add(match[1])
