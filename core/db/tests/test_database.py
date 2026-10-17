@@ -78,6 +78,8 @@ async def test_bulk_deletes_stay_inside_the_organisation(database: Database) -> 
     first, second = await two_orgs(database)
     async with database.org_session(first) as session:
         await session.execute(delete(Note))
+    async with database.org_session(first) as session:
+        assert (await session.scalars(select(Note.text))).all() == []
     async with database.org_session(second) as session:
         assert (await session.scalars(select(Note.text))).all() == ["for-second"]
 
@@ -103,12 +105,16 @@ async def test_organisations_are_found_by_slug(database: Database) -> None:
 async def test_a_fresh_clone_gets_its_data_folder(tmp_path: Path) -> None:
     nested = tmp_path / "not" / "there" / "yet.db"
     database = Database(f"sqlite+aiosqlite:///{nested.as_posix()}")
-    assert await database.ping()
-    assert nested.parent.is_dir()
-    await database.dispose()
+    try:
+        assert await database.ping()
+        assert nested.parent.is_dir()
+    finally:
+        await database.dispose()
 
 
 async def test_ping_reports_an_unreachable_database() -> None:
     database = Database("postgresql+psycopg://nobody:wrong@127.0.0.1:1/none")
-    assert await database.ping() is False
-    await database.dispose()
+    try:
+        assert await database.ping() is False
+    finally:
+        await database.dispose()
