@@ -234,6 +234,17 @@ async def test_emails_are_unique_and_must_look_like_emails(
             await create_user(session, email="not-an-email", password=PASSWORD, roles=[])
 
 
+async def test_an_email_that_cannot_be_encoded_is_no_email_and_no_user(
+    org: tuple[Database, uuid.UUID],
+) -> None:
+    database, org_id = org
+    with pytest.raises(InvalidCredentials):
+        await attempt(org, "\ud800@example.com", PASSWORD)
+    async with database.org_session(org_id) as session:
+        with pytest.raises(InvalidEmail):
+            await create_user(session, email="\ud800@example.com", password=PASSWORD, roles=[])
+
+
 async def test_unknown_roles_are_refused(org: tuple[Database, uuid.UUID]) -> None:
     database, org_id = org
     async with database.org_session(org_id) as session:
