@@ -41,6 +41,15 @@ def normalise_email(email: str) -> str:
     return email.strip().lower()
 
 
+def _storable(text: str) -> bool:
+    """False for text with a lone surrogate: it has no UTF-8 form, so the database refuses it."""
+    try:
+        text.encode()
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 async def create_user(
     session: AsyncSession,
     *,
@@ -51,7 +60,7 @@ async def create_user(
 ) -> User:
     address = normalise_email(email)
     local, _, domain = address.partition("@")
-    if not local or "." not in domain:
+    if not local or "." not in domain or not _storable(address):
         raise InvalidEmail("That doesn't look like an email address.")
     granted = [Role(role).value for role in roles]
     if await session.scalar(select(User.id).where(User.email == address)) is not None:
@@ -73,7 +82,10 @@ async def create_user(
 async def sign_in(
     session: AsyncSession, *, email: str, password: str, secret: str, ttl: timedelta
 ) -> SignedIn:
-    user = await session.scalar(select(User).where(User.email == normalise_email(email)))
+    address = normalise_email(email)
+    user = None
+    if _storable(address):  # otherwise it can't be anyone's email
+        user = await session.scalar(select(User).where(User.email == address))
     if user is None or not user.is_active:
         verify_password(timing_hash(), password)  # the same work as a real attempt
         raise InvalidCredentials(_WRONG)
