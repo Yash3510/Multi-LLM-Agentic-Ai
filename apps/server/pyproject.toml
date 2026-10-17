@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.143.0",
     "fource-common",
     "fource-db",
+    "fource-identity",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -24,3 +25,4 @@ module-name = "fource.server"
 [tool.uv.sources]
 fource-common = { workspace = true }
 fource-db = { workspace = true }
+fource-identity = { workspace = true }

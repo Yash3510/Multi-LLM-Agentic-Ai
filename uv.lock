@@ -384,6 +384,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "fource-common" },
     { name = "fource-db" },
+    { name = "fource-identity" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -393,6 +394,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.143.0" },
     { name = "fource-common", editable = "core/common" },
     { name = "fource-db", editable = "core/db" },
+    { name = "fource-identity", editable = "core/identity" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
 
