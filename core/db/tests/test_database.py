@@ -74,6 +74,51 @@ async def test_deleting_another_organisations_row_is_refused(database: Database)
         assert remaining.all() == ["for-second"]
 
 
+async def test_reassigning_another_organisations_row_is_refused(database: Database) -> None:
+    first, second = await two_orgs(database)
+    async with database.session() as session:
+        theirs = (await session.scalars(select(Note).where(Note.org_id == second))).one()
+    theirs.org_id = first
+    with pytest.raises(CrossOrgWrite):
+        async with database.org_session(first) as session:
+            session.add(theirs)
+    async with database.session() as session:
+        owners = await session.scalars(select(Note.org_id).where(Note.text == "for-second"))
+        assert owners.all() == [second]
+
+
+async def test_reassigning_then_deleting_another_organisations_row_is_refused(
+    database: Database,
+) -> None:
+    first, second = await two_orgs(database)
+    async with database.session() as session:
+        theirs = (await session.scalars(select(Note).where(Note.org_id == second))).one()
+    theirs.org_id = first
+    with pytest.raises(CrossOrgWrite):
+        async with database.org_session(first) as session:
+            await session.delete(theirs)
+    async with database.session() as session:
+        owners = await session.scalars(select(Note.org_id).where(Note.text == "for-second"))
+        assert owners.all() == [second]
+
+
+async def test_reassigning_an_expired_row_is_refused(
+    database: Database,
+) -> None:
+    first, second = await two_orgs(database)
+    async with database.session() as session:
+        theirs = (await session.scalars(select(Note).where(Note.org_id == second))).one()
+        session.expire(theirs)
+        theirs.org_id = first
+        session.expunge(theirs)
+    with pytest.raises(CrossOrgWrite):
+        async with database.org_session(first) as session:
+            session.add(theirs)
+    async with database.session() as session:
+        owners = await session.scalars(select(Note.org_id).where(Note.text == "for-second"))
+        assert owners.all() == [second]
+
+
 async def test_bulk_deletes_stay_inside_the_organisation(database: Database) -> None:
     first, second = await two_orgs(database)
     async with database.org_session(first) as session:
