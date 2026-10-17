@@ -46,6 +46,8 @@ Master plan Appendix A. Changing it is R4's decision, recorded in an ADR; it is 
 
 On 2026-10-12, at commit `99ccbf9`, on Linux: `just licences` checked 30 components and scanned 6 files with no problems. On Windows (CI) the environment also holds `colorama`, whose metadata only says "BSD License"; its LICENSE.txt was read and recorded as BSD-3-Clause. Without `licence-review.toml`, exactly the packages it lists fail.
 
+On 2026-10-17, with `apps/server` and its dependencies installed on Linux, `just licences` checked 52 components and scanned 27 files with no problems. `uvloop` (pulled in by `uvicorn[standard]` on Linux and macOS) says only "Apache Software License" and "MIT License" as classifiers; its two LICENSE files were read and it is recorded as `MIT OR Apache-2.0`, both options allowed anywhere.
+
 ## Decisions
 
 [ADR-0015](../adr/0015-licence-allowlist-and-sbom-gate.md) (the gate) and [ADR-0023](../adr/0023-third-party-services.md) (third-party services); [ADR-0036](../adr/0036-mpl-build-tools-and-licence-mapping.md) is proposed.
