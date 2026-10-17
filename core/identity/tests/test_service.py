@@ -9,7 +9,7 @@ from argon2 import PasswordHasher
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fource.common import new_id, set_clock
+from fource.common import FourceError, new_id, set_clock
 from fource.db import Base, Database, Org
 from fource.identity import (
     LOCK_DURATION,
@@ -277,15 +277,46 @@ async def test_emails_are_unique_and_must_look_like_emails(
             await create_user(session, email="not-an-email", password=PASSWORD, roles=[])
 
 
-async def test_an_email_that_cannot_be_encoded_is_no_email_and_no_user(
-    org: tuple[Database, uuid.UUID],
+@pytest.mark.parametrize(
+    "address", ["\ud800@example.com", "a\x00@example.com"], ids=["surrogate", "nul"]
+)
+async def test_an_email_the_database_cannot_hold_is_no_email_and_no_user(
+    org: tuple[Database, uuid.UUID], address: str
 ) -> None:
     database, org_id = org
     with pytest.raises(InvalidCredentials):
-        await attempt(org, "\ud800@example.com", PASSWORD)
+        await attempt(org, address, PASSWORD)
     async with database.org_session(org_id) as session:
         with pytest.raises(InvalidEmail):
-            await create_user(session, email="\ud800@example.com", password=PASSWORD, roles=[])
+            await create_user(session, email=address, password=PASSWORD, roles=[])
+
+
+@pytest.mark.parametrize("name", ["\ud800", "a\x00b", "n" * 201], ids=["surrogate", "nul", "201"])
+async def test_a_display_name_the_database_cannot_hold_is_refused(
+    org: tuple[Database, uuid.UUID], name: str
+) -> None:
+    database, org_id = org
+    async with database.org_session(org_id) as session:
+        with pytest.raises(FourceError) as refused:
+            await create_user(
+                session, email="d@example.com", password=PASSWORD, roles=[], display_name=name
+            )
+    assert (refused.value.code, refused.value.status) == ("validation_failed", 422)
+
+
+async def test_values_at_the_column_limits_are_kept_and_one_more_is_refused(
+    org: tuple[Database, uuid.UUID],
+) -> None:
+    database, org_id = org
+    longest = "e" * (320 - len("@example.com")) + "@example.com"
+    async with database.org_session(org_id) as session:
+        user = await create_user(
+            session, email=longest, password=PASSWORD, roles=[], display_name="n" * 200
+        )
+        assert (len(user.email), len(user.display_name)) == (320, 200)
+    async with database.org_session(org_id) as session:
+        with pytest.raises(InvalidEmail):
+            await create_user(session, email="e" + longest, password=PASSWORD, roles=[])
 
 
 async def test_unknown_roles_are_refused(org: tuple[Database, uuid.UUID]) -> None:
