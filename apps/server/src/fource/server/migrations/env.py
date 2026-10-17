@@ -7,9 +7,10 @@ from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from fource.db import Base, Org
+from fource.identity import RevokedToken, User
 
 # Each model imported here puts its table on Base.metadata.
-MODELS = (Org,)
+MODELS = (Org, User, RevokedToken)
 
 
 def _run(connection: Connection) -> None:
