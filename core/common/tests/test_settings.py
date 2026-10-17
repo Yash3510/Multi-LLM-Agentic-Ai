@@ -52,6 +52,13 @@ def test_a_short_secret_key_is_refused(env: pytest.MonkeyPatch) -> None:
         Settings()
 
 
+def test_a_refused_secret_key_is_not_echoed_in_the_error(env: pytest.MonkeyPatch) -> None:
+    env.setenv("FOURCE_SECRET_KEY", "short-value-abc")
+    with pytest.raises(ValidationError) as refused:
+        Settings()
+    assert "short-value-abc" not in str(refused.value)
+
+
 def test_invalid_values_are_errors(env: pytest.MonkeyPatch) -> None:
     env.setenv("FOURCE_TOKEN_TTL_MINUTES", "0")
     with pytest.raises(ValidationError):
