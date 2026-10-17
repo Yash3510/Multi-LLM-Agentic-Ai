@@ -18,11 +18,12 @@ def test_migrations_go_up_down_and_up_again(tmp_path: Path) -> None:
     path = tmp_path / "fource.db"
     url = f"sqlite+aiosqlite:///{path.as_posix()}"
     upgrade(url)
-    assert "orgs" in tables(path)
+    assert {"orgs", "users", "revoked_tokens"} <= tables(path)
     slugs = sqlite3.connect(path).execute("SELECT slug FROM orgs").fetchall()
     assert slugs == [("default",)]
     downgrade(url, "base")
     assert "orgs" not in tables(path)
+    assert not {"users", "revoked_tokens"} & tables(path)
     upgrade(url)
     assert "orgs" in tables(path)
 
