@@ -57,6 +57,16 @@ def test_a_token_missing_fields_is_refused() -> None:
         read_token(thin, SECRET)
 
 
+def test_a_signed_token_with_an_impossible_expiry_is_refused() -> None:
+    odd = jwt.encode(
+        {"sub": str(USER), "org": str(ORG), "jti": str(uuid.uuid4()), "iat": 0, "exp": 2**70},
+        SECRET,
+        algorithm="HS256",
+    )
+    with pytest.raises(NotAuthenticated):
+        read_token(odd, SECRET)
+
+
 def test_garbage_is_refused() -> None:
     with pytest.raises(NotAuthenticated):
         read_token("not.a.token", SECRET)
