@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     `Field(default=...)` marks a value as required, but set by the environment, not the caller.
     """
 
-    model_config = SettingsConfigDict(env_prefix="FOURCE_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="FOURCE_", env_file=".env", extra="ignore", hide_input_in_errors=True
+    )
 
     secret_key: SecretStr = Field(default=...)
     database_url: SecretStr = SecretStr("sqlite+aiosqlite:///data/fource.db")
