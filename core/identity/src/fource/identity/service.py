@@ -1,8 +1,8 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fource.common import now
@@ -79,6 +79,27 @@ async def create_user(
     return user
 
 
+async def _count_failure(session: AsyncSession, user: User, current: datetime) -> None:
+    """Add one failed sign-in and lock the account at the limit.
+
+    The database adds the one, so guesses sent together can't overwrite each other's count.
+    The in-memory user isn't updated; the caller raises next and doesn't use it again.
+    """
+    this_user = User.id == user.id
+    unchanged = {"synchronize_session": False}
+    failures = await session.scalar(
+        update(User)
+        .where(this_user)
+        .values(failed_signins=User.failed_signins + 1)
+        .returning(User.failed_signins),
+        execution_options=unchanged,
+    )
+    if failures is not None and failures >= MAX_FAILED_SIGNINS:
+        lock = update(User).where(this_user)
+        lock = lock.values(failed_signins=0, locked_until=current + LOCK_DURATION)
+        await session.execute(lock, execution_options=unchanged)
+
+
 async def sign_in(
     session: AsyncSession, *, email: str, password: str, secret: str, ttl: timedelta
 ) -> SignedIn:
@@ -93,10 +114,7 @@ async def sign_in(
     if user.locked_until is not None and user.locked_until > current:
         raise AccountLocked(_LOCKED)
     if not verify_password(user.password_hash, password):
-        user.failed_signins += 1
-        if user.failed_signins >= MAX_FAILED_SIGNINS:
-            user.failed_signins = 0
-            user.locked_until = current + LOCK_DURATION
+        await _count_failure(session, user, current)
         await session.commit()  # the count must survive the error raised next
         raise InvalidCredentials(_WRONG)
     user.failed_signins = 0
