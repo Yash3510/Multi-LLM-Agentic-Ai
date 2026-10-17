@@ -67,6 +67,22 @@ def test_a_signed_token_with_an_impossible_expiry_is_refused() -> None:
         read_token(odd, SECRET)
 
 
+@pytest.mark.parametrize("field", ["sub", "org", "jti"])
+@pytest.mark.parametrize("wrong", [7, [1, 2], {"id": 1}], ids=["int", "list", "dict"])
+def test_a_signed_token_with_an_id_that_is_not_text_is_refused(field: str, wrong: object) -> None:
+    body: dict[str, object] = {
+        "sub": str(USER),
+        "org": str(ORG),
+        "jti": str(uuid.uuid4()),
+        "iat": 0,
+        "exp": 2**40,
+    }
+    body[field] = wrong
+    forged = jwt.encode(body, SECRET, algorithm="HS256")
+    with pytest.raises(NotAuthenticated):
+        read_token(forged, SECRET)
+
+
 def test_garbage_is_refused() -> None:
     with pytest.raises(NotAuthenticated):
         read_token("not.a.token", SECRET)
