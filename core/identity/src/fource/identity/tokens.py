@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import jwt
 
@@ -41,15 +42,22 @@ def issue_token(
     return IssuedToken(jwt.encode(body, secret, algorithm=ALGORITHM), payload)
 
 
+def _text(body: dict[str, Any], name: str) -> str:
+    value = body[name]
+    if not isinstance(value, str):
+        raise NotAuthenticated(_SIGN_IN_AGAIN)
+    return value
+
+
 def read_token(token: str, secret: str) -> TokenPayload:
     """The payload of a valid token; anything else (expired, forged, other key, wrong
-    algorithm, missing fields) is NotAuthenticated."""
+    algorithm, missing or mistyped fields) is NotAuthenticated."""
     try:
         body = jwt.decode(token, secret, algorithms=[ALGORITHM], options={"require": _REQUIRED})
         return TokenPayload(
-            user_id=uuid.UUID(body["sub"]),
-            org_id=uuid.UUID(body["org"]),
-            token_id=uuid.UUID(body["jti"]),
+            user_id=uuid.UUID(_text(body, "sub")),
+            org_id=uuid.UUID(_text(body, "org")),
+            token_id=uuid.UUID(_text(body, "jti")),
             expires_at=datetime.fromtimestamp(body["exp"], UTC),
         )
     # OverflowError, OSError: a signed but absurd expiry can overflow the date (Windows: OSError).
