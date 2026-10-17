@@ -1,0 +1,21 @@
+[project]
+name = "fource-db"
+version = "0.1.0"
+description = "Database engines, sessions and organisation scoping for every 4CE package."
+requires-python = ">=3.12"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "fource-common",
+    "psycopg[binary]>=3.3.6",
+    "sqlalchemy[asyncio]>=2.1.4",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fource.db"
+
+[tool.uv.sources]
+fource-common = { workspace = true }
