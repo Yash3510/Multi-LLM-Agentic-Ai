@@ -171,6 +171,20 @@ async def test_a_signed_in_token_authenticates_until_signed_out(
             await authenticate(session, payload)
 
 
+async def test_signing_out_twice_is_fine_and_the_token_stays_revoked(
+    org: tuple[Database, uuid.UUID],
+) -> None:
+    database, org_id = org
+    payload = (await attempt(org, "ada@example.com", PASSWORD)).token.payload
+    for _ in range(2):
+        async with database.org_session(org_id) as session:
+            await sign_out(session, payload)
+    async with database.org_session(org_id) as session:
+        with pytest.raises(NotAuthenticated):
+            await authenticate(session, payload)
+        assert len((await session.scalars(select(RevokedToken))).all()) == 1
+
+
 async def test_signing_out_stores_the_expiry_of_the_payload_read_from_the_token(
     org: tuple[Database, uuid.UUID],
 ) -> None:
