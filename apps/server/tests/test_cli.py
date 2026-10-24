@@ -1,11 +1,20 @@
 import asyncio
+import base64
 import json
 import os
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import (
+    BestAvailableEncryption,
+    Encoding,
+    PrivateFormat,
+)
 
 from fource.server import cli, loops
 
@@ -336,3 +345,233 @@ def test_an_unusable_public_key_is_named(
     assert cli.main(["ledger", "verify"]) == 1
     out = capsys.readouterr().out
     assert str(key.relative_to(env.parent)) in out and "Verified." not in out
+
+
+@contextmanager
+def unsearchable(folder: Path) -> Iterator[None]:
+    """A folder its owner may not search, so anything inside it can't even be looked up. Does
+    nothing on Windows, and for root, who may search anything: the checks below then see a
+    path that isn't there, which must fail just the same."""
+    folder.mkdir(parents=True, exist_ok=True)
+    if os.name == "posix":
+        folder.chmod(0)
+    try:
+        yield
+    finally:
+        if os.name == "posix":
+            folder.chmod(0o700)
+
+
+def test_an_unsearchable_checkpoint_folder_fails_cleanly(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    folder = env.parent / "locked" / "checkpoints"
+    capsys.readouterr()
+    with unsearchable(folder.parent):
+        assert cli.main(["ledger", "verify", "--checkpoints", str(folder)]) == 1
+    out = capsys.readouterr().out
+    assert str(folder) in out and "Verified." not in out
+
+
+def test_an_unsearchable_private_key_folder_fails_cleanly(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    key = env.parent / "locked" / "key.pem"
+    monkeypatch.setenv("FOURCE_LEDGER_KEY_FILE", str(key))
+    capsys.readouterr()
+    with unsearchable(key.parent):
+        assert cli.main(["ledger", "checkpoint"]) == 1
+    assert str(key) in capsys.readouterr().out
+
+
+def test_an_unsearchable_public_key_folder_fails_cleanly(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    key = env.parent / "locked" / "key.pub.pem"
+    capsys.readouterr()
+    with unsearchable(key.parent):
+        assert cli.main(["ledger", "verify", "--public-key", str(key)]) == 1
+    out = capsys.readouterr().out
+    assert str(key) in out and "Verified." not in out
+
+
+def test_an_unsearchable_default_public_key_folder_fails_cleanly(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    monkeypatch.setenv("FOURCE_LEDGER_KEY_FILE", str(env.parent / "locked" / "key.pem"))
+    capsys.readouterr()
+    with unsearchable(env.parent / "locked"):
+        assert cli.main(["ledger", "verify"]) == 1
+    assert "Verified." not in capsys.readouterr().out
+
+
+def pem(label: str, der_hex: str) -> bytes:
+    body = base64.encodebytes(bytes.fromhex(der_hex)).decode("ascii")
+    return f"-----BEGIN {label}-----\n{body}-----END {label}-----\n".encode("ascii")
+
+
+# Well-formed key containers whose algorithm (OID 1.2.3.4) no library knows.
+UNKNOWN_PUBLIC = pem("PUBLIC KEY", "300b300506032a0304030200aa")
+UNKNOWN_PRIVATE = pem("PRIVATE KEY", "300d020100300506032a0304040100")
+
+
+def test_a_private_key_of_an_unknown_type_is_not_a_usable_key(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    key = env.parent / "data" / "ledger" / "signing-key.pem"
+    key.parent.mkdir(parents=True)
+    key.write_bytes(UNKNOWN_PRIVATE)
+    capsys.readouterr()
+    assert cli.main(["ledger", "checkpoint"]) == 1
+    out = capsys.readouterr().out
+    assert str(key.relative_to(env.parent)) in out and "not a usable key" in out
+
+
+def test_a_public_key_of_an_unknown_type_is_not_a_usable_key(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    given = env.parent / "given.pem"
+    given.write_bytes(UNKNOWN_PUBLIC)
+    default = env.parent / "data" / "ledger" / "signing-key.pub.pem"
+    default.parent.mkdir(parents=True)
+    default.write_bytes(UNKNOWN_PUBLIC)
+    capsys.readouterr()
+    for args in (["--public-key", str(given)], []):
+        assert cli.main(["ledger", "verify", *args]) == 1
+    out = capsys.readouterr().out
+    assert str(given) in out and "not a usable key" in out and "Verified." not in out
+    assert str(default.relative_to(env.parent)) in out
+
+
+def test_a_short_key_path_does_not_let_the_parser_speak(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    (env.parent / "a").write_text("not a key\n", encoding="utf-8")
+    monkeypatch.setenv("FOURCE_LEDGER_KEY_FILE", "a")  # "a" is part of any sentence
+    capsys.readouterr()
+    assert cli.main(["ledger", "checkpoint"]) == 1
+    out = capsys.readouterr().out
+    assert "The ledger signing key at a is not a usable key." in out
+    assert "deserialize" not in out
+
+
+def test_a_password_protected_key_is_still_named_as_such(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    key = env.parent / "data" / "ledger" / "signing-key.pem"
+    key.parent.mkdir(parents=True)
+    locked = Ed25519PrivateKey.generate().private_bytes(
+        Encoding.PEM, PrivateFormat.PKCS8, BestAvailableEncryption(b"throwaway")
+    )
+    key.write_bytes(locked)
+    capsys.readouterr()
+    assert cli.main(["ledger", "checkpoint"]) == 1
+    assert "password-protected" in capsys.readouterr().out
+
+
+def test_a_deeply_nested_checkpoint_file_is_not_a_checkpoint(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    folder = env.parent / "checkpoints"
+    folder.mkdir()
+    (folder / "deep.json").write_text("[" * 100000 + "]" * 100000, encoding="utf-8")
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify", "--checkpoints", str(folder)]) == 1
+    out = capsys.readouterr().out
+    assert f"{folder / 'deep.json'} is not a checkpoint" in out and "Verified." not in out
+
+
+def test_keygen_under_a_file_is_reported(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    blocker = env.parent / "afile"
+    blocker.write_text("in the way", encoding="utf-8")
+    key = blocker / "sub" / "key.pem"
+    monkeypatch.setenv("FOURCE_LEDGER_KEY_FILE", str(key))
+    assert cli.main(["ledger", "keygen"]) == 1
+    assert f"Could not create the signing key at {key}:" in capsys.readouterr().out
+    assert blocker.read_text(encoding="utf-8") == "in the way"
+
+
+def test_keygen_in_an_unwritable_folder_leaves_nothing(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = env.parent / "readonly"
+    folder.mkdir()
+    key = folder / "key.pem"
+    monkeypatch.setenv("FOURCE_LEDGER_KEY_FILE", str(key))
+    if os.name == "posix":
+        folder.chmod(0o500)
+    try:
+        code = cli.main(["ledger", "keygen"])
+        created = sorted(folder.iterdir())
+    finally:
+        if os.name == "posix":
+            folder.chmod(0o700)
+    out = capsys.readouterr().out
+    if os.name == "posix" and os.geteuid() != 0:
+        assert code == 1 and created == [] and f"Could not create the signing key at {key}" in out
+
+
+def test_a_default_checkpoint_folder_that_is_a_dangling_link_is_reported(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    folder = env.parent / "data" / "ledger" / "checkpoints"
+    folder.parent.mkdir(parents=True)
+    if os.name == "posix":  # links need privileges on Windows
+        folder.symlink_to(env.parent / "usb-not-mounted")
+    else:
+        folder.write_text("stands in for a folder that can't be read", encoding="utf-8")
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify"]) == 1
+    out = capsys.readouterr().out
+    assert "could not be read" in out and "Verified." not in out
+
+
+def test_verify_warns_about_entries_no_checkpoint_covers(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com", "grace@example.com")
+    cli.main(["ledger", "keygen"])
+    cli.main(["ledger", "checkpoint"])  # signs entry 2, and is entry 3
+    add_users(env, monkeypatch, "linus@example.com")  # entry 4, after the checkpoint
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify"]) == 0
+    out = capsys.readouterr().out
+    assert "up to entry 2" in out and "Verified." in out
+    assert "Entries after 2 are not covered by any checkpoint" in out
+    assert "make a new checkpoint" in out
+
+
+def test_verify_says_nothing_extra_when_nothing_is_anchored(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify"]) == 0
+    assert "not covered by any checkpoint" not in capsys.readouterr().out
+
+
+def test_verify_reports_a_refs_cell_that_is_not_an_object(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com", "grace@example.com")
+    connection = sqlite3.connect(env)
+    connection.execute("DROP TRIGGER ledger_entries_no_update")
+    connection.execute("UPDATE ledger_entries SET refs = '[1,2,3]' WHERE seq = 2")
+    connection.commit()
+    connection.close()
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify"]) == 1
+    out = capsys.readouterr().out
+    assert "entry 2: altered" in out and "Failed." in out
