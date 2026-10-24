@@ -104,6 +104,14 @@ def _enforce_foreign_keys(dbapi_connection: Any, connection_record: Any) -> None
     cursor.close()
 
 
+def org_of(session: AsyncSession) -> uuid.UUID:
+    """The organisation an organisation session is confined to; anything else is a bug."""
+    org_id = session.info.get("org_id")
+    if not isinstance(org_id, uuid.UUID):
+        raise RuntimeError("This needs an organisation session (Database.org_session).")
+    return org_id
+
+
 class Database:
     """One database: SQLite (the zero-setup default) or PostgreSQL 18 (production)."""
 

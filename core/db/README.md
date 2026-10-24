@@ -15,7 +15,8 @@ Database engines, sessions and organisation scoping for every 4CE package. SQLit
 | `Base`, `OrgScoped`, `Org` | The declarative base, the mixin every organisation's table uses (`id`, `org_id`, `created_at`), and the organisations table |
 | `UtcDateTime` | A timestamp stored in UTC and read back aware on both engines |
 | `CrossOrgWrite` | The error for writing into another organisation |
-| `APP_ROLE`, `org_isolation_sql(table)` | The role the server connects as on PostgreSQL, and the statements a migration runs to put a table under row-level security |
+| `APP_ROLE`, `org_isolation_sql(table, privileges=…)` | The role the server connects as on PostgreSQL, and the statements a migration runs to put a table under row-level security; `privileges` (default all four of `SELECT`, `INSERT`, `UPDATE`, `DELETE`) lets a table such as the ledger grant the app role less |
+| `org_of(session)` | The organisation an organisation session belongs to; `RuntimeError` for any other session, so code that must run inside one (a ledger write) can't run outside it |
 
 ## Tests
 
