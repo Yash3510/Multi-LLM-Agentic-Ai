@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -26,13 +28,14 @@ from fource.identity.passwords import (
 )
 from fource.identity.roles import Role
 from fource.identity.tokens import IssuedToken, TokenPayload, issue_token
-from fource.ledger import ANONYMOUS, SYSTEM, EntryType, append, format_time, sha256_hex, user_actor
+from fource.ledger import ANONYMOUS, SYSTEM, EntryType, append, format_time, user_actor
 
 MAX_FAILED_SIGNINS = 5
 LOCK_DURATION = timedelta(minutes=15)
 _WRONG = "The email or password is wrong."
 _LOCKED = "Too many failed sign-ins. Try again in 15 minutes."
 _SIGN_IN_AGAIN = "Sign in again."
+_UNKNOWN_EMAIL_CONTEXT = b"4ce-ledger-unknown-email-v1"
 
 
 @dataclass(frozen=True)
@@ -43,6 +46,20 @@ class SignedIn:
 
 def normalise_email(email: str) -> str:
     return email.strip().lower()
+
+
+def unknown_email_digest(email: str, secret: str) -> str:
+    """The keyed hash the ledger keeps of an email nobody here has (ADR-0039): 64 lower-case hex.
+
+    A plain SHA-256 of a common address can be found by guessing and hashing, so this is an
+    HMAC-SHA256 of the normalised address. Whoever holds the installation secret can confirm
+    an address; whoever has only the ledger or an evidence pack cannot. The key is derived
+    from the secret for this one purpose, so the token-signing secret is never used directly.
+    Rotating `FOURCE_SECRET_KEY` means digests written earlier can no longer be confirmed.
+    """
+    key = hmac.new(secret.encode("utf-8"), _UNKNOWN_EMAIL_CONTEXT, hashlib.sha256).digest()
+    address = normalise_email(email).encode("utf-8", "surrogatepass")
+    return hmac.new(key, address, hashlib.sha256).hexdigest()
 
 
 def _storable(text: str) -> bool:
@@ -116,14 +133,14 @@ async def _count_failure(session: AsyncSession, user: User, current: datetime) -
 
 
 async def _record_failure(
-    session: AsyncSession, address: str, user: User | None, reason: str
+    session: AsyncSession, address: str, user: User | None, reason: str, secret: str
 ) -> None:
-    """A failed sign-in. An unknown address is kept only as its SHA-256: the ledger can never
+    """A failed sign-in. An unknown address is kept only as a keyed hash: the ledger can never
     be erased, so it holds no address that belongs to nobody here (ADR-0039)."""
     refs = {"reason": reason}
     digest = None
     if user is None:
-        digest = sha256_hex(address.encode("utf-8", "surrogatepass"))
+        digest = unknown_email_digest(address, secret)
     else:
         refs["user"] = str(user.id)
     await append(
@@ -141,17 +158,17 @@ async def sign_in(
     if user is None or not user.is_active:
         verify_password(timing_hash(), password)  # the same work as a real attempt
         reason = "unknown_email" if user is None else "inactive"
-        await _record_failure(session, address, user, reason)
+        await _record_failure(session, address, user, reason, secret)
         await session.commit()  # the entry must survive the error raised next
         raise InvalidCredentials(_WRONG)
     current = now()
     if user.locked_until is not None and user.locked_until > current:
-        await _record_failure(session, address, user, "locked")
+        await _record_failure(session, address, user, "locked", secret)
         await session.commit()
         raise AccountLocked(_LOCKED)
     if not verify_password(user.password_hash, password):
         locked = await _count_failure(session, user, current)
-        await _record_failure(session, address, user, "wrong_password")
+        await _record_failure(session, address, user, "wrong_password", secret)
         if locked:
             until = format_time(current + LOCK_DURATION)
             refs = {"user": str(user.id), "until": until}

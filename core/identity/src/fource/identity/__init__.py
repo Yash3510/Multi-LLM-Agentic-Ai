@@ -26,6 +26,7 @@ from fource.identity.service import (
     create_user,
     sign_in,
     sign_out,
+    unknown_email_digest,
 )
 from fource.identity.tokens import IssuedToken, TokenPayload, issue_token, read_token
 
@@ -55,5 +56,6 @@ __all__ = [
     "read_token",
     "sign_in",
     "sign_out",
+    "unknown_email_digest",
     "verify_password",
 ]
