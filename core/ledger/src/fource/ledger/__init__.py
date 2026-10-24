@@ -15,18 +15,36 @@ from fource.ledger.chain import (
     to_millis,
     user_actor,
 )
+from fource.ledger.checkpoints import (
+    Checkpoint,
+    is_signed_by,
+    key_id,
+    load_private_key,
+    load_public_key,
+    public_key_path,
+    sign_checkpoint,
+    write_key_pair,
+)
 
 __all__ = [
     "ANONYMOUS",
     "GENESIS",
     "SYSTEM",
+    "Checkpoint",
     "Entry",
     "EntryType",
     "canonical",
     "entry_hash",
     "format_time",
+    "is_signed_by",
+    "key_id",
+    "load_private_key",
+    "load_public_key",
     "make_entry",
+    "public_key_path",
     "sha256_hex",
+    "sign_checkpoint",
     "to_millis",
     "user_actor",
+    "write_key_pair",
 ]
