@@ -85,7 +85,6 @@ The `fource-server` command (`uv run fource-server …`):
 
 - **Settings** come from the environment and `.env`: `FOURCE_SECRET_KEY` (required, 32 characters or more), `FOURCE_DATABASE_URL`, `FOURCE_DATABASE_ADMIN_URL`, `FOURCE_TOKEN_TTL_MINUTES` and `FOURCE_ORG`. See [database](database.md) for the PostgreSQL form.
 - **Migrate before the first sign-in.** Without it, sign-in answers `setup_incomplete`.
-- **Known gap:** on a fresh clone `just migrate` (and so `just dev`) fails with "unable to open database file" until the `data/` folder exists; `mkdir data` first. The server and `create-user` create it, the migration command doesn't yet.
 - **Event loop.** On Windows the server and its commands use a selector event loop, because psycopg's async mode can't use the default one. Linux and macOS use the default.
 - **Behind a proxy,** start Uvicorn directly: `uvicorn --factory fource.server.main:app_factory --forwarded-allow-ips <proxy address>`.
 - **Using the API as a script:** sign in, keep the cookies, send the CSRF header.

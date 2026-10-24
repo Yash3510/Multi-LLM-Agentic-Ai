@@ -49,7 +49,7 @@ All on the `vps` server (Debian, Python 3.12.15). The docs commits touch no code
 
 1. **`just check`:** exit 0. Ruff clean (135 files unchanged), pyright and import contracts clean, repo, neutrality and docs checks clean, 62 components licence-checked, gitleaks found no leaks in the history, and the tests ended with `267 passed, 9 deselected in 30.95s` (the 9 are the PostgreSQL tests).
 2. **PostgreSQL tests:** the machine's shared PostgreSQL 17 container (`services-postgres-1`, port 5432) was stopped, the project's own PostgreSQL 18.6 started with `docker compose --env-file .env -f deploy/compose/core.yml -f deploy/compose/dev.yml up --detach --wait postgres` (healthy), then `just test-postgres`: `collected 276 items / 267 deselected / 9 selected` and `9 passed, 267 deselected in 22.91s`. The count is 9, not the 6 the plan expected. The shared container was restarted afterwards.
-3. **Fresh clone on SQLite** (`git clone --branch 4ce-core` of this repository into a throwaway folder, deleted afterwards): `just setup` worked; the first `just migrate` **failed** with `sqlite3.OperationalError: unable to open database file`, because the `data/` folder does not exist on a fresh clone and the migration command does not create it (the server and `create-user` do; see the known limits). After `mkdir data`: `just migrate` printed `The database is up to date.`, `create-user` printed `Created admin@example.com (Admin).`, and with `fource-server serve --port 8765`:
+3. **Fresh clone on SQLite** (`git clone --branch 4ce-core` of this repository into a throwaway folder, deleted afterwards): `just setup` worked; the first `just migrate` **failed** with `sqlite3.OperationalError: unable to open database file`, because the `data/` folder does not exist on a fresh clone and the migration command did not create it. This was fixed during verification (`d9e1176` test, `8e9ee7f` fix; see item 7). After `mkdir data`: `just migrate` printed `The database is up to date.`, `create-user` printed `Created admin@example.com (Admin).`, and with `fource-server serve --port 8765`:
    - sign-in: `{"user":{"id":"01a16ce4-b1f9-779a-ae1d-7e93040c1156","email":"admin@example.com","display_name":"","roles":["Admin"],"org":"default"},"token":"<jwt>","expires_at":"2026-10-24T15:51:32.017224Z"}` (the token value is left out here)
    - session: `{"id":"01a16ce4-b1f9-779a-ae1d-7e93040c1156","email":"admin@example.com","display_name":"","roles":["Admin"],"org":"default"}`
    - sign-out with the CSRF header: `204`
@@ -57,6 +57,7 @@ All on the `vps` server (Debian, Python 3.12.15). The docs commits touch no code
 4. **The same on PostgreSQL** (the project's PostgreSQL 18.6 with the shared container paused, URLs appended to the local `.env` and removed afterwards, `grep -c '^FOURCE_DATABASE_' .env` returned 0 before and after): `just migrate` printed `The database is up to date.`, `create-user` printed `Created admin@example.com (Admin).`, and the four calls gave the same result as on SQLite: the sign-in JSON with the user (`org` `default`), the session JSON, `204`, and the OpenAPI document; `/api/health` answered `{"status":"ok","database":"ok"}`. The server was stopped, `just down` run and `services-postgres-1` started again; `docker ps` showed it up.
 5. **CI on GitHub:** checked after the push; no result is recorded here.
 6. **The docs findings that were checked in code:** `/api/nope` and `/api/docs` answer 404 `{"detail":"Not Found"}` and `POST /api/health` answers 405 `{"detail":"Method Not Allowed"}`, outside the error envelope; invalid JSON in a body answers 422 `validation_failed` inside it.
+7. **The fix:** a new test (migrating into a folder that doesn't exist) failed with `OperationalError` before the fix and passed after (`4 passed` in `test_migrate.py`). In a throwaway clone of the new HEAD, `just setup` then `just migrate` with no `mkdir data` printed `The database is up to date.`: `ls data` found no folder, then `The database is up to date.` and `data/fource.db` existed.
 
 ## Decisions
 
@@ -70,7 +71,6 @@ New: [database](../../../architecture/database.md), [identity](../../../architec
 
 Issues aren't open yet (the GitHub project isn't set up); each item becomes one.
 
-- **Fresh clone:** `just migrate` and `just dev` fail until the `data/` folder exists. The migration command should create the folder as `Database` does.
 - **Errors outside the envelope:** Starlette's own 404 and 405 answers use `{"detail": …}`.
 - **Tokens are not invalidated on a password change** (there is no password-change feature yet).
 - **A locked account answers `423` before the password is checked,** which reveals that it exists.

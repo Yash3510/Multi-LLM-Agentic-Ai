@@ -29,7 +29,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 **The backend slice is built.** Database foundations (WP-F-06) and identity (WP-ID-01) give Phase 0's "app with a login" as an API: the `fource-server` command, `just dev`, a smoke test that starts the real server on all three CI systems, and PostgreSQL tests for row-level security that run in their own CI job. The [log entry](log/2026/10/2026-10-24-wp-id-01-identity-and-api.md) has the commands and results.
 
-**Known limits:** on a fresh clone `just migrate` needs the `data/` folder to exist (`mkdir data`; [api](architecture/api.md#running-it)). PostgreSQL from a Windows host isn't exercised in CI (production runs on Linux). Starlette's own 404 and 405 answers aren't in the error envelope yet ([api](architecture/api.md#errors)). Intel Macs build `cryptography` and `argon2-cffi-bindings` from source, because the lock has macOS arm64 wheels only.
+**Known limits:** PostgreSQL from a Windows host isn't exercised in CI (production runs on Linux). Starlette's own 404 and 405 answers aren't in the error envelope yet ([api](architecture/api.md#errors)). Intel Macs build `cryptography` and `argon2-cffi-bindings` from source, because the lock has macOS arm64 wheels only.
 
 **The frontend is on hold in this stream.** Pranay, the frontend owner, develops `apps/web` separately; the [frontend page](architecture/frontend.md) has everything needed to do that independently. The backend's API is the contract between the two: the frontend codes against its OpenAPI document (ADR-0035 §4).
 
