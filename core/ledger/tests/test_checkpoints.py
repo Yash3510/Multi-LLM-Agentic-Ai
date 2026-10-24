@@ -1,4 +1,6 @@
+import base64
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -12,6 +14,7 @@ from cryptography.hazmat.primitives.serialization import (
 
 from fource.ledger import (
     Checkpoint,
+    UnusableKey,
     is_signed_by,
     key_id,
     load_private_key,
@@ -149,3 +152,25 @@ def test_a_checkpoint_built_with_a_non_text_signature_is_simply_invalid() -> Non
         signature=cast("str", 123),
     )
     assert not is_signed_by(odd, key.public_key())
+
+
+def pem(label: str, der_hex: str) -> bytes:
+    body = base64.encodebytes(bytes.fromhex(der_hex)).decode("ascii")
+    return f"-----BEGIN {label}-----\n{body}-----END {label}-----\n".encode("ascii")
+
+
+# Well-formed key containers whose algorithm (OID 1.2.3.4) no library knows.
+UNKNOWN_PUBLIC = pem("PUBLIC KEY", "300b300506032a0304030200aa")
+UNKNOWN_PRIVATE = pem("PRIVATE KEY", "300d020100300506032a0304040100")
+
+
+@pytest.mark.parametrize("content", [b"not a key\n", UNKNOWN_PUBLIC, UNKNOWN_PRIVATE])
+@pytest.mark.parametrize("load", [load_private_key, load_public_key])
+def test_a_file_that_is_not_a_usable_key_says_so_and_names_the_file(
+    tmp_path: Path, load: Callable[[Path], object], content: bytes
+) -> None:
+    path = tmp_path / "a.pem"
+    path.write_bytes(content)
+    with pytest.raises(UnusableKey) as raised:
+        load(path)
+    assert str(path) in str(raised.value) and "Unknown key type" not in str(raised.value)
