@@ -2,7 +2,7 @@
 
 Users, passwords, sign-in tokens, lockout and roles: the roles, the sign-in errors, argon2id password hashing, signed tokens, the user and revoked-token tables, and sign-in, lockout and sign-out on top of them.
 
-**Owner:** R1 · **Decisions:** [ADR-0038](../../docs/adr/0038-signed-tokens-for-sign-in.md)
+**Owner:** R1 · **Decisions:** [ADR-0038](../../docs/adr/0038-signed-tokens-for-sign-in.md), [ADR-0039](../../docs/adr/0039-every-action-writes-a-ledger-entry.md)
 
 ## Public API
 
@@ -20,6 +20,8 @@ Users, passwords, sign-in tokens, lockout and roles: the roles, the sign-in erro
 | `sign_in(session, email=, password=, secret=, ttl=)` | Returns `SignedIn` (the user and a token). An unknown or deactivated user and a wrong password raise the same `InvalidCredentials`, and an unknown email spends the same hashing time as a real attempt. `MAX_FAILED_SIGNINS` (5) wrong passwords lock the account for `LOCK_DURATION` (15 minutes), during which even the right password raises `AccountLocked`; the database adds each failure itself, so guesses sent together can't overwrite each other's count, and the count is committed before the error is raised, so it survives. A success clears the count and upgrades an out-of-date password hash |
 | `authenticate(session, payload)` | The active user a token belongs to, read from the database on every call; a revoked token, a missing or deactivated user and a token from another organisation raise `NotAuthenticated` |
 | `sign_out(session, payload)` | Revokes the token until it would have expired anyway, and forgets revocations that have expired. Signing out a token that is already revoked, even by two requests at once, is not an error |
+
+**Ledger.** Each of `create_user`, `sign_in` (success, every failure, the lockout) and `sign_out` writes its entry ([ADR-0039](../../docs/adr/0039-every-action-writes-a-ledger-entry.md)) in the caller's session, so it is committed with the action. A failed sign-in commits its entry before raising. An unknown email is recorded only as the SHA-256 of the normalised address.
 
 ## Tests
 

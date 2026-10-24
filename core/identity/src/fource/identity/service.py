@@ -26,6 +26,7 @@ from fource.identity.passwords import (
 )
 from fource.identity.roles import Role
 from fource.identity.tokens import IssuedToken, TokenPayload, issue_token
+from fource.ledger import ANONYMOUS, SYSTEM, EntryType, append, format_time, sha256_hex, user_actor
 
 MAX_FAILED_SIGNINS = 5
 LOCK_DURATION = timedelta(minutes=15)
@@ -86,11 +87,13 @@ async def create_user(
     )
     session.add(user)
     await session.flush()
+    refs = {"user": str(user.id), "roles": ",".join(granted)}
+    await append(session, EntryType.USER_CREATE, actor=SYSTEM, refs=refs)
     return user
 
 
-async def _count_failure(session: AsyncSession, user: User, current: datetime) -> None:
-    """Add one failed sign-in and lock the account at the limit.
+async def _count_failure(session: AsyncSession, user: User, current: datetime) -> bool:
+    """Add one failed sign-in and lock the account at the limit; True if this one locked it.
 
     The database adds the one, so guesses sent together can't overwrite each other's count.
     The in-memory user isn't updated; the caller raises next and doesn't use it again.
@@ -108,6 +111,24 @@ async def _count_failure(session: AsyncSession, user: User, current: datetime) -
         lock = update(User).where(this_user)
         lock = lock.values(failed_signins=0, locked_until=current + LOCK_DURATION)
         await session.execute(lock, execution_options=unchanged)
+        return True
+    return False
+
+
+async def _record_failure(
+    session: AsyncSession, address: str, user: User | None, reason: str
+) -> None:
+    """A failed sign-in. An unknown address is kept only as its SHA-256: the ledger can never
+    be erased, so it holds no address that belongs to nobody here (ADR-0039)."""
+    refs = {"reason": reason}
+    digest = None
+    if user is None:
+        digest = sha256_hex(address.encode("utf-8", "surrogatepass"))
+    else:
+        refs["user"] = str(user.id)
+    await append(
+        session, EntryType.SIGNIN_FAILURE, actor=ANONYMOUS, refs=refs, inputs_sha256=digest
+    )
 
 
 async def sign_in(
@@ -119,19 +140,31 @@ async def sign_in(
         user = await session.scalar(select(User).where(User.email == address))
     if user is None or not user.is_active:
         verify_password(timing_hash(), password)  # the same work as a real attempt
+        reason = "unknown_email" if user is None else "inactive"
+        await _record_failure(session, address, user, reason)
+        await session.commit()  # the entry must survive the error raised next
         raise InvalidCredentials(_WRONG)
     current = now()
     if user.locked_until is not None and user.locked_until > current:
+        await _record_failure(session, address, user, "locked")
+        await session.commit()
         raise AccountLocked(_LOCKED)
     if not verify_password(user.password_hash, password):
-        await _count_failure(session, user, current)
-        await session.commit()  # the count must survive the error raised next
+        locked = await _count_failure(session, user, current)
+        await _record_failure(session, address, user, "wrong_password")
+        if locked:
+            until = format_time(current + LOCK_DURATION)
+            refs = {"user": str(user.id), "until": until}
+            await append(session, EntryType.LOCKOUT, actor=SYSTEM, refs=refs)
+        await session.commit()  # the count and the entries must survive the error raised next
         raise InvalidCredentials(_WRONG)
     user.failed_signins = 0
     user.locked_until = None
     if needs_rehash(user.password_hash):
         user.password_hash = rehash(password)
     token = issue_token(user_id=user.id, org_id=user.org_id, secret=secret, ttl=ttl)
+    refs = {"user": str(user.id), "token": str(token.payload.token_id)}
+    await append(session, EntryType.SIGNIN_SUCCESS, actor=user_actor(user.id), refs=refs)
     return SignedIn(user=user, token=token)
 
 
@@ -155,8 +188,11 @@ async def sign_out(session: AsyncSession, payload: TokenPayload) -> None:
     await session.execute(delete(RevokedToken).where(RevokedToken.expires_at < now()))
     if await _is_revoked(session, payload.token_id):
         return
+    refs = {"user": str(payload.user_id), "token": str(payload.token_id)}
     try:
         async with session.begin_nested():
             session.add(RevokedToken(token_id=payload.token_id, expires_at=payload.expires_at))
+            # Inside the savepoint, so a sign-out that loses the race records nothing.
+            await append(session, EntryType.SIGNOUT, actor=user_actor(payload.user_id), refs=refs)
     except IntegrityError:
         pass  # a sign-out of the same token won the race; the token is revoked either way
