@@ -34,12 +34,25 @@ def checkpoint_folder(settings: Settings) -> Path:
     return settings.data_dir / "ledger" / "checkpoints"
 
 
+def _plural(count: int, one: str, many: str) -> str:
+    return f"{count} {one if count == 1 else many}"
+
+
+def _key_problem(what: str, path: Path, error: OSError | ValueError) -> str:
+    """Why a key file can't be used. Names the file, and never repeats a parser's text, which
+    could quote the file's contents."""
+    if isinstance(error, OSError):
+        return f"Could not read the {what} at {path}: {error.strerror}."
+    detail = str(error)
+    return detail if str(path) in detail else f"The {what} at {path} is not a usable key."
+
+
 def keygen(settings: Settings) -> int:
     path = key_file(settings)
     try:
         public = write_key_pair(Ed25519PrivateKey.generate(), path)
-    except FileExistsError:
-        print(f"A signing key already exists at {path}; it was left as it is.")
+    except FileExistsError as error:
+        print(f"Not creating a signing key: {error}. Nothing was changed.")
         return 1
     print(f"Created the ledger signing key at {path}: keep it secret and back it up.")
     print(f"Its public key is at {public}: give that to anyone who checks the ledger.")
@@ -53,8 +66,8 @@ async def make_checkpoint(settings: Settings, slug: str, folder: Path | None) ->
         return 1
     try:
         private_key = load_private_key(path)
-    except ValueError as error:
-        print(error)
+    except (OSError, ValueError) as error:
+        print(_key_problem("ledger signing key", path, error))
         return 1
     database = Database(settings.database_url.get_secret_value())
     try:
@@ -80,19 +93,40 @@ async def make_checkpoint(settings: Settings, slug: str, folder: Path | None) ->
     file = target / f"{slug}-{signed.seq:010d}.json"
     try:
         target.mkdir(parents=True, exist_ok=True)
-        file.write_text(text + "\n", encoding="utf-8")
+        # "x": never over an existing file, or a cut chain could hide behind a fresh checkpoint.
+        with file.open("x", encoding="utf-8") as handle:
+            handle.write(text + "\n")
+    except FileExistsError as error:
+        print(
+            f"The checkpoint entry was recorded, but its file was not saved because "
+            f"{error.filename} already exists and was left as it is. Keep the JSON above."
+        )
+        return 1
     except OSError as error:
-        print(f"Could not save the checkpoint to {file} ({error.strerror}): keep the JSON above.")
+        print(
+            f"The checkpoint entry was recorded, but its file {file} could not be saved "
+            f"({error.strerror}). Keep the JSON above."
+        )
         return 1
     print(f"Signed entry {signed.seq} of {slug}, saved to {file}. Keep a copy off this machine.")
     return 0
 
 
 def _read_checkpoints(folder: Path, org: str) -> list[Checkpoint]:
+    """A missing folder holds none; anything that can't be read is an error, because skipping
+    it could hide the one checkpoint that shows a cut chain."""
     found: list[Checkpoint] = []
-    for file in sorted(folder.glob("*.json")) if folder.is_dir() else []:
+    try:
+        files = sorted(folder.iterdir()) if folder.exists() else []
+    except OSError as error:  # unlike glob, which skips a folder it may not list
+        raise ValueError(f"{folder} could not be read: {error.strerror}") from error
+    for file in files:
+        if file.suffix != ".json":
+            continue
         try:
             read = Checkpoint.from_dict(json.loads(file.read_text(encoding="utf-8")))
+        except OSError as error:
+            raise ValueError(f"{file} could not be read: {error.strerror}") from error
         except ValueError as error:
             raise ValueError(f"{file} is not a checkpoint: {error}") from error
         if read.org == org:
@@ -100,18 +134,25 @@ def _read_checkpoints(folder: Path, org: str) -> list[Checkpoint]:
     return found
 
 
-def _report(slug: str, result: Verification) -> int:
-    print(f"Ledger of {slug}: {result.entries} entries, head {result.head_seq}.")
-    if result.anchored_seq is None:
-        print(
-            "The chain's length is not proven: no signed checkpoint anchors it, so a cut-off "
-            "tail can't be detected. Keep a checkpoint file off the machine and verify "
-            "against it."
-        )
-    else:
+def _report(slug: str, result: Verification, public_path: Path) -> int:
+    print(
+        f"Ledger of {slug}: {_plural(result.entries, 'entry', 'entries')}, head {result.head_seq}."
+    )
+    if result.anchored_seq is not None:
         print(f"A signed checkpoint vouches for it up to entry {result.anchored_seq}.")
     if result.unchecked_signatures:
-        print(f"{result.unchecked_signatures} signatures not checked: no public key.")
+        count = _plural(result.unchecked_signatures, "signature", "signatures")
+        print(f"{count} not checked: no public key at {public_path} (or give --public-key).")
+    if result.ok and result.anchored_seq is None:
+        # Exit 0 must not be read as proof that the tail is intact.
+        if result.unchecked_signatures:
+            print("The chain's length is not proven: without the public key no checkpoint counts.")
+        else:
+            print(
+                "The chain's length is not proven: nothing is anchored, so a cut-off tail "
+                "can't be detected. Keep a checkpoint file off the machine and verify "
+                "against it."
+            )
     for problem in result.problems:
         print(f"  entry {problem.seq}: {problem.kind}: {problem.message}")
     if result.complete:
@@ -128,9 +169,16 @@ async def verify(
     if public_key_file is not None and not public_key_file.is_file():
         print(f"No public key at {public_key_file}.")
         return FAILED
-    database = Database(settings.database_url.get_secret_value())
+    if folder is not None and not folder.is_dir():
+        print(f"No checkpoint folder at {folder}.")
+        return FAILED
     try:
         public_key = load_public_key(public_path) if public_path.is_file() else None
+    except (OSError, ValueError) as error:
+        print(_key_problem("public key", public_path, error))
+        return FAILED
+    database = Database(settings.database_url.get_secret_value())
+    try:
         org_id = await database.org_id(slug)
         if org_id is None:
             print(f"There is no organisation {slug!r}.")
@@ -146,4 +194,4 @@ async def verify(
         return FAILED
     finally:
         await database.dispose()
-    return _report(slug, result)
+    return _report(slug, result, public_path)

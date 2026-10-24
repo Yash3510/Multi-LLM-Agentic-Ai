@@ -291,7 +291,8 @@ def test_a_default_checkpoint_folder_that_is_a_file_is_reported(
     capsys.readouterr()
     assert cli.main(["ledger", "verify"]) == 1
     out = capsys.readouterr().out
-    assert str(folder) in out and "could not be read" in out and "Verified." not in out
+    shown = str(folder.relative_to(env.parent))  # the default folder is relative to cwd
+    assert shown in out and "could not be read" in out and "Verified." not in out
 
 
 def test_keygen_names_the_file_that_is_in_the_way(
@@ -321,7 +322,8 @@ def test_an_unusable_private_key_is_named_and_not_shown(
     capsys.readouterr()
     assert cli.main(["ledger", "checkpoint"]) == 1
     out = capsys.readouterr().out
-    assert str(key) in out and "Traceback" not in out and "not a key" not in out
+    assert str(key.relative_to(env.parent)) in out
+    assert "Traceback" not in out and "not a key" not in out
 
 
 def test_an_unusable_public_key_is_named(
@@ -333,4 +335,4 @@ def test_an_unusable_public_key_is_named(
     capsys.readouterr()
     assert cli.main(["ledger", "verify"]) == 1
     out = capsys.readouterr().out
-    assert str(key) in out and "Verified." not in out
+    assert str(key.relative_to(env.parent)) in out and "Verified." not in out
