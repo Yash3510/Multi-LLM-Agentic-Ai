@@ -149,6 +149,37 @@ def test_a_checkpoint_needs_the_key(
     assert "ledger keygen" in capsys.readouterr().out
 
 
+def test_a_key_path_that_is_not_a_file_is_not_offered_keygen(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    key = env.parent / "key-is-a-folder"
+    key.mkdir()
+    monkeypatch.setenv("FOURCE_LEDGER_KEY_FILE", str(key))
+    capsys.readouterr()
+    assert cli.main(["ledger", "checkpoint"]) == 1
+    out = capsys.readouterr().out
+    assert f"The ledger signing key path {key} is not a key file." in out
+    assert "keygen" not in out
+
+
+def test_a_key_path_that_is_a_dangling_link_is_not_offered_keygen(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    key = env.parent / "key-link.pem"
+    if os.name == "posix":  # links need privileges on Windows
+        key.symlink_to(env.parent / "usb-not-mounted")
+    else:
+        key.mkdir()
+    monkeypatch.setenv("FOURCE_LEDGER_KEY_FILE", str(key))
+    capsys.readouterr()
+    assert cli.main(["ledger", "checkpoint"]) == 1
+    out = capsys.readouterr().out
+    assert f"The ledger signing key path {key} is not a key file." in out
+    assert "keygen" not in out
+
+
 def test_a_checkpoint_of_an_empty_ledger_is_refused(
     env: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
