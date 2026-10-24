@@ -61,13 +61,17 @@ class Checkpoint:
             raise ValueError("a checkpoint is a JSON object")
         fields = cast("dict[str, object]", data)
         seq = fields.get("seq")
-        if isinstance(seq, bool) or not isinstance(seq, int):
-            raise ValueError("a checkpoint's seq is a whole number")
+        if isinstance(seq, bool) or not isinstance(seq, int) or seq < 1:
+            raise ValueError("a checkpoint's seq is a whole number counting from 1")
         texts: dict[str, str] = {}
         for name in ("org", "hash", "at", "key", "signature"):
             value = fields.get(name)
             if not isinstance(value, str):
                 raise ValueError(f"a checkpoint's {name} is text")
+            try:
+                value.encode("utf-8")
+            except UnicodeEncodeError:
+                raise ValueError(f"a checkpoint's {name} is not valid text") from None
             texts[name] = value
         return cls(seq=seq, **texts)
 
@@ -95,7 +99,7 @@ def is_signed_by(checkpoint: Checkpoint, public_key: Ed25519PublicKey) -> bool:
         return False
     try:
         public_key.verify(bytes.fromhex(checkpoint.signature), checkpoint.signed_bytes())
-    except InvalidSignature:
+    except (InvalidSignature, ValueError, TypeError):
         return False
     return True
 
@@ -105,26 +109,46 @@ def public_key_path(private_key_path: Path) -> Path:
     return private_key_path.with_name(f"{private_key_path.stem}.pub{private_key_path.suffix}")
 
 
+def _create(path: Path, data: bytes, mode: int) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    with os.fdopen(os.open(path, flags, mode), "wb") as file:
+        file.write(data)
+
+
 def write_key_pair(private_key: Ed25519PrivateKey, path: Path) -> Path:
     """Writes the private key (PEM, readable by its owner only) and the public key next to it.
 
-    Never overwrites a private key: losing one would orphan every checkpoint it signed.
+    Never overwrites either file, nor writes through a symlink: losing a private key would
+    orphan every checkpoint it signed. If a write fails, what this call created is removed.
     Returns the public key's path.
     """
+    public = public_key_path(path)
+    for target in (path, public):
+        if os.path.lexists(target):
+            raise FileExistsError(f"{target} already exists")
     path.parent.mkdir(parents=True, exist_ok=True)
     pem = private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, "wb") as file:
-        file.write(pem)
-    public = public_key_path(path)
-    public.write_bytes(
-        private_key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+    public_pem = private_key.public_key().public_bytes(
+        Encoding.PEM, PublicFormat.SubjectPublicKeyInfo
     )
+    created: list[Path] = []
+    try:
+        _create(path, pem, 0o600)
+        created.append(path)
+        _create(public, public_pem, 0o644)
+        created.append(public)
+    except BaseException:
+        for file in created:
+            file.unlink(missing_ok=True)
+        raise
     return public
 
 
 def load_private_key(path: Path) -> Ed25519PrivateKey:
-    key = load_pem_private_key(path.read_bytes(), password=None)
+    try:
+        key = load_pem_private_key(path.read_bytes(), password=None)
+    except TypeError:
+        raise ValueError(f"{path} is password-protected, which 4CE does not use") from None
     if not isinstance(key, Ed25519PrivateKey):
         raise ValueError(f"{path} does not hold an Ed25519 private key")
     return key
