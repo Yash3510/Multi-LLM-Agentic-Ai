@@ -236,7 +236,7 @@ async def read_entries(session: AsyncSession) -> AsyncIterator[Entry]:
     """The session's organisation's entries in seq order, streamed.
 
     Reads whatever the rows hold, so that verifying reports a tampered entry instead of failing
-    on it. Raises UnreadableEntry if the database can't return a row at all."""
+    on it. Raises UnreadableEntry if the database or its driver can't return a row at all."""
     org_id = org_of(session)
     rows = await session.stream(
         select(*_COLUMNS).where(LedgerEntry.org_id == org_id).order_by(LedgerEntry.seq)
@@ -245,7 +245,9 @@ async def read_entries(session: AsyncSession) -> AsyncIterator[Entry]:
     while True:
         try:
             row = await anext(aiter(rows), None)
-        except DBAPIError as error:
+        # RecursionError, ValueError and TypeError: a driver that decodes JSON itself (PostgreSQL)
+        # fails here on a cell nested too deep or malformed, before any column processing.
+        except (DBAPIError, RecursionError, ValueError, TypeError) as error:
             raise UnreadableEntry(last + 1) from error
         if row is None:
             return
