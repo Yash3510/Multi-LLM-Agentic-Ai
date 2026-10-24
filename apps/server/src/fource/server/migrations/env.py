@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from fource.db import Base, Org
 from fource.identity import RevokedToken, User
+from fource.server.loops import asyncio_loop_factory
 
 # Each model imported here puts its table on Base.metadata.
 MODELS = (Org, User, RevokedToken)
@@ -27,4 +28,4 @@ async def _main() -> None:
     await engine.dispose()
 
 
-asyncio.run(_main())
+asyncio.run(_main(), loop_factory=asyncio_loop_factory())
