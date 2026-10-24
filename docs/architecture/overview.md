@@ -3,7 +3,7 @@ title: Architecture overview
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-12
+updated: 2026-10-24
 tags: [4ce, architecture]
 ---
 

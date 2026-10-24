@@ -37,7 +37,7 @@ Who a person is and how they prove it: users, passwords, lockout, signed tokens 
 - **HS256 JWT,** signed with `FOURCE_SECRET_KEY`. Verification accepts HS256 only.
 - **Fields, all required:** `sub` (user id), `org` (organisation id), `jti` (token id), `iat`, `exp`. A token with a missing or non-text id is refused.
 - **Lifetime:** `FOURCE_TOKEN_TTL_MINUTES`, 480 (8 hours) by default.
-- **Revocation:** signing out stores the `jti` until the token's expiry; an expired record is deleted at the next sign-out. A revoked token is `not_authenticated`. Signing out twice is fine.
+- **Revocation:** signing out stores the `jti` until the token's expiry; an expired record is deleted at the next sign-out. A revoked token is `not_authenticated`. The service function `sign_out` is idempotent (revoking an already revoked token does nothing), but over HTTP a second sign-out carries a revoked token and answers 401 `not_authenticated` ([API](api.md#endpoints)).
 - **Any failure to read a token** (expired, forged, other key, wrong algorithm, bad fields) is `not_authenticated` (401, "Sign in again.").
 - Rotating `FOURCE_SECRET_KEY` signs everyone out.
 - **Not done yet:** tokens are not invalidated when a password changes (future work; there is no password-change feature yet).

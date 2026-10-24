@@ -29,7 +29,7 @@ Details the table leaves out:
 
 - **Health** answers `{"status": "unavailable", "database": "unavailable"}` with 503 when the database can't be reached.
 - **Sign-in** takes `email` (3 to 320 characters) and `password` (1 to 1024). It answers 200 with `user` (`id`, `email`, `display_name`, `roles`, `org`), `token` (the same value as the cookie, for scripts) and `expires_at` (UTC). The `org` is the organisation's slug, `FOURCE_ORG`.
-- **Sign-out** answers `204` with no body. Signing out a token that is already signed out also answers `204`.
+- **Sign-out** answers `204` with no body. A second sign-out with the same token answers 401 `not_authenticated`, like any call with a revoked token (`test_signing_out_by_bearer_needs_no_csrf_and_revokes` pins this for the session call).
 
 ## Cookies and CSRF
 
