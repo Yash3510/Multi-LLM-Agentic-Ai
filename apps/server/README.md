@@ -18,6 +18,8 @@ just migrate                                # bring the database schema up to da
 just create-user you@example.com --role Admin   # asks for the password twice
 ```
 
+The smoke test (`tests/test_smoke.py`) starts the real `fource-server` command on a throwaway SQLite database, so CI proves it runs on Linux, Windows and macOS.
+
 On Windows the server and its commands use a selector event loop, because psycopg's async mode needs one.
 
 ## Tests
