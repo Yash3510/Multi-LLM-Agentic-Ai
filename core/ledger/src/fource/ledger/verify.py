@@ -94,17 +94,23 @@ class ChainVerifier:
         self._problems: list[Problem] = []
         self._count = 0
         self._seq = 0
+        self._top = 0
         self._hash: str = GENESIS
         self._unchecked = 0
         self._anchored: int | None = None
         self._outside: dict[int, list[Checkpoint]] = {}
         for checkpoint in checkpoints:
-            if checkpoint.org != org:
+            if not _is_seq(checkpoint.seq):
+                self._problem(0, BAD_CHECKPOINT, "a checkpoint's seq isn't a whole number from 1")
+            elif checkpoint.org != org:
                 self._problem(checkpoint.seq, WRONG_ORG, "a checkpoint of another organisation")
             elif self._signature_ok(checkpoint):
                 self._outside.setdefault(checkpoint.seq, []).append(checkpoint)
             else:
                 self._problem(checkpoint.seq, BAD_CHECKPOINT, "a checkpoint's signature is wrong")
+        # Problems with the checkpoints themselves don't stop a good one anchoring the chain;
+        # only a problem found in the entries does.
+        self._setup_problems = len(self._problems)
 
     def _problem(self, seq: int, kind: str, message: str) -> None:
         self._problems.append(Problem(seq, kind, message))
@@ -138,11 +144,12 @@ class ChainVerifier:
         for outside in self._outside.get(seq, ()):
             if outside.hash != entry.hash:
                 self._problem(seq, CHECKPOINT_MISMATCH, "differs from what a checkpoint signed")
-            elif self._key is not None:
-                self._anchored = seq
+            elif self._key is not None and len(self._problems) == self._setup_problems:
+                self._anchored = max(self._anchored or 0, seq)
         # Carry on from what this entry says, so one bad entry is reported once, not again
         # for every entry after it.
         self._seq = seq
+        self._top = max(self._top, seq)
         self._hash = _text(entry.hash)
 
     def _check_entry_checkpoint(self, entry: Entry, seq: int) -> None:
@@ -156,26 +163,26 @@ class ChainVerifier:
             self._problem(seq, BAD_CHECKPOINT, "doesn't sign the entry before it")
             return
         signed = Checkpoint(
-            org=entry.org,
+            org=_text(entry.org),
             seq=seq - 1,
-            hash=entry.prev,
-            at=entry.at,
-            key=refs.get("key", ""),
-            signature=refs.get("signature", ""),
+            hash=_text(entry.prev),
+            at=_text(entry.at),
+            key=_text(refs.get("key")),
+            signature=_text(refs.get("signature")),
         )
         if not self._signature_ok(signed):
             self._problem(seq, BAD_CHECKPOINT, "its signature is wrong")
 
     def finish(self) -> Verification:
         for seq in sorted(self._outside):
-            if seq > self._seq:
+            if seq > self._top:
                 self._problem(
-                    seq, TRUNCATED, f"a checkpoint signed entry {seq}, the last is {self._seq}"
+                    seq, TRUNCATED, f"a checkpoint signed entry {seq}, the last is {self._top}"
                 )
         return Verification(
             org=self.org,
             entries=self._count,
-            head_seq=self._seq,
+            head_seq=self._top,
             head_hash=self._hash,
             anchored_seq=self._anchored,
             unchecked_signatures=self._unchecked,
