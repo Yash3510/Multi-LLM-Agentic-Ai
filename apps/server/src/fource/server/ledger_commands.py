@@ -49,14 +49,24 @@ def _key_problem(what: str, path: Path, error: OSError | UnusableKey) -> str:
     return _unreadable(what, path, error) if isinstance(error, OSError) else str(error)
 
 
+def _is_in_the_way(error: OSError, files: set[Path]) -> bool:
+    return (
+        isinstance(error, FileExistsError)
+        and error.filename is not None
+        and (Path(error.filename) in files)
+    )
+
+
 def keygen(settings: Settings) -> int:
     path = key_file(settings)
     try:
         public = write_key_pair(Ed25519PrivateKey.generate(), path)
-    except FileExistsError as error:
-        print(f"Not creating a signing key: {error}. Nothing was changed.")
-        return 1
     except OSError as error:  # write_key_pair removes what it had created
+        # Only a key file in the way means "already exists": a key folder that is a regular
+        # file raises FileExistsError too (on Windows, for any folder above the key).
+        if _is_in_the_way(error, {path, public_key_path(path)}):
+            print(f"Not creating a signing key: {error.filename} already exists. Nothing changed.")
+            return 1
         print(f"Could not create the signing key at {path}: {error.strerror}.")
         return 1
     print(f"Created the ledger signing key at {path}: keep it secret and back it up.")
