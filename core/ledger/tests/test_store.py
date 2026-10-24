@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from sqlalchemy import select
 
 from fource.common import set_clock
 from fource.db import Base, Database, Org
@@ -13,6 +14,7 @@ from fource.ledger import (
     EmptyLedger,
     Entry,
     EntryType,
+    LedgerHead,
     append,
     checkpoint,
     entry_hash,
@@ -144,3 +146,17 @@ async def test_an_empty_ledger_has_nothing_to_checkpoint(orgs: Orgs) -> None:
             await checkpoint(session, Ed25519PrivateKey.generate())
     await write(database, org_id)
     assert [entry.seq for entry in await entries(database, org_id)] == [1]
+
+
+async def test_a_refused_checkpoint_leaves_no_head_behind(orgs: Orgs) -> None:
+    database, org_id, _ = orgs
+    async with database.org_session(org_id) as session:
+        with pytest.raises(EmptyLedger):
+            await checkpoint(session, Ed25519PrivateKey.generate())
+        heads = (await session.execute(select(LedgerHead))).all()
+    assert heads == []
+    await write(database, org_id)
+    stored = await entries(database, org_id)
+    assert [entry.seq for entry in stored] == [1]
+    async with database.org_session(org_id) as session:
+        assert (await verify_ledger(session)).ok
