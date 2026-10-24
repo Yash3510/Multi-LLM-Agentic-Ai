@@ -82,6 +82,10 @@ migrate:
 create-user *args:
     uv run fource-server create-user {{args}}
 
+# The evidence ledger: just ledger keygen | checkpoint | verify (docs/architecture/ledger.md)
+ledger *args:
+    uv run fource-server ledger {{args}}
+
 # Start the bundled services on localhost and wait until they are healthy (needs .env)
 services:
     docker compose --env-file .env -f deploy/compose/core.yml -f deploy/compose/dev.yml up --detach --build --wait

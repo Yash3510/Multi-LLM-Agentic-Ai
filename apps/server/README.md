@@ -17,6 +17,9 @@ The 4CE server: the API routes, the `fource-server` command and the one Alembic 
 just dev                                    # migrate, then run on http://127.0.0.1:8000 with live reload
 just migrate                                # bring the database schema up to date
 just create-user you@example.com --role Admin   # asks for the password twice
+just ledger keygen       # once: the installation's signing key, in data/ledger/ (never committed)
+just ledger checkpoint   # sign the chain head; keep the file it writes somewhere off this machine
+just ledger verify       # check the chain; exit 0 verified, 1 problems, 2 not everything checked
 ```
 
 The smoke test (`tests/test_smoke.py`) starts the real `fource-server` command on a throwaway SQLite database, so CI proves it runs on Linux, Windows and macOS.

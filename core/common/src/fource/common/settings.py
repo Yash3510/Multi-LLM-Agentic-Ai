@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     s3_secret_key: SecretStr | None = None
     s3_bucket: str = "fource"
     data_dir: Path = Path("data")
+    ledger_key_file: Path | None = None
     offline: bool = True
 
     @field_validator("secret_key")

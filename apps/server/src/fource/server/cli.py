@@ -1,8 +1,9 @@
-"""The fource-server command: serve, migrate, create-user."""
+"""The fource-server command: serve, migrate, create-user, ledger."""
 
 import argparse
 import asyncio
 import getpass
+from pathlib import Path
 
 import uvicorn
 from sqlalchemy.exc import OperationalError
@@ -10,6 +11,7 @@ from sqlalchemy.exc import OperationalError
 from fource.common import FourceError, Settings
 from fource.db import Database
 from fource.identity import Role, create_user
+from fource.server import ledger_commands
 from fource.server.loops import asyncio_loop_factory, uvicorn_loop
 from fource.server.migrate import migration_url, upgrade
 
@@ -28,7 +30,28 @@ def _parser() -> argparse.ArgumentParser:
         "--role", action="append", required=True, choices=[role.value for role in Role]
     )
     create.add_argument("--name", default="")
+    ledger = commands.add_parser("ledger", help="sign and check the evidence ledger")
+    actions = ledger.add_subparsers(dest="action", required=True)
+    actions.add_parser("keygen", help="create the installation's signing key")
+    sign = actions.add_parser("checkpoint", help="sign the chain head and save the checkpoint")
+    sign.add_argument("--org", help="organisation slug (default: FOURCE_ORG)")
+    sign.add_argument("--out", type=Path, help="folder for the checkpoint file")
+    check = actions.add_parser("verify", help="check the chain and its checkpoints")
+    check.add_argument("--org", help="organisation slug (default: FOURCE_ORG)")
+    check.add_argument("--public-key", type=Path, help="the installation's public key file")
+    check.add_argument("--checkpoints", type=Path, help="folder of checkpoint files")
     return parser
+
+
+def _ledger(settings: Settings, args: argparse.Namespace) -> int:
+    if args.action == "keygen":
+        return ledger_commands.keygen(settings)
+    slug: str = args.org or settings.org
+    if args.action == "checkpoint":
+        work = ledger_commands.make_checkpoint(settings, slug, args.out)
+    else:
+        work = ledger_commands.verify(settings, slug, args.public_key, args.checkpoints)
+    return asyncio.run(work, loop_factory=asyncio_loop_factory())
 
 
 async def _create_user(settings: Settings, email: str, roles: list[str], name: str) -> int:
@@ -71,6 +94,8 @@ def main(argv: list[str] | None = None) -> int:
             loop=uvicorn_loop(),
         )
         return 0
+    if args.command == "ledger":
+        return _ledger(settings, args)
     if args.command == "migrate":
         upgrade(migration_url(settings))
         print("The database is up to date.")
