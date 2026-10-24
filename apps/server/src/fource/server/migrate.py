@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from alembic import command
 from alembic.config import Config
+from sqlalchemy.engine import make_url
 
 from fource.common import Settings
 
@@ -20,6 +23,9 @@ def migration_url(settings: Settings) -> str:
 
 
 def upgrade(url: str, revision: str = "head") -> None:
+    parsed = make_url(url)
+    if parsed.get_backend_name() == "sqlite" and parsed.database not in (None, "", ":memory:"):
+        Path(parsed.database).parent.mkdir(parents=True, exist_ok=True)  # as Database does
     command.upgrade(alembic_config(url), revision)
 
 
