@@ -202,7 +202,9 @@ def test_checkpoint_then_verify(
     capsys.readouterr()
     assert cli.main(["ledger", "verify"]) == 0
     out = capsys.readouterr().out
-    assert "3 entries" in out and "up to entry 2" in out and "Verified." in out
+    assert "3 entries" in out and "up to entry 2" in out
+    # Entry 3 is the checkpoint entry itself: there is nothing real after the anchor.
+    assert "not covered" not in out and out.rstrip().endswith("\nVerified.")
 
 
 def test_verify_finds_an_edit(
@@ -592,9 +594,11 @@ def test_verify_warns_about_entries_no_checkpoint_covers(
     capsys.readouterr()
     assert cli.main(["ledger", "verify"]) == 0
     out = capsys.readouterr().out
-    assert "up to entry 2" in out and "Verified." in out
+    assert "up to entry 2" in out
     assert "Entries after 2 are not covered by any checkpoint" in out
     assert "make a new checkpoint" in out
+    last = out.rstrip().splitlines()[-1]
+    assert last == ("Verified through entry 2; entries after it are not covered by any checkpoint.")
 
 
 def test_verify_says_nothing_extra_when_nothing_is_anchored(
