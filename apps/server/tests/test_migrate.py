@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import uuid
 from pathlib import Path
 
 import pytest
@@ -18,12 +19,12 @@ def test_migrations_go_up_down_and_up_again(tmp_path: Path) -> None:
     path = tmp_path / "fource.db"
     url = f"sqlite+aiosqlite:///{path.as_posix()}"
     upgrade(url)
-    assert {"orgs", "users", "revoked_tokens"} <= tables(path)
+    assert {"orgs", "users", "revoked_tokens", "ledger_entries", "ledger_heads"} <= tables(path)
     slugs = sqlite3.connect(path).execute("SELECT slug FROM orgs").fetchall()
     assert slugs == [("default",)]
     downgrade(url, "base")
     assert "orgs" not in tables(path)
-    assert not {"users", "revoked_tokens"} & tables(path)
+    assert not {"users", "revoked_tokens", "ledger_entries", "ledger_heads"} & tables(path)
     upgrade(url)
     assert "orgs" in tables(path)
 
@@ -55,3 +56,25 @@ def test_migrations_use_the_admin_url_when_set(
         secret_key=SecretStr("s" * 40), database_url=SecretStr("sqlite+aiosqlite:///x")
     )
     assert migration_url(plain) == "sqlite+aiosqlite:///x"
+
+
+def test_the_ledger_refuses_updates_and_deletes_on_sqlite(tmp_path: Path) -> None:
+    path = tmp_path / "fource.db"
+    upgrade(f"sqlite+aiosqlite:///{path.as_posix()}")
+    connection = sqlite3.connect(path)
+    (org_id,) = connection.execute("SELECT id FROM orgs").fetchone()
+    connection.execute(
+        "INSERT INTO ledger_entries (id, org_id, created_at, seq, at, type, actor, refs, prev,"
+        " hash) VALUES (?, ?, '2026-11-14 10:22:31', 1, '2026-11-14 10:22:31', 'checkpoint',"
+        " 'system', '{}', ?, ?)",
+        (uuid.uuid4().hex, org_id, "0" * 64, "1" * 64),
+    )
+    connection.commit()
+    for statement in [
+        "UPDATE ledger_entries SET actor = 'anonymous'",
+        "DELETE FROM ledger_entries",
+    ]:
+        with pytest.raises(sqlite3.IntegrityError, match="insert-only"):
+            connection.execute(statement)
+    assert connection.execute("SELECT actor FROM ledger_entries").fetchall() == [("system",)]
+    connection.close()
