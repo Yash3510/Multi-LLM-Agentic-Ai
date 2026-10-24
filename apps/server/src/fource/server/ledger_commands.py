@@ -13,6 +13,7 @@ from fource.common import FourceError, Settings
 from fource.db import Database
 from fource.ledger import (
     Checkpoint,
+    UnusableKey,
     Verification,
     checkpoint,
     load_private_key,
@@ -38,13 +39,14 @@ def _plural(count: int, one: str, many: str) -> str:
     return f"{count} {one if count == 1 else many}"
 
 
-def _key_problem(what: str, path: Path, error: OSError | ValueError) -> str:
-    """Why a key file can't be used. Names the file, and never repeats a parser's text, which
-    could quote the file's contents."""
-    if isinstance(error, OSError):
-        return f"Could not read the {what} at {path}: {error.strerror}."
-    detail = str(error)
-    return detail if str(path) in detail else f"The {what} at {path} is not a usable key."
+def _unreadable(what: str, path: Path, error: OSError) -> str:
+    return f"Could not read the {what} at {path}: {error.strerror}."
+
+
+def _key_problem(what: str, path: Path, error: OSError | UnusableKey) -> str:
+    """Why a key file can't be used. An UnusableKey's message names the file and never repeats
+    a parser's text, which could quote the file's contents."""
+    return _unreadable(what, path, error) if isinstance(error, OSError) else str(error)
 
 
 def keygen(settings: Settings) -> int:
@@ -54,6 +56,9 @@ def keygen(settings: Settings) -> int:
     except FileExistsError as error:
         print(f"Not creating a signing key: {error}. Nothing was changed.")
         return 1
+    except OSError as error:  # write_key_pair removes what it had created
+        print(f"Could not create the signing key at {path}: {error.strerror}.")
+        return 1
     print(f"Created the ledger signing key at {path}: keep it secret and back it up.")
     print(f"Its public key is at {public}: give that to anyone who checks the ledger.")
     return 0
@@ -61,12 +66,12 @@ def keygen(settings: Settings) -> int:
 
 async def make_checkpoint(settings: Settings, slug: str, folder: Path | None) -> int:
     path = key_file(settings)
-    if not path.is_file():
-        print(f"No ledger signing key at {path}: create one with `just ledger keygen`.")
-        return 1
     try:
+        if not path.is_file():
+            print(f"No ledger signing key at {path}: create one with `just ledger keygen`.")
+            return 1
         private_key = load_private_key(path)
-    except (OSError, ValueError) as error:
+    except (OSError, UnusableKey) as error:
         print(_key_problem("ledger signing key", path, error))
         return 1
     database = Database(settings.database_url.get_secret_value())
@@ -117,7 +122,8 @@ def _read_checkpoints(folder: Path, org: str) -> list[Checkpoint]:
     it could hide the one checkpoint that shows a cut chain."""
     found: list[Checkpoint] = []
     try:
-        files = sorted(folder.iterdir()) if folder.exists() else []
+        # A link to nothing (removable media not mounted) is not a missing folder.
+        files = sorted(folder.iterdir()) if folder.is_symlink() or folder.exists() else []
     except OSError as error:  # unlike glob, which skips a folder it may not list
         raise ValueError(f"{folder} could not be read: {error.strerror}") from error
     for file in files:
@@ -127,7 +133,7 @@ def _read_checkpoints(folder: Path, org: str) -> list[Checkpoint]:
             read = Checkpoint.from_dict(json.loads(file.read_text(encoding="utf-8")))
         except OSError as error:
             raise ValueError(f"{file} could not be read: {error.strerror}") from error
-        except ValueError as error:
+        except (ValueError, RecursionError) as error:  # RecursionError: JSON nested too deep
             raise ValueError(f"{file} is not a checkpoint: {error}") from error
         if read.org == org:
             found.append(read)
@@ -140,6 +146,11 @@ def _report(slug: str, result: Verification, public_path: Path) -> int:
     )
     if result.anchored_seq is not None:
         print(f"A signed checkpoint vouches for it up to entry {result.anchored_seq}.")
+        if result.anchored_seq < result.head_seq:
+            print(
+                f"Entries after {result.anchored_seq} are not covered by any checkpoint and "
+                "cannot be shown intact; make a new checkpoint to extend the cover."
+            )
     if result.unchecked_signatures:
         count = _plural(result.unchecked_signatures, "signature", "signatures")
         print(f"{count} not checked: no public key at {public_path} (or give --public-key).")
@@ -166,15 +177,23 @@ async def verify(
     settings: Settings, slug: str, public_key_file: Path | None, folder: Path | None
 ) -> int:
     public_path = public_key_file or public_key_path(key_file(settings))
-    if public_key_file is not None and not public_key_file.is_file():
-        print(f"No public key at {public_key_file}.")
+    try:
+        if public_key_file is not None and not public_key_file.is_file():
+            print(f"No public key at {public_key_file}.")
+            return FAILED
+    except OSError as error:
+        print(_unreadable("public key", public_path, error))
         return FAILED
-    if folder is not None and not folder.is_dir():
-        print(f"No checkpoint folder at {folder}.")
+    try:
+        if folder is not None and not folder.is_dir():
+            print(f"No checkpoint folder at {folder}.")
+            return FAILED
+    except OSError as error:
+        print(_unreadable("checkpoint folder", folder or checkpoint_folder(settings), error))
         return FAILED
     try:
         public_key = load_public_key(public_path) if public_path.is_file() else None
-    except (OSError, ValueError) as error:
+    except (OSError, UnusableKey) as error:
         print(_key_problem("public key", public_path, error))
         return FAILED
     database = Database(settings.database_url.get_secret_value())

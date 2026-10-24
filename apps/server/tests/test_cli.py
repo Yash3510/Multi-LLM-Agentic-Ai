@@ -3,7 +3,7 @@ import base64
 import json
 import os
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -348,7 +348,7 @@ def test_an_unusable_public_key_is_named(
 
 
 @contextmanager
-def unsearchable(folder: Path) -> Iterator[None]:
+def unsearchable(folder: Path) -> Generator[None]:
     """A folder its owner may not search, so anything inside it can't even be looked up. Does
     nothing on Windows, and for root, who may search anything: the checks below then see a
     path that isn't there, which must fail just the same."""
@@ -458,7 +458,7 @@ def test_a_short_key_path_does_not_let_the_parser_speak(
     capsys.readouterr()
     assert cli.main(["ledger", "checkpoint"]) == 1
     out = capsys.readouterr().out
-    assert "The ledger signing key at a is not a usable key." in out
+    assert out.strip() == "a is not a usable key"
     assert "deserialize" not in out
 
 
