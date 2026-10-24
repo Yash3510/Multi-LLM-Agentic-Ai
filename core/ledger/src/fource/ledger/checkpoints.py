@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from cryptography.exceptions import InvalidSignature
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
@@ -21,6 +21,7 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from fource.ledger.chain import canonical, sha256_hex
+from fource.ledger.errors import UnusableKey
 
 # Signed bytes start with this, so a checkpoint signature can never be passed off as a
 # signature over anything else the same key might sign.
@@ -155,14 +156,19 @@ def load_private_key(path: Path) -> Ed25519PrivateKey:
     try:
         key = load_pem_private_key(path.read_bytes(), password=None)
     except TypeError:
-        raise ValueError(f"{path} is password-protected, which 4CE does not use") from None
+        raise UnusableKey(f"{path} is password-protected, which 4CE does not use") from None
+    except (ValueError, UnsupportedAlgorithm):
+        raise UnusableKey(f"{path} is not a usable key") from None
     if not isinstance(key, Ed25519PrivateKey):
-        raise ValueError(f"{path} does not hold an Ed25519 private key")
+        raise UnusableKey(f"{path} does not hold an Ed25519 private key")
     return key
 
 
 def load_public_key(path: Path) -> Ed25519PublicKey:
-    key = load_pem_public_key(path.read_bytes())
+    try:
+        key = load_pem_public_key(path.read_bytes())
+    except (ValueError, UnsupportedAlgorithm):
+        raise UnusableKey(f"{path} is not a usable key") from None
     if not isinstance(key, Ed25519PublicKey):
-        raise ValueError(f"{path} does not hold an Ed25519 public key")
+        raise UnusableKey(f"{path} does not hold an Ed25519 public key")
     return key
