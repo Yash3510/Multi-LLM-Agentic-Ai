@@ -29,7 +29,7 @@ Details the table leaves out:
 
 - **Health** answers `{"status": "unavailable", "database": "unavailable"}` with 503 when the database can't be reached.
 - **Sign-in** takes `email` (3 to 320 characters) and `password` (1 to 1024). It answers 200 with `user` (`id`, `email`, `display_name`, `roles`, `org`), `token` (the same value as the cookie, for scripts) and `expires_at` (UTC). The `org` is the organisation's slug, `FOURCE_ORG`.
-- **Sign-out** answers `204` with no body. A second sign-out with the same token answers 401 `not_authenticated`, like any call with a revoked token (`test_signing_out_by_bearer_needs_no_csrf_and_revokes` pins this for the session call).
+- **Sign-out** answers `204` with no body. A second sign-out with the same token answers 401 `not_authenticated`, like any call with a revoked token (`test_signing_out_by_bearer_needs_no_csrf_and_revokes` pins this for the session call, `test_a_second_sign_out_with_the_same_credentials_is_not_authenticated` for sign-out).
 
 ## Cookies and CSRF
 
@@ -61,11 +61,14 @@ Every error the application raises has the same shape:
 | `email_taken` | 409 | the message; raised when a user is created, not by the endpoints today |
 | `cross_org_write` | 403 | a generic failure; a bug or an attack, never a normal path |
 | `setup_incomplete` | 503 | "the server isn't set up", for an administrator: the database has no migrations yet (`just migrate`) |
+| `not_found` | 404 | the not-found screen; no such path |
+| `method_not_allowed` | 405 | a generic failure; a bug in the client |
+| `http_error` | other | a generic failure; any other status Starlette raises itself |
 | `internal_error` | 500 | a generic failure; the message says nothing about the cause, and the server logs it |
 
 Use `code` for logic and `message` for display. A code is never renamed; a new one may be added.
 
-**Known gap.** Starlette's own responses are not in this envelope today: an unknown path (404, including `/api/docs`) and a wrong method (405) answer with FastAPI's default `{"detail": …}` (checked), and so would any other error Starlette raises itself, such as a malformed-request 400 (unverified). A request body that isn't valid JSON is in the envelope (`validation_failed`, 422). Clients must not assume every error has an `error` object; treat a missing one as a generic failure. Fixing this is future work.
+Starlette's own answers use the same envelope: an unknown path (including `/api/docs`) is 404 `not_found`, a wrong method is 405 `method_not_allowed` (with its `Allow` header), and any other status Starlette raises itself gets the generic code `http_error`. A request body that isn't valid JSON is `validation_failed`, 422. The OpenAPI document declares this envelope (`ErrorOut`) for the error statuses of each auth route, in place of FastAPI's default 422 `HTTPValidationError`.
 
 ## Running it
 
@@ -84,7 +87,7 @@ The `fource-server` command (`uv run fource-server …`):
 | `create-user EMAIL --role ROLE [--role …] [--name NAME]` | adds a user in `FOURCE_ORG`; `ROLE` is one of the seven [roles](identity.md#users-and-roles); asks for the password twice, with no echo (it reads stdin when it is not a terminal) |
 
 - **Settings** come from the environment and `.env`: `FOURCE_SECRET_KEY` (required, 32 characters or more), `FOURCE_DATABASE_URL`, `FOURCE_DATABASE_ADMIN_URL`, `FOURCE_TOKEN_TTL_MINUTES` and `FOURCE_ORG`. See [database](database.md) for the PostgreSQL form.
-- **Migrate before the first sign-in.** Without it, sign-in answers `setup_incomplete`.
+- **Migrate before the first sign-in.** Without it (no organisation row, or no tables at all), sign-in answers `setup_incomplete`. The session and sign-out calls need a valid token, which only a sign-in on a set-up database issues, so they can't reach an unmigrated database.
 - **Event loop.** On Windows the server and its commands use a selector event loop, because psycopg's async mode can't use the default one. Linux and macOS use the default.
 - **Behind a proxy,** start Uvicorn directly: `uvicorn --factory fource.server.main:app_factory --forwarded-allow-ips <proxy address>`.
 - **Using the API as a script:** sign in, keep the cookies, send the CSRF header.
