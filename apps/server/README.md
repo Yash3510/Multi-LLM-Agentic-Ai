@@ -9,6 +9,7 @@ The 4CE server: the API routes, the `fource-server` command and the one Alembic 
 - They live in `src/fource/server/migrations/versions/`, named `NNNN_what_it_does.py`, revision ids `"NNNN"`.
 - They run on SQLite and PostgreSQL (batch mode). On PostgreSQL every organisation's table gets `fource.db.org_isolation_sql(table)`.
 - Each one has a downgrade, and `tests/test_migrate.py` runs up, down and up again.
+- The ledger (`0004`) grants the app role less: `org_isolation_sql(table, privileges=…)`, and adds insert-only triggers on both engines. A migration that rebuilds `ledger_entries` on SQLite (batch mode) must recreate its triggers.
 
 ## Running it
 

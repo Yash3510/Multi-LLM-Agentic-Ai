@@ -414,6 +414,7 @@ dependencies = [
     { name = "fource-common" },
     { name = "fource-db" },
     { name = "fource-identity" },
+    { name = "fource-ledger" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -424,6 +425,7 @@ requires-dist = [
     { name = "fource-common", editable = "core/common" },
     { name = "fource-db", editable = "core/db" },
     { name = "fource-identity", editable = "core/identity" },
+    { name = "fource-ledger", editable = "core/ledger" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
 
