@@ -25,6 +25,9 @@ from fource.ledger.checkpoints import (
     sign_checkpoint,
     write_key_pair,
 )
+from fource.ledger.errors import EmptyLedger
+from fource.ledger.models import LedgerEntry, LedgerHead
+from fource.ledger.store import append, checkpoint, read_entries, verify_ledger
 from fource.ledger.verify import ChainVerifier, Problem, Verification, verify_chain
 
 __all__ = [
@@ -33,11 +36,16 @@ __all__ = [
     "SYSTEM",
     "ChainVerifier",
     "Checkpoint",
+    "EmptyLedger",
     "Entry",
     "EntryType",
+    "LedgerEntry",
+    "LedgerHead",
     "Problem",
     "Verification",
+    "append",
     "canonical",
+    "checkpoint",
     "entry_hash",
     "format_time",
     "is_signed_by",
@@ -46,10 +54,12 @@ __all__ = [
     "load_public_key",
     "make_entry",
     "public_key_path",
+    "read_entries",
     "sha256_hex",
     "sign_checkpoint",
     "to_millis",
     "user_actor",
     "verify_chain",
+    "verify_ledger",
     "write_key_pair",
 ]

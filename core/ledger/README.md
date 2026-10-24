@@ -18,6 +18,10 @@ The evidence ledger (master plan §7.16): one insert-only, hash-chained list of 
 | `Checkpoint`, `sign_checkpoint(key, org=, seq=, hash=, at=)`, `is_signed_by(checkpoint, public_key)` | A signed chain head: Ed25519 over `4ce-ledger-checkpoint-v1\n` + the canonical `{org, seq, hash, at, key}`; `key` is `key_id(public_key)`, the SHA-256 of the raw public key. `Checkpoint.from_dict` reads one back from a file |
 | `write_key_pair(key, path)`, `load_private_key(path)`, `load_public_key(path)`, `public_key_path(path)` | The installation key as PEM files: the private key owner-only and never overwritten, the public key beside it (`signing-key.pem` -> `signing-key.pub.pem`) |
 | `verify_chain(entries, org, public_key=, checkpoints=)`, `ChainVerifier`, `Verification`, `Problem` | Checks a chain entry by entry (streamable): hashes, links, numbering, organisation, checkpoint entries, and outside checkpoints (truncation, rewrites). `Verification.ok` means no problems; `complete` also means every signature was checked. Without the public key nothing is anchored. A malformed entry is reported as a problem, never raised |
+| `LedgerEntry`, `LedgerHead` | The `ledger_entries` table (insert-only, one chain per organisation) and `ledger_heads`, the row writers lock to take the next number (not evidence; the verifier never reads it) |
+| `append(session, entry_type, actor=, refs=, inputs_sha256=, outputs_sha256=, run_id=, case_id=)` | Adds the next entry of the session's organisation in the session's transaction: committed with the action it records, or not at all. Concurrent writers queue on the head row, so numbers are never shared or skipped |
+| `checkpoint(session, private_key)` | Signs the head and records the signature as the next entry (type `checkpoint`); returns the checkpoint to keep outside the database. `EmptyLedger` when there is nothing to sign |
+| `read_entries(session)`, `verify_ledger(session, public_key=, checkpoints=)` | The organisation's entries in order, streamed; and the verifier run over them |
 
 ## Tests
 
