@@ -4,6 +4,7 @@ Signing is for people: nothing in CI or the tests signs with a real installation
 """
 
 import json
+import os
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -78,7 +79,10 @@ async def make_checkpoint(settings: Settings, slug: str, folder: Path | None) ->
     path = key_file(settings)
     try:
         if not path.is_file():
-            print(f"No ledger signing key at {path}: create one with `just ledger keygen`.")
+            if os.path.lexists(path):  # a directory or a link to nothing: keygen would refuse it
+                print(f"The ledger signing key path {path} is not a key file.")
+            else:
+                print(f"No ledger signing key at {path}: create one with `just ledger keygen`.")
             return 1
         private_key = load_private_key(path)
     except (OSError, UnusableKey) as error:
