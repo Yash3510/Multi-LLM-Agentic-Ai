@@ -3,7 +3,7 @@ title: "Signed tokens for sign-in"
 type: adr
 status: planned
 owner: R1
-updated: 2026-10-17
+updated: 2026-10-24
 covers: []
 tags: [4ce, adr]
 number: 38
@@ -38,6 +38,8 @@ Master plan §7.3 asks for server-side sessions. On 2026-10-12 the project lead 
 
 - Session fixation doesn't apply (every sign-in issues a new token); the plan's acceptance tests become: CSRF, revocation, lockout, expiry and forged tokens.
 - Rotating `FOURCE_SECRET_KEY` signs everyone out.
+- A locked account answers `423 account_locked` before the password is checked, so anyone can learn that an account exists and is locked. Accepted for now: a clear message beats hiding it, and the lock lasts 15 minutes.
+- Tokens are not invalidated when a password changes. Future work, with the password-change feature.
 
 ## Status
 
