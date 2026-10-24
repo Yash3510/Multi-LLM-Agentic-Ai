@@ -175,7 +175,8 @@ def test_verify_finds_an_edit(
     connection.commit()
     connection.close()
     assert cli.main(["ledger", "verify"]) == 1
-    assert "entry 1: altered" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "entry 1: altered" in out and "not proven" not in out
 
 
 def test_verify_finds_a_cut_off_tail_only_with_a_checkpoint(
@@ -191,9 +192,22 @@ def test_verify_finds_a_cut_off_tail_only_with_a_checkpoint(
     connection.close()
     capsys.readouterr()
     assert cli.main(["ledger", "verify"]) == 1
-    assert "entry 2: truncated" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "entry 2: truncated" in out and "not proven" not in out
     empty = env.parent / "no-checkpoints"
+    empty.mkdir()
     assert cli.main(["ledger", "verify", "--checkpoints", str(empty)]) == 0
+
+
+def test_verify_fails_when_the_checkpoint_folder_is_missing(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    missing = env.parent / "usb-not-mounted"
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify", "--checkpoints", str(missing)]) == 1
+    out = capsys.readouterr().out
+    assert f"No checkpoint folder at {missing}." in out and "Verified." not in out
 
 
 def test_verify_says_when_nothing_anchors_the_chain(
@@ -205,6 +219,7 @@ def test_verify_says_when_nothing_anchors_the_chain(
     assert cli.main(["ledger", "verify"]) == 0
     out = capsys.readouterr().out
     assert "length is not proven" in out and "off the machine" in out
+    assert "1 entry, head 1" in out and "1 entries" not in out
 
 
 def test_verify_without_the_public_key_is_incomplete(
@@ -216,4 +231,106 @@ def test_verify_without_the_public_key_is_incomplete(
     (env.parent / "data" / "ledger" / "signing-key.pub.pem").unlink()
     capsys.readouterr()
     assert cli.main(["ledger", "verify"]) == 2
-    assert "not checked" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "not checked" in out and "signing-key.pub.pem" in out
+    assert "not proven" in out and "off the machine" not in out
+    assert "2 signatures" in out and "1 signatures" not in out
+
+
+def test_one_unchecked_signature_is_singular(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    cli.main(["ledger", "keygen"])
+    cli.main(["ledger", "checkpoint"])
+    (env.parent / "data" / "ledger" / "signing-key.pub.pem").unlink()
+    empty = env.parent / "no-checkpoints"
+    empty.mkdir()
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify", "--checkpoints", str(empty)]) == 2
+    out = capsys.readouterr().out
+    assert "1 signature not checked" in out and "1 signatures" not in out
+
+
+def test_a_checkpoint_file_is_never_overwritten(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    cli.main(["ledger", "keygen"])
+    folder = env.parent / "data" / "ledger" / "checkpoints"
+    folder.mkdir(parents=True)
+    old = folder / "default-0000000001.json"
+    old.write_text("kept\n", encoding="utf-8")
+    capsys.readouterr()
+    assert cli.main(["ledger", "checkpoint"]) == 1
+    out = capsys.readouterr().out
+    assert old.read_text(encoding="utf-8") == "kept\n"
+    assert '"signature"' in out and "already exists" in out and "recorded" in out
+
+
+def test_an_unreadable_checkpoint_file_is_reported(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    folder = env.parent / "checkpoints"
+    (folder / "x.json").mkdir(parents=True)  # a directory cannot be read as a file
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify", "--checkpoints", str(folder)]) == 1
+    out = capsys.readouterr().out
+    assert str(folder / "x.json") in out and "could not be read" in out
+    assert "Verified." not in out
+
+
+def test_a_default_checkpoint_folder_that_is_a_file_is_reported(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    folder = env.parent / "data" / "ledger" / "checkpoints"
+    folder.parent.mkdir(parents=True)
+    folder.write_text("not a folder", encoding="utf-8")
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify"]) == 1
+    out = capsys.readouterr().out
+    assert str(folder) in out and "could not be read" in out and "Verified." not in out
+
+
+def test_keygen_names_the_file_that_is_in_the_way(
+    env: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = env.parent / "data" / "ledger"
+    folder.mkdir(parents=True)
+    (folder / "signing-key.pub.pem").write_text("public", encoding="utf-8")
+    assert cli.main(["ledger", "keygen"]) == 1
+    assert "signing-key.pub.pem" in capsys.readouterr().out
+    assert not (folder / "signing-key.pem").exists()
+
+
+def make_unusable(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("not a key\n", encoding="utf-8")
+    if os.name == "posix":
+        path.chmod(0)  # unreadable; the file is also not a key, so a root user sees that
+
+
+def test_an_unusable_private_key_is_named_and_not_shown(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    key = env.parent / "data" / "ledger" / "signing-key.pem"
+    make_unusable(key)
+    capsys.readouterr()
+    assert cli.main(["ledger", "checkpoint"]) == 1
+    out = capsys.readouterr().out
+    assert str(key) in out and "Traceback" not in out and "not a key" not in out
+
+
+def test_an_unusable_public_key_is_named(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    key = env.parent / "data" / "ledger" / "signing-key.pub.pem"
+    make_unusable(key)
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify"]) == 1
+    out = capsys.readouterr().out
+    assert str(key) in out and "Verified." not in out
