@@ -3,7 +3,16 @@ from typing import Any
 
 import pytest
 
-from fource.ledger import GENESIS, Entry, EntryType, canonical, format_time, make_entry, sha256_hex
+from fource.ledger import (
+    GENESIS,
+    Entry,
+    EntryType,
+    canonical,
+    format_time,
+    make_entry,
+    sha256_hex,
+    to_millis,
+)
 
 ORG = "0192f5a0-0000-7000-8000-000000000001"
 USER = "0192f5a0-0000-7000-8000-0000000000aa"
@@ -81,8 +90,35 @@ def test_times_are_utc_with_milliseconds() -> None:
         {"refs": {"Bad-Key": "x"}},
         {"refs": {"user": "a\x00b"}},
         {"refs": {"user": "x" * 1001}},
+        {"actor": "user"},
+        {"actor": "bob"},
+        {"actor": "admin"},
+        {"actor": f"system:{USER}"},
+        {"actor": "user:" + "-" * 36},
+        {"actor": f"user:{USER.upper()}"},
+        {"org": "x"},
+        {"org": ORG.upper()},
+        {"run": "x"},
+        {"run": "\n"},
+        {"run": USER.upper()},
+        {"case": "x"},
+        {"case": "\n"},
+        {"case": USER.upper()},
+        {"refs": {"a": 1}},
+        {"refs": {"a": {"b": "c"}}},
+        {"refs": {1: "a"}},
+        {"at": None},
+        {"org": None},
+        {"prev": None},
+        {"inputs_sha256": 5},
+        {"seq": 1.5},
     ],
 )
 def test_malformed_entries_are_refused(change: dict[str, Any]) -> None:
     with pytest.raises(ValueError):
         entry(**change)
+
+
+def test_a_naive_time_is_refused() -> None:
+    with pytest.raises(ValueError):
+        to_millis(datetime(2026, 11, 14, 10, 22, 31))
