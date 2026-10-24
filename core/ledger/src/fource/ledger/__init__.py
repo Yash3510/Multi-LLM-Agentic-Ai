@@ -25,14 +25,18 @@ from fource.ledger.checkpoints import (
     sign_checkpoint,
     write_key_pair,
 )
+from fource.ledger.verify import ChainVerifier, Problem, Verification, verify_chain
 
 __all__ = [
     "ANONYMOUS",
     "GENESIS",
     "SYSTEM",
+    "ChainVerifier",
     "Checkpoint",
     "Entry",
     "EntryType",
+    "Problem",
+    "Verification",
     "canonical",
     "entry_hash",
     "format_time",
@@ -46,5 +50,6 @@ __all__ = [
     "sign_checkpoint",
     "to_millis",
     "user_actor",
+    "verify_chain",
     "write_key_pair",
 ]
