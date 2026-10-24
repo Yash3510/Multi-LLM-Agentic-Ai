@@ -51,7 +51,7 @@ apps/web/
 
 ## The backend contract
 
-**Status: built (slice 1).** Until each endpoint exists, serve it from MSW fixtures typed against the same contract (ADR-0035 §4). Once the server runs, `GET /api/openapi.json` is the source of truth, and the types are generated from it with openapi-typescript at build time.
+**Status: built (slice 1).** `GET /api/openapi.json` is the source of truth, and the types are generated from it with openapi-typescript at build time.
 
 **One origin.** The UI and the API are served from the same host; every API path starts with `/api`. In development, the Vite dev server proxies `/api` to the backend, so the browser still sees one origin.
 

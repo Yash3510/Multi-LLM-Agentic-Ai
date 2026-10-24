@@ -29,7 +29,7 @@ Who a person is and how they prove it: users, passwords, lockout, signed tokens 
 ## Lockout
 
 - **5 failed sign-ins lock the account for 15 minutes.** The failure is counted in the database in one statement, so guesses sent together can't overwrite each other's count. A success resets the count.
-- **An unknown email, an inactive user and a wrong password give the same error,** `invalid_credentials`, and the same work: for an unknown email, the password is still verified against a real hash, so timing reveals nothing.
+- **An unknown email, an inactive user and a wrong password give the same error,** `invalid_credentials`, and the same main cost: both run one argon2 verification (for an unknown email, against a real hash), so timing reveals nothing. A wrong password also records the failure (an UPDATE and a commit).
 - **A locked account answers `423 account_locked` before the password is checked,** even for the right password. This reveals that the account exists and is locked: a known trade-off, recorded in [ADR-0038](../adr/0038-signed-tokens-for-sign-in.md#consequences).
 
 ## Tokens
