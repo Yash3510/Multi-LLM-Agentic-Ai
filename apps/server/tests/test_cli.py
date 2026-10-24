@@ -81,7 +81,11 @@ def test_serve_passes_the_app_factory_and_the_platform_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
-    monkeypatch.setattr("uvicorn.run", lambda *a, **k: calls.append((a, k)))
+
+    def record(*args: Any, **kwargs: Any) -> None:
+        calls.append((args, kwargs))
+
+    monkeypatch.setattr("uvicorn.run", record)
     assert cli.main(["serve", "--port", "8123"]) == 0
     assert calls == [
         (
