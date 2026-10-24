@@ -59,6 +59,21 @@ All on the `vps` server (Debian, Python 3.12.15). The docs commits touch no code
 6. **The docs findings that were checked in code:** `/api/nope` and `/api/docs` answer 404 `{"detail":"Not Found"}` and `POST /api/health` answers 405 `{"detail":"Method Not Allowed"}`, outside the error envelope; invalid JSON in a body answers 422 `validation_failed` inside it.
 7. **The fix:** a new test (migrating into a folder that doesn't exist) failed with `OperationalError` before the fix and passed after (`4 passed` in `test_migrate.py`). In a throwaway clone of the new HEAD, `just setup` then `just migrate` with no `mkdir data` printed `The database is up to date.`: `ls data` found no folder, then `The database is up to date.` and `data/fource.db` existed.
 
+## Final review fixes
+
+Base `9f221f0`. Code and tests in `6448a09`, the app-role script in `32d3f37`.
+
+- **OpenAPI error shapes:** sign-in declares 401, 422, 423 and 503, session 401, sign-out 401 and 403, all as the `ErrorOut` envelope; FastAPI's default `HTTPValidationError` is gone from the document.
+- **Starlette 404 and 405** now answer in the envelope (`not_found`, `method_not_allowed`; other statuses `http_error`). The "known gap" text in [API](../../../architecture/api.md#errors) and the state page is removed.
+- **Unmigrated database:** sign-in answers 503 `setup_incomplete` when a table is missing (SQLite "no such table", PostgreSQL state 42P01); an unreachable database stays 500. Session and sign-out need a token that only a sign-in on a set-up database issues, so they can't reach an unmigrated one (reasoned, not probed).
+- **`cryptography`** (pulled in by `pyjwt[crypto]`) is named in [licences](../../../architecture/licences.md) with its licence, `Apache-2.0 OR BSD-3-Clause`, read from the installed metadata.
+- **Old `.env` after pulling:** delete your `.env` and re-run `just setup` (or copy the new lines from `.env.example`). The old file lacks `FOURCE_SECRET_KEY` and has an owner URL; the server must connect as `fource_app`, never the owner (row-level security is off for the owner). Also on the [state](../../../state.md) page.
+- **Wording:** [identity](../../../architecture/identity.md) now says both an unknown email and a wrong password run one argon2 verification, and a wrong password also records the failure; the stale MSW sentence is gone from [frontend](../../../architecture/frontend.md).
+- **App-role script** uses `$POSTGRES_DB` through a psql variable. Probe container: `f|f|t`.
+- **Second sign-out test** added and cited in the API page.
+
+Verification: the four new logic tests failed before the fix (`4 failed, 1 passed`: the envelope, 404/405, the generic code and the unmigrated database failed; the second sign-out test passed at once, because the behaviour already existed and it only pins it). `uv run pyright`: 0 errors. `just check`: exit 0, `273 passed, 9 deselected`. `just test-postgres` (shared container stopped, project PostgreSQL started, then `just down` and `docker start services-postgres-1`): `9 passed, 273 deselected`.
+
 ## Decisions
 
 [ADR-0010](../../../adr/0010-modular-monolith-on-one-database.md), [ADR-0037](../../../adr/0037-licence-approvals-for-the-backend-stack.md) and [ADR-0038](../../../adr/0038-signed-tokens-for-sign-in.md), all still proposed. Made with the project lead: this work lands on `4ce-core` directly and is pushed after each reviewed task; PostgreSQL was run locally by pausing the machine's shared PostgreSQL container for the check.
@@ -71,7 +86,7 @@ New: [database](../../../architecture/database.md), [identity](../../../architec
 
 Issues aren't open yet (the GitHub project isn't set up); each item becomes one.
 
-- **Errors outside the envelope:** Starlette's own 404 and 405 answers use `{"detail": …}`.
+
 - **Tokens are not invalidated on a password change** (there is no password-change feature yet).
 - **A locked account answers `423` before the password is checked,** which reveals that it exists.
 - **PostgreSQL from a Windows host is not exercised in CI.** Production runs on Linux.
