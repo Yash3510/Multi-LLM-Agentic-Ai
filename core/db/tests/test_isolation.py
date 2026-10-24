@@ -22,3 +22,14 @@ def test_the_policy_reads_the_session_organisation_safely() -> None:
 def test_only_plain_table_names_are_accepted(name: str) -> None:
     with pytest.raises(ValueError):
         org_isolation_sql(name)
+
+
+def test_a_table_can_grant_the_app_role_fewer_privileges() -> None:
+    statements = org_isolation_sql("ledger_entries", privileges=("SELECT", "INSERT"))
+    assert statements[3] == f"GRANT SELECT, INSERT ON ledger_entries TO {APP_ROLE}"
+
+
+@pytest.mark.parametrize("privileges", [(), ("SELECT", "TRUNCATE"), ("select",)])
+def test_only_data_privileges_can_be_granted(privileges: tuple[str, ...]) -> None:
+    with pytest.raises(ValueError):
+        org_isolation_sql("ledger_entries", privileges=privileges)

@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import String, delete, select
 from sqlalchemy.orm import Mapped, mapped_column
 
-from fource.db import Base, CrossOrgWrite, Database, Org, OrgScoped
+from fource.db import Base, CrossOrgWrite, Database, Org, OrgScoped, org_of
 
 pytestmark = pytest.mark.anyio
 
@@ -176,3 +176,12 @@ async def test_ping_reports_an_unreachable_database() -> None:
         assert await database.ping() is False
     finally:
         await database.dispose()
+
+
+async def test_an_organisation_session_knows_its_organisation(database: Database) -> None:
+    first, _ = await two_orgs(database)
+    async with database.org_session(first) as session:
+        assert org_of(session) == first
+    async with database.session() as session:
+        with pytest.raises(RuntimeError, match="organisation session"):
+            org_of(session)
