@@ -3,6 +3,11 @@ from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import (
+    BestAvailableEncryption,
+    Encoding,
+    PrivateFormat,
+)
 
 from fource.ledger import (
     Checkpoint,
@@ -68,3 +73,52 @@ def test_a_key_pair_is_written_once_and_read_back(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError):
         write_key_pair(Ed25519PrivateKey.generate(), path)
     assert key_id(load_private_key(path).public_key()) == key_id(key.public_key())
+
+
+def test_a_checkpoint_that_cannot_be_encoded_is_refused_and_never_raises() -> None:
+    key = Ed25519PrivateKey.generate()
+    data = {**signed(key).to_dict(), "org": "\ud800"}
+    with pytest.raises(ValueError):
+        Checkpoint.from_dict(data)
+    unsendable = Checkpoint(org="\ud800", seq=7, hash="a" * 64, at=AT, key="k", signature="00" * 64)
+    assert not is_signed_by(unsendable, key.public_key())
+
+
+@pytest.mark.parametrize("seq", [0, -1, True])
+def test_a_checkpoint_seq_counts_from_one(seq: object) -> None:
+    with pytest.raises(ValueError):
+        Checkpoint.from_dict({**signed(Ed25519PrivateKey.generate()).to_dict(), "seq": seq})
+
+
+def test_a_public_key_path_that_is_a_symlink_is_refused_and_its_target_untouched(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "signing-key.pem"
+    target = tmp_path / "elsewhere.txt"
+    target.write_text("keep")
+    if os.name == "posix":
+        public_key_path(path).symlink_to(target)
+        with pytest.raises(FileExistsError):
+            write_key_pair(Ed25519PrivateKey.generate(), path)
+        assert target.read_text() == "keep"
+        assert not path.exists()
+
+
+def test_an_existing_public_key_is_not_replaced_and_nothing_is_written(tmp_path: Path) -> None:
+    path = tmp_path / "signing-key.pem"
+    public_key_path(path).write_text("stale")
+    with pytest.raises(FileExistsError):
+        write_key_pair(Ed25519PrivateKey.generate(), path)
+    assert not path.exists()
+    assert public_key_path(path).read_text() == "stale"
+
+
+def test_a_password_protected_key_is_a_value_error(tmp_path: Path) -> None:
+    path = tmp_path / "locked.pem"
+    path.write_bytes(
+        Ed25519PrivateKey.generate().private_bytes(
+            Encoding.PEM, PrivateFormat.PKCS8, BestAvailableEncryption(b"throwaway")
+        )
+    )
+    with pytest.raises(ValueError):
+        load_private_key(path)
