@@ -93,11 +93,11 @@ def sign_checkpoint(
 
 def is_signed_by(checkpoint: Checkpoint, public_key: Ed25519PublicKey) -> bool:
     """True only when this key made this exact checkpoint."""
-    if checkpoint.key != key_id(public_key) or not _HEX.fullmatch(checkpoint.signature):
-        return False
-    if len(checkpoint.signature) % 2:
-        return False
     try:
+        if checkpoint.key != key_id(public_key) or not _HEX.fullmatch(checkpoint.signature):
+            return False
+        if len(checkpoint.signature) % 2:
+            return False
         public_key.verify(bytes.fromhex(checkpoint.signature), checkpoint.signed_bytes())
     except (InvalidSignature, ValueError, TypeError):
         return False
@@ -109,9 +109,18 @@ def public_key_path(private_key_path: Path) -> Path:
     return private_key_path.with_name(f"{private_key_path.stem}.pub{private_key_path.suffix}")
 
 
-def _create(path: Path, data: bytes, mode: int) -> None:
+def _create(path: Path, data: bytes, mode: int, created: list[Path]) -> None:
+    """Creates `path` exclusively; it joins `created` the moment it exists, so a failed
+    write can be cleaned up, while a refused (already existing) path never does."""
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
-    with os.fdopen(os.open(path, flags, mode), "wb") as file:
+    descriptor = os.open(path, flags, mode)
+    created.append(path)
+    try:
+        file = os.fdopen(descriptor, "wb")
+    except BaseException:
+        os.close(descriptor)
+        raise
+    with file:
         file.write(data)
 
 
@@ -133,10 +142,8 @@ def write_key_pair(private_key: Ed25519PrivateKey, path: Path) -> Path:
     )
     created: list[Path] = []
     try:
-        _create(path, pem, 0o600)
-        created.append(path)
-        _create(public, public_pem, 0o644)
-        created.append(public)
+        _create(path, pem, 0o600, created)
+        _create(public, public_pem, 0o644, created)
     except BaseException:
         for file in created:
             file.unlink(missing_ok=True)
