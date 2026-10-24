@@ -78,7 +78,7 @@ def test_other_platforms_keep_their_defaults(platform: str) -> None:
 
 
 def test_serve_passes_the_app_factory_and_the_platform_loop(
-    monkeypatch: pytest.MonkeyPatch,
+    env: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
 
