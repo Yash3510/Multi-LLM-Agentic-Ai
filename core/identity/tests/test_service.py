@@ -30,6 +30,7 @@ from fource.identity import (
     read_token,
     sign_in,
     sign_out,
+    unknown_email_digest,
     verify_password,
 )
 from fource.ledger import Entry, EntryType, read_entries, sha256_hex, verify_ledger
@@ -38,6 +39,9 @@ pytestmark = pytest.mark.anyio
 SECRET = "s" * 40
 PASSWORD = "correct horse battery"
 TTL = timedelta(hours=8)
+# HMAC-SHA256 of b"nobody@example.com" under a key that is itself the HMAC-SHA256 of SECRET
+# over b"4ce-ledger-unknown-email-v1", computed once with the standard library.
+NOBODY_DIGEST = "a0a4affe9b729aad0b343c25e8303196946c2dc7ae88e6ff633b3e065b6b5c09"
 
 
 @pytest.fixture
@@ -368,8 +372,20 @@ async def test_an_unknown_email_is_recorded_only_as_its_hash(
         "anonymous",
         {"reason": "unknown_email"},
     )
-    assert failed.inputs_sha256 == sha256_hex(b"nobody@example.com")
+    assert failed.inputs_sha256 == unknown_email_digest("nobody@example.com", SECRET)
+    assert failed.inputs_sha256 == NOBODY_DIGEST
+    assert failed.inputs_sha256 != sha256_hex(b"nobody@example.com")
     assert "nobody" not in str([entry.to_dict() for entry in await ledger(org)])
+
+
+def test_the_unknown_email_digest_is_a_keyed_hash_of_the_normalised_address() -> None:
+    digest = unknown_email_digest("nobody@example.com", SECRET)
+    assert digest == NOBODY_DIGEST
+    assert digest == unknown_email_digest("nobody@example.com", SECRET)
+    assert digest != unknown_email_digest("nobody@example.com", "t" * 40)
+    assert digest != unknown_email_digest("somebody@example.com", SECRET)
+    assert digest == unknown_email_digest("  Nobody@Example.COM\n", SECRET)
+    assert digest != sha256_hex(b"nobody@example.com")
 
 
 async def test_failures_and_the_lockout_are_recorded(
