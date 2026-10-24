@@ -3,6 +3,7 @@
 No database here either: an auditor's verifier needs only these functions and the public key.
 """
 
+import errno
 import os
 import re
 from dataclasses import dataclass
@@ -135,7 +136,7 @@ def write_key_pair(private_key: Ed25519PrivateKey, path: Path) -> Path:
     public = public_key_path(path)
     for target in (path, public):
         if os.path.lexists(target):
-            raise FileExistsError(f"{target} already exists")
+            raise FileExistsError(errno.EEXIST, "already exists", str(target))
     path.parent.mkdir(parents=True, exist_ok=True)
     pem = private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
     public_pem = private_key.public_key().public_bytes(
