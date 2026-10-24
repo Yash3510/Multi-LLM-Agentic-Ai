@@ -226,3 +226,44 @@ def test_unusable_checkpoints_are_reported_and_left_out() -> None:
     result = verify_chain(entries, ORG, public_key=PUBLIC, checkpoints=[good, zero, odd])
     assert [p.kind for p in result.problems] == ["bad_checkpoint", "bad_checkpoint"]
     assert result.anchored_seq == 3
+
+
+def real_entry(entries: list[Entry]) -> Entry:
+    last = entries[-1]
+    return make_entry(
+        seq=last.seq + 1,
+        at=last.at,
+        org=ORG,
+        type=EntryType.SIGNIN_SUCCESS,
+        actor="system",
+        prev=last.hash,
+    )
+
+
+def test_the_checkpoint_entry_that_signs_the_anchor_leaves_nothing_uncovered() -> None:
+    base = chain(4)
+    entries = [*base, checkpoint_entry(base)]
+    result = verify_chain(entries, ORG, public_key=PUBLIC, checkpoints=[signed_head(base)])
+    assert result.complete and result.anchored_seq == 4 and result.uncovered_entries == 0
+
+
+def test_a_chain_anchored_at_its_head_has_nothing_uncovered() -> None:
+    entries = chain(4)
+    result = verify_chain(entries, ORG, public_key=PUBLIC, checkpoints=[signed_head(entries)])
+    assert result.anchored_seq == 4 and result.uncovered_entries == 0
+
+
+def test_entries_after_the_anchor_are_counted_but_its_checkpoint_entry_is_not() -> None:
+    base = chain(4)
+    signing = [*base, checkpoint_entry(base)]
+    entries = [*signing, real_entry(signing)]
+    entries = [*entries, real_entry(entries)]
+    result = verify_chain(entries, ORG, public_key=PUBLIC, checkpoints=[signed_head(base)])
+    assert result.complete and result.anchored_seq == 4 and result.uncovered_entries == 2
+
+
+def test_a_checkpoint_entry_signed_by_another_key_is_not_cover() -> None:
+    base = chain(4)
+    entries = [*base, checkpoint_entry(base, signer=Ed25519PrivateKey.generate())]
+    result = verify_chain(entries, ORG, public_key=PUBLIC, checkpoints=[signed_head(base)])
+    assert kinds(result) == {"bad_checkpoint"} and result.uncovered_entries == 1
