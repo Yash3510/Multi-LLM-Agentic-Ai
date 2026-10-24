@@ -7,6 +7,7 @@ dependencies = [
     "argon2-cffi>=25.1.0",
     "fource-common",
     "fource-db",
+    "fource-ledger",
     "pyjwt[crypto]>=2.15.1",
 ]
 
@@ -20,3 +21,4 @@ module-name = "fource.identity"
 [tool.uv.sources]
 fource-common = { workspace = true }
 fource-db = { workspace = true }
+fource-ledger = { workspace = true }

@@ -32,6 +32,7 @@ from fource.identity import (
     sign_out,
     verify_password,
 )
+from fource.ledger import Entry, EntryType, read_entries, sha256_hex, verify_ledger
 
 pytestmark = pytest.mark.anyio
 SECRET = "s" * 40
@@ -324,3 +325,101 @@ async def test_unknown_roles_are_refused(org: tuple[Database, uuid.UUID]) -> Non
     async with database.org_session(org_id) as session:
         with pytest.raises(ValueError):
             await create_user(session, email="b@example.com", password=PASSWORD, roles=["Boss"])
+
+
+async def ledger(org: tuple[Database, uuid.UUID]) -> list[Entry]:
+    database, org_id = org
+    async with database.org_session(org_id) as session:
+        return [entry async for entry in read_entries(session)]
+
+
+async def test_creating_a_user_is_recorded(org: tuple[Database, uuid.UUID]) -> None:
+    (created,) = await ledger(org)  # the fixture's user
+    database, org_id = org
+    async with database.org_session(org_id) as session:
+        ada = await session.scalar(select(User).where(User.email == "ada@example.com"))
+    assert ada is not None
+    assert (created.type, created.actor) == (EntryType.USER_CREATE, "system")
+    assert created.refs == {"user": str(ada.id), "roles": "Admin"}
+
+
+async def test_signing_in_and_out_is_recorded_with_the_token(
+    org: tuple[Database, uuid.UUID],
+) -> None:
+    database, org_id = org
+    result = await attempt(org, "ada@example.com", PASSWORD)
+    async with database.org_session(org_id) as session:
+        await sign_out(session, result.token.payload)
+    _, signed_in, signed_out = await ledger(org)
+    refs = {"user": str(result.user.id), "token": str(result.token.payload.token_id)}
+    assert (signed_in.type, signed_in.actor) == (EntryType.SIGNIN_SUCCESS, f"user:{result.user.id}")
+    assert (signed_out.type, signed_out.refs) == (EntryType.SIGNOUT, refs)
+    assert signed_in.refs == refs
+
+
+async def test_an_unknown_email_is_recorded_only_as_its_hash(
+    org: tuple[Database, uuid.UUID],
+) -> None:
+    with pytest.raises(InvalidCredentials):
+        await attempt(org, " Nobody@Example.com", PASSWORD)
+    failed = (await ledger(org))[-1]
+    assert (failed.type, failed.actor, failed.refs) == (
+        EntryType.SIGNIN_FAILURE,
+        "anonymous",
+        {"reason": "unknown_email"},
+    )
+    assert failed.inputs_sha256 == sha256_hex(b"nobody@example.com")
+    assert "nobody" not in str([entry.to_dict() for entry in await ledger(org)])
+
+
+async def test_failures_and_the_lockout_are_recorded(
+    org: tuple[Database, uuid.UUID], clock: list[datetime]
+) -> None:
+    for _ in range(MAX_FAILED_SIGNINS):
+        with pytest.raises(InvalidCredentials):
+            await attempt(org, "ada@example.com", "wrong horse battery")
+    with pytest.raises(AccountLocked):
+        await attempt(org, "ada@example.com", PASSWORD)
+    entries = (await ledger(org))[1:]
+    assert [(e.type, e.refs.get("reason")) for e in entries] == [
+        *[(EntryType.SIGNIN_FAILURE, "wrong_password")] * MAX_FAILED_SIGNINS,
+        (EntryType.LOCKOUT, None),
+        (EntryType.SIGNIN_FAILURE, "locked"),
+    ]
+    assert entries[MAX_FAILED_SIGNINS].refs["until"] == "2026-10-12T09:15:00.000Z"
+
+
+async def test_a_sign_out_that_loses_the_race_records_nothing(
+    org: tuple[Database, uuid.UUID], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database, org_id = org
+    payload = (await attempt(org, "ada@example.com", PASSWORD)).token.payload
+    async with database.org_session(org_id) as session:
+        await sign_out(session, payload)
+
+    async def not_yet_visible(session: AsyncSession, token_id: uuid.UUID) -> bool:
+        return False
+
+    monkeypatch.setattr("fource.identity.service._is_revoked", not_yet_visible)
+    async with database.org_session(org_id) as session:
+        await sign_out(session, payload)
+    types = [entry.type for entry in await ledger(org)]
+    assert types.count(EntryType.SIGNOUT) == 1
+
+
+async def test_a_failed_action_leaves_no_entry(org: tuple[Database, uuid.UUID]) -> None:
+    database, org_id = org
+    with pytest.raises(LookupError):
+        async with database.org_session(org_id) as session:
+            await create_user(session, email="grace@example.com", password=PASSWORD, roles=[])
+            raise LookupError("something after the user was added failed")
+    assert len(await ledger(org)) == 1
+
+
+async def test_the_identity_entries_form_a_valid_chain(org: tuple[Database, uuid.UUID]) -> None:
+    with pytest.raises(InvalidCredentials):
+        await attempt(org, "ada@example.com", "wrong horse battery")
+    await attempt(org, "ada@example.com", PASSWORD)
+    database, org_id = org
+    async with database.org_session(org_id) as session:
+        assert (await verify_ledger(session)).complete

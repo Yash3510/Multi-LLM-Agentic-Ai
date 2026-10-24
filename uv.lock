@@ -369,6 +369,7 @@ dependencies = [
     { name = "argon2-cffi" },
     { name = "fource-common" },
     { name = "fource-db" },
+    { name = "fource-ledger" },
     { name = "pyjwt", extra = ["crypto"] },
 ]
 
@@ -377,6 +378,7 @@ requires-dist = [
     { name = "argon2-cffi", specifier = ">=25.1.0" },
     { name = "fource-common", editable = "core/common" },
     { name = "fource-db", editable = "core/db" },
+    { name = "fource-ledger", editable = "core/ledger" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.15.1" },
 ]
 
