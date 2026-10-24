@@ -177,14 +177,18 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | --- | --- |
 | `just setup` | Install Python through uv, sync every package from the lockfile (failing if it is out of date), and install pre-commit and its git hooks |
 | `just sync` | Start of every session: fast-forward `4ce-core` from GitHub and list the docs pages changed since your last sync. It never overwrites local commits. |
-| `just test` | Unit tests |
+| `just test` | Every test except the PostgreSQL-only ones |
+| `just test-postgres` | The PostgreSQL-only tests; run `just services` first |
 | `just lint` | Formatting, lint and types |
 | `just repo-check` | The repo check |
 | `just imports` | The package-boundary contracts |
 | `just neutrality` | The neutrality check |
 | `just licences` | The SBOM, licence gate and import scan |
 | `just secrets` | gitleaks over the branch's whole history |
-| `just dev` | Start the bundled services on localhost and wait until they are healthy |
+| `just dev` | Bring the database up to date and run the server with live reload (SQLite unless `.env` says PostgreSQL) |
+| `just migrate` | Bring the database schema up to date |
+| `just create-user <email> --role <role>` | Add a user; asks for the password |
+| `just services` | Start the bundled services on localhost and wait until they are healthy |
 | `just down` | Stop the bundled services, keeping their data |
 | `just docs` | The docs check; add `--base origin/4ce-core` for the PR rules |
 | `just new-package <name>` | Scaffold `core/<name>/` from the package template and install it |

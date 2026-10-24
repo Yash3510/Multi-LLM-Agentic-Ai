@@ -16,9 +16,10 @@ git clone --branch 4ce-core https://github.com/Yash3510/Multi-LLM-Agentic-Ai.git
 cd 4ce
 just setup
 just check
+just dev
 ```
 
-`just setup` installs Python 3.12, syncs every package and installs the git hooks. `just check` runs every check CI runs. `just` on its own lists every command.
+`just setup` installs Python 3.12, syncs every package and installs the git hooks. `just check` runs every check CI runs. `just dev` runs the server on http://127.0.0.1:8000; `just create-user you@example.com --role Admin` adds the first user. `just` on its own lists every command.
 
 ## Where things live
 

@@ -18,7 +18,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 - **The repository and its checks:** the [layout and working rules](architecture/repository.md), enforced by the repo check, the neutrality check, the import contracts, the [docs check](architecture/documentation.md#the-docs-check), the [licence gate, import scan and bundle check](architecture/licences.md), gitleaks and the commit-message hook. `just sync` starts each session.
 - **[`core/common`](../core/common/README.md):** typed settings.
 - **[`core/packs`](../core/packs/README.md):** the draft Pack and Rule Pack JSON Schemas.
-- **The [bundled services](architecture/services.md):** PostgreSQL, Redis, MinIO, Prometheus and Grafana start healthy with `just dev`.
+- **The [bundled services](architecture/services.md):** PostgreSQL, Redis, MinIO, Prometheus and Grafana start healthy with `just services`.
 - **[`core/db`](../core/db/README.md):** the database layer on SQLite and PostgreSQL, forward-only migrations, the row-level security policies, and organisation scoping that refuses cross-organisation writes in code (ADR-0010).
 - **[`core/identity`](../core/identity/README.md):** users, argon2id passwords, signed tokens (ADR-0038), sign-in with a lockout after repeated failures, and sign-out.
 - **[`apps/server`](../apps/server/README.md):** the health, sign-in, session and sign-out endpoints, with CSRF protection and one error envelope.

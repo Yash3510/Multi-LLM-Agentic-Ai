@@ -26,11 +26,11 @@ The services 4CE talks to over the network. Each runs unmodified as its own cont
 ## Running them
 
 ```
-just dev     # build MinIO the first time, start everything, wait until healthy
-just down    # stop everything; the data volumes are kept
+just services  # build MinIO the first time, start everything, wait until healthy
+just down      # stop everything; the data volumes are kept
 ```
 
-Both read `.env` (copy [`.env.example`](../../.env.example) and replace every `change-me`); the stack refuses to start without its passwords. `just dev` publishes each service on `127.0.0.1` only: PostgreSQL 5432, Redis 6379, MinIO 9000 (console 9001), Prometheus 9090, Grafana 3000.
+Both read `.env` (copy [`.env.example`](../../.env.example) and replace every `change-me`); the stack refuses to start without its passwords. `just services` publishes each service on `127.0.0.1` only: PostgreSQL 5432, Redis 6379, MinIO 9000 (console 9001), Prometheus 9090, Grafana 3000.
 
 ## How they are set up
 

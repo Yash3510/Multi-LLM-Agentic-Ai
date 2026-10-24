@@ -19,9 +19,13 @@ setup:
 sync:
     uv run python tools/sync.py
 
-# Unit and integration tests
+# Every test except the PostgreSQL-only ones
 test:
-    uv run pytest
+    uv run pytest -m "not postgres"
+
+# The PostgreSQL-only tests; run just services first
+test-postgres:
+    uv run pytest -m postgres
 
 # Formatting, lint and types
 lint:
@@ -65,8 +69,21 @@ licences:
     uv run python tools/import_scan.py build/sbom/python.cdx.json
     uv run python tools/licence_gate.py --bundle
 
-# Start the bundled services on localhost and wait until they are healthy (needs .env)
+# Run the server with live reload, after bringing the database up to date (SQLite by default)
 dev:
+    uv run fource-server migrate
+    uv run fource-server serve --reload
+
+# Bring the database schema up to date
+migrate:
+    uv run fource-server migrate
+
+# Add a user, e.g. just create-user you@example.com --role Admin (asks for a password)
+create-user *args:
+    uv run fource-server create-user {{args}}
+
+# Start the bundled services on localhost and wait until they are healthy (needs .env)
+services:
     docker compose --env-file .env -f deploy/compose/core.yml -f deploy/compose/dev.yml up --detach --build --wait
 
 # Stop the bundled services; their data volumes are kept
