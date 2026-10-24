@@ -21,6 +21,7 @@ Numbers 0009 to 0034 are reserved by the master plan (§15) for the decisions it
 | [0010](0010-modular-monolith-on-one-database.md) | A modular monolith on one database | proposed |
 | [0015](0015-licence-allowlist-and-sbom-gate.md)     | Licence allowlist and SBOM gate                       | proposed        |
 | [0018](0018-sector-neutral-core.md)                 | A sector-neutral core; industries as packs            | proposed        |
+| [0014](0014-ledger-with-signed-checkpoints.md) | Ledger with signed checkpoints | proposed |
 | [0023](0023-third-party-services.md)                | Third-party services: unmodified, separate, with source | proposed      |
 | [0029](0029-repository-layout-and-working-rules.md) | Repository layout and working rules                   | proposed        |
 | [0031](0031-documentation-knowledge-base.md)        | Documentation as the project's knowledge base         | proposed        |
@@ -29,3 +30,4 @@ Numbers 0009 to 0034 are reserved by the master plan (§15) for the decisions it
 | [0036](0036-mpl-build-tools-and-licence-mapping.md) | MPL-2.0 build and test tools, and the licence mapping | proposed        |
 | [0037](0037-licence-approvals-for-the-backend-stack.md) | Licence approvals for the backend stack | proposed |
 | [0038](0038-signed-tokens-for-sign-in.md) | Signed tokens for sign-in | proposed |
+| [0039](0039-every-action-writes-a-ledger-entry.md) | Every action writes a ledger entry | proposed |
