@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import cast
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -122,3 +123,29 @@ def test_a_password_protected_key_is_a_value_error(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError):
         load_private_key(path)
+
+
+def test_a_failed_write_leaves_no_key_file_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def full_disk(*args: object, **kwargs: object) -> object:
+        raise OSError("no space left on device")
+
+    path = tmp_path / "signing-key.pem"
+    monkeypatch.setattr(os, "fdopen", full_disk)
+    with pytest.raises(OSError):
+        write_key_pair(Ed25519PrivateKey.generate(), path)
+    assert not path.exists() and not public_key_path(path).exists()
+
+
+def test_a_checkpoint_built_with_a_non_text_signature_is_simply_invalid() -> None:
+    key = Ed25519PrivateKey.generate()
+    odd = Checkpoint(
+        org=ORG,
+        seq=7,
+        hash="a" * 64,
+        at=AT,
+        key=key_id(key.public_key()),
+        signature=cast("str", 123),
+    )
+    assert not is_signed_by(odd, key.public_key())
