@@ -139,9 +139,12 @@ async def checkpoint(session: AsyncSession, private_key: Ed25519PrivateKey) -> C
 
     The returned checkpoint is the copy to keep outside the database (ADR-0014)."""
     org_id = org_of(session)
-    seq, prev = await _reserve(session, org_id)
-    if seq == 1:
+    # A ledger only goes from empty to not empty, so this unlocked look is safe, and it writes
+    # nothing: a caller that catches EmptyLedger and commits must not leave a head behind.
+    last = await session.scalar(select(LedgerHead.seq).where(LedgerHead.org_id == org_id))
+    if not last:
         raise EmptyLedger("The ledger has no entries to checkpoint yet.")
+    seq, prev = await _reserve(session, org_id)
     moment = to_millis(now())
     signed = sign_checkpoint(
         private_key, org=str(org_id), seq=seq - 1, hash=prev, at=format_time(moment)
@@ -183,7 +186,9 @@ def _entry(row: LedgerEntry) -> Entry:
 
 async def read_entries(session: AsyncSession) -> AsyncIterator[Entry]:
     """The session's organisation's entries in seq order, streamed."""
-    rows = await session.stream_scalars(select(LedgerEntry).order_by(LedgerEntry.seq))
+    rows = await session.stream_scalars(
+        select(LedgerEntry).where(LedgerEntry.org_id == org_of(session)).order_by(LedgerEntry.seq)
+    )
     async for row in rows:
         yield _entry(row)
 
