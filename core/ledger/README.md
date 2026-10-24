@@ -21,7 +21,7 @@ The evidence ledger (master plan §7.16): one insert-only, hash-chained list of 
 | `LedgerEntry`, `LedgerHead` | The `ledger_entries` table (insert-only, one chain per organisation) and `ledger_heads`, the row writers lock to take the next number (not evidence; the verifier never reads it) |
 | `append(session, entry_type, actor=, refs=, inputs_sha256=, outputs_sha256=, run_id=, case_id=)` | Adds the next entry of the session's organisation in the session's transaction: committed with the action it records, or not at all. Concurrent writers queue on the head row, so numbers are never shared or skipped |
 | `checkpoint(session, private_key)` | Signs the head and records the signature as the next entry (type `checkpoint`); returns the checkpoint to keep outside the database. `EmptyLedger` when there is nothing to sign |
-| `read_entries(session)`, `verify_ledger(session, public_key=, checkpoints=)` | The organisation's entries in order, streamed; and the verifier run over them |
+| `read_entries(session)`, `verify_ledger(session, public_key=, checkpoints=)` | The organisation's entries in order, streamed, with whatever the cells hold so that tampering is reported rather than raised (`UnreadableEntry` if the database can't return a row at all); and the verifier run over them |
 
 ## Tests
 

@@ -25,7 +25,7 @@ from fource.ledger.checkpoints import (
     sign_checkpoint,
     write_key_pair,
 )
-from fource.ledger.errors import EmptyLedger
+from fource.ledger.errors import EmptyLedger, UnreadableEntry
 from fource.ledger.models import LedgerEntry, LedgerHead
 from fource.ledger.store import append, checkpoint, read_entries, verify_ledger
 from fource.ledger.verify import ChainVerifier, Problem, Verification, verify_chain
@@ -42,6 +42,7 @@ __all__ = [
     "LedgerEntry",
     "LedgerHead",
     "Problem",
+    "UnreadableEntry",
     "Verification",
     "append",
     "canonical",

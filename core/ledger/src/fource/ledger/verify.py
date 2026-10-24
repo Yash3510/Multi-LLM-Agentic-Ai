@@ -20,6 +20,7 @@ WRONG_ORG = "wrong_org"
 BAD_CHECKPOINT = "bad_checkpoint"
 CHECKPOINT_MISMATCH = "checkpoint_mismatch"
 TRUNCATED = "truncated"
+UNREADABLE = "unreadable"
 
 
 @dataclass(frozen=True)
@@ -172,6 +173,14 @@ class ChainVerifier:
         )
         if not self._signature_ok(signed):
             self._problem(seq, BAD_CHECKPOINT, "its signature is wrong")
+
+    def unreadable(self, seq: int) -> None:
+        """The database could not return the entries from `seq` on, so none were checked."""
+        self._problem(
+            seq,
+            UNREADABLE,
+            "the database could not return it or the entries after it, so they were not checked",
+        )
 
     def finish(self) -> Verification:
         for seq in sorted(self._outside):

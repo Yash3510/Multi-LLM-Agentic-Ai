@@ -3,12 +3,15 @@
 import uuid
 from collections.abc import AsyncIterator, Mapping
 from datetime import datetime
+from typing import Any, cast
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
-from sqlalchemy import select, update
+from sqlalchemy import Dialect, select, type_coerce, update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.types import TypeDecorator, TypeEngine
 
 from fource.common import new_id, now
 from fource.db import org_of
@@ -22,7 +25,7 @@ from fource.ledger.chain import (
     to_millis,
 )
 from fource.ledger.checkpoints import Checkpoint, sign_checkpoint
-from fource.ledger.errors import EmptyLedger
+from fource.ledger.errors import EmptyLedger, UnreadableEntry
 from fource.ledger.models import LedgerEntry, LedgerHead
 from fource.ledger.verify import ChainVerifier, Verification
 
@@ -167,30 +170,89 @@ async def checkpoint(session: AsyncSession, private_key: Ed25519PrivateKey) -> C
     return signed
 
 
-def _entry(row: LedgerEntry) -> Entry:
+class _Tolerant(TypeDecorator[Any]):
+    """Reads a cell as `inner` would, but hands back what is stored when that can't be done.
+
+    SQLite keeps whatever it is given, so a tampered cell can be text where a number or a
+    UUID belongs. The verifier must see that as an altered entry, not fail on it."""
+
+    impl = TypeEngine
+    cache_ok = True
+
+    def __init__(self, inner: TypeEngine[Any]) -> None:
+        super().__init__()
+        self.inner = inner
+
+    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[Any]:
+        return self.inner.dialect_impl(dialect)
+
+    def result_processor(self, dialect: Dialect, coltype: object) -> Any:
+        process = self.inner.dialect_impl(dialect).result_processor(dialect, coltype)
+        if process is None:
+            return None
+
+        def read(value: object) -> object:
+            try:
+                return process(value)
+            except Exception:  # an unparseable cell: what is stored is the answer
+                return value
+
+        return read
+
+
+_COLUMNS = [
+    type_coerce(column, _Tolerant(column.type)).label(column.name)
+    for column in LedgerEntry.__table__.columns
+    if column.name not in {"id", "org_id", "created_at"}
+]
+# The marker's name can't be a ref name (they start with a lower-case letter), so an entry
+# whose refs weren't an object never hashes as one that was.
+_NOT_AN_OBJECT = "!refs"
+
+
+def _entry(row: Any, org: str) -> Entry:
+    """An entry as stored. The cells are not trusted: they come back as they are, and it is the
+    hash check that reports them."""
+    refs: object = row.refs
     return Entry(
         seq=row.seq,
-        at=format_time(row.at),
-        org=str(row.org_id),
+        at=format_time(row.at) if isinstance(row.at, datetime) else str(row.at),
+        org=org,
         run=None if row.run_id is None else str(row.run_id),
         case=None if row.case_id is None else str(row.case_id),
         type=row.type,
         actor=row.actor,
         inputs_sha256=row.inputs_sha256,
         outputs_sha256=row.outputs_sha256,
-        refs=dict(row.refs),
+        refs=dict(cast("dict[str, str]", refs))
+        if isinstance(refs, dict)
+        else {_NOT_AN_OBJECT: repr(refs)},
         prev=row.prev,
         hash=row.hash,
     )
 
 
 async def read_entries(session: AsyncSession) -> AsyncIterator[Entry]:
-    """The session's organisation's entries in seq order, streamed."""
-    rows = await session.stream_scalars(
-        select(LedgerEntry).where(LedgerEntry.org_id == org_of(session)).order_by(LedgerEntry.seq)
+    """The session's organisation's entries in seq order, streamed.
+
+    Reads whatever the rows hold, so that verifying reports a tampered entry instead of failing
+    on it. Raises UnreadableEntry if the database can't return a row at all."""
+    org_id = org_of(session)
+    rows = await session.stream(
+        select(*_COLUMNS).where(LedgerEntry.org_id == org_id).order_by(LedgerEntry.seq)
     )
-    async for row in rows:
-        yield _entry(row)
+    last = 0
+    while True:
+        try:
+            row = await anext(aiter(rows), None)
+        except DBAPIError as error:
+            raise UnreadableEntry(last + 1) from error
+        if row is None:
+            return
+        seq: object = row.seq
+        if isinstance(seq, int):
+            last = seq
+        yield _entry(row, str(org_id))
 
 
 async def verify_ledger(
@@ -202,6 +264,9 @@ async def verify_ledger(
     verifier = ChainVerifier(
         str(org_of(session)), public_key=public_key, checkpoints=checkpoints or []
     )
-    async for entry in read_entries(session):
-        verifier.add(entry)
+    try:
+        async for entry in read_entries(session):
+            verifier.add(entry)
+    except UnreadableEntry as error:
+        verifier.unreadable(error.seq)
     return verifier.finish()
