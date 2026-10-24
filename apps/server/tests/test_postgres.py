@@ -74,6 +74,8 @@ def test_migrations_go_up_down_and_up_again_on_postgres(postgres: tuple[str, str
     upgrade(owner)
     downgrade(owner, "base")
     upgrade(owner)
+    with connect(owner) as connection:
+        assert connection.execute(text("SELECT to_regclass('public.users')")).scalar() is not None
 
 
 async def test_the_app_role_sees_nothing_without_an_organisation(
