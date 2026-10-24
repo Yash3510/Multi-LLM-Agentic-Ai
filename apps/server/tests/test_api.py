@@ -281,7 +281,9 @@ async def test_a_non_ascii_csrf_header_is_refused_not_a_crash(client: httpx.Asyn
 
 
 @pytest.mark.parametrize(
-    "token", [b"", b"x", b"a.b.c", b"caf\xe9", b"\xff.\xfe.\xfd", b"x" * 100_000]
+    "token",
+    [b"", b"x", b"a.b.c", b"caf\xe9", b"\xff.\xfe.\xfd", b"x" * 100_000],
+    ids=["empty", "one-char", "three-parts", "non-ascii", "invalid-utf8", "100k"],
 )
 async def test_a_garbage_bearer_token_is_not_authenticated(
     client: httpx.AsyncClient, token: bytes
