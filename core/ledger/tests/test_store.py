@@ -4,10 +4,12 @@ import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fource.common import set_clock
 from fource.db import Base, Database, Org
@@ -239,3 +241,38 @@ async def test_a_row_the_driver_cannot_decode_is_reported_with_where_checking_st
     assert not result.ok
     # Rows arrive in batches, so the bad row spoils its batch: checking stops after entry 0.
     assert [(problem.seq, problem.kind) for problem in result.problems] == [(1, "unreadable")]
+
+
+class _FailsAfterOneRow:
+    """A row stream whose second fetch raises `error`, as a driver does when it decodes a
+    JSON cell while fetching (PostgreSQL), before any column processing can tolerate it."""
+
+    def __init__(self, rows: Any, error: Exception) -> None:
+        self.rows, self.error, self.fetched = rows.__aiter__(), error, 0
+
+    def __aiter__(self) -> "_FailsAfterOneRow":
+        return self
+
+    async def __anext__(self) -> Any:
+        if self.fetched == 1:
+            raise self.error
+        self.fetched += 1
+        return await self.rows.__anext__()
+
+
+@pytest.mark.parametrize("error", [RecursionError(), ValueError("bad"), TypeError("bad")])
+async def test_a_row_that_fails_to_decode_while_fetching_is_reported(
+    orgs: Orgs, monkeypatch: pytest.MonkeyPatch, error: Exception
+) -> None:
+    database, org_id, _ = orgs
+    await write(database, org_id, 3)
+    real_stream = AsyncSession.stream
+
+    async def stream(self: AsyncSession, *args: Any, **kwargs: Any) -> Any:
+        return _FailsAfterOneRow(await real_stream(self, *args, **kwargs), error)
+
+    monkeypatch.setattr(AsyncSession, "stream", stream)
+    async with database.org_session(org_id) as session:
+        result = await verify_ledger(session)
+    assert not result.ok
+    assert [(problem.seq, problem.kind) for problem in result.problems] == [(2, "unreadable")]
