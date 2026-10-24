@@ -1,7 +1,12 @@
+import json
+from pathlib import Path
+from typing import Any
+
 import httpx
 import pytest
 from fastapi import FastAPI
 from pydantic import SecretStr
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from fource.common import FourceError, Settings
 from fource.db import CrossOrgWrite
@@ -335,3 +340,77 @@ async def test_signing_in_before_the_database_is_set_up_says_so(settings: Settin
         response = await sign_in(client)
     await app.state.database.dispose()
     assert (response.status_code, response.json()["error"]["code"]) == (503, "setup_incomplete")
+
+
+def _schema_ref(contract: dict[str, Any], path: str, method: str, status: str) -> str:
+    response = contract["paths"][path][method]["responses"][status]
+    ref: str = response["content"]["application/json"]["schema"]["$ref"]
+    return ref
+
+
+async def test_the_contract_declares_the_error_envelope_not_fastapis_default(
+    settings: Settings,
+) -> None:
+    app = create_app(settings)
+    contract = app.openapi()
+    await app.state.database.dispose()
+    declared = {
+        ("/api/auth/signin", "post"): ["401", "422", "423", "503"],
+        ("/api/auth/session", "get"): ["401"],
+        ("/api/auth/signout", "post"): ["401", "403"],
+    }
+    for (path, method), statuses in declared.items():
+        for status in statuses:
+            assert _schema_ref(contract, path, method, status) == "#/components/schemas/ErrorOut"
+    assert "HTTPValidationError" not in json.dumps(contract)
+    error = contract["components"]["schemas"]["ErrorOut"]["properties"]["error"]
+    assert error["$ref"].endswith("/ErrorBody")
+    assert set(contract["components"]["schemas"]["ErrorBody"]["properties"]) == {"code", "message"}
+
+
+async def test_an_unknown_path_and_a_wrong_method_use_the_envelope(
+    client: httpx.AsyncClient,
+) -> None:
+    missing = await client.get("/api/nope")
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "not_found"
+    wrong = await client.post("/api/health")
+    assert wrong.status_code == 405
+    assert wrong.json()["error"]["code"] == "method_not_allowed"
+    assert wrong.headers["allow"]  # Starlette's own headers survive
+
+
+async def test_another_starlette_error_gets_a_generic_code(settings: Settings) -> None:
+    app = create_app(settings)
+
+    async def teapot() -> None:
+        raise StarletteHTTPException(status_code=418, detail="short and stout")
+
+    app.add_api_route("/api/teapot", teapot)
+    response = await get_from(app, "/api/teapot")
+    assert response.status_code == 418
+    assert response.json()["error"]["code"] == "http_error"
+
+
+async def test_signing_in_to_an_unmigrated_database_says_so(
+    tmp_path: Path, settings: Settings
+) -> None:
+    bare = f"sqlite+aiosqlite:///{(tmp_path / 'bare.db').as_posix()}"
+    app = create_app(settings.model_copy(update={"database_url": SecretStr(bare)}))
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await sign_in(client)
+    await app.state.database.dispose()
+    assert (response.status_code, response.json()["error"]["code"]) == (503, "setup_incomplete")
+
+
+async def test_a_second_sign_out_with_the_same_credentials_is_not_authenticated(
+    client: httpx.AsyncClient,
+) -> None:
+    await sign_in(client)
+    cookies = dict(client.cookies)
+    header = {"X-CSRF-Token": cookies["fource_csrf"]}
+    assert (await client.post("/api/auth/signout", headers=header)).status_code == 204
+    client.cookies.update(cookies)  # the browser that kept the old cookies
+    again = await client.post("/api/auth/signout", headers=header)
+    assert (again.status_code, again.json()["error"]["code"]) == (401, "not_authenticated")
