@@ -11,6 +11,7 @@ members = [
     "fource-common",
     "fource-db",
     "fource-identity",
+    "fource-ledger",
     "fource-packs",
     "fource-server",
     "fource-workspace",
@@ -377,6 +378,25 @@ requires-dist = [
     { name = "fource-common", editable = "core/common" },
     { name = "fource-db", editable = "core/db" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.15.1" },
+]
+
+[[package]]
+name = "fource-ledger"
+version = "0.1.0"
+source = { editable = "core/ledger" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "fource-common" },
+    { name = "fource-db" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cryptography", specifier = ">=50.0.2" },
+    { name = "fource-common", editable = "core/common" },
+    { name = "fource-db", editable = "core/db" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.4" },
 ]
 
 [[package]]

@@ -79,10 +79,16 @@ allowed_importers = ["fource.db"]
 [[tool.importlinter.contracts]]
 name = "The server sits above the core packages; core never imports it"
 type = "layers"
-layers = ["fource.server", "fource.identity", "fource.db", "fource.common"]
+layers = ["fource.server", "fource.identity", "fource.ledger", "fource.db", "fource.common"]
 
 [[tool.importlinter.contracts]]
 name = "Only the public API of fource.identity is imported from outside it"
 type = "protected"
 protected_modules = ["fource.identity.*"]
 allowed_importers = ["fource.identity"]
+
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.ledger is imported from outside it"
+type = "protected"
+protected_modules = ["fource.ledger.*"]
+allowed_importers = ["fource.ledger"]
