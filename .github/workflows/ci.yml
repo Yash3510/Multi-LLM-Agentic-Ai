@@ -32,6 +32,35 @@ jobs:
       - run: just setup
       - run: just check
 
+  postgres:
+    name: PostgreSQL tests
+    if: github.event_name == 'push' || contains(fromJSON('["opened", "synchronize", "reopened"]'), github.event.action)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_USER: fource
+          POSTGRES_PASSWORD: ci-owner-password
+          POSTGRES_DB: fource
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fource -d fource"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      # Throwaway values for a database that lives for one job.
+      FOURCE_POSTGRES_PASSWORD: ci-owner-password
+      FOURCE_POSTGRES_APP_PASSWORD: ci-app-password
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.13.0"
+          enable-cache: true
+      - run: uv tool install rust-just==1.58.0
+      - run: uv sync --all-packages --locked
+      - run: just test-postgres
+
   pull-request:
     name: pull request rules
     if: github.event_name == 'pull_request'
