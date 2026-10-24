@@ -160,7 +160,7 @@ def _report(slug: str, result: Verification, public_path: Path) -> int:
     )
     if result.anchored_seq is not None:
         print(f"A signed checkpoint vouches for it up to entry {result.anchored_seq}.")
-        if result.anchored_seq < result.head_seq:
+        if result.uncovered_entries:
             print(
                 f"Entries after {result.anchored_seq} are not covered by any checkpoint and "
                 "cannot be shown intact; make a new checkpoint to extend the cover."
@@ -181,7 +181,13 @@ def _report(slug: str, result: Verification, public_path: Path) -> int:
     for problem in result.problems:
         print(f"  entry {problem.seq}: {problem.kind}: {problem.message}")
     if result.complete:
-        print("Verified.")
+        if result.anchored_seq is not None and result.uncovered_entries:
+            print(
+                f"Verified through entry {result.anchored_seq}; "
+                "entries after it are not covered by any checkpoint."
+            )
+        else:
+            print("Verified.")
         return VERIFIED
     print("Failed." if not result.ok else "Incomplete: nothing wrong found, but not all checked.")
     return FAILED if not result.ok else INCOMPLETE
