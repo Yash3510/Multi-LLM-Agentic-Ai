@@ -28,6 +28,12 @@ def test_migrations_go_up_down_and_up_again(tmp_path: Path) -> None:
     assert "orgs" in tables(path)
 
 
+def test_migrating_creates_the_folder_of_a_new_sqlite_file(tmp_path: Path) -> None:
+    path = tmp_path / "missing" / "fource.db"
+    upgrade(f"sqlite+aiosqlite:///{path.as_posix()}")
+    assert "orgs" in tables(path)
+
+
 def test_a_percent_sign_in_the_url_reaches_alembic_intact() -> None:
     url = "postgresql+psycopg://fource:pa%25ss@localhost:5432/fource"
     assert alembic_config(url).get_main_option("sqlalchemy.url") == url
