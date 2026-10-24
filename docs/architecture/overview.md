@@ -11,7 +11,7 @@ tags: [4ce, architecture]
 
 4CE is a self-hosted engine that turns an organisation's documents and rulebooks into decisions it can sign: grounded in its evidence, checked against its rules, approved by a named person, recorded as proof, and nothing leaves the building.
 
-This page is the map. Each subsystem gets its own canonical page as it is built. Today only the repository tooling, `core/common`, the draft specs in `core/packs` and the [bundled services](services.md) exist; everything marked _planned_ is design, not code.
+This page is the map. Each subsystem gets its own canonical page as it is built. Today the repository tooling, `core/common`, `core/db`, `core/identity`, `apps/server`, the draft specs in `core/packs` and the [bundled services](services.md) exist; everything marked _planned_ is design, not code.
 
 ## The universal loop
 
@@ -66,9 +66,11 @@ PostgreSQL, Redis, MinIO, Prometheus and Grafana run as unmodified separate serv
 | Package | Responsibility | State |
 | --- | --- | --- |
 | [`core/common`](../../core/common/README.md) | Typed settings | built |
+| [`core/db`](database.md) | Engines, sessions, organisation scoping, row-level security | built |
 | [`core/packs`](../../core/packs/README.md) | Pack spec, loader, validator, signing, registry, namespacing | draft specs built; the rest _planned_ |
+| [`apps/server`](api.md) | The API, the `fource-server` command, migrations | built |
 | `core/domain` | Subjects, cases, evidence, observations, assessments | _planned_ |
-| `core/identity` | Users, sessions, groups, roles, OIDC/SAML client | _planned_ |
+| [`core/identity`](identity.md) | Users, passwords, tokens, lockout; route guards per role next, then groups, OIDC/SAML client | built (users, passwords, tokens, lockout) |
 | `core/policy` | Policy store, evaluator, decisions, risk tiers | _planned_ |
 | `core/models` | Model gateway, adapters, registry, hardware profiles | _planned_ |
 | `core/knowledge` | Collections, ingest, PDF interface, Deep Cache, retrieval | _planned_ |

@@ -3,7 +3,7 @@ title: Frontend
 type: architecture
 status: planned
 owner: R3
-updated: 2026-10-12
+updated: 2026-10-24
 covers:
   - apps/web/
 tags: [4ce, architecture, frontend]
@@ -13,7 +13,7 @@ tags: [4ce, architecture, frontend]
 
 Everything needed to build `apps/web`, the 4CE web UI and Pack Studio, independently of the backend work. **Pranay, the frontend owner, develops it.** The backend stream builds the server and the database on `4ce-core` at the same time. The two meet at one contract: the server's OpenAPI document.
 
-Nothing here is built yet; this page is the starting point and the working agreement.
+The web UI is not built yet; the backend contract below is. This page is the starting point and the working agreement.
 
 ## What is already decided
 
@@ -51,45 +51,11 @@ apps/web/
 
 ## The backend contract
 
-**Status: being built now** (backend slice 1). Until each endpoint exists, serve it from MSW fixtures typed against the same contract (ADR-0035 §4). Once the server runs, `GET /api/openapi.json` is the source of truth, and the types are generated from it with openapi-typescript at build time.
+**Status: built (slice 1).** Until each endpoint exists, serve it from MSW fixtures typed against the same contract (ADR-0035 §4). Once the server runs, `GET /api/openapi.json` is the source of truth, and the types are generated from it with openapi-typescript at build time.
 
 **One origin.** The UI and the API are served from the same host; every API path starts with `/api`. In development, the Vite dev server proxies `/api` to the backend, so the browser still sees one origin.
 
-### Endpoints in slice 1
-
-| Method and path | Needs | Body or answer |
-| --- | --- | --- |
-| `GET /api/health` | nothing | `{"status": "ok", "database": "ok"}`; 503 when the database is down |
-| `POST /api/auth/signin` | nothing | sends `{"email", "password"}`; answers `{"user", "token", "expires_at"}` and sets two cookies |
-| `GET /api/auth/session` | signed in | `{"id", "email", "display_name", "roles", "org"}` |
-| `POST /api/auth/signout` | signed in, plus the CSRF header | ends the sign-in and clears the cookies |
-| `GET /api/openapi.json` | nothing | the full contract |
-
-### Signing in from the browser
-
-- **Ignore the `token` in the sign-in answer;** it is for scripts. The browser uses cookies.
-- **`fource_token`** is HttpOnly and SameSite=Strict. The browser sends it automatically; JavaScript never sees it.
-- **`fource_csrf`** is readable by JavaScript. Every POST, PUT, PATCH or DELETE must send its value in an `X-CSRF-Token` header, or the server answers 403 `csrf_failed`. Read it with `document.cookie`, once per request.
-- **Signing in again replaces both cookies.** Signing out revokes the token on the server.
-- **A sign-in lasts 8 hours** (the server's `FOURCE_TOKEN_TTL_MINUTES`). After that, any call answers 401 `not_authenticated`: send the person to the sign-in screen.
-
-### Errors
-
-Every error has the same shape:
-
-```json
-{ "error": { "code": "invalid_credentials", "message": "The email or password is wrong." } }
-```
-
-| Code | Status | Show the person |
-| --- | --- | --- |
-| `invalid_credentials` | 401 | the message; the email is kept, the password field cleared |
-| `account_locked` | 423 | the message (locked for 15 minutes after 5 failed attempts) |
-| `not_authenticated` | 401 | the sign-in screen |
-| `csrf_failed` | 403 | a reload prompt; it means the cookie and header disagree |
-| `validation_failed` | 422 | the message next to the form |
-
-Use `code` for logic and `message` for display. A code is never renamed; a new one may be added.
+**The contract is [api.md](api.md).** In short: sign in with `POST /api/auth/signin`; the browser keeps an HttpOnly `fource_token` cookie; send the `fource_csrf` cookie's value as `X-CSRF-Token` on every POST, PUT, PATCH or DELETE; errors are `{"error": {"code", "message"}}`.
 
 ### User roles and agent roles are different lists
 
