@@ -117,6 +117,16 @@ def test_an_existing_public_key_is_not_replaced_and_nothing_is_written(tmp_path:
     assert public_key_path(path).read_text() == "stale"
 
 
+@pytest.mark.parametrize("occupied", ["private", "public"])
+def test_the_refusal_names_the_file_that_is_in_the_way(tmp_path: Path, occupied: str) -> None:
+    path = tmp_path / "signing-key.pem"
+    taken = path if occupied == "private" else public_key_path(path)
+    taken.write_text("stale")
+    with pytest.raises(FileExistsError) as refused:
+        write_key_pair(Ed25519PrivateKey.generate(), path)
+    assert Path(refused.value.filename) == taken
+
+
 def test_a_password_protected_key_is_a_value_error(tmp_path: Path) -> None:
     path = tmp_path / "locked.pem"
     path.write_bytes(
