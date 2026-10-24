@@ -1,0 +1,161 @@
+import uuid
+from collections.abc import AsyncIterator, Generator
+from contextlib import contextmanager
+
+import httpx
+import pytest
+from pydantic import SecretStr
+from sqlalchemy import Connection, create_engine, text
+from sqlalchemy.exc import DBAPIError
+
+from fource.common import Settings, new_id, now
+from fource.db import Database
+from fource.identity import InvalidEmail, Role, create_user
+from fource.server.main import create_app
+from fource.server.migrate import downgrade, upgrade
+
+pytestmark = [pytest.mark.postgres, pytest.mark.anyio]
+SECRET = "s" * 40
+PASSWORD = "correct horse battery"
+
+
+@contextmanager
+def connect(url: str) -> Generator[Connection]:
+    engine = create_engine(url)
+    try:
+        with engine.connect() as connection:
+            yield connection
+    finally:
+        engine.dispose()
+
+
+def set_org(connection: Connection, org_id: uuid.UUID) -> None:
+    connection.execute(
+        text("SELECT set_config('fource.org_id', :org, false)"), {"org": str(org_id)}
+    )
+
+
+@pytest.fixture
+def orgs(postgres: tuple[str, str]) -> tuple[uuid.UUID, uuid.UUID]:
+    """The migrated database with a second organisation. Sync on purpose: migrations run
+    their own event loop."""
+    owner, _ = postgres
+    upgrade(owner)
+    second = new_id()
+    with connect(owner) as connection:
+        first = connection.execute(text("SELECT id FROM orgs WHERE slug = 'default'")).scalar_one()
+        connection.execute(
+            text(
+                "INSERT INTO orgs (id, slug, name, created_at)"
+                " VALUES (:id, 'second', 'Second', :at)"
+            ),
+            {"id": second, "at": now().replace(tzinfo=None)},
+        )
+        connection.commit()
+    return first, second
+
+
+@pytest.fixture
+async def users(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> tuple[uuid.UUID, uuid.UUID]:
+    """One user in each organisation, created through the app role."""
+    _, app = postgres
+    database = Database(app)
+    for org_id, email in zip(orgs, ("first@example.com", "second@example.com"), strict=True):
+        async with database.org_session(org_id) as session:
+            await create_user(session, email=email, password=PASSWORD, roles=[Role.VIEWER])
+    await database.dispose()
+    return orgs
+
+
+def test_migrations_go_up_down_and_up_again_on_postgres(postgres: tuple[str, str]) -> None:
+    owner, _ = postgres
+    upgrade(owner)
+    downgrade(owner, "base")
+    upgrade(owner)
+
+
+async def test_the_app_role_sees_nothing_without_an_organisation(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    with connect(postgres[1]) as connection:
+        assert connection.execute(text("SELECT count(*) FROM users")).scalar() == 0
+
+
+async def test_raw_sql_sees_only_the_set_organisation(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    with connect(postgres[1]) as connection:
+        set_org(connection, users[0])
+        emails = connection.execute(text("SELECT email FROM users")).scalars().all()
+    assert emails == ["first@example.com"]
+
+
+async def test_the_app_role_cannot_write_into_another_organisation(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    with connect(postgres[1]) as connection:
+        set_org(connection, users[0])
+        with pytest.raises(DBAPIError, match="row-level security"):
+            connection.execute(
+                text("UPDATE users SET org_id = :other WHERE email = 'first@example.com'"),
+                {"other": users[1]},
+            )
+
+
+async def test_the_app_role_cannot_turn_row_level_security_off(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    with connect(postgres[1]) as connection:
+        with pytest.raises(DBAPIError, match="owner"):
+            connection.execute(text("ALTER TABLE users DISABLE ROW LEVEL SECURITY"))
+
+
+@pytest.fixture
+async def pg_client(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> AsyncIterator[httpx.AsyncClient]:
+    settings = Settings(secret_key=SecretStr(SECRET), database_url=SecretStr(postgres[1]))
+    app = create_app(settings)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    await app.state.database.dispose()
+
+
+async def test_sign_in_end_to_end_on_postgres(pg_client: httpx.AsyncClient) -> None:
+    signed_in = await pg_client.post(
+        "/api/auth/signin", json={"email": "first@example.com", "password": PASSWORD}
+    )
+    assert signed_in.status_code == 200
+    assert (await pg_client.get("/api/auth/session")).json()["email"] == "first@example.com"
+
+
+async def test_five_wrong_passwords_lock_the_account_on_postgres(
+    pg_client: httpx.AsyncClient,
+) -> None:
+    for _ in range(5):
+        wrong = await pg_client.post(
+            "/api/auth/signin", json={"email": "first@example.com", "password": "wrong password!"}
+        )
+        assert wrong.status_code == 401
+    locked = await pg_client.post(
+        "/api/auth/signin", json={"email": "first@example.com", "password": PASSWORD}
+    )
+    assert (locked.status_code, locked.json()["error"]["code"]) == (423, "account_locked")
+
+
+@pytest.mark.parametrize(
+    "email", ["a\x00@example.com", "e" * 320 + "@example.com"], ids=["nul", "too-long"]
+)
+async def test_unstorable_emails_raise_the_domain_error_on_postgres(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID], email: str
+) -> None:
+    database = Database(postgres[1])
+    try:
+        async with database.org_session(orgs[0]) as session:
+            with pytest.raises(InvalidEmail):
+                await create_user(session, email=email, password=PASSWORD, roles=[])
+    finally:
+        await database.dispose()
