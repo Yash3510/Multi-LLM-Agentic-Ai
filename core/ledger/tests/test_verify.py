@@ -181,3 +181,48 @@ def test_malformed_entries_are_problems_and_never_crash() -> None:
         bad = replace(good[1], **change)
         result = verify_chain([good[0], bad, good[2], good[3]], ORG, public_key=PUBLIC)
         assert not result.ok, change
+
+
+def test_a_checkpoint_entry_with_untextual_fields_is_a_bad_checkpoint() -> None:
+    good = chain(3)
+    nested: list[object] = []
+    for _ in range(100_000):
+        nested = [nested]
+    refs = {"seq": "1", "hash": good[1].prev, "key": signed_head(good).key, "signature": "00"}
+    bad = replace(good[1], type=EntryType.CHECKPOINT, at=nested, refs=refs)
+    result = verify_chain([good[0], bad, good[2]], ORG, public_key=PUBLIC)
+    assert "bad_checkpoint" in kinds(result)
+
+
+def test_a_problem_stops_anchoring_and_anchoring_never_moves_back() -> None:
+    entries = chain(5)
+    head = signed_head(entries[:3])
+    later = signed_head(entries)
+    # a problem before the checkpointed entry: no anchor from it
+    broken = [*entries]
+    broken[0] = replace(broken[0], actor="anonymous")
+    result = verify_chain(broken, ORG, public_key=PUBLIC, checkpoints=[head, later])
+    assert result.anchored_seq is None
+    # a duplicated tail entry doesn't pull the anchor back
+    dup = [*entries, entries[2]]
+    result = verify_chain(dup, ORG, public_key=PUBLIC, checkpoints=[head, later])
+    assert result.anchored_seq == 5
+
+
+def test_a_duplicated_tail_is_not_reported_as_truncated() -> None:
+    entries = chain(5)
+    result = verify_chain(
+        [*entries, entries[2]], ORG, public_key=PUBLIC, checkpoints=[signed_head(entries)]
+    )
+    assert "truncated" not in kinds(result)
+    assert result.head_seq == 5
+
+
+def test_unusable_checkpoints_are_reported_and_left_out() -> None:
+    entries = chain(3)
+    good = signed_head(entries)
+    zero = sign_checkpoint(KEY, org=ORG, seq=0, hash=GENESIS, at=entries[0].at)
+    odd = replace(good, **{"seq": "3"})
+    result = verify_chain(entries, ORG, public_key=PUBLIC, checkpoints=[good, zero, odd])
+    assert [p.kind for p in result.problems] == ["bad_checkpoint", "bad_checkpoint"]
+    assert result.anchored_seq == 3
