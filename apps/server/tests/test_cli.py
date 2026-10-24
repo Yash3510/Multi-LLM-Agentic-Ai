@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import sqlite3
 from pathlib import Path
@@ -99,3 +100,120 @@ def test_serve_passes_the_app_factory_and_the_platform_loop(
             },
         )
     ]
+
+
+def add_users(env: Path, monkeypatch: pytest.MonkeyPatch, *emails: str) -> None:
+    cli.main(["migrate"])
+    monkeypatch.setattr("getpass.getpass", lambda prompt="": PASSWORD)
+    for email in emails:
+        assert cli.main(["create-user", email, "--role", "Viewer"]) == 0
+
+
+def test_keygen_writes_a_key_pair_once(env: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["ledger", "keygen"]) == 0
+    key = env.parent / "data" / "ledger" / "signing-key.pem"
+    first = key.read_bytes()
+    assert b"PRIVATE KEY" in first and (key.parent / "signing-key.pub.pem").is_file()
+    out = capsys.readouterr().out
+    assert "PRIVATE" not in out
+    assert first.decode("ascii").splitlines()[1] not in out
+    if os.name == "posix":
+        assert key.stat().st_mode & 0o077 == 0
+    assert cli.main(["ledger", "keygen"]) == 1
+    assert key.read_bytes() == first
+
+
+def test_the_key_file_can_be_set(
+    env: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("FOURCE_LEDGER_KEY_FILE", str(tmp_path / "keys" / "ledger.pem"))
+    assert cli.main(["ledger", "keygen"]) == 0
+    assert (tmp_path / "keys" / "ledger.pem").is_file()
+    assert (tmp_path / "keys" / "ledger.pub.pem").is_file()
+
+
+def test_a_checkpoint_needs_the_key(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    assert cli.main(["ledger", "checkpoint"]) == 1
+    assert "ledger keygen" in capsys.readouterr().out
+
+
+def test_a_checkpoint_of_an_empty_ledger_is_refused(
+    env: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli.main(["migrate"])
+    cli.main(["ledger", "keygen"])
+    capsys.readouterr()
+    assert cli.main(["ledger", "checkpoint"]) == 1
+    assert "no entries" in capsys.readouterr().out
+    assert not (env.parent / "data" / "ledger" / "checkpoints").exists()
+
+
+def test_checkpoint_then_verify(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com", "grace@example.com")
+    cli.main(["ledger", "keygen"])
+    assert cli.main(["ledger", "checkpoint"]) == 0
+    saved = env.parent / "data" / "ledger" / "checkpoints" / "default-0000000002.json"
+    assert json.loads(saved.read_text(encoding="utf-8"))["seq"] == 2
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify"]) == 0
+    out = capsys.readouterr().out
+    assert "3 entries" in out and "up to entry 2" in out and "Verified." in out
+
+
+def test_verify_finds_an_edit(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com", "grace@example.com")
+    connection = sqlite3.connect(env)
+    connection.execute("DROP TRIGGER ledger_entries_no_update")  # what only the owner can do
+    connection.execute("UPDATE ledger_entries SET actor = 'anonymous' WHERE seq = 1")
+    connection.commit()
+    connection.close()
+    assert cli.main(["ledger", "verify"]) == 1
+    assert "entry 1: altered" in capsys.readouterr().out
+
+
+def test_verify_finds_a_cut_off_tail_only_with_a_checkpoint(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com", "grace@example.com")
+    cli.main(["ledger", "keygen"])
+    cli.main(["ledger", "checkpoint"])  # signs entry 2, and is entry 3
+    connection = sqlite3.connect(env)
+    connection.execute("DROP TRIGGER ledger_entries_no_delete")
+    connection.execute("DELETE FROM ledger_entries WHERE seq >= 2")
+    connection.commit()
+    connection.close()
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify"]) == 1
+    assert "entry 2: truncated" in capsys.readouterr().out
+    empty = env.parent / "no-checkpoints"
+    assert cli.main(["ledger", "verify", "--checkpoints", str(empty)]) == 0
+
+
+def test_verify_says_when_nothing_anchors_the_chain(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    cli.main(["ledger", "keygen"])
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify"]) == 0
+    out = capsys.readouterr().out
+    assert "length is not proven" in out and "off the machine" in out
+
+
+def test_verify_without_the_public_key_is_incomplete(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    cli.main(["ledger", "keygen"])
+    cli.main(["ledger", "checkpoint"])
+    (env.parent / "data" / "ledger" / "signing-key.pub.pem").unlink()
+    capsys.readouterr()
+    assert cli.main(["ledger", "verify"]) == 2
+    assert "not checked" in capsys.readouterr().out

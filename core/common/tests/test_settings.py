@@ -24,6 +24,7 @@ def test_zero_setup_defaults(env: pytest.MonkeyPatch) -> None:
     assert settings.database_admin_url is None
     assert (settings.org, settings.token_ttl_minutes, settings.offline) == ("default", 480, True)
     assert settings.redis_url is None and settings.s3_endpoint is None
+    assert settings.ledger_key_file is None
 
 
 def test_reads_prefixed_environment(env: pytest.MonkeyPatch) -> None:

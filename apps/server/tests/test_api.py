@@ -9,7 +9,7 @@ from pydantic import SecretStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from fource.common import FourceError, Settings
-from fource.db import CrossOrgWrite
+from fource.db import CrossOrgWrite, Database
 from fource.identity import (
     AccountLocked,
     EmailTaken,
@@ -19,6 +19,7 @@ from fource.identity import (
     NotAuthenticated,
     WeakPassword,
 )
+from fource.ledger import EntryType, read_entries
 from fource.server.errors import CsrfFailed, SetupIncomplete
 from fource.server.main import app_factory, create_app
 
@@ -414,3 +415,18 @@ async def test_a_second_sign_out_with_the_same_credentials_is_not_authenticated(
     client.cookies.update(cookies)  # the browser that kept the old cookies
     again = await client.post("/api/auth/signout", headers=header)
     assert (again.status_code, again.json()["error"]["code"]) == (401, "not_authenticated")
+
+
+async def test_a_failed_sign_in_through_the_api_is_recorded(
+    client: httpx.AsyncClient, settings: Settings
+) -> None:
+    assert (await sign_in(client, "wrong horse battery")).status_code == 401
+    database = Database(settings.database_url.get_secret_value())
+    try:
+        org_id = await database.org_id(settings.org)
+        assert org_id is not None
+        async with database.org_session(org_id) as session:
+            types = [entry.type async for entry in read_entries(session)]
+    finally:
+        await database.dispose()
+    assert types == [EntryType.USER_CREATE, EntryType.SIGNIN_FAILURE]
