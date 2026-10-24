@@ -502,6 +502,19 @@ def test_keygen_under_a_file_is_reported(
     assert blocker.read_text(encoding="utf-8") == "in the way"
 
 
+def test_keygen_in_a_folder_that_is_a_file_is_not_an_existing_key(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    blocker = env.parent / "afile"
+    blocker.write_text("in the way", encoding="utf-8")
+    key = blocker / "key.pem"  # the key folder is a file: creating it raises FileExistsError
+    monkeypatch.setenv("FOURCE_LEDGER_KEY_FILE", str(key))
+    assert cli.main(["ledger", "keygen"]) == 1
+    out = capsys.readouterr().out
+    assert f"Could not create the signing key at {key}:" in out and "already exists" not in out
+    assert blocker.read_text(encoding="utf-8") == "in the way"
+
+
 def test_keygen_in_an_unwritable_folder_leaves_nothing(
     env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
