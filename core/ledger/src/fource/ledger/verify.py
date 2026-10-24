@@ -33,7 +33,10 @@ class Problem:
 @dataclass(frozen=True)
 class Verification:
     """What a check found. `anchored_seq` is the last entry a valid outside checkpoint vouches
-    for: entries after it are consistent, but a cut-off tail after it can't be seen."""
+    for: entries after it are consistent, but a cut-off tail after it can't be seen.
+    `uncovered_entries` counts those entries, leaving out checkpoint entries that validly sign
+    something at or before `anchored_seq`: the newest checkpoint entry always follows the
+    entry it signs, and losing it would lose no record of any action."""
 
     org: str
     entries: int
@@ -42,6 +45,7 @@ class Verification:
     anchored_seq: int | None
     unchecked_signatures: int
     problems: tuple[Problem, ...]
+    uncovered_entries: int = 0
 
     @property
     def ok(self) -> bool:
@@ -99,6 +103,7 @@ class ChainVerifier:
         self._hash: str = GENESIS
         self._unchecked = 0
         self._anchored: int | None = None
+        self._uncovered = 0
         self._outside: dict[int, list[Checkpoint]] = {}
         for checkpoint in checkpoints:
             if not _is_seq(checkpoint.seq):
@@ -140,29 +145,34 @@ class ChainVerifier:
             self._problem(seq, BROKEN_LINK, "doesn't link to the entry before it")
         if not _hash_matches(entry):
             self._problem(seq, ALTERED, "its contents don't match its hash")
+        signs_earlier = False
         if entry.type == EntryType.CHECKPOINT:
-            self._check_entry_checkpoint(entry, seq)
+            signs_earlier = self._check_entry_checkpoint(entry, seq)
         for outside in self._outside.get(seq, ()):
             if outside.hash != entry.hash:
                 self._problem(seq, CHECKPOINT_MISMATCH, "differs from what a checkpoint signed")
             elif self._key is not None and len(self._problems) == self._setup_problems:
                 self._anchored = max(self._anchored or 0, seq)
+                self._uncovered = 0
+        if self._anchored is None or seq > self._anchored:
+            covered = signs_earlier and self._anchored is not None and seq - 1 <= self._anchored
+            self._uncovered += 0 if covered else 1
         # Carry on from what this entry says, so one bad entry is reported once, not again
         # for every entry after it.
         self._seq = seq
         self._top = max(self._top, seq)
         self._hash = _text(entry.hash)
 
-    def _check_entry_checkpoint(self, entry: Entry, seq: int) -> None:
+    def _check_entry_checkpoint(self, entry: Entry, seq: int) -> bool:
         """A checkpoint entry signs the entry before it: its refs must say so, and the
-        signature must be the installation key's."""
+        signature must be the installation key's. True if it does, with the key present."""
         refs = _mapping(entry.refs)
         if refs is None:
             self._problem(seq, BAD_CHECKPOINT, "doesn't sign the entry before it")
-            return
+            return False
         if refs.get("seq") != str(seq - 1) or refs.get("hash") != entry.prev:
             self._problem(seq, BAD_CHECKPOINT, "doesn't sign the entry before it")
-            return
+            return False
         signed = Checkpoint(
             org=_text(entry.org),
             seq=seq - 1,
@@ -173,6 +183,8 @@ class ChainVerifier:
         )
         if not self._signature_ok(signed):
             self._problem(seq, BAD_CHECKPOINT, "its signature is wrong")
+            return False
+        return self._key is not None
 
     def unreadable(self, seq: int) -> None:
         """The database could not return the entries from `seq` on, so none were checked."""
@@ -196,6 +208,7 @@ class ChainVerifier:
             anchored_seq=self._anchored,
             unchecked_signatures=self._unchecked,
             problems=tuple(self._problems),
+            uncovered_entries=self._uncovered,
         )
 
 
