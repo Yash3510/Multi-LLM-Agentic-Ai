@@ -1,4 +1,5 @@
 import asyncio
+import sqlite3
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
@@ -160,3 +161,81 @@ async def test_a_refused_checkpoint_leaves_no_head_behind(orgs: Orgs) -> None:
     assert [entry.seq for entry in stored] == [1]
     async with database.org_session(org_id) as session:
         assert (await verify_ledger(session)).ok
+
+
+def tamper(database: Database, column: str, expression: str, *values: object, seq: int = 2) -> None:
+    """What only the database owner can do: the triggers go, then a cell is set to anything."""
+    path = database.engine.url.database
+    assert path is not None
+    connection = sqlite3.connect(path)
+    connection.execute("DROP TRIGGER IF EXISTS ledger_entries_no_update")
+    connection.execute(f"UPDATE ledger_entries SET {column} = {expression} WHERE seq = {seq}")
+    connection.commit()
+    connection.close()
+
+
+HOSTILE_CELLS = [
+    ("refs", "'[1,2,3]'"),
+    ("refs", "'123'"),
+    ("refs", "'null'"),
+    ("refs", "'\"text\"'"),
+    ("refs", "'[]'"),
+    ("refs", '\'[["n", "x"]]\''),
+    ("refs", "'{\"n\": 5}'"),
+    ("refs", "'{not json'"),
+    ("seq", "'two'"),
+    ("seq", "2.5"),
+    ("at", "'yesterday'"),
+    ("at", "7"),
+    ("run_id", "'not a uuid'"),
+    ("case_id", "'not a uuid'"),
+    ("type", "7"),
+    ("actor", "7"),
+    ("inputs_sha256", "7"),
+    ("outputs_sha256", "X'ff'"),
+    ("prev", "7"),
+    ("hash", "7"),
+    ("hash", "X'ff'"),
+]
+
+
+@pytest.mark.parametrize(("column", "expression"), HOSTILE_CELLS)
+async def test_a_hostile_cell_is_reported_not_raised(
+    orgs: Orgs, column: str, expression: str
+) -> None:
+    database, org_id, _ = orgs
+    await write(database, org_id, 3)
+    tamper(database, column, expression)
+    async with database.org_session(org_id) as session:
+        result = await verify_ledger(session)
+    assert not result.ok and result.entries == 3
+
+
+async def test_a_deeply_nested_refs_cell_is_reported_not_raised(orgs: Orgs) -> None:
+    database, org_id, _ = orgs
+    await write(database, org_id, 3)
+    path = database.engine.url.database
+    assert path is not None
+    connection = sqlite3.connect(path)
+    connection.execute("DROP TRIGGER IF EXISTS ledger_entries_no_update")
+    connection.execute(
+        "UPDATE ledger_entries SET refs = ? WHERE seq = 2", ("[" * 100000 + "]" * 100000,)
+    )
+    connection.commit()
+    connection.close()
+    async with database.org_session(org_id) as session:
+        result = await verify_ledger(session)
+    assert not result.ok and 2 in {problem.seq for problem in result.problems}
+
+
+async def test_a_row_the_driver_cannot_decode_is_reported_with_where_checking_stopped(
+    orgs: Orgs,
+) -> None:
+    database, org_id, _ = orgs
+    await write(database, org_id, 3)
+    tamper(database, "actor", "CAST(X'ff' AS TEXT)")
+    async with database.org_session(org_id) as session:
+        result = await verify_ledger(session)
+    assert not result.ok
+    # Rows arrive in batches, so the bad row spoils its batch: checking stops after entry 0.
+    assert [(problem.seq, problem.kind) for problem in result.problems] == [(1, "unreadable")]
