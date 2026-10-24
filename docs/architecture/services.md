@@ -3,7 +3,7 @@ title: Bundled services
 type: architecture
 status: active
 owner: R4
-updated: 2026-10-12
+updated: 2026-10-24
 covers:
   - deploy/compose/
   - deploy/config/
@@ -38,6 +38,7 @@ Both read `.env` (copy [`.env.example`](../../.env.example) and replace every `c
 - **[`deploy/compose/dev.yml`](../../deploy/compose/dev.yml)** publishes the ports for development. Publishing needs a second, non-internal network, which also gives the services a route out, so it never ships in an appliance.
 - **Nothing phones home.** Grafana's usage reporting, update and plugin checks, news feed, Gravatar, external snapshots and plugin preinstalls are off; MinIO's update check and call-home are off.
 - **Configuration** lives in `deploy/config/<service>/`: Prometheus's scrape list, Grafana's provisioned Prometheus data source, and the MinIO build.
+- **PostgreSQL's app role.** `deploy/config/postgres/10-app-role.sh` runs once on a new data volume and creates `fource_app` from `FOURCE_POSTGRES_APP_PASSWORD`: not a superuser and unable to bypass row-level security. The server connects as it; migrations run as the owner (`FOURCE_DATABASE_ADMIN_URL`). A volume created before this script has no app role; `just test-postgres` creates it, or run the script's `CREATE ROLE` line with `docker compose --env-file .env -f deploy/compose/core.yml exec postgres psql -U fource -d fource`.
 
 ## MinIO
 
