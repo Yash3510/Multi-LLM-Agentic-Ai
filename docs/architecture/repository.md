@@ -72,7 +72,7 @@ core/rules/
 - `apps/*` wire everything together and hold no business logic.
 - `tools/` may import anything, and nothing imports `tools/`.
 
-import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. A layers contract puts `fource.server` above `fource.identity` above `fource.ledger` above `fource.db` above `fource.common`, so the core never imports the server; the packs rule arrives with the Pack SDK.
+import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. A layers contract puts `fource.server` above `fource.identity` above `fource.ledger` above `fource.db` above `fource.common`, so the core never imports the server. A forbidden-imports contract keeps the ledger verifier's modules (`chain`, `checkpoints`, `verify`) free of `fource.common`, `fource.db`, SQLAlchemy and pydantic; the packs rule arrives with the Pack SDK.
 
 ## Naming
 

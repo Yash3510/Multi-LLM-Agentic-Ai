@@ -62,7 +62,7 @@ Every identity action writes an entry in the organisation's [ledger](ledger.md),
 | the fifth failure locks the account | `identity.lockout` | `system` | `user`, `until` (UTC time) |
 | a sign-out revokes a token | `identity.signout` | `user:<id>` | `user`, `token` |
 
-- **Failed sign-ins commit their entry before the error is raised,** so the record survives the rollback that follows an error. A sign-out that loses a race with another sign-out of the same token records nothing.
+- **Failed sign-ins commit their entry before the error is raised,** so the record survives the rollback that follows an error. A sign-out that loses a race with another sign-out of the same token records nothing and succeeds, because the token is revoked; any other integrity error (a clash in the ledger, say) rolls the revocation back and is raised, so a sign-out never reports success for a token that still works. `sign_in` commits the session on every failure path, so call it in a session that holds nothing else.
 - **No email address is stored.** The ledger can never be erased, so entries hold ids. For an unknown email, `inputs_sha256` holds a keyed hash: HMAC-SHA256 of the trimmed, lower-cased address, with a key derived from `FOURCE_SECRET_KEY` for this one purpose (the project lead's decision of 2026-10-24). Whoever holds the secret can confirm that an address was tried; whoever has only the ledger or an evidence pack cannot. **Rotating `FOURCE_SECRET_KEY` means older digests can no longer be confirmed;** the entries stay and the chain still verifies.
 
 ## Decisions

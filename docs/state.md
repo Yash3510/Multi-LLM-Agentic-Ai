@@ -32,7 +32,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 **Backend slice 1 is built.** Database foundations (WP-F-06) and identity (WP-ID-01) give Phase 0's "app with a login" as an API: the `fource-server` command, `just dev`, a smoke test that starts the real server on all three CI systems, and PostgreSQL tests for row-level security that run in their own CI job. The [log entry](log/2026/10/2026-10-24-wp-id-01-identity-and-api.md) has the commands and results.
 
-**Old `.env` after pulling:** `.env.example` changed (it now has `FOURCE_SECRET_KEY` and connects as `fource_app`). Delete your `.env` and re-run `just setup`, or copy the new lines from `.env.example`. The server must connect as `fource_app`, never as the owner, which bypasses row-level security.
+**Old `.env` after pulling:** `.env.example` changed (it now has `FOURCE_SECRET_KEY` and connects as `fource_app`). Delete your `.env` and re-run `just setup`, or copy the new lines from `.env.example`. The server must connect as `fource_app`, never as the owner, which bypasses row-level security. After pulling, also run `just migrate`: a database from before the ledger (`0003`) answers sign-in with `setup_incomplete` until it is migrated.
 
 **Known limits:** PostgreSQL from a Windows host isn't exercised in CI (production runs on Linux). Intel Macs build `cryptography` and `argon2-cffi-bindings` from source, because the lock has macOS arm64 wheels only. The ledger's limits (the table owner between checkpoints, no key rotation, SQLite's `INSERT OR REPLACE`) are on the [ledger page](architecture/ledger.md#known-limits).
 
