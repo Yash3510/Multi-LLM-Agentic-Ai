@@ -151,6 +151,10 @@ async def _record_failure(
 async def sign_in(
     session: AsyncSession, *, email: str, password: str, secret: str, ttl: timedelta
 ) -> SignedIn:
+    """Checks the credentials and returns the user and a token.
+
+    On every failure path it commits the session (the ledger entry and the failure count)
+    before raising, so call it in a session that holds nothing else."""
     address = normalise_email(email)
     user = None
     if _storable(address):  # otherwise it can't be anyone's email
