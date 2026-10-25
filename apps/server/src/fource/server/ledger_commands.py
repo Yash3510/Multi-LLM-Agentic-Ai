@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from fource.common import FourceError, Settings
@@ -18,6 +18,7 @@ from fource.ledger import (
     UnusableKey,
     Verification,
     checkpoint,
+    key_id,
     load_private_key,
     load_public_key,
     public_key_path,
@@ -163,10 +164,14 @@ def _read_checkpoints(folder: Path, org: str) -> list[Checkpoint]:
     return found
 
 
-def _report(slug: str, result: Verification, public_path: Path) -> int:
+def _report(
+    slug: str, result: Verification, public_path: Path, public_key: Ed25519PublicKey | None
+) -> int:
     print(
         f"Ledger of {slug}: {_plural(result.entries, 'entry', 'entries')}, head {result.head_seq}."
     )
+    if public_key is not None:  # so an auditor can compare it with the id of their own copy
+        print(f"Checked against key {key_id(public_key)}.")
     if result.anchored_seq is not None:
         print(f"A signed checkpoint vouches for it up to entry {result.anchored_seq}.")
         if result.uncovered_entries:
@@ -242,4 +247,4 @@ async def verify(
         return FAILED
     finally:
         await database.dispose()
-    return _report(slug, result, public_path)
+    return _report(slug, result, public_path, public_key)
