@@ -14,7 +14,7 @@ from sqlalchemy.exc import DBAPIError
 from fource.common import Settings, new_id, now
 from fource.db import Database
 from fource.identity import InvalidEmail, Role, create_user
-from fource.ledger import EntryType, append, verify_ledger
+from fource.ledger import EntryType, append, read_entries, verify_ledger
 from fource.server.main import UnsafeDatabaseRole, create_app
 from fource.server.migrate import downgrade, upgrade
 
@@ -275,7 +275,17 @@ async def test_the_app_role_may_only_add_and_read_ledger_entries(
                 connection.execute(text(statement))
             connection.rollback()
         set_org(connection, users[0])
-        assert connection.execute(text("SELECT count(*) FROM ledger_entries")).scalar() == 1
+        # The INSERT grant: one entry for its own organisation (a checkpoint-shaped row; the
+        # chain's validity is not what is tested here).
+        connection.execute(
+            text(
+                "INSERT INTO ledger_entries (id, org_id, created_at, seq, at, type, actor,"
+                " refs, prev, hash) VALUES (:id, :org, now(), 99, now(), 'checkpoint',"
+                " 'system', '{}', :zero, :zero)"
+            ),
+            {"id": new_id(), "org": users[0], "zero": "0" * 64},
+        )
+        assert connection.execute(text("SELECT count(*) FROM ledger_entries")).scalar() == 2
 
 
 async def test_the_app_role_cannot_delete_a_ledger_head(
@@ -356,6 +366,27 @@ async def test_concurrent_writers_keep_the_chain_whole_on_postgres(
     finally:
         await database.dispose()
     assert result.ok and (result.entries, result.head_seq) == (21, 21)
+
+
+async def test_concurrent_first_writers_of_an_empty_ledger_take_one_to_twenty(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    """The head row doesn't exist yet: every writer races to create it, then to bump it."""
+    database = Database(postgres[1])
+
+    async def write() -> None:
+        async with database.org_session(orgs[1]) as session:
+            await append(session, EntryType.SIGNOUT, actor="system")
+
+    try:
+        await asyncio.gather(*(write() for _ in range(20)))
+        async with database.org_session(orgs[1]) as session:
+            seqs = [entry.seq async for entry in read_entries(session)]
+            result = await verify_ledger(session)
+    finally:
+        await database.dispose()
+    assert seqs == list(range(1, 21))
+    assert result.ok and (result.entries, result.head_seq) == (20, 20)
 
 
 async def test_a_deeply_nested_refs_cell_fails_verification_cleanly_on_postgres(
