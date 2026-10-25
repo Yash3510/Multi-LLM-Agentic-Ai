@@ -2,7 +2,7 @@
 
 The evidence ledger (master plan §7.16): one insert-only, hash-chained list of entries per organisation, signed checkpoints of the chain head, and the verifier. Entries hold hashes and ids, never content.
 
-**Owner:** R1 · **Decisions:** [ADR-0014](../../docs/adr/0014-ledger-with-signed-checkpoints.md), [ADR-0039](../../docs/adr/0039-every-action-writes-a-ledger-entry.md)
+**Owner:** R1 · **Decisions:** [ADR-0014](../../docs/adr/0014-ledger-with-signed-checkpoints.md), [ADR-0039](../../docs/adr/0039-every-action-writes-a-ledger-entry.md) · **Page:** [ledger](../../docs/architecture/ledger.md)
 
 `chain.py`, `checkpoints.py` and `verify.py` use only the standard library and `cryptography`, so the verifier can later run without a database.
 

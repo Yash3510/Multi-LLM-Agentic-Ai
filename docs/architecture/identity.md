@@ -3,7 +3,7 @@ title: Identity
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-24
+updated: 2026-10-25
 covers:
   - core/identity/
 tags: [4ce, architecture, identity, security]
@@ -29,7 +29,7 @@ Who a person is and how they prove it: users, passwords, lockout, signed tokens 
 ## Lockout
 
 - **5 failed sign-ins lock the account for 15 minutes.** The failure is counted in the database in one statement, so guesses sent together can't overwrite each other's count. A success resets the count.
-- **An unknown email, an inactive user and a wrong password give the same error,** `invalid_credentials`, and the same main cost: both run one argon2 verification (for an unknown email, against a real hash), so timing reveals nothing. A wrong password also records the failure (an UPDATE and a commit).
+- **An unknown email, an inactive user and a wrong password give the same error,** `invalid_credentials`, and the same main cost: both run one argon2 verification (for an unknown email, against a real hash), so timing reveals nothing. A wrong password also counts the failure (an UPDATE and a commit), and every failure writes a [ledger](#ledger) entry that is committed before the error is raised.
 - **A locked account answers `423 account_locked` before the password is checked,** even for the right password. This reveals that the account exists and is locked: a known trade-off, recorded in [ADR-0038](../adr/0038-signed-tokens-for-sign-in.md#consequences).
 
 ## Tokens
@@ -50,6 +50,21 @@ The server puts the token in an HttpOnly cookie and a second, readable cookie fo
 
 `create_user(session, email=, password=, roles=, display_name=)` validates, hashes and adds the user in the session's organisation. From the command line: `fource-server create-user <email> --role Admin [--name …]`, which asks for the password twice ([API](api.md#running-it)). There is no sign-up endpoint.
 
+## Ledger
+
+Every identity action writes an entry in the organisation's [ledger](ledger.md), in the action's own transaction ([ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md)):
+
+| Action | Type | Actor | Refs and hashes |
+| --- | --- | --- | --- |
+| a user is created | `identity.user.create` | `system` | `user`, `roles` |
+| a sign-in succeeds | `identity.signin.success` | `user:<id>` | `user`, `token` (the token's id) |
+| a sign-in fails | `identity.signin.failure` | `anonymous` | `reason`: `unknown_email`, `inactive`, `wrong_password` or `locked`; `user` when the email is known |
+| the fifth failure locks the account | `identity.lockout` | `system` | `user`, `until` (UTC time) |
+| a sign-out revokes a token | `identity.signout` | `user:<id>` | `user`, `token` |
+
+- **Failed sign-ins commit their entry before the error is raised,** so the record survives the rollback that follows an error. A sign-out that loses a race with another sign-out of the same token records nothing.
+- **No email address is stored.** The ledger can never be erased, so entries hold ids. For an unknown email, `inputs_sha256` holds a keyed hash: HMAC-SHA256 of the trimmed, lower-cased address, with a key derived from `FOURCE_SECRET_KEY` for this one purpose (the project lead's decision of 2026-10-24). Whoever holds the secret can confirm that an address was tried; whoever has only the ledger or an evidence pack cannot. **Rotating `FOURCE_SECRET_KEY` means older digests can no longer be confirmed;** the entries stay and the chain still verifies.
+
 ## Decisions
 
-[ADR-0038](../adr/0038-signed-tokens-for-sign-in.md): signed tokens instead of server-side sessions, cookies, CSRF and revocation. Where the rows live: [database](database.md).
+[ADR-0038](../adr/0038-signed-tokens-for-sign-in.md): signed tokens instead of server-side sessions, cookies, CSRF and revocation. [ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md): every action writes a ledger entry, and an unknown email is kept only as a keyed hash. Where the rows live: [database](database.md).

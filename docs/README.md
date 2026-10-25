@@ -3,7 +3,7 @@ title: 4CE knowledge base
 type: index
 status: active
 owner: R1
-updated: 2026-10-24
+updated: 2026-10-25
 tags: [4ce, index]
 ---
 
@@ -33,6 +33,7 @@ The project's memory: what 4CE does, why it is built this way, what changed and 
 | [Bundled services](architecture/services.md) | architecture | active |
 | [Database](architecture/database.md) | architecture | active |
 | [Identity](architecture/identity.md) | architecture | active |
+| [Ledger](architecture/ledger.md) | architecture | active |
 | [API](architecture/api.md) | architecture | active |
 | [Frontend](architecture/frontend.md) | architecture | planned |
 | [Design system](architecture/design-system.md) | architecture | planned |
