@@ -430,3 +430,11 @@ async def test_a_failed_sign_in_through_the_api_is_recorded(
     finally:
         await database.dispose()
     assert types == [EntryType.USER_CREATE, EntryType.SIGNIN_FAILURE]
+
+
+async def test_the_server_starts_and_stops_on_sqlite_with_no_role_check(
+    settings: Settings,
+) -> None:
+    app = create_app(settings)
+    async with app.router.lifespan_context(app):
+        assert await app.state.database.ping()

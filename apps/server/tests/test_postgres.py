@@ -6,12 +6,13 @@ import httpx
 import pytest
 from pydantic import SecretStr
 from sqlalchemy import Connection, create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
 
 from fource.common import Settings, new_id, now
 from fource.db import Database
 from fource.identity import InvalidEmail, Role, create_user
-from fource.server.main import create_app
+from fource.server.main import UnsafeDatabaseRole, create_app
 from fource.server.migrate import downgrade, upgrade
 
 pytestmark = [pytest.mark.postgres, pytest.mark.anyio]
@@ -161,3 +162,23 @@ async def test_unstorable_emails_raise_the_domain_error_on_postgres(
                 await create_user(session, email=email, password=PASSWORD, roles=[])
     finally:
         await database.dispose()
+
+
+async def test_the_server_refuses_to_start_as_a_role_that_bypasses_row_level_security(
+    postgres: tuple[str, str],
+) -> None:
+    owner = postgres[0]
+    app = create_app(Settings(secret_key=SecretStr(SECRET), database_url=SecretStr(owner)))
+    with pytest.raises(UnsafeDatabaseRole) as refused:
+        async with app.router.lifespan_context(app):
+            pass
+    url = make_url(owner)
+    message = refused.value.message
+    assert f"'{url.username}'" in message and "fource_app" in message
+    assert url.password is not None and url.password not in message
+
+
+async def test_the_server_starts_and_stops_as_the_app_role(postgres: tuple[str, str]) -> None:
+    app = create_app(Settings(secret_key=SecretStr(SECRET), database_url=SecretStr(postgres[1])))
+    async with app.router.lifespan_context(app):
+        assert await app.state.database.ping()
