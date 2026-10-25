@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.serialization import (
 )
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
+from fource.ledger import key_id, load_public_key
 from fource.server import cli, loops
 from fource.server.migrate import upgrade
 
@@ -207,6 +208,21 @@ def test_checkpoint_then_verify(
     assert "3 entries" in out and "up to entry 2" in out
     # Entry 3 is the checkpoint entry itself: there is nothing real after the anchor.
     assert "not covered" not in out and out.rstrip().endswith("\nVerified.")
+
+
+def test_verify_names_the_public_key_it_checked_against(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    cli.main(["ledger", "keygen"])
+    pub = env.parent / "data" / "ledger" / "signing-key.pub.pem"
+    named = key_id(load_public_key(pub))
+    capsys.readouterr()
+    cli.main(["ledger", "verify"])
+    assert f"Checked against key {named}." in capsys.readouterr().out
+    pub.unlink()
+    cli.main(["ledger", "verify"])
+    assert "Checked against key" not in capsys.readouterr().out
 
 
 def test_verify_finds_an_edit(
