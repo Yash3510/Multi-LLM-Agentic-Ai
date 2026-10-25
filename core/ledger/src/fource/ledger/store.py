@@ -200,6 +200,8 @@ class _Tolerant(TypeDecorator[Any]):
         return read
 
 
+# These Core column selects bypass ScopedSession's confinement, so the org filter in
+# read_entries is the only thing keeping one organisation's entries from another on SQLite.
 _COLUMNS = [
     type_coerce(column, _Tolerant(column.type)).label(column.name)
     for column in LedgerEntry.__table__.columns
