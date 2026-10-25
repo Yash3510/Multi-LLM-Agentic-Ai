@@ -1,6 +1,7 @@
 """The `fource-server ledger` commands: keygen, checkpoint and verify (ADR-0014).
 
-Signing is for people: nothing in CI or the tests signs with a real installation key.
+People sign checkpoints, and a scheduled job may too once WP-F-07 lands (ADR-0014).
+Nothing in CI or the tests signs with a real installation key.
 """
 
 import json
