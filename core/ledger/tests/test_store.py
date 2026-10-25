@@ -243,6 +243,19 @@ async def test_a_row_the_driver_cannot_decode_is_reported_with_where_checking_st
     assert [(problem.seq, problem.kind) for problem in result.problems] == [(1, "unreadable")]
 
 
+@pytest.mark.parametrize("seq", [1, 2])
+async def test_an_undecodable_first_row_is_reported_not_raised(orgs: Orgs, seq: int) -> None:
+    """SQLAlchemy fetches the first batch while opening the stream, so a bad row in it fails
+    there, before any row has been handed over."""
+    database, org_id, _ = orgs
+    await write(database, org_id, 3)
+    tamper(database, "actor", "CAST(X'ff' AS TEXT)", seq=seq)
+    async with database.org_session(org_id) as session:
+        result = await verify_ledger(session)
+    assert not result.ok
+    assert [(problem.seq, problem.kind) for problem in result.problems] == [(1, "unreadable")]
+
+
 class _FailsAfterOneRow:
     """A row stream whose second fetch raises `error`, as a driver does when it decodes a
     JSON cell while fetching (PostgreSQL), before any column processing can tolerate it."""
