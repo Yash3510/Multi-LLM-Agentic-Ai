@@ -1,4 +1,5 @@
 import asyncio
+import secrets
 import uuid
 from collections.abc import AsyncIterator, Generator
 from contextlib import contextmanager
@@ -180,6 +181,35 @@ async def test_the_server_refuses_to_start_as_a_role_that_bypasses_row_level_sec
     assert url.password is not None and url.password not in message
 
 
+async def test_the_server_refuses_to_start_as_a_non_superuser_role_with_bypassrls(
+    postgres: tuple[str, str],
+) -> None:
+    # The owner above is a superuser; this role is not, so only BYPASSRLS can make it unsafe.
+    # Roles belong to the cluster, so dropping the test database would not remove it. (Any role
+    # may connect to a new database, so it needs no grant.)
+    owner = make_url(postgres[0])
+    role = f"fource_test_bypass_{uuid.uuid4().hex[:12]}"
+    password = secrets.token_hex(16)
+    admin = create_engine(owner, isolation_level="AUTOCOMMIT")
+    try:
+        with admin.connect() as connection:
+            connection.exec_driver_sql(
+                f"CREATE ROLE {role} LOGIN NOSUPERUSER BYPASSRLS PASSWORD '{password}'"
+            )
+        url = owner.set(username=role, password=password).render_as_string(hide_password=False)
+        app = create_app(Settings(secret_key=SecretStr(SECRET), database_url=SecretStr(url)))
+        with pytest.raises(UnsafeDatabaseRole) as refused:
+            async with app.router.lifespan_context(app):
+                pass
+    finally:
+        with admin.connect() as connection:
+            connection.exec_driver_sql(f"DROP ROLE IF EXISTS {role}")
+        admin.dispose()
+    message = refused.value.message
+    assert f"'{role}'" in message and "fource_app" in message
+    assert password not in message
+
+
 async def test_the_server_starts_and_stops_as_the_app_role(postgres: tuple[str, str]) -> None:
     app = create_app(Settings(secret_key=SecretStr(SECRET), database_url=SecretStr(postgres[1])))
     async with app.router.lifespan_context(app):
@@ -289,6 +319,11 @@ async def test_concurrent_writers_keep_the_chain_whole_on_postgres(
 async def test_a_deeply_nested_refs_cell_fails_verification_cleanly_on_postgres(
     postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
 ) -> None:
+    """On CPython 3.12 the driver decodes this 2000-deep value, so verification reports the
+    entry as "altered" (its refs are not an object). The "unreadable" path, where the driver
+    raises RecursionError while fetching (fource.ledger.store.read_entries), is not reached
+    here: the stubbed tests in core/ledger/tests/test_store.py cover it. Either kind passes, so
+    an interpreter that fails to decode the value is accepted too."""
     deep = "[" * 2000 + "]" * 2000
     with connect(postgres[0]) as connection:
         # Only the owner may switch the trigger off, which is how a tampered cell gets in.
