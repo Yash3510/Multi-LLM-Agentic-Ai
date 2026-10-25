@@ -28,7 +28,7 @@ On Windows the server and its commands use a selector event loop, because psycop
 
 ## Database role
 
-On PostgreSQL the server refuses to start if its role is a superuser or has `BYPASSRLS`, because either would switch off the isolation between organisations. Connect it as `fource_app` through `FOURCE_DATABASE_URL`; `FOURCE_DATABASE_ADMIN_URL` (the owner) is for `migrate` only.
+On PostgreSQL the server refuses to start if its role is a superuser or has `BYPASSRLS`, because either would switch off the isolation between organisations. It connects at start-up to check, so an unreachable database fails start-up too. Connect it as `fource_app` through `FOURCE_DATABASE_URL`; `FOURCE_DATABASE_ADMIN_URL` (the owner) is for `migrate` only.
 
 ## Tests
 

@@ -47,7 +47,8 @@ async def check_database_role(database: Database) -> None:
 
 
 def create_app(settings: Settings) -> FastAPI:
-    """The 4CE API. The engine is created here (it connects lazily) and closed on shutdown.
+    """The 4CE API. The engine is created here and closed on shutdown. On PostgreSQL the lifespan
+    connects at start-up to check the role, so an unreachable database fails start-up.
 
     The Swagger and ReDoc pages are off: they load assets from a CDN, and 4CE runs offline.
     """
