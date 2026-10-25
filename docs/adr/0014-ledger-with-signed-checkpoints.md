@@ -3,7 +3,7 @@ title: "Ledger with signed checkpoints"
 type: adr
 status: planned
 owner: R1
-updated: 2026-10-24
+updated: 2026-10-25
 covers: []
 tags: [4ce, adr]
 number: 14
@@ -26,7 +26,7 @@ Master plan §7.16 asks for an insert-only, hash-chained evidence ledger on Post
 5. **Numbers are taken under a lock.** A head row per organisation (`ledger_heads`) is written first (`INSERT … ON CONFLICT DO NOTHING`, then `UPDATE … SET seq = seq + 1 RETURNING`), so the row (PostgreSQL) or the database (SQLite) stays locked until the transaction ends. Entries never share or skip a number, and a rolled-back action takes its number back.
 6. **Insert-only, on both engines.** Triggers refuse UPDATE and DELETE (and TRUNCATE on PostgreSQL) with "ledger_entries is insert-only"; the app role is granted only SELECT and INSERT on the entries.
 7. **Signed checkpoints.** `fource-server ledger checkpoint` signs `{org, seq, hash, at, key}` of the head, prefixed with `4ce-ledger-checkpoint-v1\n`, with the installation's Ed25519 key; records the signature as the next entry (type `checkpoint`); and writes the same checkpoint to a file a person keeps off the machine.
-8. **The key** is a PEM file at `FOURCE_LEDGER_KEY_FILE` (default inside the git-ignored `data/`), created owner-only by `fource-server ledger keygen`, never overwritten, never printed. Its id is the SHA-256 of the raw public key. Signing a real checkpoint is a human action.
+8. **The key** is a PEM file at `FOURCE_LEDGER_KEY_FILE` (default inside the git-ignored `data/`), created owner-only by `fource-server ledger keygen`, never overwritten, never printed. Its id is the SHA-256 of the raw public key. People sign checkpoints with `fource-server ledger checkpoint`; a scheduled job may sign them too, once the job queue lands (WP-F-07), decided by the project lead on 2026-10-24. Nothing in CI or the tests signs with a real installation key.
 9. **The verifier** (`fource-server ledger verify`) recomputes every hash and link, checks checkpoint entries and outside checkpoint files against the public key, and reports problems by kind. It is a pure function over entries, the public key and checkpoints (standard library and `cryptography` only), so it can later run with no database. Without the public key, signatures count as unchecked, never valid, and the command exits 2, not 0.
 
 ## Alternatives considered
@@ -42,7 +42,7 @@ Master plan §7.16 asks for an insert-only, hash-chained evidence ledger on Post
 
 - A truncated tail, or a chain rewritten from the start with fresh hashes, is detected only against a signed checkpoint kept outside the database. Between checkpoints, the table owner (who can disable triggers) or a superuser could cut the newest entries unseen.
 - A migration that rebuilds `ledger_entries` on SQLite (batch mode) must recreate its triggers.
-- Key rotation and scheduled checkpoints are future work.
+- Key rotation and scheduled checkpoints are future work; scheduled checkpoints wait for the job queue (WP-F-07).
 - QR codes, evidence packs and the auditor's standalone script build on the verifier in later work packages.
 
 ## Status
