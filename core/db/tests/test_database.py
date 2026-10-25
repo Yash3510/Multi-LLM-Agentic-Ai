@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import String, delete, select
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Mapped, mapped_column
 
-from fource.db import Base, CrossOrgWrite, Database, Org, OrgScoped, org_of
+from fource.db import Base, CrossOrgWrite, Database, Org, OrgScoped, org_of, table_missing
 
 pytestmark = pytest.mark.anyio
 
@@ -185,3 +186,25 @@ async def test_an_organisation_session_knows_its_organisation(database: Database
     async with database.session() as session:
         with pytest.raises(RuntimeError, match="organisation session"):
             org_of(session)
+
+
+class _Original(Exception):
+    def __init__(self, text: str, sqlstate: str | None = None) -> None:
+        super().__init__(text)
+        self.sqlstate = sqlstate
+
+
+@pytest.mark.parametrize(
+    ("original", "missing"),
+    [
+        (_Original("no such table: orgs"), True),
+        (_Original('relation "orgs" does not exist', "42P01"), True),
+        (_Original("connection refused"), False),
+        (_Original("permission denied for table orgs", "42501"), False),
+    ],
+)
+def test_a_missing_table_is_told_from_other_database_errors(
+    original: _Original, missing: bool
+) -> None:
+    assert table_missing(OperationalError("SELECT 1", None, original)) is missing
+    assert table_missing(ProgrammingError("SELECT 1", None, original)) is missing
