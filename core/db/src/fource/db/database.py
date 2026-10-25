@@ -6,7 +6,7 @@ from typing import Any, cast
 
 from sqlalchemy import Connection, event, inspect, select, text
 from sqlalchemy.engine import make_url
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import (
     InstanceState,
@@ -110,6 +110,13 @@ def org_of(session: AsyncSession) -> uuid.UUID:
     if not isinstance(org_id, uuid.UUID):
         raise RuntimeError("This needs an organisation session (Database.org_session).")
     return org_id
+
+
+def table_missing(error: DBAPIError) -> bool:
+    """Whether the database has no such table yet (it isn't migrated): SQLite words it,
+    PostgreSQL gives state 42P01. Any other error, such as an unreachable database, is not."""
+    original = error.orig
+    return "no such table" in str(original) or getattr(original, "sqlstate", None) == "42P01"
 
 
 class Database:

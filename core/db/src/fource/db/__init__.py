@@ -1,6 +1,6 @@
 """Database engines, sessions and organisation scoping for every 4CE package."""
 
-from fource.db.database import CrossOrgWrite, Database, org_of
+from fource.db.database import CrossOrgWrite, Database, org_of, table_missing
 from fource.db.isolation import APP_ROLE, org_isolation_sql
 from fource.db.models import Base, Org, OrgScoped
 from fource.db.types import UtcDateTime
@@ -15,4 +15,5 @@ __all__ = [
     "UtcDateTime",
     "org_isolation_sql",
     "org_of",
+    "table_missing",
 ]
