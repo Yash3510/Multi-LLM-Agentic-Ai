@@ -9,10 +9,10 @@ import os
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from fource.common import FourceError, Settings
-from fource.db import Database
+from fource.db import Database, table_missing
 from fource.ledger import (
     Checkpoint,
     UnusableKey,
@@ -27,6 +27,14 @@ from fource.ledger import (
 
 VERIFIED, FAILED, INCOMPLETE = 0, 1, 2
 _NOT_SET_UP = "The database isn't set up yet: run `just migrate` first."
+
+
+def _database_problem(error: OperationalError | ProgrammingError) -> str:
+    """The one line for a database error: not migrated, or only the error's class, because its
+    text can quote the statement or the connection."""
+    if table_missing(error):
+        return _NOT_SET_UP
+    return f"Could not read the database: {type(error).__name__}."
 
 
 def key_file(settings: Settings) -> Path:
@@ -100,8 +108,8 @@ async def make_checkpoint(settings: Settings, slug: str, folder: Path | None) ->
     except FourceError as error:
         print(error.message)
         return 1
-    except OperationalError:
-        print(_NOT_SET_UP)
+    except (OperationalError, ProgrammingError) as error:
+        print(_database_problem(error))
         return 1
     finally:
         await database.dispose()
@@ -229,8 +237,8 @@ async def verify(
     except ValueError as error:
         print(error)
         return FAILED
-    except OperationalError:
-        print(_NOT_SET_UP)
+    except (OperationalError, ProgrammingError) as error:
+        print(_database_problem(error))
         return FAILED
     finally:
         await database.dispose()

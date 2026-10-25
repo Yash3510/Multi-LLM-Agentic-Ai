@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
+from fource.db import table_missing
 from fource.identity import MAX_PASSWORD_LENGTH, User, sign_in, sign_out
 from fource.server.deps import CSRF_COOKIE, TOKEN_COOKIE, SignedIn, database_of, settings_of
 from fource.server.errors import SetupIncomplete, declared
@@ -42,34 +43,29 @@ def user_out(user: User, org: str) -> UserOut:
     )
 
 
-def _table_missing(error: OperationalError | ProgrammingError) -> bool:
-    """Whether the database has no tables yet: SQLite words it, PostgreSQL gives state 42P01.
-    An unreachable database is also an OperationalError, and stays a plain 500."""
-    original = error.orig
-    return "no such table" in str(original) or getattr(original, "sqlstate", None) == "42P01"
-
-
 @router.post("/signin", response_model=SignInOut, responses=declared(401, 422, 423, 503))
 async def sign_in_route(body: SignInRequest, request: Request, response: Response) -> SignInOut:
     settings, database = settings_of(request), database_of(request)
     not_set_up = SetupIncomplete("The database isn't set up yet: run `just migrate`.")
+    ttl = timedelta(minutes=settings.token_ttl_minutes)
     try:
         org_id = await database.org_id(settings.org)
+        if org_id is None:
+            raise not_set_up
+        async with database.org_session(org_id) as session:
+            result = await sign_in(
+                session,
+                email=body.email,
+                password=body.password,
+                secret=settings.secret_key.get_secret_value(),
+                ttl=ttl,
+            )
     except (OperationalError, ProgrammingError) as error:
-        if not _table_missing(error):
+        # No organisations table, or (a database migrated only to 0003) no ledger tables,
+        # which sign-in writes. An unreachable database stays a plain 500.
+        if not table_missing(error):
             raise
         raise not_set_up from error
-    if org_id is None:
-        raise not_set_up
-    ttl = timedelta(minutes=settings.token_ttl_minutes)
-    async with database.org_session(org_id) as session:
-        result = await sign_in(
-            session,
-            email=body.email,
-            password=body.password,
-            secret=settings.secret_key.get_secret_value(),
-            ttl=ttl,
-        )
     secure = request.url.scheme == "https"
     seconds = int(ttl.total_seconds())
     response.set_cookie(
