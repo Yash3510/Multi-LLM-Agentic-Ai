@@ -24,7 +24,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 - **[`core/ledger`](../core/ledger/README.md):** one insert-only hash chain per organisation; user creation, sign-in (every outcome) and sign-out write entries; `just ledger checkpoint` signs the head with the installation's Ed25519 key, `just ledger verify` finds edits, deletions, reordering and cut tails ([ledger](architecture/ledger.md), ADR-0014, ADR-0039).
 - **[`apps/server`](../apps/server/README.md):** the health, sign-in, session and sign-out endpoints, with CSRF protection and one error envelope.
 - **The server:** sign-in, session and sign-out over the API on SQLite or PostgreSQL ([api](architecture/api.md)); `just dev` runs it.
-- **The knowledge base:** this index, the templates, the shared Obsidian settings and seven proposed ADRs.
+- **The knowledge base:** this index, the templates, the shared Obsidian settings and 14 proposed ADRs.
 
 ## In progress
 
@@ -41,7 +41,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 ## Open questions
 
 - **ADR-0035 and ADR-0036** (frontend foundations; MPL-2.0 build tools) wait on R1 and R4, before `apps/web` and the npm side of the licence gate land on `4ce-core`.
-- **The proposed ADRs** 0009, 0010, 0014, 0015, 0018, 0023, 0029, 0031, 0032, 0037, 0038 and 0039 need their owners' acceptance.
+- **The proposed ADRs** 0009, 0010, 0014, 0015, 0018, 0023, 0029, 0031, 0032, 0035, 0036, 0037, 0038 and 0039 need their owners' acceptance.
 - **Decided on 2026-10-24 by the project lead (no ledger question is open):** an unknown sign-in email is kept only as a keyed hash ([ADR-0039](adr/0039-every-action-writes-a-ledger-entry.md)); a scheduled job may sign checkpoints once the job queue lands, and people can still run `ledger checkpoint` ([ADR-0014](adr/0014-ledger-with-signed-checkpoints.md)).
 - **ADR-0025:** MinIO's patch source; options in [MinIO patch source](research/minio-patch-source.md).
 - **CODEOWNERS:** which GitHub handle holds each of R1 to R4.
