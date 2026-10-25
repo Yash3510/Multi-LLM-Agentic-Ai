@@ -210,6 +210,48 @@ async def test_the_server_refuses_to_start_as_a_non_superuser_role_with_bypassrl
     assert password not in message
 
 
+async def test_the_server_refuses_to_start_as_the_owner_of_the_ledger_tables(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    # On managed PostgreSQL the owner is often not a superuser. As owner it could still switch
+    # the ledger's trigger off or remove its forced row-level security, so it is refused too.
+    # Roles belong to the cluster, so the role is dropped in the end, and the table goes back to
+    # its owner first (a role that owns something can't be dropped).
+    owner = make_url(postgres[0])
+    assert owner.username is not None
+    role = f"fource_test_owner_{uuid.uuid4().hex[:12]}"
+    password = secrets.token_hex(16)
+    admin = create_engine(owner, isolation_level="AUTOCOMMIT")
+    created = handed_over = False
+    try:
+        with admin.connect() as connection:
+            connection.exec_driver_sql(
+                f"CREATE ROLE {role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '{password}'"
+            )
+            created = True
+            connection.exec_driver_sql(f"GRANT CREATE ON SCHEMA public TO {role}")
+            connection.exec_driver_sql(f"ALTER TABLE ledger_entries OWNER TO {role}")
+            handed_over = True
+        url = owner.set(username=role, password=password).render_as_string(hide_password=False)
+        app = create_app(Settings(secret_key=SecretStr(SECRET), database_url=SecretStr(url)))
+        with pytest.raises(UnsafeDatabaseRole) as refused:
+            async with app.router.lifespan_context(app):
+                pass
+    finally:
+        with admin.connect() as connection:
+            if handed_over:
+                connection.exec_driver_sql(
+                    f'ALTER TABLE ledger_entries OWNER TO "{owner.username}"'
+                )
+            if created:
+                connection.exec_driver_sql(f"REVOKE CREATE ON SCHEMA public FROM {role}")
+                connection.exec_driver_sql(f"DROP ROLE {role}")
+        admin.dispose()
+    message = refused.value.message
+    assert f"'{role}'" in message and "owns the 4CE tables" in message
+    assert password not in message
+
+
 async def test_the_server_starts_and_stops_as_the_app_role(postgres: tuple[str, str]) -> None:
     app = create_app(Settings(secret_key=SecretStr(SECRET), database_url=SecretStr(postgres[1])))
     async with app.router.lifespan_context(app):
