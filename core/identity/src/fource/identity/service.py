@@ -212,4 +212,7 @@ async def sign_out(session: AsyncSession, payload: TokenPayload) -> None:
             # Inside the savepoint, so a sign-out that loses the race records nothing.
             await append(session, EntryType.SIGNOUT, actor=user_actor(payload.user_id), refs=refs)
     except IntegrityError:
-        pass  # a sign-out of the same token won the race; the token is revoked either way
+        # Only a sign-out of the same token that won the race is success. Any other clash (the
+        # ledger's, say) rolled the revocation back too, and the token is still valid.
+        if not await _is_revoked(session, payload.token_id):
+            raise
