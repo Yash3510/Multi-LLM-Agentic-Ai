@@ -47,15 +47,15 @@ Each organisation has its own chain, counting from 1. An entry holds hashes and 
 
 ## Checkpoints and the key
 
-- `just ledger keygen` creates the installation's Ed25519 key at `FOURCE_LEDGER_KEY_FILE` (default `data/ledger/signing-key.pem`, git-ignored), owner-only, with the public key beside it (`signing-key.pub.pem`). It never overwrites either file: if one exists it changes nothing and exits 1. Back the private key up; give the public key to auditors.
-- `just ledger checkpoint [--org SLUG] [--out DIR]` signs the chain head, records the signature as the next entry (type `checkpoint`, actor `system`, refs `seq`, `hash`, `key`, `signature`), prints the checkpoint as JSON and writes it to `data/ledger/checkpoints/<org>-<seq>.json` (`seq` padded to ten digits, the entry that was signed). **Keep a copy off the machine** (print it, or put it on write-once storage): only an outside copy can prove how long the chain was.
+- `just ledger keygen` creates the installation's Ed25519 key at `FOURCE_LEDGER_KEY_FILE` (default `<FOURCE_DATA_DIR>/ledger/signing-key.pem`, with `FOURCE_DATA_DIR` defaulting to `data`; git-ignored), owner-only, with the public key beside it (`signing-key.pub.pem`). It never overwrites either file: if one exists it changes nothing and exits 1. Back the private key up; give the public key to auditors.
+- `just ledger checkpoint [--org SLUG] [--out DIR]` signs the chain head, records the signature as the next entry (type `checkpoint`, actor `system`, refs `seq`, `hash`, `key`, `signature`), prints the checkpoint as JSON and writes it to `<FOURCE_DATA_DIR>/ledger/checkpoints/<slug>-<seq>.json` (`<slug>` is the organisation's slug; `seq` padded to ten digits, the entry that was signed). **Keep a copy off the machine** (print it, or put it on write-once storage): only an outside copy can prove how long the chain was.
 - A checkpoint file is never overwritten. If the file exists, the checkpoint entry is still recorded, the JSON is printed, the existing file is left as it is and the command exits 1. The same applies when the file cannot be saved: keep the printed JSON.
 - A checkpoint signs the bytes `4ce-ledger-checkpoint-v1\n` followed by the canonical `{org, seq, hash, at, key}`, where `key` is the SHA-256 of the raw public key.
 - **Who signs.** People run `just ledger checkpoint`. A scheduled job may sign checkpoints too, once the job queue lands (WP-F-07); that is decided and not built ([ADR-0014](../adr/0014-ledger-with-signed-checkpoints.md)). Nothing in CI or the tests signs with a real installation key; tests use throwaway keys.
 
 ## Verifying
 
-`just ledger verify [--org SLUG] [--public-key FILE] [--checkpoints DIR]` reads the organisation's chain and every checkpoint file of that organisation in the folder (default `data/ledger/checkpoints`), uses the public key beside the private key unless `--public-key` is given, and reports each problem as `entry N: kind: message`:
+`just ledger verify [--org SLUG] [--public-key FILE] [--checkpoints DIR]` reads the organisation's chain and every checkpoint file of that organisation in the folder (default `<FOURCE_DATA_DIR>/ledger/checkpoints`), uses the public key beside the private key unless `--public-key` is given, and reports each problem as `entry N: kind: message`:
 
 | Problem | Means |
 | --- | --- |
@@ -76,8 +76,10 @@ The exit code and the last line:
 | 0 | `Verified.` | no problems, every signature checked |
 | 0 | `Verified through entry N; entries after it are not covered by any checkpoint.` | the same, but entries after the last outside checkpoint can't be shown intact |
 | 1 | `Failed.` | at least one problem found in the chain or the checkpoints |
-| 1 | a message naming the path | a key, checkpoint folder or file that is missing or could not be read, or an organisation that doesn't exist; nothing is checked |
-| 2 | `Incomplete: nothing wrong found, but not all checked.` | signatures couldn't be checked because there is no public key (the output names where it looked); never reported as verified |
+| 1 | a message naming the path | an explicit `--public-key` file or `--checkpoints` folder that doesn't exist, or a key, folder or file that could not be read or is unusable; nothing is checked |
+| 1 | `There is no organisation '<slug>'.` | the organisation doesn't exist; nothing is checked |
+| 1 | ``The database isn't set up yet: run `just migrate` first.`` | the database has no ledger tables yet; nothing is checked |
+| 2 | `Incomplete: nothing wrong found, but not all checked.` | there are signatures to check but no public key at the default place (the output names where it looked); never reported as verified. With nothing signed, a missing default key is not an error and the run can exit 0 |
 
 Exit 0 is not proof of the chain's length: a cut-off tail is only visible against a checkpoint that was signed with the key and kept outside the database. So when no valid outside checkpoint anchors the chain, even a clean run prints "The chain's length is not proven …" before `Verified.`, and when entries follow the last anchor it says they are not covered and to make a new checkpoint. The newest checkpoint entry always follows the entry it signs; it alone is not counted as uncovered.
 
