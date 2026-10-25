@@ -172,6 +172,8 @@ def test_malformed_entries_are_problems_and_never_crash() -> None:
         {"actor": "\ud800"},
         {"refs": {"a": "\ud800"}},
         {"refs": None},
+        {"refs": []},  # dict() would turn these into the original, empty object
+        {"refs": ()},
         {"refs": {"a": object()}},
         {"hash": None},
         {"prev": 7},
@@ -181,6 +183,24 @@ def test_malformed_entries_are_problems_and_never_crash() -> None:
         bad = replace(good[1], **change)
         result = verify_chain([good[0], bad, good[2], good[3]], ORG, public_key=PUBLIC)
         assert not result.ok, change
+
+
+def test_refs_that_are_a_list_of_pairs_are_altered_not_the_object_they_convert_to() -> None:
+    first = chain(1)[0]
+    genuine = make_entry(
+        seq=2,
+        at=first.at,
+        org=ORG,
+        type=EntryType.SIGNIN_SUCCESS,
+        actor="system",
+        refs={"user": "x"},
+        prev=first.hash,
+    )
+    swap: dict[str, object] = {"refs": [["user", "x"]]}
+    pairs = replace(genuine, **swap)
+    assert verify_chain([first, genuine], ORG).ok
+    result = verify_chain([first, pairs], ORG)
+    assert [(problem.seq, problem.kind) for problem in result.problems] == [(2, "altered")]
 
 
 def test_a_checkpoint_entry_with_untextual_fields_is_a_bad_checkpoint() -> None:
