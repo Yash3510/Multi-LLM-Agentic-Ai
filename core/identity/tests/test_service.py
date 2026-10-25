@@ -1,12 +1,13 @@
 import asyncio
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from argon2 import PasswordHasher
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fource.common import FourceError, new_id, set_clock
@@ -65,6 +66,24 @@ def clock() -> Iterator[list[datetime]]:
     set_clock(lambda: moment[0])
     yield moment
     set_clock(None)
+
+
+def first_look_misses() -> Callable[[AsyncSession, uuid.UUID], Awaitable[bool]]:
+    """A stand-in for the revocation check of a sign-out that lost a race: its first look came
+    before the winner committed, and the next ones see the revocation."""
+    looks = 0
+
+    async def check(session: AsyncSession, token_id: uuid.UUID) -> bool:
+        nonlocal looks
+        looks += 1
+        if looks == 1:
+            return False
+        found = await session.scalar(
+            select(RevokedToken.id).where(RevokedToken.token_id == token_id)
+        )
+        return found is not None
+
+    return check
 
 
 async def attempt(org: tuple[Database, uuid.UUID], email: str, password: str) -> SignedIn:
@@ -199,13 +218,25 @@ async def test_a_sign_out_that_loses_a_race_still_succeeds(
     async with database.org_session(org_id) as session:
         await sign_out(session, payload)  # the sign-out that wins the race
 
-    async def not_yet_visible(session: AsyncSession, token_id: uuid.UUID) -> bool:
-        return False  # the loser looked before the winner committed
-
-    monkeypatch.setattr("fource.identity.service._is_revoked", not_yet_visible)
+    monkeypatch.setattr("fource.identity.service._is_revoked", first_look_misses())
     async with database.org_session(org_id) as session:
         await sign_out(session, payload)
         assert len((await session.scalars(select(RevokedToken))).all()) == 1
+
+
+async def test_a_sign_out_whose_ledger_entry_clashes_fails_and_leaves_the_token_valid(
+    org: tuple[Database, uuid.UUID],
+) -> None:
+    database, org_id = org
+    payload = (await attempt(org, "ada@example.com", PASSWORD)).token.payload
+    async with database.engine.begin() as connection:  # the head falls behind its entries
+        await connection.execute(text("UPDATE ledger_heads SET seq = seq - 1"))
+    with pytest.raises(IntegrityError):
+        async with database.org_session(org_id) as session:
+            await sign_out(session, payload)
+    async with database.org_session(org_id) as session:
+        assert (await authenticate(session, payload)).email == "ada@example.com"
+        assert (await session.scalars(select(RevokedToken))).all() == []
 
 
 async def test_signing_out_stores_the_expiry_of_the_payload_read_from_the_token(
@@ -413,10 +444,7 @@ async def test_a_sign_out_that_loses_the_race_records_nothing(
     async with database.org_session(org_id) as session:
         await sign_out(session, payload)
 
-    async def not_yet_visible(session: AsyncSession, token_id: uuid.UUID) -> bool:
-        return False
-
-    monkeypatch.setattr("fource.identity.service._is_revoked", not_yet_visible)
+    monkeypatch.setattr("fource.identity.service._is_revoked", first_look_misses())
     async with database.org_session(org_id) as session:
         await sign_out(session, payload)
     types = [entry.type for entry in await ledger(org)]
