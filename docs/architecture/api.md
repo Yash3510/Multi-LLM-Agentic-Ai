@@ -3,7 +3,7 @@ title: API
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-24
+updated: 2026-10-25
 covers:
   - apps/server/src/fource/server/
 tags: [4ce, architecture, server, security]
@@ -76,6 +76,7 @@ Starlette's own answers use the same envelope: an unknown path (including `/api/
 just setup                                     # once: Python, packages, git hooks, a .env with fresh secrets
 just dev                                       # migrate, then serve on http://127.0.0.1:8000 with reload; SQLite, no Docker
 just create-user you@example.com --role Admin  # once: asks for a password twice
+just ledger keygen                             # once: the installation's signing key
 ```
 
 The `fource-server` command (`uv run fource-server …`):
@@ -85,9 +86,13 @@ The `fource-server` command (`uv run fource-server …`):
 | `serve [--host 127.0.0.1] [--port 8000] [--reload]` | runs the API with Uvicorn |
 | `migrate` | brings the database schema up to date (as the admin URL when set) |
 | `create-user EMAIL --role ROLE [--role …] [--name NAME]` | adds a user in `FOURCE_ORG`; `ROLE` is one of the seven [roles](identity.md#users-and-roles); asks for the password twice, with no echo (it reads stdin when it is not a terminal) |
+| `ledger keygen` | creates the installation's Ed25519 signing key and its public key; never overwrites either (exit 1 if one exists) |
+| `ledger checkpoint [--org SLUG] [--out DIR]` | signs the head of the organisation's ledger chain (default `FOURCE_ORG`), records it as the next entry, prints it and saves it to `data/ledger/checkpoints/` or `DIR`; exit 1 if there is no key, no organisation, no entries, or the file already exists (the entry is then still recorded; keep the printed JSON) |
+| `ledger verify [--org SLUG] [--public-key FILE] [--checkpoints DIR]` | checks the chain and the checkpoint files; exit 0 verified, 1 problems or an unusable path or file, 2 nothing wrong found but signatures unchecked (no public key). A zero exit may still say the chain's length is not proven. See [ledger](ledger.md#verifying) |
 
-- **Settings** come from the environment and `.env`: `FOURCE_SECRET_KEY` (required, 32 characters or more), `FOURCE_DATABASE_URL`, `FOURCE_DATABASE_ADMIN_URL`, `FOURCE_TOKEN_TTL_MINUTES` and `FOURCE_ORG`. See [database](database.md) for the PostgreSQL form.
+- **Settings** come from the environment and `.env`: `FOURCE_SECRET_KEY` (required, 32 characters or more), `FOURCE_DATABASE_URL`, `FOURCE_DATABASE_ADMIN_URL`, `FOURCE_TOKEN_TTL_MINUTES`, `FOURCE_ORG` and `FOURCE_LEDGER_KEY_FILE` (the ledger signing key, default `data/ledger/signing-key.pem`). See [database](database.md) for the PostgreSQL form.
 - **Migrate before the first sign-in.** Without it (no organisation row, or no tables at all), sign-in answers `setup_incomplete`. The session and sign-out calls need a valid token, which only a sign-in on a set-up database issues, so they can't reach an unmigrated database.
+- **Start-up on PostgreSQL.** `serve` connects to the database before it answers, to check its role, and refuses to start (`UnsafeDatabaseRole`) if the role is a superuser or has `BYPASSRLS`; connect as `fource_app` through `FOURCE_DATABASE_URL` ([database](database.md#row-level-security)). An unreachable database therefore fails start-up, where it used to start and answer `/api/health` with 503. SQLite is not checked.
 - **Event loop.** On Windows the server and its commands use a selector event loop, because psycopg's async mode can't use the default one. Linux and macOS use the default.
 - **Behind a proxy,** start Uvicorn directly: `uvicorn --factory fource.server.main:app_factory --forwarded-allow-ips <proxy address>`.
 - **Using the API as a script:** sign in, keep the cookies, send the CSRF header.
@@ -102,4 +107,4 @@ curl -b jar -X POST localhost:8000/api/auth/signout \
 
 ## Decisions
 
-[ADR-0038](../adr/0038-signed-tokens-for-sign-in.md) (tokens, cookies, CSRF, revocation), [ADR-0035](../adr/0035-frontend-foundations.md) (one origin, generated types). The frontend side of the agreement: [frontend](frontend.md).
+[ADR-0038](../adr/0038-signed-tokens-for-sign-in.md) (tokens, cookies, CSRF, revocation), [ADR-0035](../adr/0035-frontend-foundations.md) (one origin, generated types), [ADR-0014](../adr/0014-ledger-with-signed-checkpoints.md) (the ledger commands). The frontend side of the agreement: [frontend](frontend.md).

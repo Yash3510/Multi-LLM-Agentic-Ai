@@ -3,7 +3,7 @@ title: Repository layout and working rules
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-17
+updated: 2026-10-25
 covers:
   - justfile
   - pyproject.toml
@@ -31,7 +31,7 @@ Folders marked _planned_ don't exist yet; they arrive with their work packages.
 | `.obsidian/` | shared vault settings only: `app.json`, `core-plugins.json`, `templates.json` | built |
 | `apps/server/` | the FastAPI app: thin wiring, no business logic, and the one Alembic migration history | package and migrations built; routes _planned_ |
 | `apps/web/` | the SvelteKit UI and Pack Studio ([frontend](frontend.md)) | _planned_; on hold here while Pranay, the frontend owner, develops it |
-| `core/<package>/` | sector-neutral Python packages, all uv workspace members | `common`, `db` and `packs` built |
+| `core/<package>/` | sector-neutral Python packages, all uv workspace members | `common`, `db`, `identity`, `ledger` and `packs` built |
 | `packs/sector/<pack-id>/`, `packs/cross/<pack-id>/` | one industry or one department each | _planned_ |
 | `skills/<skill-name>/` | 4CE's built-in skills | _planned_ |
 | `tests/` | tests that cross package boundaries: `integration/`, `e2e/`, `security/` | _planned_ |
@@ -72,7 +72,7 @@ core/rules/
 - `apps/*` wire everything together and hold no business logic.
 - `tools/` may import anything, and nothing imports `tools/`.
 
-import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. A layers contract puts `fource.server` above `fource.db` above `fource.common`, so the core never imports the server; the packs rule arrives with the Pack SDK.
+import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. A layers contract puts `fource.server` above `fource.identity` above `fource.ledger` above `fource.db` above `fource.common`, so the core never imports the server; the packs rule arrives with the Pack SDK.
 
 ## Naming
 
@@ -188,6 +188,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just dev` | Bring the database up to date and run the server with live reload (SQLite unless `.env` says PostgreSQL) |
 | `just migrate` | Bring the database schema up to date |
 | `just create-user <email> --role <role>` | Add a user; asks for the password |
+| `just ledger <keygen\|checkpoint\|verify>` | Create the ledger signing key, sign the chain head, or check the chain ([ledger](ledger.md)) |
 | `just services` | Start the bundled services on localhost and wait until they are healthy |
 | `just down` | Stop the bundled services, keeping their data |
 | `just docs` | The docs check; add `--base origin/4ce-core` for the PR rules |

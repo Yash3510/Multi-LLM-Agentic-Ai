@@ -3,7 +3,7 @@ title: Licences and the licence gate
 type: architecture
 status: active
 owner: R4
-updated: 2026-10-24
+updated: 2026-10-25
 covers:
   - tools/licence_gate.py
   - tools/import_scan.py
@@ -50,7 +50,9 @@ On 2026-10-17, with `apps/server` and its dependencies installed on Linux, `just
 
 Later on 2026-10-17, with `httpx` added for the API tests, `just licences` checked 62 components and scanned 47 files with no problems. `httpx` names BSD-3-Clause in its metadata and again the classifier "BSD License", which the gate cannot match; its LICENSE.md was read and recorded as BSD-3-Clause. `certifi` (the certificate bundle `httpx` loads, approved by ADR-0037 as MPL-2.0) names MPL-2.0 twice in its metadata, once as an SPDX id and once as a classifier text the gate cannot match, and an approval needs a single value; its LICENSE file (the MPL 2.0 notice) was read and recorded as MPL-2.0, so the approval holds.
 
-**Sign-in dependencies.** `pyjwt[crypto]` (the token library of [identity](identity.md#tokens)) pulls in `cryptography`; the extra is kept because pyright's strict mode needs it. `cryptography` 50.0.2 declares `Apache-2.0 OR BSD-3-Clause` in its installed metadata (`License-Expression`; its `dist-info/licenses` folder holds LICENSE, LICENSE.APACHE and LICENSE.BSD). Both options are allowed anywhere, so the strict gate passes it with no entry in `licence-review.toml`.
+**Sign-in and ledger dependencies.** `pyjwt[crypto]` (the token library of [identity](identity.md#tokens)) pulls in `cryptography`; the extra is kept because pyright's strict mode needs it. `cryptography` 50.0.2 declares `Apache-2.0 OR BSD-3-Clause` in its installed metadata (`License-Expression`; its `dist-info/licenses` folder holds LICENSE, LICENSE.APACHE and LICENSE.BSD). Both options are allowed anywhere, so the strict gate passes it with no entry in `licence-review.toml`. `fource-ledger` depends on `cryptography` directly, for Ed25519 checkpoints ([ledger](ledger.md)); same version and licence, no new component.
+
+On 2026-10-25, at commit `88c1cfa`, on Linux, with the ledger added, `just licences` checked 63 components and scanned 67 files with no problems, and checked the 5 bundled services.
 
 ## Decisions
 

@@ -3,7 +3,7 @@ title: Architecture overview
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-24
+updated: 2026-10-25
 tags: [4ce, architecture]
 ---
 
@@ -11,7 +11,7 @@ tags: [4ce, architecture]
 
 4CE is a self-hosted engine that turns an organisation's documents and rulebooks into decisions it can sign: grounded in its evidence, checked against its rules, approved by a named person, recorded as proof, and nothing leaves the building.
 
-This page is the map. Each subsystem gets its own canonical page as it is built. Today the repository tooling, `core/common`, `core/db`, `core/identity`, `apps/server`, the draft specs in `core/packs` and the [bundled services](services.md) exist; everything marked _planned_ is design, not code.
+This page is the map. Each subsystem gets its own canonical page as it is built. Today the repository tooling, `core/common`, `core/db`, `core/identity`, `core/ledger`, `apps/server`, the draft specs in `core/packs` and the [bundled services](services.md) exist; everything marked _planned_ is design, not code.
 
 ## The universal loop
 
@@ -84,7 +84,7 @@ PostgreSQL, Redis, MinIO, Prometheus and Grafana run as unmodified separate serv
 | `core/sandbox` | Runtimes, limits, artifacts | _planned_ |
 | `core/verify` | Challenger, deterministic checks, citation alignment | _planned_ |
 | `core/signoff` | Approvals, maker-checker, delegation | _planned_ |
-| `core/ledger` | Append-only store, chain, signing, export, verifier | _planned_ |
+| [`core/ledger`](ledger.md) | Insert-only chain per organisation, signed checkpoints, verifier; export next | built (chain, checkpoints, verifier) |
 | `core/deliver` | Template engine, docx/xlsx/pptx renderers, fingerprints | _planned_ |
 | `core/storage` | Storage interface; MinIO (S3) and local-filesystem adapters | _planned_ |
 | `core/connectors` | Read-only data-source importers; cloud model connectors (off) | _planned_ |
