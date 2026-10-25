@@ -72,6 +72,8 @@ def _mapping(value: object) -> Mapping[str, str] | None:
 
 def _hash_matches(entry: Entry) -> bool:
     """False when the hash differs, or when the entry is too malformed to hash at all."""
+    if _mapping(entry.refs) is None:
+        return False  # fields() would convert a list of pairs into the object it came from
     try:
         return entry_hash(entry.fields()) == entry.hash
     except (TypeError, ValueError, AttributeError, RecursionError):
