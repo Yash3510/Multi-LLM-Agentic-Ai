@@ -6,6 +6,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from pydantic import SecretStr
+from sqlalchemy.exc import OperationalError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from fource.common import FourceError, Settings
@@ -22,6 +23,7 @@ from fource.identity import (
 from fource.ledger import EntryType, read_entries
 from fource.server.errors import CsrfFailed, SetupIncomplete
 from fource.server.main import app_factory, create_app
+from fource.server.migrate import upgrade
 
 pytestmark = pytest.mark.anyio
 PASSWORD = "correct horse battery"
@@ -403,6 +405,37 @@ async def test_signing_in_to_an_unmigrated_database_says_so(
         response = await sign_in(client)
     await app.state.database.dispose()
     assert (response.status_code, response.json()["error"]["code"]) == (503, "setup_incomplete")
+
+
+@pytest.fixture
+def old(tmp_path: Path) -> str:
+    """A slice 1 install after pulling slice 2: users exist, the ledger tables don't. Sync, as
+    migrations run their own event loop."""
+    url = f"sqlite+aiosqlite:///{(tmp_path / 'old.db').as_posix()}"
+    upgrade(url, "0003")
+    return url
+
+
+async def test_signing_in_to_a_database_migrated_only_to_0003_says_so(
+    old: str, settings: Settings
+) -> None:
+    app = create_app(settings.model_copy(update={"database_url": SecretStr(old)}))
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await sign_in(client)
+    await app.state.database.dispose()
+    assert (response.status_code, response.json()["error"]["code"]) == (503, "setup_incomplete")
+
+
+async def test_a_database_error_that_is_not_a_missing_table_stays_a_server_error(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def broken(*args: Any, **kwargs: Any) -> None:
+        raise OperationalError("SELECT 1", None, Exception("connection refused"))
+
+    monkeypatch.setattr("fource.server.routes.auth.sign_in", broken)
+    with pytest.raises(OperationalError):
+        await sign_in(client)
 
 
 async def test_a_second_sign_out_with_the_same_credentials_is_not_authenticated(

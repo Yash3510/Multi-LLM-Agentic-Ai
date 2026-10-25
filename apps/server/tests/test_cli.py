@@ -15,8 +15,10 @@ from cryptography.hazmat.primitives.serialization import (
     Encoding,
     PrivateFormat,
 )
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from fource.server import cli, loops
+from fource.server.migrate import upgrade
 
 PASSWORD = "correct horse battery"
 
@@ -628,3 +630,70 @@ def test_verify_reports_a_refs_cell_that_is_not_an_object(
     assert cli.main(["ledger", "verify"]) == 1
     out = capsys.readouterr().out
     assert "entry 2: altered" in out and "Failed." in out
+
+
+@pytest.mark.parametrize("command", ["checkpoint", "verify"])
+@pytest.mark.parametrize("revision", [None, "0003"])
+def test_ledger_commands_on_a_database_without_the_ledger_say_it_is_not_set_up(
+    env: Path, capsys: pytest.CaptureFixture[str], command: str, revision: str | None
+) -> None:
+    """Never migrated, or migrated before the ledger existed (a slice 1 install)."""
+    if revision is not None:
+        upgrade(f"sqlite+aiosqlite:///{env.as_posix()}", revision)
+    cli.main(["ledger", "keygen"])
+    capsys.readouterr()
+    assert cli.main(["ledger", command]) == 1
+    assert "just migrate" in capsys.readouterr().out
+
+
+class DriverError(Exception):
+    """What a driver's error carries: PostgreSQL's SQLSTATE."""
+
+    def __init__(self, sqlstate: str) -> None:
+        super().__init__("driver text")
+        self.sqlstate = sqlstate
+
+
+@pytest.mark.parametrize("command", ["checkpoint", "verify"])
+def test_a_missing_table_on_postgresql_is_also_not_set_up(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], command: str
+) -> None:
+    """PostgreSQL reports it as a ProgrammingError with state 42P01, not an OperationalError."""
+    add_users(env, monkeypatch, "ada@example.com")
+    cli.main(["ledger", "keygen"])
+    monkeypatch.setattr(
+        f"fource.server.ledger_commands.{'verify_ledger' if command == 'verify' else 'checkpoint'}",
+        raising(ProgrammingError("SELECT 1", None, DriverError("42P01"))),
+    )
+    capsys.readouterr()
+    assert cli.main(["ledger", command]) == 1
+    assert "just migrate" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("command", ["checkpoint", "verify"])
+@pytest.mark.parametrize("error", [ProgrammingError, OperationalError])
+def test_any_other_database_error_is_named_without_a_traceback_or_the_url(
+    env: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    command: str,
+    error: type[ProgrammingError | OperationalError],
+) -> None:
+    add_users(env, monkeypatch, "ada@example.com")
+    cli.main(["ledger", "keygen"])
+    monkeypatch.setattr(
+        f"fource.server.ledger_commands.{'verify_ledger' if command == 'verify' else 'checkpoint'}",
+        raising(error("SELECT 1", None, DriverError("42501"))),
+    )
+    capsys.readouterr()
+    assert cli.main(["ledger", command]) == 1
+    out = capsys.readouterr().out
+    assert f"Could not read the database: {error.__name__}." in out
+    assert "just migrate" not in out and "sqlite" not in out and "SELECT" not in out
+
+
+def raising(error: Exception) -> Any:
+    async def fail(*args: Any, **kwargs: Any) -> None:
+        raise error
+
+    return fail
