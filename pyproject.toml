@@ -44,6 +44,7 @@ extraPaths = ["tools"]
 
 [tool.importlinter]
 root_packages = ["fource"]
+include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "common depends on no other 4CE package"
@@ -92,3 +93,9 @@ name = "Only the public API of fource.ledger is imported from outside it"
 type = "protected"
 protected_modules = ["fource.ledger.*"]
 allowed_importers = ["fource.ledger"]
+
+[[tool.importlinter.contracts]]
+name = "The ledger verifier imports only the standard library and cryptography"
+type = "forbidden"
+source_modules = ["fource.ledger.chain", "fource.ledger.checkpoints", "fource.ledger.verify"]
+forbidden_modules = ["fource.common", "fource.db", "sqlalchemy", "pydantic", "pydantic_settings"]

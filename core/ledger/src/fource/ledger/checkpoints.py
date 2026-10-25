@@ -22,12 +22,18 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from fource.ledger.chain import canonical, sha256_hex
-from fource.ledger.errors import UnusableKey
 
 # Signed bytes start with this, so a checkpoint signature can never be passed off as a
 # signature over anything else the same key might sign.
 CONTEXT = b"4ce-ledger-checkpoint-v1\n"
 _HEX = re.compile(r"[0-9a-f]+")
+
+
+class UnusableKey(ValueError):
+    """A key file that can't serve as the installation's key. The message names the file and
+    says why, and never repeats a parser's text, which could quote what it read.
+
+    Defined here, not in errors.py, so the pure half stays free of fource.common."""
 
 
 @dataclass(frozen=True)

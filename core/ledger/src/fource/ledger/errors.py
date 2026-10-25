@@ -17,8 +17,3 @@ class UnreadableEntry(FourceError):
     def __init__(self, seq: int) -> None:
         super().__init__(f"The database could not return the entries from {seq} on.")
         self.seq = seq
-
-
-class UnusableKey(ValueError):
-    """A key file that can't serve as the installation's key. The message names the file and
-    says why, and never repeats a parser's text, which could quote what it read."""
