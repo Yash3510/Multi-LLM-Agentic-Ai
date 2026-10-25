@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
 from fource.common import new_id, now
-from fource.db import org_of
+from fource.db import org_of, table_missing
 from fource.ledger.chain import (
     GENESIS,
     SYSTEM,
@@ -238,16 +238,22 @@ async def read_entries(session: AsyncSession) -> AsyncIterator[Entry]:
     Reads whatever the rows hold, so that verifying reports a tampered entry instead of failing
     on it. Raises UnreadableEntry if the database or its driver can't return a row at all."""
     org_id = org_of(session)
-    rows = await session.stream(
-        select(*_COLUMNS).where(LedgerEntry.org_id == org_id).order_by(LedgerEntry.seq)
-    )
     last = 0
+    rows: Any = None
     while True:
         try:
+            if rows is None:
+                # Opening the stream fetches the first batch, so a bad first row fails here.
+                rows = await session.stream(
+                    select(*_COLUMNS).where(LedgerEntry.org_id == org_id).order_by(LedgerEntry.seq)
+                )
             row = await anext(aiter(rows), None)
         # RecursionError, ValueError and TypeError: a driver that decodes JSON itself (PostgreSQL)
         # fails here on a cell nested too deep or malformed, before any column processing.
         except (DBAPIError, RecursionError, ValueError, TypeError) as error:
+            # An unmigrated database is not an unreadable entry; callers tell the user to migrate.
+            if isinstance(error, DBAPIError) and table_missing(error):
+                raise
             raise UnreadableEntry(last + 1) from error
         if row is None:
             return

@@ -8,7 +8,8 @@ from typing import Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fource.common import set_clock
@@ -289,3 +290,16 @@ async def test_a_row_that_fails_to_decode_while_fetching_is_reported(
         result = await verify_ledger(session)
     assert not result.ok
     assert [(problem.seq, problem.kind) for problem in result.problems] == [(2, "unreadable")]
+
+
+async def test_a_database_without_the_tables_is_not_an_unreadable_entry(tmp_path: Path) -> None:
+    database = Database(f"sqlite+aiosqlite:///{(tmp_path / 'empty.db').as_posix()}")
+    try:
+        async with database.engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+            await connection.execute(text("DROP TABLE ledger_entries"))
+        async with database.org_session(uuid.uuid4()) as session:
+            with pytest.raises(OperationalError, match="no such table"):
+                await verify_ledger(session)
+    finally:
+        await database.dispose()
