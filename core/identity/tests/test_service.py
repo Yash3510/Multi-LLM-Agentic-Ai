@@ -436,6 +436,26 @@ async def test_failures_and_the_lockout_are_recorded(
     assert entries[MAX_FAILED_SIGNINS].refs["until"] == "2026-10-12T09:15:00.000Z"
 
 
+async def test_an_inactive_users_failed_sign_in_is_recorded_with_the_user(
+    org: tuple[Database, uuid.UUID],
+) -> None:
+    database, org_id = org
+    async with database.org_session(org_id) as session:
+        user = await session.scalar(select(User).where(User.email == "ada@example.com"))
+        assert user is not None
+        user.is_active = False
+        user_id = user.id
+    with pytest.raises(InvalidCredentials):
+        await attempt(org, "ada@example.com", PASSWORD)
+    failed = (await ledger(org))[-1]
+    assert (failed.type, failed.actor, failed.inputs_sha256) == (
+        EntryType.SIGNIN_FAILURE,
+        "anonymous",
+        None,
+    )
+    assert failed.refs == {"reason": "inactive", "user": str(user_id)}
+
+
 async def test_a_sign_out_that_loses_the_race_records_nothing(
     org: tuple[Database, uuid.UUID], monkeypatch: pytest.MonkeyPatch
 ) -> None:
