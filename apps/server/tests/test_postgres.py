@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Generator
 from contextlib import contextmanager
@@ -12,6 +13,7 @@ from sqlalchemy.exc import DBAPIError
 from fource.common import Settings, new_id, now
 from fource.db import Database
 from fource.identity import InvalidEmail, Role, create_user
+from fource.ledger import EntryType, append, verify_ledger
 from fource.server.main import UnsafeDatabaseRole, create_app
 from fource.server.migrate import downgrade, upgrade
 
@@ -182,3 +184,136 @@ async def test_the_server_starts_and_stops_as_the_app_role(postgres: tuple[str, 
     app = create_app(Settings(secret_key=SecretStr(SECRET), database_url=SecretStr(postgres[1])))
     async with app.router.lifespan_context(app):
         assert await app.state.database.ping()
+
+
+LEDGER_CHANGES = (
+    "UPDATE ledger_entries SET actor = 'anonymous'",
+    "DELETE FROM ledger_entries",
+    "TRUNCATE ledger_entries",
+)
+
+
+async def test_the_app_role_may_only_add_and_read_ledger_entries(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    with connect(postgres[1]) as connection:
+        for statement in LEDGER_CHANGES:
+            set_org(connection, users[0])  # again: the rollback below undoes it
+            with pytest.raises(DBAPIError, match="permission denied"):
+                connection.execute(text(statement))
+            connection.rollback()
+        set_org(connection, users[0])
+        assert connection.execute(text("SELECT count(*) FROM ledger_entries")).scalar() == 1
+
+
+async def test_the_app_role_cannot_delete_a_ledger_head(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    with connect(postgres[1]) as connection:
+        set_org(connection, users[0])
+        with pytest.raises(DBAPIError, match="permission denied"):
+            connection.execute(text("DELETE FROM ledger_heads"))
+
+
+async def test_even_the_owner_cannot_change_or_empty_the_ledger(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    # The owner is the bundled image's superuser, so row-level security does not apply to it;
+    # the trigger refuses it regardless. (Setting the organisation keeps the test true for an
+    # owner that is not a superuser, whose forced policy would otherwise hide every row.)
+    with connect(postgres[0]) as connection:
+        for statement in LEDGER_CHANGES:
+            set_org(connection, users[0])  # again: the rollback below undoes it
+            with pytest.raises(DBAPIError, match="insert-only"):
+                connection.execute(text(statement))
+            connection.rollback()
+
+
+@pytest.mark.parametrize("table", ["ledger_entries", "ledger_heads"])
+async def test_row_level_security_is_enabled_and_forced_on_the_ledger(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID], table: str
+) -> None:
+    with connect(postgres[0]) as connection:
+        flags = connection.execute(
+            text("SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = :t"),
+            {"t": table},
+        ).one()
+    assert tuple(flags) == (True, True)
+
+
+async def test_each_organisation_reads_only_its_own_ledger_on_postgres(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    with connect(postgres[1]) as connection:
+        set_org(connection, users[1])
+        owners = connection.execute(text("SELECT org_id FROM ledger_entries")).scalars().all()
+        heads = connection.execute(text("SELECT org_id FROM ledger_heads")).scalars().all()
+    assert owners == [users[1]]
+    assert heads == [users[1]]
+
+
+async def test_the_app_role_cannot_add_an_entry_to_another_organisations_ledger(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    with connect(postgres[1]) as connection:
+        set_org(connection, users[0])
+        with pytest.raises(DBAPIError, match="row-level security"):
+            connection.execute(
+                text(
+                    "INSERT INTO ledger_entries (id, org_id, created_at, seq, at, type, actor,"
+                    " refs, prev, hash) VALUES (:id, :org, now(), 99, now(), 'checkpoint',"
+                    " 'system', '{}', :zero, :zero)"
+                ),
+                {"id": new_id(), "org": users[1], "zero": "0" * 64},
+            )
+
+
+async def test_concurrent_writers_keep_the_chain_whole_on_postgres(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    database = Database(postgres[1])
+
+    async def write() -> None:
+        async with database.org_session(users[0]) as session:
+            await append(session, EntryType.SIGNOUT, actor="system")
+
+    try:
+        await asyncio.gather(*(write() for _ in range(20)))
+        async with database.org_session(users[0]) as session:
+            result = await verify_ledger(session)
+    finally:
+        await database.dispose()
+    assert result.ok and (result.entries, result.head_seq) == (21, 21)
+
+
+async def test_a_deeply_nested_refs_cell_fails_verification_cleanly_on_postgres(
+    postgres: tuple[str, str], users: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    deep = "[" * 2000 + "]" * 2000
+    with connect(postgres[0]) as connection:
+        # Only the owner may switch the trigger off, which is how a tampered cell gets in.
+        set_org(connection, users[0])
+        connection.execute(
+            text("ALTER TABLE ledger_entries DISABLE TRIGGER ledger_entries_insert_only")
+        )
+        connection.execute(
+            text("UPDATE ledger_entries SET refs = CAST(:deep AS json) WHERE org_id = :org"),
+            {"deep": deep, "org": users[0]},
+        )
+        connection.execute(
+            text("ALTER TABLE ledger_entries ENABLE TRIGGER ledger_entries_insert_only")
+        )
+        connection.commit()
+        stored = connection.execute(
+            text("SELECT length(CAST(refs AS text)) FROM ledger_entries WHERE org_id = :org"),
+            {"org": users[0]},
+        ).scalar_one()
+    assert stored == len(deep)  # the deep value really is in the database
+    database = Database(postgres[1])
+    try:
+        async with database.org_session(users[0]) as session:
+            result = await verify_ledger(session)
+    finally:
+        await database.dispose()
+    assert not result.ok
+    assert {problem.kind for problem in result.problems} & {"altered", "unreadable"}
