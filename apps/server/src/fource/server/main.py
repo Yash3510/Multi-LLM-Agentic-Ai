@@ -2,13 +2,48 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from sqlalchemy import text
 
-from fource.common import Settings
-from fource.db import Database
+from fource.common import FourceError, Settings
+from fource.db import APP_ROLE, Database
 from fource.server.errors import install_error_handlers
 from fource.server.routes import auth, health
 
 VERSION = "0.1.0"
+
+
+class UnsafeDatabaseRole(FourceError):
+    code = "unsafe_database_role"
+    status = 500
+
+
+def refuse_a_bypassing_role(role: str, *, bypasses: bool) -> None:
+    """A superuser or BYPASSRLS role ignores row-level security, so a server connected as one
+    (the owner, through a wrong FOURCE_DATABASE_URL) would silently lose the isolation between
+    organisations. Refuse to start instead. The message names the role, never the URL."""
+    if bypasses:
+        raise UnsafeDatabaseRole(
+            f"The database role '{role}' is a superuser or bypasses row-level security, "
+            "which would switch off the isolation between organisations. "
+            f"Connect the server as {APP_ROLE} through FOURCE_DATABASE_URL."
+        )
+
+
+async def check_database_role(database: Database) -> None:
+    """On PostgreSQL, asks the server's own role whether it bypasses row-level security.
+    SQLite has no roles."""
+    if database.engine.dialect.name != "postgresql":
+        return
+    async with database.engine.connect() as connection:
+        row = (
+            await connection.execute(
+                text(
+                    "SELECT current_user, rolsuper OR rolbypassrls"
+                    " FROM pg_roles WHERE rolname = current_user"
+                )
+            )
+        ).one()
+    refuse_a_bypassing_role(row[0], bypasses=row[1])
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -20,8 +55,11 @@ def create_app(settings: Settings) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-        yield
-        await database.dispose()
+        try:
+            await check_database_role(database)
+            yield
+        finally:
+            await database.dispose()
 
     app = FastAPI(
         title="4CE",

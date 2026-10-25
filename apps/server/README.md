@@ -26,6 +26,10 @@ The smoke test (`tests/test_smoke.py`) starts the real `fource-server` command o
 
 On Windows the server and its commands use a selector event loop, because psycopg's async mode needs one.
 
+## Database role
+
+On PostgreSQL the server refuses to start if its role is a superuser or has `BYPASSRLS`, because either would switch off the isolation between organisations. Connect it as `fource_app` through `FOURCE_DATABASE_URL`; `FOURCE_DATABASE_ADMIN_URL` (the owner) is for `migrate` only.
+
 ## Tests
 
 ```
