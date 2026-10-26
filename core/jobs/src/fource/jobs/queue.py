@@ -75,6 +75,8 @@ async def enqueue(
         raise ValueError(f"a job key is 1 to 200 letters, digits or _.:- : {key!r}")
     if isinstance(max_attempts, bool) or max_attempts < 1:
         raise ValueError("max_attempts counts from 1")
+    if run_at is not None and run_at.utcoffset() is None:
+        raise ValueError("run_at carries a time zone")
     org_id = org_of(session)
     data = _checked_payload(payload)
     dialect = (await session.connection()).dialect.name
@@ -124,6 +126,10 @@ async def take(
     other takers skip it (FOR UPDATE SKIP LOCKED). SQLite has no row locks and drops that
     clause, but the statement writes, so it takes the database's write lock before reading and
     takers queue: correct, one at a time (ADR-0010 point 5)."""
+    if lease <= timedelta(0):
+        raise ValueError("a lease lasts longer than zero")
+    if isinstance(kinds, str) or not kinds:
+        raise ValueError("kinds is a collection of job kinds, such as ('ledger.checkpoint',)")
     org_id = org_of(session)
     current = now()
     token = new_id()
