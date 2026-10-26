@@ -12,15 +12,19 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fource.common import new_id, now
+from fource.common import FourceError, new_id, now
 from fource.db import org_of
+from fource.jobs.errors import LeaseLost
 from fource.jobs.models import UNFINISHED, UNFINISHED_SQL, Job, JobState
 
 CHANNEL = "fource_jobs"
 MAX_PAYLOAD_BYTES = 16 * 1024
+MAX_ERROR_LENGTH = 1000
 _KIND = re.compile(r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*")
 _KEY = re.compile(r"[A-Za-z0-9_.:-]{1,200}")
 _UNSYNCED = {"synchronize_session": False}
+_FIRST_RETRY = timedelta(seconds=30)
+_LONGEST_RETRY = timedelta(hours=1)
 
 
 @dataclass(frozen=True)
@@ -163,3 +167,63 @@ async def take(
         max_attempts=max_attempts,
         holder=token,
     )
+
+
+def backoff(attempts: int) -> timedelta:
+    """How long a failed job waits before its next attempt: 30 s, doubling, at most an hour."""
+    return min(_FIRST_RETRY * 2 ** min(max(attempts - 1, 0), 20), _LONGEST_RETRY)
+
+
+def describe(error: BaseException) -> str:
+    """What is kept of an error: a FourceError's message, which is written for people, or only
+    the error's class name, because other messages can quote documents, statements or URLs."""
+    said = error.message if isinstance(error, FourceError) else type(error).__name__
+    return said[:MAX_ERROR_LENGTH]
+
+
+async def complete(session: AsyncSession, job: HeldJob) -> None:
+    """Marks the job done in the session's transaction, the one its handler wrote in, so the
+    work and its completion commit together. Raises LeaseLost if another worker has taken the
+    job since: the caller rolls back and this attempt's writes are undone."""
+    done = await session.execute(
+        update(Job)
+        .where(
+            Job.id == job.id,
+            Job.holder == job.holder,
+            Job.state == JobState.RUNNING.value,
+        )
+        .values(
+            state=JobState.DONE.value,
+            finished_at=now(),
+            locked_until=None,
+            holder=None,
+            last_error=None,
+        )
+        .returning(Job.id),
+        execution_options=_UNSYNCED,
+    )
+    if done.first() is None:
+        raise LeaseLost(job.id)
+
+
+async def retry_or_fail(session: AsyncSession, job: HeldJob, error: BaseException) -> bool:
+    """Records a failed attempt (in a transaction of its own: the attempt's rolled back). The job
+    is queued again after backoff(attempts), or fails for good once it has had max_attempts.
+    Returns True if it will be tried again. Changes nothing if another worker holds it now."""
+    current = now()
+    again = job.attempts < job.max_attempts
+    if again:
+        outcome = {"state": JobState.QUEUED.value, "run_at": current + backoff(job.attempts)}
+    else:
+        outcome = {"state": JobState.FAILED.value, "finished_at": current}
+    await session.execute(
+        update(Job)
+        .where(
+            Job.id == job.id,
+            Job.holder == job.holder,
+            Job.state == JobState.RUNNING.value,
+        )
+        .values(**outcome, locked_until=None, holder=None, last_error=describe(error)),
+        execution_options=_UNSYNCED,
+    )
+    return again
