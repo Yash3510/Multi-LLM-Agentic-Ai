@@ -3,7 +3,7 @@ title: "Ledger with signed checkpoints"
 type: adr
 status: planned
 owner: R1
-updated: 2026-10-25
+updated: 2026-10-26
 covers: []
 tags: [4ce, adr]
 number: 14
@@ -40,7 +40,7 @@ Master plan §7.16 asks for an insert-only, hash-chained evidence ledger on Post
 
 ## Consequences
 
-- A truncated tail, or a chain rewritten from the start with fresh hashes, is detected only against a signed checkpoint kept outside the database. Between checkpoints, the table owner (who can disable triggers) or a superuser could cut the newest entries unseen. The trigger stops everyone else, and the owner too until it is disabled, which only a checkpoint kept outside the database can show. So the server refuses to start as a superuser, a `BYPASSRLS` role or a role that owns the ledger tables.
+- A truncated tail, or a chain rewritten from the start with fresh hashes, is detected only against a signed checkpoint kept outside the database. Between checkpoints, the table owner (who can disable triggers) or a superuser could cut the newest entries unseen. The trigger stops everyone else, and the owner too until it is disabled, which only a checkpoint kept outside the database can show. So the server refuses to start as a superuser, a `BYPASSRLS` role or a role that owns a table under row-level security or is a member of the role that does.
 - A migration that rebuilds `ledger_entries` on SQLite (batch mode) must recreate its triggers.
 - Key rotation and scheduled checkpoints are future work; scheduled checkpoints wait for the job queue (WP-F-07).
 - QR codes, evidence packs and the auditor's standalone script build on the verifier in later work packages.

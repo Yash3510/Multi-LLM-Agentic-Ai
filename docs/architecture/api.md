@@ -3,7 +3,7 @@ title: API
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-25
+updated: 2026-10-26
 covers:
   - apps/server/src/fource/server/
 tags: [4ce, architecture, server, security]
@@ -92,7 +92,7 @@ The `fource-server` command (`uv run fource-server …`):
 
 - **Settings** come from the environment and `.env`: `FOURCE_SECRET_KEY` (required, 32 characters or more), `FOURCE_DATABASE_URL`, `FOURCE_DATABASE_ADMIN_URL`, `FOURCE_TOKEN_TTL_MINUTES`, `FOURCE_ORG` and `FOURCE_LEDGER_KEY_FILE` (the ledger signing key, default `<FOURCE_DATA_DIR>/ledger/signing-key.pem`, `data/…` unless `FOURCE_DATA_DIR` is set). See [database](database.md) for the PostgreSQL form.
 - **Migrate before the first sign-in.** Without it (no organisation row, or no tables at all), sign-in answers `setup_incomplete`. So does sign-in on a database migrated only to `0003` (an install from before the ledger), since sign-in writes the ledger: run `just migrate` after pulling. The session and sign-out calls need a valid token, which only a sign-in on a set-up database issues, so they can't reach an unmigrated database.
-- **Start-up on PostgreSQL.** `serve` connects to the database before it answers, to check its role, and refuses to start (`UnsafeDatabaseRole`) if the role is a superuser, has `BYPASSRLS` or owns the ledger tables; connect as `fource_app` through `FOURCE_DATABASE_URL` ([database](database.md#row-level-security)). An unreachable database therefore fails start-up, where it used to start and answer `/api/health` with 503. SQLite is not checked.
+- **Start-up on PostgreSQL.** `serve` connects to the database before it answers, to check its role, and refuses to start (`UnsafeDatabaseRole`) if the role is a superuser, has `BYPASSRLS`, or owns a table under row-level security (or is a member of the role that does); connect as `fource_app` through `FOURCE_DATABASE_URL` ([database](database.md#row-level-security)). An unreachable database therefore fails start-up, where it used to start and answer `/api/health` with 503. SQLite is not checked.
 - **Event loop.** On Windows the server and its commands use a selector event loop, because psycopg's async mode can't use the default one. Linux and macOS use the default.
 - **Behind a proxy,** start Uvicorn directly: `uvicorn --factory fource.server.main:app_factory --forwarded-allow-ips <proxy address>`.
 - **Using the API as a script:** sign in, keep the cookies, send the CSRF header.

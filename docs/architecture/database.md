@@ -3,7 +3,7 @@ title: Database
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-25
+updated: 2026-10-26
 covers:
   - core/db/
   - apps/server/src/fource/server/migrations/
@@ -38,7 +38,7 @@ On PostgreSQL the same organisation is also enforced by the database:
 - Each organisation session sets `fource.org_id` for its transaction (`set_config(…, true)`).
 - `org_isolation_sql(table)` returns the statements a migration runs: `ENABLE` and `FORCE ROW LEVEL SECURITY` (FORCE applies the policy to the table's owner too), a policy named `org_isolation` whose `USING` and `WITH CHECK` are `org_id = NULLIF(current_setting('fource.org_id', true), '')::uuid`, and a grant of `SELECT, INSERT, UPDATE, DELETE` to the app role. An unset setting matches no rows. `org_isolation_sql(table, privileges=…)` grants fewer privileges to a table the app role must not change: the ledger grants `SELECT, INSERT` on `ledger_entries` and `SELECT, INSERT, UPDATE` on `ledger_heads` ([ledger](ledger.md#insert-only)). The function refuses any name that is not a plain lower-case identifier, and any privilege outside those four.
 - **`fource_app`** (`APP_ROLE`) is `LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`. [`deploy/config/postgres/10-app-role.sh`](../../deploy/config/postgres/10-app-role.sh) creates it, with `FOURCE_POSTGRES_APP_PASSWORD`, when PostgreSQL first creates its data volume. On an existing volume it does not run: create the role by hand.
-- **The owner role** (`fource`, `FOURCE_POSTGRES_PASSWORD`) owns the tables and runs migrations. The server must not connect as it, as any superuser or `BYPASSRLS` role, or as any role that owns the ledger tables (or belongs to the role that does; on managed PostgreSQL the owner is often not a superuser, yet as owner it could disable the ledger's trigger or turn off its forced row-level security): on PostgreSQL it checks its own role at start-up and refuses to start (`UnsafeDatabaseRole`, a message naming the role and saying to connect as `fource_app` through `FOURCE_DATABASE_URL`). A database without the ledger tables yet is not refused for ownership. The check connects, so an unreachable database fails start-up too; SQLite has no roles and is not checked.
+- **The owner role** (`fource`, `FOURCE_POSTGRES_PASSWORD`) owns the tables and runs migrations. The server must not connect as it, as any superuser or `BYPASSRLS` role, or as any role that owns a table under row-level security or is a member of the role that does (even a NOINHERIT member, which can `SET ROLE` to it; on managed PostgreSQL the owner is often not a superuser, yet as owner it could turn off a table's forced row-level security or disable the ledger's trigger): on PostgreSQL it checks its own role at start-up and refuses to start (`UnsafeDatabaseRole`, a message naming the role and saying to connect as `fource_app` through `FOURCE_DATABASE_URL`). A database with no table under row-level security yet (not migrated) is not refused for ownership. The check connects, so an unreachable database fails start-up too; SQLite has no roles and is not checked.
 - `orgs` has no policy: the app role may only read it.
 
 ## Migrations
@@ -52,7 +52,7 @@ On PostgreSQL the same organisation is also enforced by the database:
 
 ## What needs PostgreSQL
 
-The SQLite suite (`just test`) cannot show row-level security, so the tests marked `postgres` run only against PostgreSQL: the app role cannot read, write or unlock another organisation's rows, and the paths that differ by engine (NUL and over-long values, `UPDATE … RETURNING`). On PostgreSQL they also cover the ledger (the app role can only add and read entries; the insert-only trigger refuses the owner too, though the owner can still disable it, which only checkpoints kept outside the database detect; concurrent writers keep the chain whole, including the very first entries of an empty ledger) and the start-up refusal of a role that bypasses row-level security or owns the ledger tables. Run them with `just services`, `just test-postgres`, `just down`. CI runs them against a PostgreSQL 18 service in its own job.
+The SQLite suite (`just test`) cannot show row-level security, so the tests marked `postgres` run only against PostgreSQL: the app role cannot read, write or unlock another organisation's rows, and the paths that differ by engine (NUL and over-long values, `UPDATE … RETURNING`). On PostgreSQL they also cover the ledger (the app role can only add and read entries; the insert-only trigger refuses the owner too, though the owner can still disable it, which only checkpoints kept outside the database detect; concurrent writers keep the chain whole, including the very first entries of an empty ledger) and the start-up refusal of a role that bypasses row-level security, owns a table under it, or is a member of such an owner. Run them with `just services`, `just test-postgres`, `just down`. CI runs them against a PostgreSQL 18 service in its own job.
 
 ## Known limits
 

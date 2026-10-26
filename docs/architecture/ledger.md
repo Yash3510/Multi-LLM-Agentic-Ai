@@ -3,7 +3,7 @@ title: "Ledger"
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-25
+updated: 2026-10-26
 covers:
   - core/ledger/
   - apps/server/src/fource/server/ledger_commands.py
@@ -42,7 +42,7 @@ Each organisation has its own chain, counting from 1. An entry holds hashes and 
 ## Insert-only
 
 - Triggers refuse UPDATE and DELETE on `ledger_entries` on both engines, and TRUNCATE on PostgreSQL ("ledger_entries is insert-only").
-- On PostgreSQL the app role (`fource_app`) may only SELECT and INSERT entries, under row-level security like every table ([database](database.md#row-level-security)). The server also refuses to start as a role that is a superuser, bypasses row-level security or owns the ledger tables.
+- On PostgreSQL the app role (`fource_app`) may only SELECT and INSERT entries, under row-level security like every table ([database](database.md#row-level-security)). The server also refuses to start as a role that is a superuser, bypasses row-level security, or owns (or is a member of the owner of) a table under row-level security.
 - The trigger stops the table owner too, but the owner can disable it (or turn off the forced row-level security), and a superuser bypasses everything. Signed checkpoints kept outside the database are what detect that.
 
 ## Checkpoints and the key
