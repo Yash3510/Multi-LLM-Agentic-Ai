@@ -54,6 +54,8 @@ On PostgreSQL the same organisation is also enforced by the database:
 
 The SQLite suite (`just test`) cannot show row-level security, so the tests marked `postgres` run only against PostgreSQL: the app role cannot read, write or unlock another organisation's rows, and the paths that differ by engine (NUL and over-long values, `UPDATE … RETURNING`). On PostgreSQL they also cover the ledger (the app role can only add and read entries; the insert-only trigger refuses the owner too, though the owner can still disable it, which only checkpoints kept outside the database detect; concurrent writers keep the chain whole, including the very first entries of an empty ledger) and the start-up refusal of a role that bypasses row-level security, owns a table under it, or is a member of such an owner. Run them with `just services`, `just test-postgres`, `just down`. CI runs them against a PostgreSQL 18 service in its own job.
 
+To run them against a throwaway PostgreSQL on another port (when `localhost:5432` is a shared server you must not touch), start the same image on that port and set `FOURCE_TEST_POSTGRES_PORT` along with `FOURCE_POSTGRES_PASSWORD` and `FOURCE_POSTGRES_APP_PASSWORD`. The default stays 5432, which is what CI uses.
+
 ## Known limits
 
 - **Windows and PostgreSQL.** psycopg's async mode doesn't run on Windows' default event loop. The server and its commands use a selector event loop so it can work, but PostgreSQL from a Windows host is not exercised in CI (unverified). Production runs on Linux.

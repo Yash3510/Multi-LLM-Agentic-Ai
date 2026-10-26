@@ -5,7 +5,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import Connection, create_engine
 from sqlalchemy.engine import URL
@@ -61,6 +61,7 @@ class _Services(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FOURCE_", env_file=".env", extra="ignore")
     postgres_password: SecretStr | None = None
     postgres_app_password: SecretStr | None = None
+    test_postgres_port: int = Field(default=5432, ge=1, le=65535)
 
 
 def _literal(value: str) -> str:
@@ -91,7 +92,7 @@ def postgres() -> Iterator[tuple[str, str]]:
         username="fource",
         password=services.postgres_password.get_secret_value(),
         host="localhost",
-        port=5432,
+        port=services.test_postgres_port,
         database="fource",
     )
     app_password = services.postgres_app_password.get_secret_value()
@@ -103,7 +104,8 @@ def postgres() -> Iterator[tuple[str, str]]:
             connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
     except OperationalError as error:
         engine.dispose()
-        pytest.fail(f"{RUN_SERVICES}; PostgreSQL on localhost:5432 said: {error.orig}")
+        port = services.test_postgres_port
+        pytest.fail(f"{RUN_SERVICES}; PostgreSQL on localhost:{port} said: {error.orig}")
     owner = admin.set(database=name)
     app = owner.set(username=APP_ROLE, password=app_password)
     yield owner.render_as_string(hide_password=False), app.render_as_string(hide_password=False)
