@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
@@ -75,6 +75,7 @@ async def test_a_queued_job_is_taken_in_its_own_organisation_only(orgs: Orgs, cl
         {"payload": {"big": "x" * MAX_PAYLOAD_BYTES}},
         {"max_attempts": 0},
         {"max_attempts": True},
+        {"run_at": datetime(2026, 11, 14, 10, 0)},
     ],
 )
 async def test_malformed_jobs_are_refused(orgs: Orgs, options: dict[str, Any]) -> None:
@@ -82,6 +83,16 @@ async def test_malformed_jobs_are_refused(orgs: Orgs, options: dict[str, Any]) -
     kind = options.pop("kind", "test.work")
     with pytest.raises(ValueError):
         await queue(database, first, kind, **options)
+
+
+async def test_a_queued_job_commits_only_with_its_callers_transaction(orgs: Orgs) -> None:
+    database, first, _ = orgs
+    with pytest.raises(RuntimeError, match="the caller's work failed"):
+        async with database.org_session(first) as session:
+            await enqueue(session, "test.work")
+            raise RuntimeError("the caller's work failed")
+    async with database.org_session(first) as session:
+        assert (await session.scalars(select(Job))).all() == []
 
 
 async def test_a_key_keeps_one_unfinished_job(orgs: Orgs, clock: Any) -> None:
@@ -207,3 +218,22 @@ def test_retries_wait_longer_each_time_up_to_an_hour() -> None:
     waits = [backoff(attempts) for attempts in range(1, 10)]
     assert waits[:4] == [timedelta(seconds=s) for s in (30, 60, 120, 240)]
     assert waits[-1] == backoff(10**9) == timedelta(hours=1)
+
+
+@pytest.mark.parametrize(
+    ("kinds", "lease"),
+    [
+        (("test.work",), timedelta(0)),
+        (("test.work",), -LEASE),
+        ("test.work", LEASE),
+        ((), LEASE),
+    ],
+)
+async def test_taking_needs_kinds_and_a_lease_that_lasts(
+    orgs: Orgs, kinds: Any, lease: timedelta
+) -> None:
+    database, first, _ = orgs
+    await queue(database, first)
+    with pytest.raises(ValueError):
+        async with database.org_session(first) as session:
+            await take(session, kinds, lease=lease)
