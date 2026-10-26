@@ -6,8 +6,20 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 
+from fource.common import FourceError
 from fource.db import Database
-from fource.jobs import MAX_PAYLOAD_BYTES, HeldJob, Job, enqueue, take
+from fource.jobs import (
+    MAX_PAYLOAD_BYTES,
+    HeldJob,
+    Job,
+    LeaseLost,
+    backoff,
+    complete,
+    describe,
+    enqueue,
+    retry_or_fail,
+    take,
+)
 
 pytestmark = pytest.mark.anyio
 LEASE = timedelta(minutes=5)
@@ -130,3 +142,68 @@ async def test_takers_working_together_take_each_job_once(orgs: Orgs) -> None:
     results = await asyncio.gather(*(taker() for _ in range(5)))
     every = [job_id for taken in results for job_id in taken]
     assert len(every) == 20 and set(every) == expected
+
+
+async def test_a_finished_jobs_key_can_be_queued_again(orgs: Orgs, clock: Any) -> None:
+    database, first, _ = orgs
+    once = await queue(database, first, key="document:d-1")
+    job = await next_job(database, first)
+    assert job is not None
+    async with database.org_session(first) as session:
+        await complete(session, job)
+    assert await queue(database, first, key="document:d-1") != once
+
+
+async def test_only_the_current_holder_can_complete_a_job(orgs: Orgs, clock: Any) -> None:
+    database, first, _ = orgs
+    job_id = await queue(database, first)
+    stale = await next_job(database, first)
+    clock.advance(LEASE + timedelta(seconds=1))
+    current = await next_job(database, first)
+    assert stale is not None and current is not None
+    with pytest.raises(LeaseLost):
+        async with database.org_session(first) as session:
+            await complete(session, stale)
+    async with database.org_session(first) as session:
+        await complete(session, current)
+    row = await stored(database, first, job_id)
+    assert (row.state, row.finished_at, row.holder) == ("done", clock.current, None)
+
+
+async def test_a_failed_attempt_waits_then_the_job_fails_for_good(orgs: Orgs, clock: Any) -> None:
+    database, first, _ = orgs
+    job_id = await queue(database, first, max_attempts=2)
+    job = await next_job(database, first)
+    assert job is not None
+    async with database.org_session(first) as session:
+        assert await retry_or_fail(session, job, ValueError("text from a document"))
+    row = await stored(database, first, job_id)
+    assert (row.state, row.run_at, row.last_error) == (
+        "queued",
+        clock.current + timedelta(seconds=30),
+        "ValueError",
+    )
+    assert await next_job(database, first) is None
+    clock.advance(timedelta(seconds=30))
+    job = await next_job(database, first)
+    assert job is not None and job.attempts == 2
+    async with database.org_session(first) as session:
+        assert not await retry_or_fail(session, job, FourceError("The signing key is missing."))
+    row = await stored(database, first, job_id)
+    assert (row.state, row.finished_at, row.last_error) == (
+        "failed",
+        clock.current,
+        "The signing key is missing.",
+    )
+
+
+def test_only_messages_written_for_people_are_kept() -> None:
+    assert describe(FourceError("The signing key is missing.")) == "The signing key is missing."
+    assert describe(ValueError("a line quoted from a document")) == "ValueError"
+    assert len(describe(FourceError("x" * 5000))) == 1000
+
+
+def test_retries_wait_longer_each_time_up_to_an_hour() -> None:
+    waits = [backoff(attempts) for attempts in range(1, 10)]
+    assert waits[:4] == [timedelta(seconds=s) for s in (30, 60, 120, 240)]
+    assert waits[-1] == backoff(10**9) == timedelta(hours=1)
