@@ -20,33 +20,34 @@ class UnsafeDatabaseRole(FourceError):
 def refuse_a_bypassing_role(role: str, *, bypasses: bool) -> None:
     """A superuser or BYPASSRLS role ignores row-level security, so a server connected as one
     (the owner, through a wrong FOURCE_DATABASE_URL) would silently lose the isolation between
-    organisations. The owner of the ledger tables, or a member of the owning role, is refused
-    too, even when it is neither: as owner it could switch the ledger's trigger off or remove
-    its forced row-level security. Refuse to start instead. The message names the role, never
-    the URL."""
+    organisations. The owner of any table under row-level security, or a member of the owning
+    role (a NOINHERIT member too: it can SET ROLE to it), is refused as well, even when it is
+    neither: as owner it could remove a table's forced row-level security or switch the
+    ledger's trigger off. Refuse to start instead. The message names the role, never the URL."""
     if bypasses:
         raise UnsafeDatabaseRole(
-            f"The database role '{role}' is a superuser, bypasses row-level security or owns "
-            "the 4CE tables, which would switch off the isolation between organisations and "
-            f"the ledger's protection. Connect the server as {APP_ROLE} through "
-            "FOURCE_DATABASE_URL."
+            f"The database role '{role}' is a superuser, bypasses row-level security, or owns "
+            "tables under row-level security (or is a member of a role that does), which would "
+            "switch off the isolation between organisations and the ledger's protection. "
+            f"Connect the server as {APP_ROLE} through FOURCE_DATABASE_URL."
         )
 
 
-# An unmigrated database has no ledger_entries yet, so the ownership part is then false.
+# MEMBER, not USAGE: a NOINHERIT member of the owner can still SET ROLE to it. Any table under
+# row-level security counts, since its owner can switch the policy off; on an unmigrated
+# database there is none, so the ownership part is then false.
 _ROLE_QUERY = text(
     "SELECT current_user,"
-    " rolsuper OR rolbypassrls OR COALESCE(pg_has_role(current_user,"
-    " (SELECT relowner FROM pg_class WHERE oid = to_regclass('public.ledger_entries')),"
-    " 'USAGE'), false)"
+    " rolsuper OR rolbypassrls OR EXISTS (SELECT 1 FROM pg_class"
+    " WHERE relrowsecurity AND pg_has_role(current_user, relowner, 'MEMBER'))"
     " FROM pg_roles WHERE rolname = current_user"
 )
 
 
 async def check_database_role(database: Database) -> None:
     """On PostgreSQL, asks the server's own role whether it is a superuser, bypasses row-level
-    security or owns (or is a member of the role that owns) the ledger tables. SQLite has no
-    roles."""
+    security or owns (or is a member of the role that owns) a table under row-level security.
+    SQLite has no roles. The worker runs the same check."""
     if database.engine.dialect.name != "postgresql":
         return
     async with database.engine.connect() as connection:
@@ -56,8 +57,8 @@ async def check_database_role(database: Database) -> None:
 
 def create_app(settings: Settings) -> FastAPI:
     """The 4CE API. The engine is created here and closed on shutdown. On PostgreSQL the lifespan
-    connects at start-up to check the role (not a superuser, not BYPASSRLS, not the owner of the
-    ledger tables), so an unreachable database fails start-up.
+    connects at start-up to check the role (not a superuser, not BYPASSRLS, not the owner of a
+    table under row-level security), so an unreachable database fails start-up.
 
     The Swagger and ReDoc pages are off: they load assets from a CDN, and 4CE runs offline.
     """
