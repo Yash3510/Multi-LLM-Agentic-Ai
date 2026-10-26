@@ -80,7 +80,14 @@ allowed_importers = ["fource.db"]
 [[tool.importlinter.contracts]]
 name = "The server sits above the core packages; core never imports it"
 type = "layers"
-layers = ["fource.server", "fource.identity", "fource.ledger", "fource.db", "fource.common"]
+layers = [
+    "fource.server",
+    "fource.identity",
+    "fource.jobs",
+    "fource.ledger",
+    "fource.db",
+    "fource.common",
+]
 
 [[tool.importlinter.contracts]]
 name = "Only the public API of fource.identity is imported from outside it"
@@ -99,3 +106,9 @@ name = "The ledger verifier imports only the standard library and cryptography"
 type = "forbidden"
 source_modules = ["fource.ledger.chain", "fource.ledger.checkpoints", "fource.ledger.verify"]
 forbidden_modules = ["fource.common", "fource.db", "sqlalchemy", "pydantic", "pydantic_settings"]
+
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.jobs is imported from outside it"
+type = "protected"
+protected_modules = ["fource.jobs.*"]
+allowed_importers = ["fource.jobs"]

@@ -11,6 +11,7 @@ members = [
     "fource-common",
     "fource-db",
     "fource-identity",
+    "fource-jobs",
     "fource-ledger",
     "fource-packs",
     "fource-server",
@@ -383,6 +384,23 @@ requires-dist = [
 ]
 
 [[package]]
+name = "fource-jobs"
+version = "0.1.0"
+source = { editable = "core/jobs" }
+dependencies = [
+    { name = "fource-common" },
+    { name = "fource-db" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fource-common", editable = "core/common" },
+    { name = "fource-db", editable = "core/db" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.4" },
+]
+
+[[package]]
 name = "fource-ledger"
 version = "0.1.0"
 source = { editable = "core/ledger" }
@@ -416,6 +434,7 @@ dependencies = [
     { name = "fource-common" },
     { name = "fource-db" },
     { name = "fource-identity" },
+    { name = "fource-jobs" },
     { name = "fource-ledger" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -427,6 +446,7 @@ requires-dist = [
     { name = "fource-common", editable = "core/common" },
     { name = "fource-db", editable = "core/db" },
     { name = "fource-identity", editable = "core/identity" },
+    { name = "fource-jobs", editable = "core/jobs" },
     { name = "fource-ledger", editable = "core/ledger" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]

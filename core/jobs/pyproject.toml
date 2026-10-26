@@ -1,0 +1,21 @@
+[project]
+name = "fource-jobs"
+version = "0.1.0"
+description = "The job queue on the database, and the worker loop that runs it."
+requires-python = ">=3.12"
+dependencies = [
+    "fource-common",
+    "fource-db",
+    "sqlalchemy[asyncio]>=2.1.4",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fource.jobs"
+
+[tool.uv.sources]
+fource-common = { workspace = true }
+fource-db = { workspace = true }

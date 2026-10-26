@@ -9,6 +9,7 @@ dependencies = [
     "fource-common",
     "fource-db",
     "fource-identity",
+    "fource-jobs",
     "fource-ledger",
     "uvicorn[standard]>=0.54.0",
 ]
@@ -27,4 +28,5 @@ module-name = "fource.server"
 fource-common = { workspace = true }
 fource-db = { workspace = true }
 fource-identity = { workspace = true }
+fource-jobs = { workspace = true }
 fource-ledger = { workspace = true }
