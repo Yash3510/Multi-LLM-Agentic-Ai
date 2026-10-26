@@ -10,10 +10,11 @@ def test_a_role_that_bypasses_row_level_security_is_refused(role: str) -> None:
     message = refused.value.message
     assert f"'{role}'" in message
     assert "fource_app" in message and "FOURCE_DATABASE_URL" in message
-    # Whichever of the three it is, the message says so: the owner of the tables can switch
-    # off the ledger's trigger and its row-level security.
-    assert "superuser" in message and "row-level security" in message
-    assert "owns the 4CE tables" in message
+    # Whichever it is, the message says so: the owner of a table under row-level security, or
+    # a member of its role, can switch the table's policy (and the ledger's trigger) off.
+    assert "superuser" in message and "bypasses row-level security" in message
+    assert "owns tables under row-level security" in message
+    assert "member of a role that does" in message
     assert "://" not in message  # no URL, so no password either
 
 
