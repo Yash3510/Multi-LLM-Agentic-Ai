@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fource.db import Database
+from fource.db import Database, org_of
 from fource.jobs import Handler, HeldJob, Job, Recurring, Worker, enqueue, take
 
 pytestmark = pytest.mark.anyio
@@ -247,3 +247,63 @@ async def test_settings_that_cannot_work_are_refused(
     database, _, _ = orgs
     with pytest.raises(ValueError, match=mentions):
         Worker(database, handlers, **options)
+
+
+async def test_one_organisations_failure_does_not_stop_the_others(
+    orgs: Orgs, clock: Any, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    database, first, second = orgs
+    await queue(database, first)
+    await queue(database, second)
+    real_take = take
+
+    async def take_or_break(session: AsyncSession, *args: Any, **options: Any) -> HeldJob | None:
+        if org_of(session) == first:
+            raise RuntimeError("a line quoted from a document")
+        return await real_take(session, *args, **options)
+
+    monkeypatch.setattr("fource.jobs.worker.take", take_or_break)
+    recorder = Recorder()
+    worker = Worker(database, {"test.work": Handler(recorder)})
+    with caplog.at_level(logging.WARNING, logger="fource.jobs"):
+        assert await worker.run_once() == 1
+    assert [job.org_id for job in recorder.ran] == [second]
+    assert [job.state for job in await jobs(database, first)] == ["queued"]
+    assert f"a pass over organisation {first} failed: RuntimeError" in caplog.text
+    assert "a line quoted from a document" not in caplog.text
+
+
+async def test_a_failure_keeping_recurring_jobs_queued_does_not_stop_the_others(
+    orgs: Orgs, clock: Any, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    database, first, second = orgs
+    real_enqueue = enqueue
+
+    async def enqueue_or_break(session: AsyncSession, *args: Any, **options: Any) -> uuid.UUID:
+        if org_of(session) == first:
+            raise RuntimeError("a line quoted from a document")
+        return await real_enqueue(session, *args, **options)
+
+    monkeypatch.setattr("fource.jobs.worker.enqueue", enqueue_or_break)
+    recorder = Recorder()
+    hourly = Recurring("test.work", every=timedelta(hours=1))
+    worker = Worker(database, {"test.work": Handler(recorder)}, recurring=[hourly])
+    with caplog.at_level(logging.WARNING, logger="fource.jobs"):
+        assert await worker.run_once() == 1
+    assert [job.org_id for job in recorder.ran] == [second]
+    assert f"a pass over organisation {first} failed: RuntimeError" in caplog.text
+    assert "a line quoted from a document" not in caplog.text
+
+
+async def test_cancellation_is_not_swallowed_by_an_organisations_pass(
+    orgs: Orgs, clock: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database, first, _ = orgs
+    await queue(database, first)
+
+    async def cancelled(session: AsyncSession, *args: Any, **options: Any) -> HeldJob | None:
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr("fource.jobs.worker.take", cancelled)
+    with pytest.raises(asyncio.CancelledError):
+        await Worker(database, {"test.work": Handler(Recorder())}).run_once()
