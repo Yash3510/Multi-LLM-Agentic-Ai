@@ -28,9 +28,9 @@ Master plan §6.3 chooses 4CE's own job queue on PostgreSQL `SELECT … FOR UPDA
 7. **Recurring jobs** are ordinary jobs with the key `recurring:<kind>`: the worker keeps one queued in each organisation, due one interval after the last one finished.
 8. **Wake-ups:** queuing a job sends `pg_notify('fource_jobs', '')` in its transaction: the payload is empty, so nothing about organisations crosses the channel (decided 2026-10-31, controller ruling after review), because NOTIFY is per database and row-level security does not apply to it; workers LISTEN on a connection of their own and also poll every 2 seconds. SQLite only polls.
 9. **Shutdown:** the first SIGINT or SIGTERM stops taking and lets the running job finish; a second stops at once, and that job's transaction rolls back.
-10. **What is kept of an error** is a `FourceError`'s message, or only the error's class name: other messages can quote documents, statements or URLs.
+10. **What is kept of an error** is a `FourceError`'s message, or only the error's class name, cut to 1000 characters: other messages can quote documents, statements or URLs.
 11. **The queue writes no ledger entries of its own.** Enqueue, take and retry are plumbing; the actions are the handlers', and each records itself in the job's transaction.
-12. **Scheduled checkpoints** (kind `ledger.checkpoint`) run only when the operator sets `FOURCE_LEDGER_CHECKPOINT_MINUTES`: that setting is the human decision ADR-0014 point 8 allows. Each writes the existing `checkpoint` entry, and the same file as `ledger checkpoint` before its commit. A file already there for the same entry is kept (a retry); one that signs another hash fails the job, because the chain may have been cut.
+12. **Scheduled checkpoints** (kind `ledger.checkpoint`) run only when the operator sets `FOURCE_LEDGER_CHECKPOINT_MINUTES`: that setting is the human decision ADR-0014 point 8 allows. Each writes the existing `checkpoint` entry, and the same file as `ledger checkpoint` before its commit. A file already there for the same entry is kept (a retry); one that signs another hash fails the job, because the chain may have been cut. The worker refuses to start when the setting is on and the signing key is missing or unusable.
 
 ## Alternatives considered
 
