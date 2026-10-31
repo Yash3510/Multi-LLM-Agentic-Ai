@@ -70,6 +70,7 @@ class Worker:
         self._stopping = asyncio.Event()
         self._woken = asyncio.Event()
         self._failed = 0
+        self._errors = 0
 
     @property
     def failed(self) -> int:
@@ -78,6 +79,13 @@ class Worker:
         how many it made, so a caller that must report failure, such as `worker --once`, reads
         this before and after."""
         return self._failed
+
+    @property
+    def errors(self) -> int:
+        """How many organisation passes so far raised instead of finishing (taking a job, keeping
+        a recurring one queued, a lost database). They are logged and skipped, and are not job
+        attempts, so a caller that must report trouble, such as `worker --once`, reads this too."""
+        return self._errors
 
     def stop(self) -> None:
         """Stop taking; the job that is running finishes first."""
@@ -149,14 +157,15 @@ class Worker:
     async def _guarded(
         self, org_id: uuid.UUID, step: Awaitable[int | None], failed: set[uuid.UUID]
     ) -> int:
-        """Runs one organisation's step. If it fails, logs it, notes the organisation in `failed`
-        and returns 0 so the pass goes on with the next organisation: one organisation's trouble
-        never starves the others, nor floods the log. Cancellation is not an Exception and still
-        propagates."""
+        """Runs one organisation's step. If it fails, logs it, notes the organisation in `failed`,
+        counts it in `errors` and returns 0 so the pass goes on with the next organisation: one
+        organisation's trouble never starves the others, nor floods the log. Cancellation is not
+        an Exception and still propagates."""
         try:
             return await step or 0
         except Exception as error:
             failed.add(org_id)
+            self._errors += 1
             _log.warning("a pass over organisation %s failed: %s", org_id, describe(error))
             return 0
 
