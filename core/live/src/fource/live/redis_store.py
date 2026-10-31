@@ -139,10 +139,12 @@ class RedisLock:
                     return False
                 pipe.multi()
                 act(pipe)
-                await pipe.execute()
+                results = await pipe.execute()
             except WatchError:  # changed between the compare and the act: no longer ours
                 return False
-        return True
+        # 0 means the key was gone: a server that doesn't abort EXEC when a watched key expires
+        # still says so here
+        return bool(results[0])
 
     async def extend(self, ttl: timedelta) -> bool:
         millis = check_ttl(ttl)
