@@ -4,6 +4,7 @@ For development and tests, like SQLite for the database. Each process has its ow
 counts, locks and events, so an installation with more than one process sets FOURCE_REDIS_URL.
 """
 
+import secrets
 import time
 import uuid
 from datetime import timedelta
@@ -64,6 +65,43 @@ class MemoryLimiter:
         return Hit(allowed=count <= limit, count=count, retry_after=left)
 
 
+class MemoryLock:
+    def __init__(self, held: dict[_Slot, tuple[str, float]], slot: _Slot, token: str) -> None:
+        self._held, self._slot, self._token = held, slot, token
+
+    def _ours(self) -> bool:
+        item = self._held.get(self._slot)
+        return item is not None and item[0] == self._token and item[1] > _clock()
+
+    async def extend(self, ttl: timedelta) -> bool:
+        millis = check_ttl(ttl)
+        if not self._ours():
+            return False
+        self._held[self._slot] = (self._token, _clock() + millis / 1000)
+        return True
+
+    async def release(self) -> bool:
+        if not self._ours():
+            return False
+        del self._held[self._slot]
+        return True
+
+
+class MemoryLocks:
+    def __init__(self) -> None:
+        self._held: dict[_Slot, tuple[str, float]] = {}
+
+    async def acquire(self, org: uuid.UUID, name: str, ttl: timedelta) -> MemoryLock | None:
+        slot, millis = (org, check_name(name)), check_ttl(ttl)
+        item = self._held.get(slot)
+        if item is not None and item[1] > _clock():
+            return None
+        _purge(self._held)
+        token = secrets.token_hex(16)
+        self._held[slot] = (token, _clock() + millis / 1000)
+        return MemoryLock(self._held, slot, token)
+
+
 class MemoryLive:
     """One process's live store: for development and tests (no FOURCE_REDIS_URL)."""
 
@@ -72,6 +110,7 @@ class MemoryLive:
     def __init__(self) -> None:
         self.cache = MemoryCache()
         self.limits = MemoryLimiter()
+        self.locks = MemoryLocks()
 
     async def ping(self) -> bool:
         return True

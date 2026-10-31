@@ -10,9 +10,10 @@ Two backends: Redis when `FOURCE_REDIS_URL` is set, otherwise this process's own
 
 | Name | What it is |
 | --- | --- |
-| `Live` | The live store: `backend` (`"memory"` or `"redis"`), `cache`, `limits`, `ping()`, `close()` |
+| `Live` | The live store: `backend` (`"memory"` or `"redis"`), `cache`, `limits`, `locks`, `ping()`, `close()` |
 | `Cache` | `get(org, key)`, `set(org, key, value, ttl)`, `delete(org, key)`: bytes per organisation, each with a time to live from 1 ms to 24 hours. A cache holds copies; callers read the source on a miss |
 | `RateLimiter`, `Hit` | `hit(org, key, limit=, window=)` counts an attempt in a fixed window and answers `Hit(allowed, count, retry_after)` |
+| `Locks`, `HeldLock` | `acquire(org, name, ttl)` gives the lock to one taker (or None), with a time to live; `extend(ttl)` and `release()` work only while it is still this holder's. Locks save duplicate work; they don't guard correctness (no fencing tokens), so mutual exclusion that matters uses the database. With Redis down, taking and extending raise `LiveUnavailable` |
 | `LiveUnavailable` | The store can't be reached (503, `live_unavailable`); the message never carries its URL |
 | `MemoryLive` | The in-process backend |
 | `open_live(redis_url)`, `RedisLive(url, *, prefix="fource")` | The live store for `FOURCE_REDIS_URL`: Redis (or Valkey) when it is set, this process's memory when not. Redis keys are `<prefix>:<organisation>:<kind>:<name>`. Connects and answers within 2 seconds or counts as down: then the cache misses and drops writes, and the rate limiter raises `LiveUnavailable` (it fails closed). Messages and logs never carry the URL |

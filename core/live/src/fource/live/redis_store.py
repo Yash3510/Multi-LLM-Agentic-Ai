@@ -1,19 +1,23 @@
 """The Redis backend (ADR-0026). Every key and channel is `<prefix>:<org>:<kind>:<name>`.
 
-When Redis can't be reached: the cache misses and drops writes, and the rate limiter raises
-LiveUnavailable (it fails closed). No message carries the URL, which holds the password.
+When Redis can't be reached: the cache misses and drops writes, and the rate limiter and
+taking a lock raise LiveUnavailable (they fail closed). No message carries the URL, which
+holds the password.
 """
 
 import logging
+import secrets
 import uuid
+from collections.abc import Callable
 from datetime import timedelta
 from typing import Protocol, cast
 
 from redis.asyncio import ConnectionPool, Redis
+from redis.asyncio.client import Pipeline
 from redis.asyncio.connection import parse_url
 from redis.asyncio.retry import Retry
 from redis.backoff import NoBackoff
-from redis.exceptions import RedisError
+from redis.exceptions import RedisError, WatchError
 
 from fource.live.base import (
     Hit,
@@ -101,6 +105,54 @@ class RedisLimiter:
         return Hit(allowed=taken <= limit, count=taken, retry_after=left)
 
 
+class RedisLock:
+    def __init__(self, client: Redis, name: str, token: str) -> None:
+        self._client, self._name, self._token = client, name, token.encode()
+
+    async def _if_ours(self, act: Callable[[Pipeline], object]) -> bool:
+        """Runs `act` only while the key still holds this lock's token (WATCH, compare, MULTI)."""
+        async with self._client.pipeline(transaction=True) as pipe:
+            try:
+                await pipe.watch(self._name)
+                current: object = await pipe.get(self._name)
+                if current != self._token:
+                    return False
+                pipe.multi()
+                act(pipe)
+                await pipe.execute()
+            except WatchError:  # changed between the compare and the act: no longer ours
+                return False
+        return True
+
+    async def extend(self, ttl: timedelta) -> bool:
+        millis = check_ttl(ttl)
+        try:
+            return await self._if_ours(lambda pipe: pipe.pexpire(self._name, millis))
+        except _DOWN as error:  # a lock nobody can confirm is not held
+            raise _unavailable() from error
+
+    async def release(self) -> bool:
+        try:
+            return await self._if_ours(lambda pipe: pipe.delete(self._name))
+        except _DOWN as error:  # its time to live frees it
+            _log.warning("live lock release skipped: %s", type(error).__name__)
+            return False
+
+
+class RedisLocks:
+    def __init__(self, client: Redis, names: _Names) -> None:
+        self._client, self._names = client, names
+
+    async def acquire(self, org: uuid.UUID, name: str, ttl: timedelta) -> RedisLock | None:
+        key, millis = self._names(org, "lock", check_name(name)), check_ttl(ttl)
+        token = secrets.token_hex(16)
+        try:
+            taken: object = await self._client.set(key, token, nx=True, px=millis)
+        except _DOWN as error:
+            raise _unavailable() from error
+        return RedisLock(self._client, key, token) if taken else None
+
+
 class RedisLive:
     """The live store on Redis (or Valkey): what an installation uses (FOURCE_REDIS_URL)."""
 
@@ -122,6 +174,7 @@ class RedisLive:
         names = _Names(prefix)
         self.cache = RedisCache(self._client, names)
         self.limits = RedisLimiter(self._client, names)
+        self.locks = RedisLocks(self._client, names)
 
     async def ping(self) -> bool:
         try:

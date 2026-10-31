@@ -67,6 +67,16 @@ class RateLimiter(Protocol):
     async def hit(self, org: uuid.UUID, key: str, *, limit: int, window: timedelta) -> Hit: ...
 
 
+class HeldLock(Protocol):
+    async def extend(self, ttl: timedelta) -> bool: ...
+
+    async def release(self) -> bool: ...
+
+
+class Locks(Protocol):
+    async def acquire(self, org: uuid.UUID, name: str, ttl: timedelta) -> HeldLock | None: ...
+
+
 class Live(Protocol):
     """The services of the live store, on one backend: Redis, or this process's own memory."""
 
@@ -78,6 +88,9 @@ class Live(Protocol):
 
     @property
     def limits(self) -> RateLimiter: ...
+
+    @property
+    def locks(self) -> Locks: ...
 
     async def ping(self) -> bool: ...
 

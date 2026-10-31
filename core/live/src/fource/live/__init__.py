@@ -3,9 +3,11 @@ development) in this process (ADR-0026). Nothing here is durable."""
 
 from fource.live.base import (
     Cache,
+    HeldLock,
     Hit,
     Live,
     LiveUnavailable,
+    Locks,
     RateLimiter,
 )
 from fource.live.memory import MemoryLive
@@ -19,9 +21,11 @@ def open_live(redis_url: str | None, *, prefix: str = "fource") -> Live:
 
 __all__ = [
     "Cache",
+    "HeldLock",
     "Hit",
     "Live",
     "LiveUnavailable",
+    "Locks",
     "MemoryLive",
     "RateLimiter",
     "RedisLive",
