@@ -29,7 +29,7 @@ def refuse_a_bypassing_role(role: str, *, bypasses: bool) -> None:
             f"The database role '{role}' is a superuser, bypasses row-level security, or owns "
             "tables under row-level security (or is a member of a role that does), which would "
             "switch off the isolation between organisations and the ledger's protection. "
-            f"Connect the server as {APP_ROLE} through FOURCE_DATABASE_URL."
+            f"Connect 4CE as {APP_ROLE} through FOURCE_DATABASE_URL."
         )
 
 
