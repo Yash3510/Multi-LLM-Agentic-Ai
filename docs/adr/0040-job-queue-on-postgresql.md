@@ -3,7 +3,7 @@ title: "Job queue on PostgreSQL"
 type: adr
 status: planned
 owner: R1
-updated: 2026-10-26
+updated: 2026-10-31
 covers: []
 tags: [4ce, adr]
 number: 40
@@ -26,7 +26,7 @@ Master plan §6.3 chooses 4CE's own job queue on PostgreSQL `SELECT … FOR UPDA
 5. **States** are `queued`, `running`, `done` and `failed`. A failed attempt is queued again after 30 seconds, doubling up to an hour, until `max_attempts` (default 5), then `failed`. A `running` job whose lease ran out can be taken again; taken beyond `max_attempts`, it fails without running. A handler's lease must be longer than its longest run; there are no heartbeats yet.
 6. **An idempotency key:** at most one unfinished job per organisation and key (a partial unique index). Queuing a key that is pending returns the pending job.
 7. **Recurring jobs** are ordinary jobs with the key `recurring:<kind>`: the worker keeps one queued in each organisation, due one interval after the last one finished.
-8. **Wake-ups:** queuing a job sends `pg_notify('fource_jobs', <organisation>)` in its transaction; workers LISTEN on a connection of their own and also poll every 2 seconds. SQLite only polls.
+8. **Wake-ups:** queuing a job sends `pg_notify('fource_jobs', '')` in its transaction: the payload is empty, so nothing about organisations crosses the channel (decided 2026-10-31, controller ruling after review), because NOTIFY is per database and row-level security does not apply to it; workers LISTEN on a connection of their own and also poll every 2 seconds. SQLite only polls.
 9. **Shutdown:** the first SIGINT or SIGTERM stops taking and lets the running job finish; a second stops at once, and that job's transaction rolls back.
 10. **What is kept of an error** is a `FourceError`'s message, or only the error's class name: other messages can quote documents, statements or URLs.
 11. **The queue writes no ledger entries of its own.** Enqueue, take and retry are plumbing; the actions are the handlers', and each records itself in the job's transaction.
