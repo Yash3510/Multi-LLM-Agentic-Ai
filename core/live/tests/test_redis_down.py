@@ -7,6 +7,8 @@ from typing import cast
 
 import pytest
 from redis.asyncio import Redis
+from redis.asyncio.retry import Retry
+from redis.backoff import NoBackoff
 
 from fource.live import LiveUnavailable, RedisLive, open_live
 from fource.live.redis_store import RedisLock
@@ -122,7 +124,13 @@ async def test_a_lock_on_a_down_redis_cannot_be_extended_and_release_is_false(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.WARNING)
-    client = Redis(host="127.0.0.1", port=_refused_port(), password=PASSWORD)
+    client = Redis(  # built as the store builds its own: no retries, a short connect timeout
+        host="127.0.0.1",
+        port=_refused_port(),
+        password=PASSWORD,
+        retry=Retry(NoBackoff(), 0),
+        socket_connect_timeout=2.0,
+    )
     try:
         lock = RedisLock(client, "fource:lock", "token")
         with pytest.raises(LiveUnavailable) as refused:
