@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import math
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -58,8 +59,8 @@ class Worker:
             raise ValueError("a handler's lease lasts longer than zero")
         if any(each.every <= timedelta(0) for each in recurring):
             raise ValueError("a recurring job's interval (every) lasts longer than zero")
-        if poll_seconds <= 0:
-            raise ValueError("poll_seconds is longer than zero")
+        if not (poll_seconds > 0) or not math.isfinite(poll_seconds):  # NaN fails both
+            raise ValueError("poll_seconds is a positive, finite number")
         self._database = database
         self._handlers = dict(handlers)
         self._recurring = tuple(recurring)
