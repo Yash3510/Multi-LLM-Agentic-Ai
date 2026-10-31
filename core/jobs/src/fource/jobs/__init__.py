@@ -13,16 +13,20 @@ from fource.jobs.queue import (
     retry_or_fail,
     take,
 )
+from fource.jobs.worker import Handler, Recurring, Worker
 
 __all__ = [
     "CHANNEL",
     "MAX_PAYLOAD_BYTES",
     "UNFINISHED",
+    "Handler",
     "HeldJob",
     "Job",
     "JobState",
     "LeaseLost",
+    "Recurring",
     "Unfinished",
+    "Worker",
     "backoff",
     "complete",
     "describe",

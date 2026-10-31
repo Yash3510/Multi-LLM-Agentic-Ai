@@ -1,0 +1,153 @@
+"""The worker loop: take a due job, run its handler, finish it, repeat (ADR-0040)."""
+
+import asyncio
+import logging
+import uuid
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import timedelta
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from fource.common import now
+from fource.db import Database, Org
+from fource.jobs.errors import LeaseLost, Unfinished
+from fource.jobs.models import UNFINISHED, Job
+from fource.jobs.queue import HeldJob, complete, describe, enqueue, retry_or_fail, take
+
+_log = logging.getLogger("fource.jobs")
+_UNFINISHED = "The last attempt did not finish: its worker stopped or it outlived its lease."
+
+
+@dataclass(frozen=True)
+class Handler:
+    """Runs one kind of job. `run` gets the job's organisation session, in which its writes
+    commit together with the job's completion; it raises to fail the attempt. `lease` must be
+    longer than the longest run: past it, another worker may start the job again (and only one
+    of the two can commit)."""
+
+    run: Callable[[AsyncSession, HeldJob], Awaitable[None]]
+    lease: timedelta = timedelta(minutes=5)
+
+
+@dataclass(frozen=True)
+class Recurring:
+    """A job the worker keeps queued in every organisation, once per `every`."""
+
+    kind: str
+    every: timedelta
+
+
+class Worker:
+    """Runs the jobs of the kinds it has handlers for, in every organisation in turn."""
+
+    def __init__(
+        self,
+        database: Database,
+        handlers: Mapping[str, Handler],
+        *,
+        recurring: Sequence[Recurring] = (),
+        poll_seconds: float = 2.0,
+    ) -> None:
+        missing = [each.kind for each in recurring if each.kind not in handlers]
+        if missing:
+            raise ValueError(f"recurring jobs without a handler: {', '.join(missing)}")
+        self._database = database
+        self._handlers = dict(handlers)
+        self._recurring = tuple(recurring)
+        self._poll = poll_seconds
+        # One lease for every job it takes: the longest any handler needs.
+        self._lease = max((each.lease for each in handlers.values()), default=timedelta(minutes=5))
+        self._stopping = asyncio.Event()
+        self._woken = asyncio.Event()
+
+    def stop(self) -> None:
+        """Stop taking; the job that is running finishes first."""
+        self._stopping.set()
+
+    def wake(self) -> None:
+        """Look for work now rather than at the next poll."""
+        self._woken.set()
+
+    async def run_once(self) -> int:
+        """Keeps the recurring jobs queued, then runs due jobs until a pass over every
+        organisation finds none, or stop() is called. Returns how many attempts it made."""
+        organisations = await self._organisations()
+        for org_id in organisations:
+            for each in self._recurring:
+                await self._keep_queued(org_id, each)
+        attempts = 0
+        while not self._stopping.is_set():
+            ran = 0
+            for org_id in organisations:
+                if self._stopping.is_set():
+                    break
+                ran += await self._run_one(org_id)
+            if not ran:
+                break
+            attempts += ran
+        return attempts
+
+    async def run(self) -> None:
+        """Runs jobs until stop(): a pass over every organisation, then a wait for a wake-up or
+        the poll interval. A failed pass, such as a lost database, is logged and tried again at
+        the next poll."""
+        while not self._stopping.is_set():
+            self._woken.clear()
+            try:
+                await self.run_once()
+            except Exception as error:  # the next poll tries again
+                _log.warning("a pass over the job queue failed: %s", describe(error))
+            await self._wait()
+
+    async def _wait(self) -> None:
+        waits = [asyncio.ensure_future(event.wait()) for event in (self._woken, self._stopping)]
+        try:
+            await asyncio.wait(waits, timeout=self._poll, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            for each in waits:
+                each.cancel()
+
+    async def _organisations(self) -> list[uuid.UUID]:
+        async with self._database.session() as session:
+            return list((await session.scalars(select(Org.id).order_by(Org.slug))).all())
+
+    async def _keep_queued(self, org_id: uuid.UUID, recurring: Recurring) -> None:
+        """Queues the next occurrence unless one is pending: due one interval after the last one
+        finished, or now. The look and the insert are separate transactions, so SQLite never
+        upgrades a read lock; two workers doing this at once still queue one (the key)."""
+        key = f"recurring:{recurring.kind}"
+        async with self._database.org_session(org_id) as session:
+            mine = (Job.org_id == org_id, Job.key == key)
+            pending = await session.scalar(select(Job.id).where(*mine, Job.state.in_(UNFINISHED)))
+            last = await session.scalar(select(func.max(Job.finished_at)).where(*mine))
+        if pending is not None:
+            return
+        due = now() if last is None else max(now(), last + recurring.every)
+        async with self._database.org_session(org_id) as session:
+            await enqueue(session, recurring.kind, run_at=due, key=key)
+
+    async def _run_one(self, org_id: uuid.UUID) -> int:
+        async with self._database.org_session(org_id) as session:
+            job = await take(session, list(self._handlers), lease=self._lease)
+        if job is None:
+            return 0
+        if job.attempts > job.max_attempts:  # the last attempt never finished
+            async with self._database.org_session(org_id) as session:
+                await retry_or_fail(session, job, Unfinished(_UNFINISHED))
+            return 1
+        try:
+            async with self._database.org_session(org_id) as session:
+                await self._handlers[job.kind].run(session, job)
+                await complete(session, job)
+        except LeaseLost:
+            _log.warning(
+                "job %s was taken over by another worker; this attempt rolled back", job.id
+            )
+        except Exception as error:  # recorded on the job, never lost
+            async with self._database.org_session(org_id) as session:
+                again = await retry_or_fail(session, job, error)
+            outcome = "will be retried" if again else "failed for good"
+            _log.warning("job %s (%s) %s: %s", job.id, job.kind, outcome, describe(error))
+        return 1
