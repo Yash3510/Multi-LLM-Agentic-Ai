@@ -135,6 +135,15 @@ async def test_jobs_without_a_handler_wait(orgs: Orgs, clock: Any) -> None:
     assert [job.state for job in await jobs(database, first)] == ["queued"]
 
 
+async def test_a_worker_with_no_handlers_takes_nothing(orgs: Orgs, clock: Any) -> None:
+    database, first, second = orgs
+    await queue(database, first)
+    await queue(database, second)
+    assert await Worker(database, {}).run_once() == 0
+    for org_id in (first, second):
+        assert [job.state for job in await jobs(database, org_id)] == ["queued"]
+
+
 async def test_a_recurring_job_runs_once_per_interval_in_each_organisation(
     orgs: Orgs, clock: Any
 ) -> None:
