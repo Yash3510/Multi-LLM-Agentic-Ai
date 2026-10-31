@@ -307,3 +307,36 @@ async def test_cancellation_is_not_swallowed_by_an_organisations_pass(
     monkeypatch.setattr("fource.jobs.worker.take", cancelled)
     with pytest.raises(asyncio.CancelledError):
         await Worker(database, {"test.work": Handler(Recorder())}).run_once()
+
+
+async def test_two_workers_after_downtime_run_a_recurring_job_once(
+    orgs: Orgs, clock: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database, first, second = orgs
+    recorder = Recorder()
+    hourly = Recurring("test.work", every=timedelta(hours=1))
+    handlers = {"test.work": Handler(recorder)}
+    worker_a = Worker(database, handlers, recurring=[hourly])
+    worker_b = Worker(database, handlers, recurring=[hourly])
+    assert await worker_a.run_once() == 2  # 10:00 in both organisations
+    clock.advance(timedelta(hours=2))  # downtime longer than the interval
+    real_enqueue = enqueue
+    interleaved = False
+
+    async def enqueue_after_the_other_worker(
+        session: AsyncSession, *args: Any, **options: Any
+    ) -> uuid.UUID:
+        # Worker A has looked and found nothing pending; now worker B queues and runs the due one.
+        nonlocal interleaved
+        if not interleaved:
+            interleaved = True
+            assert await worker_b.run_once() == 2
+        return await real_enqueue(session, *args, **options)
+
+    monkeypatch.setattr("fource.jobs.worker.enqueue", enqueue_after_the_other_worker)
+    await worker_a.run_once()
+    assert interleaved
+    # First: 10:00 and 12:00, not 12:00 twice. Second: A looked after B, so it queued 13:00.
+    assert [job.state for job in await jobs(database, first)] == ["done", "done"]
+    assert [job.state for job in await jobs(database, second)] == ["done", "done", "queued"]
+    assert len(recorder.ran) == 4  # two organisations, two intervals
