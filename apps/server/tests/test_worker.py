@@ -1,14 +1,17 @@
 import asyncio
 import os
+import signal
+import sys
 from pathlib import Path
 
 import pytest
 
+from fource.common import Settings
 from fource.db import Database
 from fource.jobs import Worker
 from fource.server import cli
 from fource.server.migrate import upgrade
-from fource.server.worker import stop_handler
+from fource.server.worker import run_worker, stop_handler
 
 pytestmark = pytest.mark.anyio
 
@@ -75,3 +78,30 @@ async def test_the_first_signal_lets_the_job_finish_and_the_second_stops_at_once
     with pytest.raises(asyncio.CancelledError):
         await task
     await database.dispose()
+
+
+async def test_the_stop_signals_are_handled_before_the_first_pass(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A SIGTERM during a long first pass used to kill the worker (exit 143) because the
+    # handlers were installed after it. Nothing real is signalled: the loop's registration and
+    # the first pass are spied on, in the order they happen.
+    events: list[str] = []
+    loop = asyncio.get_running_loop()
+
+    def add_signal_handler(number: int, *_: object) -> None:
+        events.append(signal.Signals(number).name)
+
+    class Spied(Worker):
+        async def run_once(self) -> int:
+            events.append("pass")
+            self.stop()  # one pass is enough: run() then returns at once
+            return 0
+
+    monkeypatch.setattr(loop, "add_signal_handler", add_signal_handler)
+    monkeypatch.setattr("fource.server.worker.Worker", Spied)
+    assert await run_worker(settings, once=False) == 0
+    if sys.platform == "win32":  # no handlers there: Ctrl+C raises KeyboardInterrupt
+        assert events == ["pass"]
+    else:
+        assert events == ["SIGINT", "SIGTERM", "pass"]
