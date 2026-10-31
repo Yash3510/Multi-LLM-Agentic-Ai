@@ -26,7 +26,7 @@ Each organisation has its own chain, counting from 1. An entry holds hashes and 
 | `run`, `case` | The run and case it belongs to, or null (runs and cases come later) |
 | `type` | One of `EntryType`: `checkpoint`, the five identity types of [ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md), and `identity.signin.throttled` ([ADR-0026](../adr/0026-redis-for-live-state.md)) |
 | `actor` | `system`, `anonymous` or `user:<id>` |
-| `inputs_sha256`, `outputs_sha256` | SHA-256 (64 hex digits) of what went in and came out, or null. Today only a failed sign-in with an unknown email sets one: a keyed hash, see [identity](identity.md#ledger) |
+| `inputs_sha256`, `outputs_sha256` | SHA-256 (64 hex digits) of what went in and came out, or null. Today two entries set one, both keyed hashes: a failed sign-in with an unknown email and `identity.signin.throttled` (the client address); see [identity](identity.md#ledger) |
 | `refs` | Short named strings (names in lower snake case, values printable text of up to 1000 characters): ids, reasons, times |
 | `prev` | The previous entry's hash; 64 zeros for the first |
 | `hash` | SHA-256 of all the fields above |
