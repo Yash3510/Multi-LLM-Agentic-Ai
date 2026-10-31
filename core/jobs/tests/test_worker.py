@@ -220,3 +220,30 @@ async def test_a_wake_up_ends_the_wait_early(orgs: Orgs) -> None:
         worker.stop()
         await asyncio.wait_for(running, 5)
     assert len(recorder.ran) == 1
+
+
+@pytest.mark.parametrize(
+    ("handlers", "options", "mentions"),
+    [
+        ({"test.work": Handler(Recorder(), lease=timedelta(0))}, {}, "lease"),
+        ({"test.work": Handler(Recorder(), lease=timedelta(seconds=-1))}, {}, "lease"),
+        (
+            {"test.work": Handler(Recorder())},
+            {"recurring": [Recurring("test.work", every=timedelta(0))]},
+            "every",
+        ),
+        (
+            {"test.work": Handler(Recorder())},
+            {"recurring": [Recurring("test.work", every=timedelta(hours=-1))]},
+            "every",
+        ),
+        ({"test.work": Handler(Recorder())}, {"poll_seconds": 0}, "poll_seconds"),
+        ({"test.work": Handler(Recorder())}, {"poll_seconds": -1.5}, "poll_seconds"),
+    ],
+)
+async def test_settings_that_cannot_work_are_refused(
+    orgs: Orgs, handlers: dict[str, Handler], options: dict[str, Any], mentions: str
+) -> None:
+    database, _, _ = orgs
+    with pytest.raises(ValueError, match=mentions):
+        Worker(database, handlers, **options)
