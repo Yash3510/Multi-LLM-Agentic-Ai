@@ -10,11 +10,12 @@ import sys
 from collections.abc import Callable
 from datetime import timedelta
 
+from sqlalchemy import select
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from fource.common import Settings
 from fource.db import Database, table_missing
-from fource.jobs import Handler, Recurring, Worker
+from fource.jobs import Handler, Job, Recurring, Worker
 from fource.ledger import UnusableKey, load_private_key
 from fource.server.ledger_commands import key_file
 from fource.server.main import UnsafeDatabaseRole, check_database_role
@@ -73,9 +74,12 @@ async def run_worker(settings: Settings, *, once: bool) -> int:
     try:
         await check_database_role(database)
         worker = Worker(database, handlers, recurring=recurring)
-        # run_once does not touch the database when nothing is scheduled, so look at it first: a
-        # database that isn't set up fails here, at once, rather than idling.
+        # A pass swallows its errors (the worker logs them and carries on), so look at what it
+        # needs first: a database without the organisations or the jobs table, such as one
+        # upgraded from an earlier release, fails here, at once, rather than idling.
         await database.org_id(settings.org)
+        async with database.session() as session:
+            await session.scalar(select(Job.id).limit(1))
         ran = await worker.run_once()
         if once:
             print(f"Ran {ran} job attempt{'' if ran == 1 else 's'}.")
