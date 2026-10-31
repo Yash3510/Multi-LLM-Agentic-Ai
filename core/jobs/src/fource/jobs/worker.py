@@ -72,7 +72,10 @@ class Worker:
 
     async def run_once(self) -> int:
         """Keeps the recurring jobs queued, then runs due jobs until a pass over every
-        organisation finds none, or stop() is called. Returns how many attempts it made."""
+        organisation finds none, or stop() is called. Returns how many attempts it made. With
+        no handlers there is nothing to take (and nothing recurring: those need a handler)."""
+        if not self._handlers:
+            return 0
         organisations = await self._organisations()
         for org_id in organisations:
             for each in self._recurring:
