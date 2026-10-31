@@ -28,6 +28,7 @@ from fource.live.base import (
     LiveUnavailable,
     check_limit,
     check_name,
+    check_org,
     check_topic,
     check_ttl,
     decode_event,
@@ -84,11 +85,7 @@ class _Names:
         self._prefix = prefix
 
     def __call__(self, org: object, kind: str, name: str) -> str:
-        # Typed `object` so the check is real: a text could hold `:` or a glob, and the key
-        # must be built from the UUID alone, never from whatever a caller passed.
-        if not isinstance(org, uuid.UUID):
-            raise ValueError("an organisation is identified by a UUID")
-        return f"{self._prefix}:{org}:{kind}:{name}"
+        return f"{self._prefix}:{check_org(org)}:{kind}:{name}"
 
 
 class RedisCache:
@@ -196,17 +193,24 @@ class RedisSubscription:
         self._topic, self._pubsub = topic, pubsub
 
     async def next(self, timeout: float) -> Event | None:
-        try:
-            message = await cast("_Messages", self._pubsub).get_message(
-                ignore_subscribe_messages=True, timeout=timeout
-            )
-        except _DOWN as error:  # the subscriber re-reads state from the database
-            raise _unavailable() from error
-        if message is None:
-            return None
-        raw = message.get("data")
-        data = decode_event(raw) if isinstance(raw, bytes | str) else None
-        return None if data is None else Event(topic=self._topic, data=data)
+        """Waits the whole timeout for an event: anything else that arrives, such as a reply
+        to a ping or a message that isn't a JSON object, is skipped."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while True:
+            try:
+                message = await cast("_Messages", self._pubsub).get_message(
+                    ignore_subscribe_messages=True, timeout=max(deadline - loop.time(), 0)
+                )
+            except _DOWN as error:  # the subscriber re-reads state from the database
+                raise _unavailable() from error
+            if message is not None and message.get("type") == "message":
+                raw = message.get("data")
+                data = decode_event(raw) if isinstance(raw, bytes | str) else None
+                if data is not None:
+                    return Event(topic=self._topic, data=data)
+            if deadline - loop.time() <= 0:
+                return None
 
 
 async def _subscribed(pubsub: PubSub) -> None:
