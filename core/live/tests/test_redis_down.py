@@ -2,6 +2,7 @@ import logging
 import socket
 import uuid
 from datetime import timedelta
+from typing import cast
 
 import pytest
 
@@ -50,3 +51,18 @@ def test_a_url_that_is_not_redis_is_refused_without_repeating_it() -> None:
 def test_no_url_means_this_process_holds_it() -> None:
     assert open_live(None).backend == "memory"
     assert open_live("redis://localhost:6379/0").backend == "redis"
+
+
+async def test_a_key_is_built_only_from_an_organisation_id(down: RedisLive) -> None:
+    """A text standing in for the organisation could carry glob characters or a `:` and reach
+    into another organisation's keys, so anything but a UUID is refused before Redis is asked."""
+    stranger = cast("uuid.UUID", "x:*")
+    with pytest.raises(ValueError):
+        await down.cache.get(stranger, "key")
+    with pytest.raises(ValueError):
+        await down.cache.set(stranger, "key", b"x", MINUTE)
+    with pytest.raises(ValueError):
+        await down.cache.delete(stranger, "key")
+    with pytest.raises(ValueError):
+        await down.limits.hit(stranger, "key", limit=3, window=MINUTE)
+    await down.close()
