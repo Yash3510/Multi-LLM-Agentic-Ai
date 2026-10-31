@@ -3,6 +3,7 @@ import secrets
 import uuid
 from collections.abc import AsyncIterator, Generator
 from contextlib import contextmanager
+from datetime import timedelta
 
 import httpx
 import pytest
@@ -10,10 +11,12 @@ from pydantic import SecretStr
 from sqlalchemy import Connection, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fource.common import Settings, new_id, now
 from fource.db import Database
 from fource.identity import InvalidEmail, Role, create_user
+from fource.jobs import Handler, HeldJob, Worker, enqueue, listen_for_jobs, take
 from fource.ledger import EntryType, append, read_entries, verify_ledger
 from fource.server.main import UnsafeDatabaseRole, create_app
 from fource.server.migrate import downgrade, upgrade
@@ -497,3 +500,108 @@ async def test_a_deeply_nested_refs_cell_fails_verification_cleanly_on_postgres(
         await database.dispose()
     assert not result.ok
     assert {problem.kind for problem in result.problems} & {"altered", "unreadable"}
+
+
+async def test_each_organisation_sees_only_its_own_jobs_on_postgres(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    database = Database(postgres[1])
+    try:
+        for org_id in orgs:
+            async with database.org_session(org_id) as session:
+                await enqueue(session, "test.work", {"for": str(org_id)})
+    finally:
+        await database.dispose()
+    with connect(postgres[1]) as connection:
+        set_org(connection, orgs[1])
+        owners = connection.execute(text("SELECT org_id FROM jobs")).scalars().all()
+    assert owners == [orgs[1]]
+
+
+async def test_a_key_keeps_one_unfinished_job_on_postgres(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    database = Database(postgres[1])
+    try:
+        ids: list[uuid.UUID] = []
+        for _ in range(2):
+            async with database.org_session(orgs[0]) as session:
+                ids.append(await enqueue(session, "test.work", key="document:d-1"))
+    finally:
+        await database.dispose()
+    assert ids[0] == ids[1]
+
+
+async def test_takers_take_each_job_once_with_skip_locked(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    database = Database(postgres[1])
+
+    async def taker() -> list[uuid.UUID]:
+        taken: list[uuid.UUID] = []
+        while True:
+            async with database.org_session(orgs[0]) as session:
+                job = await take(session, ["test.work"], lease=timedelta(minutes=5))
+            if job is None:
+                return taken
+            taken.append(job.id)
+
+    try:
+        expected: set[uuid.UUID] = set()
+        for _ in range(20):
+            async with database.org_session(orgs[0]) as session:
+                expected.add(await enqueue(session, "test.work"))
+        results = await asyncio.gather(*(taker() for _ in range(5)))
+    finally:
+        await database.dispose()
+    every = [job_id for taken in results for job_id in taken]
+    assert len(every) == 20 and set(every) == expected
+
+
+async def test_a_worker_runs_each_organisations_jobs_on_postgres(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    ran: list[uuid.UUID] = []
+
+    async def note(session: AsyncSession, job: HeldJob) -> None:
+        ran.append(job.org_id)
+
+    database = Database(postgres[1])
+    try:
+        for org_id in orgs:
+            async with database.org_session(org_id) as session:
+                await enqueue(session, "test.work")
+        assert await Worker(database, {"test.work": Handler(note)}).run_once() == 2
+    finally:
+        await database.dispose()
+    assert sorted(ran) == sorted(orgs)
+
+
+async def test_a_queued_job_wakes_a_listening_worker(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    woken, stop = asyncio.Event(), asyncio.Event()
+    listener = asyncio.create_task(listen_for_jobs(postgres[1], woken.set, stop))
+    database = Database(postgres[1])
+    try:
+        await asyncio.wait_for(woken.wait(), 10)  # it wakes once when it starts listening
+        woken.clear()
+        async with database.org_session(orgs[0]) as session:
+            await enqueue(session, "test.work")
+        await asyncio.wait_for(woken.wait(), 10)  # the NOTIFY sent at the commit
+    finally:
+        stop.set()
+        await asyncio.wait_for(listener, 10)
+        await database.dispose()
+
+
+def test_the_jobs_table_is_under_forced_row_level_security(postgres: tuple[str, str]) -> None:
+    owner, _ = postgres
+    upgrade(owner)
+    downgrade(owner, "0004")
+    upgrade(owner)
+    with connect(owner) as connection:
+        flags = connection.execute(
+            text("SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = 'jobs'")
+        ).one()
+    assert tuple(flags) == (True, True)
