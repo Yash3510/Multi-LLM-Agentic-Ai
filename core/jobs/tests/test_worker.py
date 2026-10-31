@@ -318,6 +318,32 @@ async def test_a_failure_keeping_recurring_jobs_queued_does_not_stop_the_others(
     assert "a line quoted from a document" not in caplog.text
 
 
+async def test_a_failing_recurring_step_does_not_stop_the_ordinary_jobs(
+    orgs: Orgs, clock: Any, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    database, first, second = orgs
+    await queue(database, first)
+    await queue(database, second)
+    real_enqueue = enqueue
+
+    async def enqueue_or_break(session: AsyncSession, *args: Any, **options: Any) -> uuid.UUID:
+        if org_of(session) == first:
+            raise RuntimeError("a line quoted from a document")
+        return await real_enqueue(session, *args, **options)
+
+    monkeypatch.setattr("fource.jobs.worker.enqueue", enqueue_or_break)
+    recorder = Recorder()
+    handlers = {"test.work": Handler(recorder), "test.tick": Handler(Recorder())}
+    worker = Worker(
+        database, handlers, recurring=[Recurring("test.tick", every=timedelta(hours=1))]
+    )
+    with caplog.at_level(logging.WARNING, logger="fource.jobs"):
+        assert await worker.run_once() == 3  # first's job, second's job and second's tick
+    assert sorted(job.org_id for job in recorder.ran) == sorted([first, second])
+    assert [job.state for job in await jobs(database, first)] == ["done"]
+    assert caplog.text.count(f"a pass over organisation {first} failed") == 1
+
+
 async def test_cancellation_is_not_swallowed_by_an_organisations_pass(
     orgs: Orgs, clock: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
