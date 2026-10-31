@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     s3_bucket: str = "fource"
     data_dir: Path = Path("data")
     ledger_key_file: Path | None = None
-    ledger_checkpoint_minutes: int | None = Field(default=None, gt=0)
+    ledger_checkpoint_minutes: int | None = Field(default=None, gt=0, le=525_600)  # a year
     offline: bool = True
 
     @field_validator("secret_key")
