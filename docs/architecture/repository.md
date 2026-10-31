@@ -3,7 +3,7 @@ title: Repository layout and working rules
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-25
+updated: 2026-10-31
 covers:
   - justfile
   - pyproject.toml
@@ -31,7 +31,7 @@ Folders marked _planned_ don't exist yet; they arrive with their work packages.
 | `.obsidian/` | shared vault settings only: `app.json`, `core-plugins.json`, `templates.json` | built |
 | `apps/server/` | the FastAPI app: thin wiring, no business logic, and the one Alembic migration history | package and migrations built; routes _planned_ |
 | `apps/web/` | the SvelteKit UI and Pack Studio ([frontend](frontend.md)) | _planned_; on hold here while Pranay, the frontend owner, develops it |
-| `core/<package>/` | sector-neutral Python packages, all uv workspace members | `common`, `db`, `identity`, `ledger` and `packs` built |
+| `core/<package>/` | sector-neutral Python packages, all uv workspace members | `common`, `db`, `identity`, `jobs`, `ledger`, `live` and `packs` built |
 | `packs/sector/<pack-id>/`, `packs/cross/<pack-id>/` | one industry or one department each | _planned_ |
 | `skills/<skill-name>/` | 4CE's built-in skills | _planned_ |
 | `tests/` | tests that cross package boundaries: `integration/`, `e2e/`, `security/` | _planned_ |
@@ -72,7 +72,7 @@ core/rules/
 - `apps/*` wire everything together and hold no business logic.
 - `tools/` may import anything, and nothing imports `tools/`.
 
-import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. A layers contract puts `fource.server` above `fource.identity` above `fource.ledger` above `fource.db` above `fource.common`, so the core never imports the server. A forbidden-imports contract keeps the ledger verifier's modules (`chain`, `checkpoints`, `verify`) free of `fource.common`, `fource.db`, SQLAlchemy and pydantic; the packs rule arrives with the Pack SDK.
+import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. A layers contract puts `fource.server` above `fource.identity` above `fource.jobs` above `fource.live` above `fource.ledger` above `fource.db` above `fource.common`, so the core never imports the server. `fource.live` may not import the database, and only `fource.live` imports Redis. A forbidden-imports contract keeps the ledger verifier's modules (`chain`, `checkpoints`, `verify`) free of `fource.common`, `fource.db`, SQLAlchemy and pydantic; the packs rule arrives with the Pack SDK.
 
 ## Naming
 
@@ -177,8 +177,9 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | --- | --- |
 | `just setup` | Install Python through uv, sync every package from the lockfile (failing if it is out of date), and install pre-commit and its git hooks |
 | `just sync` | Start of every session: fast-forward `4ce-core` from GitHub and list the docs pages changed since your last sync. It never overwrites local commits. |
-| `just test` | Every test except the PostgreSQL-only ones |
+| `just test` | Every test except the PostgreSQL-only and Redis-only ones |
 | `just test-postgres` | The PostgreSQL-only tests; run `just services` first |
+| `just test-redis` | The Redis-only tests; needs `FOURCE_TEST_REDIS_URL`, CI's Redis job |
 | `just lint` | Formatting, lint and types |
 | `just repo-check` | The repo check |
 | `just imports` | The package-boundary contracts |
@@ -188,6 +189,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just dev` | Bring the database up to date and run the server with live reload (SQLite unless `.env` says PostgreSQL) |
 | `just migrate` | Bring the database schema up to date |
 | `just create-user <email> --role <role>` | Add a user; asks for the password |
+| `just worker` | Run queued jobs; `--once` for the due ones |
 | `just ledger <keygen\|checkpoint\|verify>` | Create the ledger signing key, sign the chain head, or check the chain ([ledger](ledger.md)) |
 | `just services` | Start the bundled services on localhost and wait until they are healthy |
 | `just down` | Stop the bundled services, keeping their data |

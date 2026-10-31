@@ -3,7 +3,7 @@ title: "Ledger"
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-26
+updated: 2026-10-31
 covers:
   - core/ledger/
   - apps/server/src/fource/server/ledger_commands.py
@@ -24,7 +24,7 @@ Each organisation has its own chain, counting from 1. An entry holds hashes and 
 | `at` | UTC time with milliseconds: `2026-11-14T10:22:31.512Z` |
 | `org` | The organisation's id |
 | `run`, `case` | The run and case it belongs to, or null (runs and cases come later) |
-| `type` | One of `EntryType`: `checkpoint`, and the five identity types of [ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md) |
+| `type` | One of `EntryType`: `checkpoint`, the five identity types of [ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md), and `identity.signin.throttled` ([ADR-0026](../adr/0026-redis-for-live-state.md)) |
 | `actor` | `system`, `anonymous` or `user:<id>` |
 | `inputs_sha256`, `outputs_sha256` | SHA-256 (64 hex digits) of what went in and came out, or null. Today only a failed sign-in with an unknown email sets one: a keyed hash, see [identity](identity.md#ledger) |
 | `refs` | Short named strings (names in lower snake case, values printable text of up to 1000 characters): ids, reasons, times |
@@ -51,7 +51,7 @@ Each organisation has its own chain, counting from 1. An entry holds hashes and 
 - `just ledger checkpoint [--org SLUG] [--out DIR]` signs the chain head, records the signature as the next entry (type `checkpoint`, actor `system`, refs `seq`, `hash`, `key`, `signature`), prints the checkpoint as JSON and writes it to `<FOURCE_DATA_DIR>/ledger/checkpoints/<slug>-<seq>.json` (`<slug>` is the organisation's slug; `seq` padded to ten digits, the entry that was signed). **Keep a copy off the machine** (print it, or put it on write-once storage): only an outside copy can prove how long the chain was.
 - A checkpoint file is never overwritten. If the file exists, the checkpoint entry is still recorded, the JSON is printed, the existing file is left as it is and the command exits 1. The same applies when the file cannot be saved: keep the printed JSON.
 - A checkpoint signs the bytes `4ce-ledger-checkpoint-v1\n` followed by the canonical `{org, seq, hash, at, key}`, where `key` is the SHA-256 of the raw public key.
-- **Who signs.** People run `just ledger checkpoint`. A scheduled job may sign checkpoints too, once the job queue lands (WP-F-07); that is decided and not built ([ADR-0014](../adr/0014-ledger-with-signed-checkpoints.md)). Nothing in CI or the tests signs with a real installation key; tests use throwaway keys.
+- **Who signs.** People run `just ledger checkpoint`. When `FOURCE_LEDGER_CHECKPOINT_MINUTES` is set, the worker signs every organisation's head that often ([jobs](jobs.md#recurring-and-scheduled-jobs), [ADR-0014](../adr/0014-ledger-with-signed-checkpoints.md)). Nothing in CI or the tests signs with a real installation key; tests use throwaway keys.
 
 ## Verifying
 
@@ -94,7 +94,6 @@ The verifier (`chain.py`, `checkpoints.py`, `verify.py`) uses only the standard 
 - **The owner or a superuser between checkpoints:** they can disable a trigger and cut the newest entries unseen until the next outside checkpoint.
 - **Failed sign-ins grow the ledger without bound** until sign-in rate limits land (WP-F-11): the ledger is insert-only, so rows can't be pruned without breaking verification.
 - **No key rotation yet.**
-- **Scheduled checkpoints wait for the job queue** (WP-F-07).
 - **A SQLite batch rebuild of `ledger_entries` must recreate its triggers** ([database](database.md#known-limits)).
 - **PostgreSQL from a Windows host is untested** ([database](database.md#known-limits)).
 - **Export, QR codes and evidence packs** are not built; they come with the release work packages.

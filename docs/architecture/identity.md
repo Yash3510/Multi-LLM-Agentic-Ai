@@ -3,7 +3,7 @@ title: Identity
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-25
+updated: 2026-10-31
 covers:
   - core/identity/
 tags: [4ce, architecture, identity, security]
@@ -30,6 +30,7 @@ Who a person is and how they prove it: users, passwords, lockout, signed tokens 
 
 - **5 failed sign-ins lock the account for 15 minutes.** The failure is counted in the database in one statement, so guesses sent together can't overwrite each other's count. A success resets the count.
 - **An unknown email, an inactive user and a wrong password give the same error,** `invalid_credentials`, and the same main cost: both run one argon2 verification (for an unknown email, against a real hash), so timing reveals nothing. A wrong password also counts the failure (an UPDATE and a commit), and every failure writes a [ledger](#ledger) entry that is committed before the error is raised.
+- **Sign-ins are also limited per client address, before the password check:** over `FOURCE_SIGNIN_ATTEMPTS_PER_MINUTE` the answer is 429 `rate_limited`, and when the limit can't be checked it is 503 `rate_limit_unavailable` ([live state](live.md#the-sign-in-rate-limit)). The lockout is unchanged and applies to every attempt let through.
 - **A locked account answers `423 account_locked` before the password is checked,** even for the right password. This reveals that the account exists and is locked: a known trade-off, recorded in [ADR-0038](../adr/0038-signed-tokens-for-sign-in.md#consequences).
 
 ## Tokens
@@ -61,10 +62,11 @@ Every identity action writes an entry in the organisation's [ledger](ledger.md),
 | a sign-in fails | `identity.signin.failure` | `anonymous` | `reason`: `unknown_email`, `inactive`, `wrong_password` or `locked`; `user` when the email is known |
 | the fifth failure locks the account | `identity.lockout` | `system` | `user`, `until` (UTC time) |
 | a sign-out revokes a token | `identity.signout` | `user:<id>` | `user`, `token` |
+| a client address first goes over the sign-in limit | `identity.signin.throttled` | `anonymous` | `limit`, `until` (UTC time); `inputs_sha256` the keyed hash of the client address (context `4ce-ledger-client-address-v1`), once per throttle window |
 
 - **Failed sign-ins commit their entry before the error is raised,** so the record survives the rollback that follows an error. A sign-out that loses a race with another sign-out of the same token records nothing and succeeds, because the token is revoked; any other integrity error (a clash in the ledger, say) rolls the revocation back and is raised, so a sign-out never reports success for a token that still works. `sign_in` commits the session on every failure path, so call it in a session that holds nothing else.
 - **No email address is stored.** The ledger can never be erased, so entries hold ids. For an unknown email, `inputs_sha256` holds a keyed hash: HMAC-SHA256 of the trimmed, lower-cased address, with a key derived from `FOURCE_SECRET_KEY` for this one purpose (the project lead's decision of 2026-10-24). Whoever holds the secret can confirm that an address was tried; whoever has only the ledger or an evidence pack cannot. **Rotating `FOURCE_SECRET_KEY` means older digests can no longer be confirmed;** the entries stay and the chain still verifies.
 
 ## Decisions
 
-[ADR-0038](../adr/0038-signed-tokens-for-sign-in.md): signed tokens instead of server-side sessions, cookies, CSRF and revocation. [ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md): every action writes a ledger entry, and an unknown email is kept only as a keyed hash. Where the rows live: [database](database.md).
+[ADR-0038](../adr/0038-signed-tokens-for-sign-in.md): signed tokens instead of server-side sessions, cookies, CSRF and revocation. [ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md): every action writes a ledger entry, and an unknown email is kept only as a keyed hash. [ADR-0026](../adr/0026-redis-for-live-state.md): the sign-in rate limit and its throttled entry. Where the rows live: [database](database.md).

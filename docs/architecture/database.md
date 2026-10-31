@@ -3,7 +3,7 @@ title: Database
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-26
+updated: 2026-10-31
 covers:
   - core/db/
   - apps/server/src/fource/server/migrations/
@@ -43,7 +43,7 @@ On PostgreSQL the same organisation is also enforced by the database:
 
 ## Migrations
 
-- **Where:** `apps/server/src/fource/server/migrations/versions/`, one Alembic history for every package's tables, named `NNNN_what_it_does.py` (`0001` to `0004` today: organisations, users, revoked tokens, the [ledger](ledger.md) with its insert-only triggers).
+- **Where:** `apps/server/src/fource/server/migrations/versions/`, one Alembic history for every package's tables, named `NNNN_what_it_does.py` (`0001` to `0005` today: organisations, users, revoked tokens, the [ledger](ledger.md) with its insert-only triggers, the [job queue](jobs.md)).
 - **Batch mode** is on (`render_as_batch`), so SQLite can alter tables.
 - **Dialect branches:** a migration runs the row-level security and grant statements only when the connection is PostgreSQL.
 - **Downgrades** exist for every revision (`fource.server.migrate.downgrade`), used by tests; production upgrades are forward-only.
@@ -52,7 +52,7 @@ On PostgreSQL the same organisation is also enforced by the database:
 
 ## What needs PostgreSQL
 
-The SQLite suite (`just test`) cannot show row-level security, so the tests marked `postgres` run only against PostgreSQL: the app role cannot read, write or unlock another organisation's rows, and the paths that differ by engine (NUL and over-long values, `UPDATE … RETURNING`). On PostgreSQL they also cover the ledger (the app role can only add and read entries; the insert-only trigger refuses the owner too, though the owner can still disable it, which only checkpoints kept outside the database detect; concurrent writers keep the chain whole, including the very first entries of an empty ledger) and the start-up refusal of a role that bypasses row-level security, owns a table under it, or is a member of such an owner. Run them with `just services`, `just test-postgres`, `just down`. CI runs them against a PostgreSQL 18 service in its own job.
+The SQLite suite (`just test`) cannot show row-level security, so the tests marked `postgres` run only against PostgreSQL: the app role cannot read, write or unlock another organisation's rows, and the paths that differ by engine (NUL and over-long values, `UPDATE … RETURNING`). On PostgreSQL they also cover the ledger (the app role can only add and read entries; the insert-only trigger refuses the owner too, though the owner can still disable it, which only checkpoints kept outside the database detect; concurrent writers keep the chain whole, including the very first entries of an empty ledger) and the start-up refusal of a role that bypasses row-level security, owns a table under it, or is a member of such an owner. They also cover the [jobs](jobs.md): row-level security per organisation, `SKIP LOCKED` with five takers, and a NOTIFY waking a listening worker. Run them with `just services`, `just test-postgres`, `just down`. CI runs them against a PostgreSQL 18 service in its own job.
 
 To run them against a throwaway PostgreSQL on another port (when `localhost:5432` is a shared server you must not touch), start the same image on that port and set `FOURCE_TEST_POSTGRES_PORT` along with `FOURCE_POSTGRES_PASSWORD` and `FOURCE_POSTGRES_APP_PASSWORD`. The default stays 5432, which is what CI uses.
 

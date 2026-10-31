@@ -3,7 +3,7 @@ title: Bundled services
 type: architecture
 status: active
 owner: R4
-updated: 2026-10-24
+updated: 2026-10-31
 covers:
   - deploy/compose/
   - deploy/config/
@@ -17,8 +17,8 @@ The services 4CE talks to over the network. Each runs unmodified as its own cont
 
 | Service | Version | Licence | Used for |
 | --- | --- | --- | --- |
-| PostgreSQL | 18.6 | PostgreSQL | State, cases, the ledger, the job queue, full-text search, row-level security |
-| Redis | 8.10.2 | AGPL-3.0 (of its three options) | Live events, short caches, locks, rate limits. Jobs and run state stay in PostgreSQL, so a Redis restart loses no work. |
+| PostgreSQL | 18.6 | PostgreSQL | State, cases, the ledger, the job queue ([jobs](jobs.md)), full-text search, row-level security |
+| Redis | 8.10.2 | AGPL-3.0 (of its three options) | Live events, short caches, locks, the sign-in rate limit ([live state](live.md)). Jobs and run state stay in PostgreSQL, so a Redis restart loses no work. |
 | MinIO | `RELEASE.2025-10-15T17-29-55Z`, built from source | AGPL-3.0 | Originals, page renders, deliverables, pack bundles |
 | Prometheus | 3.15.0 | Apache-2.0 | Operations metrics |
 | Grafana | 13.2.3 (OSS) | AGPL-3.0 | Operations dashboards for admins, later reached through the 4CE login |
@@ -31,6 +31,8 @@ just down      # stop everything; the data volumes are kept
 ```
 
 Both read `.env` (copy [`.env.example`](../../.env.example) and replace every `change-me`); the stack refuses to start without its passwords. `just services` publishes each service on `127.0.0.1` only: PostgreSQL 5432, Redis 6379, MinIO 9000 (console 9001), Prometheus 9090, Grafana 3000.
+
+The server uses Redis only when `FOURCE_REDIS_URL` is set (commented out in [`.env.example`](../../.env.example)); without it, live state stays in the process ([live state](live.md)).
 
 ## How they are set up
 

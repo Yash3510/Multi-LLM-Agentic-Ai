@@ -3,7 +3,7 @@ title: Licences and the licence gate
 type: architecture
 status: active
 owner: R4
-updated: 2026-10-25
+updated: 2026-10-31
 covers:
   - tools/licence_gate.py
   - tools/import_scan.py
@@ -53,6 +53,10 @@ Later on 2026-10-17, with `httpx` added for the API tests, `just licences` check
 **Sign-in and ledger dependencies.** `pyjwt[crypto]` (the token library of [identity](identity.md#tokens)) pulls in `cryptography`; the extra is kept because pyright's strict mode needs it. `cryptography` 50.0.2 declares `Apache-2.0 OR BSD-3-Clause` in its installed metadata (`License-Expression`; its `dist-info/licenses` folder holds LICENSE, LICENSE.APACHE and LICENSE.BSD). Both options are allowed anywhere, so the strict gate passes it with no entry in `licence-review.toml`. `fource-ledger` depends on `cryptography` directly, for Ed25519 checkpoints ([ledger](ledger.md)); same version and licence, no new component.
 
 On 2026-10-25, at commit `88c1cfa`, on Linux, with the ledger added, `just licences` checked 63 components and scanned 67 files with no problems, and checked the 5 bundled services.
+
+**Queue and live-state dependencies.** `redis` 8.1.0 (redis-py, the client of the bundled Redis) declares `License-Expression: MIT` and has no runtime dependencies on Python 3.12; it is imported only in `core/live`. `fource-jobs` now depends on `psycopg` directly (for LISTEN), approved by [ADR-0037](../adr/0037-licence-approvals-for-the-backend-stack.md). fakeredis was not added (BSD-3-Clause, but it would bring sortedcontainers, whose metadata says only "Apache 2.0"; [ADR-0026](../adr/0026-redis-for-live-state.md)).
+
+On 2026-10-31, at commit `e459081`, on Linux, with the queue and the live store added, `just licences` checked 66 components and scanned 93 files with no problems, and checked the 5 bundled services.
 
 ## Decisions
 
