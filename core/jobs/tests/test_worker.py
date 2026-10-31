@@ -86,6 +86,21 @@ async def test_a_handler_that_fails_rolls_back_and_is_retried(
     assert (job.state, job.attempts, job.finished_at) == ("failed", 2, clock.current)
 
 
+async def test_the_worker_counts_the_attempts_that_failed(orgs: Orgs, clock: Any) -> None:
+    database, first, _ = orgs
+    worker = Worker(
+        database,
+        {"test.work": Handler(Recorder()), "test.bad": Handler(Recorder(fail=ValueError("x")))},
+    )
+    await queue(database, first)
+    assert await worker.run_once() == 1
+    assert worker.failed == 0  # an attempt that succeeded is not one
+    await queue(database, first, "test.bad")  # retried later
+    await queue(database, first, "test.bad", max_attempts=1)  # failed for good
+    assert await worker.run_once() == 2
+    assert worker.failed == 2
+
+
 async def test_an_attempt_that_lost_its_lease_rolls_back(orgs: Orgs, clock: Any) -> None:
     database, first, _ = orgs
     await queue(database, first)
@@ -119,6 +134,7 @@ async def test_a_failure_after_the_lease_was_lost_is_logged_as_lost(
     [job] = await jobs(database, first)  # the other worker's hold is untouched
     assert (job.state, job.attempts, job.last_error) == ("running", 2, None)
     assert "taken over" in caplog.text and "will be retried" not in caplog.text
+    assert worker.failed == 1  # that attempt did not succeed
     assert "a line quoted from a document" not in caplog.text
 
 
