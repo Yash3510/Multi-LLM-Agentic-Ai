@@ -42,6 +42,12 @@ async def test_the_rate_limit_fails_closed_and_never_names_the_url(down: RedisLi
     await down.close()
 
 
+async def test_taking_a_lock_fails_closed(down: RedisLive) -> None:
+    with pytest.raises(LiveUnavailable):
+        await down.locks.acquire(ORG, "index", MINUTE)
+    await down.close()
+
+
 def test_a_url_that_is_not_redis_is_refused_without_repeating_it() -> None:
     with pytest.raises(ValueError) as refused:
         RedisLive(f"http://:{PASSWORD}@localhost:6379/0")
