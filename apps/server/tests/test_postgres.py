@@ -89,6 +89,18 @@ async def app_role_is_idle(owner: str, app: str) -> None:
 
     async def look() -> None:
         async with await psycopg.AsyncConnection.connect(conninfo(owner), autocommit=True) as seen:
+            # Another role's `state` is NULL to anyone else, which the count below would take
+            # for idle: so a probe that cannot see it fails the test rather than pass it.
+            cursor = await seen.execute(
+                "SELECT rolsuper OR pg_has_role(current_user, 'pg_read_all_stats', 'MEMBER')"
+                " FROM pg_roles WHERE rolname = current_user"
+            )
+            sees = await cursor.fetchone()
+            if sees is None or not sees[0]:
+                pytest.fail(
+                    "The idle wait needs a probe that can see other roles' state: connect as a "
+                    "superuser or a member of pg_read_all_stats."
+                )
             quiet = 0
             while quiet < 2:
                 cursor = await seen.execute(
