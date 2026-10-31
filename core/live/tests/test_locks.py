@@ -38,10 +38,10 @@ async def test_an_expired_lock_is_free_and_its_old_holder_cannot_touch_it(live: 
 
 
 async def test_extending_keeps_the_lock(live: Live) -> None:
-    held = await live.locks.acquire(ORG, "index", timedelta(milliseconds=200))
+    held = await live.locks.acquire(ORG, "index", timedelta(seconds=1))
     assert held is not None
     assert await held.extend(MINUTE)
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(1.3)  # past the original time to live: only the extension holds it
     assert await live.locks.acquire(ORG, "index", MINUTE) is None
 
 
