@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import secrets
 import uuid
 from collections.abc import AsyncIterator, Generator
@@ -52,25 +53,51 @@ def set_org(connection: Connection, org_id: uuid.UUID) -> None:
     )
 
 
+def conninfo(url: str) -> str:
+    return make_url(url).set(drivername="postgresql").render_as_string(hide_password=False)
+
+
 async def listener_pid(owner: str) -> int:
-    """The backend of a job listener that is connected and idle, as the owner sees it."""
+    """The backend of a job listener that is connected and idle, as the owner sees it. One async
+    connection, so waiting never blocks the event loop the worker and listener run on."""
     database = make_url(owner).database
 
     async def look() -> int:
-        while True:
-            with connect(owner) as connection:
-                pid = connection.execute(
-                    text(
-                        "SELECT pid FROM pg_stat_activity WHERE datname = :db"
-                        " AND query = 'LISTEN fource_jobs' AND state = 'idle'"
-                    ),
-                    {"db": database},
-                ).scalar()
-            if pid is not None:
-                return int(pid)
-            await asyncio.sleep(0.1)
+        async with await psycopg.AsyncConnection.connect(conninfo(owner), autocommit=True) as seen:
+            while True:
+                cursor = await seen.execute(
+                    "SELECT pid FROM pg_stat_activity WHERE datname = %s"
+                    " AND query = 'LISTEN fource_jobs' AND state = 'idle'",
+                    (database,),
+                )
+                row = await cursor.fetchone()
+                if row is not None:
+                    return int(row[0])
+                await asyncio.sleep(0.1)
 
     return await asyncio.wait_for(look(), 10)
+
+
+async def app_role_is_idle(owner: str, app: str) -> None:
+    """Returns once no backend of the app role is working: the job listener sits idle in LISTEN
+    and a pooled connection is idle between passes. Seen twice in a row, so the gap between a
+    wake-up's two passes does not count as rest."""
+    database, role = make_url(owner).database, make_url(app).username
+
+    async def look() -> None:
+        async with await psycopg.AsyncConnection.connect(conninfo(owner), autocommit=True) as seen:
+            quiet = 0
+            while quiet < 2:
+                cursor = await seen.execute(
+                    "SELECT count(*) FROM pg_stat_activity"
+                    " WHERE datname = %s AND usename = %s AND state <> 'idle'",
+                    (database, role),
+                )
+                row = await cursor.fetchone()
+                quiet = quiet + 1 if row is not None and row[0] == 0 else 0
+                await asyncio.sleep(0.1)
+
+    await asyncio.wait_for(look(), 10)
 
 
 @pytest.fixture
@@ -582,8 +609,11 @@ async def test_the_app_role_cannot_add_or_change_another_organisations_jobs(
 
 
 async def test_two_workers_leave_one_recurring_occurrence_per_organisation_on_postgres(
-    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+    postgres: tuple[str, str],
+    orgs: tuple[uuid.UUID, uuid.UUID],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
+    caplog.set_level(logging.WARNING)
     ran: list[uuid.UUID] = []
 
     async def note(session: AsyncSession, job: HeldJob) -> None:
@@ -597,6 +627,8 @@ async def test_two_workers_leave_one_recurring_occurrence_per_organisation_on_po
     finally:
         await database.dispose()
     assert sorted(ran) == sorted(orgs)  # each organisation's occurrence ran exactly once
+    # The loser of the race must leave quietly: a failed step (an IntegrityError) is a warning.
+    assert "failed" not in caplog.text
     with connect(postgres[1]) as connection:
         for org_id in orgs:
             set_org(connection, org_id)
@@ -692,11 +724,11 @@ async def test_a_running_worker_is_woken_and_records_a_failed_attempt_on_postgre
     worker = Worker(database, {"test.work": Handler(work)}, poll_seconds=60)
     running = asyncio.create_task(worker.run())
     try:
-        # Queue nothing before the listener is live and the first pass has ended, so that only
-        # a NOTIFY can bring the outcomes in under the 60 s poll. (A slow machine only makes the
-        # wait longer.)
+        # Queue nothing before the listener is live and the worker is at rest (its start-up
+        # passes are over), so that only a NOTIFY can bring the outcomes in under the 60 s poll.
+        # (A slow machine only makes the wait longer.)
         await listener_pid(postgres[0])
-        await asyncio.sleep(1)
+        await app_role_is_idle(*postgres)
         async with database.org_session(orgs[0]) as session:
             good = await enqueue(session, "test.work")
         async with database.org_session(orgs[0]) as session:
