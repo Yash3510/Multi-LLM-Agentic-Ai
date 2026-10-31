@@ -43,7 +43,11 @@ class _Names:
     def __init__(self, prefix: str) -> None:
         self._prefix = prefix
 
-    def __call__(self, org: uuid.UUID, kind: str, name: str) -> str:
+    def __call__(self, org: object, kind: str, name: str) -> str:
+        # Typed `object` so the check is real: a text could hold `:` or a glob, and the key
+        # must be built from the UUID alone, never from whatever a caller passed.
+        if not isinstance(org, uuid.UUID):
+            raise ValueError("an organisation is identified by a UUID")
         return f"{self._prefix}:{org}:{kind}:{name}"
 
 
