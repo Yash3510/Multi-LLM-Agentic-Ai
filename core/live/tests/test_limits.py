@@ -47,3 +47,9 @@ async def test_hits_sent_together_are_each_counted(live: Live) -> None:
 async def test_a_limit_counts_from_one(live: Live, limit: int) -> None:
     with pytest.raises(ValueError):
         await live.limits.hit(ORG, "key", limit=limit, window=MINUTE)
+
+
+@pytest.mark.parametrize("window", [timedelta(0), timedelta(hours=24, seconds=1)])
+async def test_a_window_is_from_a_millisecond_to_a_day(live: Live, window: timedelta) -> None:
+    with pytest.raises(ValueError):
+        await live.limits.hit(ORG, "key", limit=1, window=window)
