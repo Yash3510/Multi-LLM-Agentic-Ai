@@ -1,6 +1,7 @@
 import logging
 import socket
 import uuid
+from collections.abc import AsyncIterator
 from datetime import timedelta
 from typing import cast
 
@@ -15,12 +16,16 @@ PASSWORD = "not-the-real-password"
 
 
 @pytest.fixture
-def down() -> RedisLive:
+async def down() -> AsyncIterator[RedisLive]:
     """A Redis URL on a local port nothing listens on: connections are refused at once."""
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
-    return RedisLive(f"redis://:{PASSWORD}@127.0.0.1:{port}/0")
+    store = RedisLive(f"redis://:{PASSWORD}@127.0.0.1:{port}/0")
+    try:
+        yield store
+    finally:
+        await store.close()
 
 
 async def test_the_cache_misses_and_drops_writes_when_redis_is_down(
@@ -31,7 +36,6 @@ async def test_the_cache_misses_and_drops_writes_when_redis_is_down(
     assert await down.cache.get(ORG, "key") is None
     await down.cache.delete(ORG, "key")
     assert "skipped" in caplog.text and PASSWORD not in caplog.text
-    await down.close()
 
 
 async def test_the_rate_limit_fails_closed_and_never_names_the_url(down: RedisLive) -> None:
@@ -39,13 +43,11 @@ async def test_the_rate_limit_fails_closed_and_never_names_the_url(down: RedisLi
         await down.limits.hit(ORG, "signin:10.0.0.1", limit=3, window=MINUTE)
     assert PASSWORD not in refused.value.message and "://" not in refused.value.message
     assert not await down.ping()
-    await down.close()
 
 
 async def test_taking_a_lock_fails_closed(down: RedisLive) -> None:
     with pytest.raises(LiveUnavailable):
         await down.locks.acquire(ORG, "index", MINUTE)
-    await down.close()
 
 
 def test_a_url_that_is_not_redis_is_refused_without_repeating_it() -> None:
@@ -54,9 +56,13 @@ def test_a_url_that_is_not_redis_is_refused_without_repeating_it() -> None:
     assert PASSWORD not in str(refused.value)
 
 
-def test_no_url_means_this_process_holds_it() -> None:
+async def test_no_url_means_this_process_holds_it() -> None:
     assert open_live(None).backend == "memory"
-    assert open_live("redis://localhost:6379/0").backend == "redis"
+    store = open_live("redis://127.0.0.1:1/0")  # nothing listens on port 1; never connected
+    try:
+        assert store.backend == "redis"
+    finally:
+        await store.close()
 
 
 async def test_a_key_is_built_only_from_an_organisation_id(down: RedisLive) -> None:
@@ -71,4 +77,3 @@ async def test_a_key_is_built_only_from_an_organisation_id(down: RedisLive) -> N
         await down.cache.delete(stranger, "key")
     with pytest.raises(ValueError):
         await down.limits.hit(stranger, "key", limit=3, window=MINUTE)
-    await down.close()
