@@ -26,9 +26,11 @@ from fource.identity import (
     TokenPayload,
     User,
     authenticate,
+    client_address_digest,
     create_user,
     needs_rehash,
     read_token,
+    record_throttled,
     sign_in,
     sign_out,
     unknown_email_digest,
@@ -43,6 +45,8 @@ TTL = timedelta(hours=8)
 # HMAC-SHA256 of b"nobody@example.com" under a key that is itself the HMAC-SHA256 of SECRET
 # over b"4ce-ledger-unknown-email-v1", computed once with the standard library.
 NOBODY_DIGEST = "a0a4affe9b729aad0b343c25e8303196946c2dc7ae88e6ff633b3e065b6b5c09"
+# The same construction for b"10.0.0.7" with the context b"4ce-ledger-client-address-v1".
+ADDRESS_DIGEST = "4ba225567f01d80c2c4a9b4f446294caeb8f1c45fe7eb8898965141428bd346e"
 
 
 @pytest.fixture
@@ -487,3 +491,25 @@ async def test_the_identity_entries_form_a_valid_chain(org: tuple[Database, uuid
     database, org_id = org
     async with database.org_session(org_id) as session:
         assert (await verify_ledger(session)).complete
+
+
+async def test_a_throttled_address_is_recorded_only_as_a_keyed_hash(
+    org: tuple[Database, uuid.UUID], clock: list[datetime]
+) -> None:
+    database, org_id = org
+    until = clock[0] + timedelta(seconds=42)
+    async with database.org_session(org_id) as session:
+        await record_throttled(session, address="10.0.0.7", secret=SECRET, limit=30, until=until)
+    throttled = (await ledger(org))[-1]
+    assert (throttled.type, throttled.actor, throttled.refs) == (
+        EntryType.SIGNIN_THROTTLED,
+        "anonymous",
+        {"limit": "30", "until": "2026-10-12T09:00:42.000Z"},
+    )
+    assert throttled.inputs_sha256 == client_address_digest("10.0.0.7", SECRET) == ADDRESS_DIGEST
+    assert "10.0.0.7" not in str(throttled.to_dict())
+
+
+def test_an_address_digest_never_matches_an_email_digest() -> None:
+    text = "nobody@example.com"
+    assert client_address_digest(text, SECRET) != unknown_email_digest(text, SECRET)

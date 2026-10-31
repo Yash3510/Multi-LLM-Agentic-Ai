@@ -1,4 +1,6 @@
 import json
+import uuid
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -18,9 +20,12 @@ from fource.identity import (
     InvalidDisplayName,
     InvalidEmail,
     NotAuthenticated,
+    Role,
     WeakPassword,
+    create_user,
 )
 from fource.ledger import EntryType, read_entries
+from fource.live import Hit, Live, LiveUnavailable, MemoryLive, RateLimiter
 from fource.server.errors import CsrfFailed, SetupIncomplete
 from fource.server.main import app_factory, create_app
 from fource.server.migrate import upgrade
@@ -47,7 +52,8 @@ async def get_from(app: FastAPI, path: str, *, raise_exceptions: bool = True) ->
 
 async def test_health_reports_the_database(client: httpx.AsyncClient) -> None:
     response = await client.get("/api/health")
-    assert (response.status_code, response.json()) == (200, {"status": "ok", "database": "ok"})
+    expected = {"status": "ok", "database": "ok", "redis": "off"}  # no FOURCE_REDIS_URL
+    assert (response.status_code, response.json()) == (200, expected)
 
 
 async def test_health_reports_an_unreachable_database(settings: Settings) -> None:
@@ -58,7 +64,7 @@ async def test_health_reports_an_unreachable_database(settings: Settings) -> Non
         response = await client.get("/api/health")
     await app.state.database.dispose()
     assert response.status_code == 503
-    assert response.json() == {"status": "unavailable", "database": "unavailable"}
+    assert response.json() == {"status": "unavailable", "database": "unavailable", "redis": "off"}
 
 
 async def test_sign_in_sets_both_cookies_and_returns_a_token(client: httpx.AsyncClient) -> None:
@@ -471,3 +477,103 @@ async def test_the_server_starts_and_stops_on_sqlite_with_no_role_check(
     app = create_app(settings)
     async with app.router.lifespan_context(app):
         assert await app.state.database.ping()
+
+
+class _Store:
+    """A live store with a chosen rate limiter, backend name and answer to a ping."""
+
+    def __init__(
+        self, limits: RateLimiter | None = None, *, backend: str = "memory", up: bool = True
+    ) -> None:
+        base = MemoryLive()
+        self.backend = backend
+        self.cache, self.locks, self.events = base.cache, base.locks, base.events
+        self.limits: RateLimiter = limits or base.limits
+        self._up = up
+
+    async def ping(self) -> bool:
+        return self._up
+
+    async def close(self) -> None:
+        return None
+
+
+class _Down:
+    async def hit(self, org: uuid.UUID, key: str, *, limit: int, window: timedelta) -> Hit:
+        raise LiveUnavailable("The live store (Redis) can't be reached.")
+
+
+async def app_with(settings: Settings, live: Live | None = None, **changes: object) -> FastAPI:
+    """An app of its own, with ada@example.com; `changes` are settings."""
+    app = create_app(settings.model_copy(update=changes), live=live)
+    database: Database = app.state.database
+    org_id = await database.org_id(settings.org)
+    assert org_id is not None
+    async with database.org_session(org_id) as session:
+        await create_user(session, email="ada@example.com", password=PASSWORD, roles=[Role.ADMIN])
+    return app
+
+
+def client_of(app: FastAPI, address: str = "127.0.0.1") -> httpx.AsyncClient:
+    transport = httpx.ASGITransport(app=app, client=(address, 1234))
+    return httpx.AsyncClient(transport=transport, base_url="http://test")
+
+
+async def entry_types(app: FastAPI, settings: Settings) -> list[str]:
+    database: Database = app.state.database
+    org_id = await database.org_id(settings.org)
+    assert org_id is not None
+    async with database.org_session(org_id) as session:
+        return [entry.type async for entry in read_entries(session)]
+
+
+async def test_sign_ins_over_the_limit_get_429_and_one_ledger_entry(settings: Settings) -> None:
+    app = await app_with(settings, signin_attempts_per_minute=3)
+    async with client_of(app) as client:
+        tried = [(await sign_in(client, "wrong horse battery")).status_code for _ in range(3)]
+        refused = [await sign_in(client) for _ in range(2)]  # even the right password
+    assert tried == [401, 401, 401]
+    for response in refused:
+        assert (response.status_code, response.json()["error"]["code"]) == (429, "rate_limited")
+        assert 1 <= int(response.headers["Retry-After"]) <= 60
+    failure = EntryType.SIGNIN_FAILURE
+    assert await entry_types(app, settings) == [
+        EntryType.USER_CREATE,
+        failure,
+        failure,
+        failure,
+        EntryType.SIGNIN_THROTTLED,  # once, for the first refusal of the window
+    ]
+    await app.state.database.dispose()
+
+
+async def test_each_client_address_has_its_own_limit(settings: Settings) -> None:
+    app = await app_with(settings, signin_attempts_per_minute=1)
+    async with client_of(app, "10.0.0.1") as first, client_of(app, "10.0.0.2") as second:
+        assert (await sign_in(first, "wrong horse battery")).status_code == 401
+        assert (await sign_in(first)).status_code == 429
+        assert (await sign_in(second)).status_code == 200
+    await app.state.database.dispose()
+
+
+async def test_sign_in_is_paused_when_the_limit_cannot_be_checked(settings: Settings) -> None:
+    app = await app_with(settings, _Store(_Down()))
+    async with client_of(app) as client:
+        response = await sign_in(client)
+    code = response.json()["error"]["code"]
+    assert (response.status_code, code) == (503, "rate_limit_unavailable")
+    assert await entry_types(app, settings) == [EntryType.USER_CREATE]  # nothing else happened
+    await app.state.database.dispose()
+
+
+@pytest.mark.parametrize(
+    ("up", "status", "redis"), [(True, 200, "ok"), (False, 503, "unavailable")]
+)
+async def test_health_reports_a_configured_redis(
+    settings: Settings, up: bool, status: int, redis: str
+) -> None:
+    app = create_app(settings, live=_Store(backend="redis", up=up))
+    response = await get_from(app, "/api/health")
+    overall = "ok" if up else "unavailable"
+    expected = {"status": overall, "database": "ok", "redis": redis}
+    assert (response.status_code, response.json()) == (status, expected)

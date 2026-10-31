@@ -86,3 +86,14 @@ def test_the_checkpoint_interval_is_at_most_a_year(env: pytest.MonkeyPatch) -> N
     with pytest.raises(ValidationError) as refused:
         Settings()
     assert "ledger_checkpoint_minutes" in str(refused.value)
+
+
+def test_the_sign_in_limit_is_a_positive_number_of_attempts_a_minute(
+    env: pytest.MonkeyPatch,
+) -> None:
+    assert Settings().signin_attempts_per_minute == 30
+    env.setenv("FOURCE_SIGNIN_ATTEMPTS_PER_MINUTE", "100")
+    assert Settings().signin_attempts_per_minute == 100
+    env.setenv("FOURCE_SIGNIN_ATTEMPTS_PER_MINUTE", "0")
+    with pytest.raises(ValidationError):
+        Settings()
