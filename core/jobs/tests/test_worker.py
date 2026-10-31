@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 from datetime import timedelta
 from typing import Any
@@ -92,6 +93,26 @@ async def test_an_attempt_that_lost_its_lease_rolls_back(orgs: Orgs, clock: Any)
     await Worker(database, {"test.work": Handler(outlived)}).run_once()
     [job] = await jobs(database, first)
     assert (job.kind, job.state, job.attempts) == ("test.work", "running", 2)
+
+
+async def test_a_failure_after_the_lease_was_lost_is_logged_as_lost(
+    orgs: Orgs, clock: Any, caplog: pytest.LogCaptureFixture
+) -> None:
+    database, first, _ = orgs
+    await queue(database, first)
+
+    async def outlived_then_failed(session: AsyncSession, job: HeldJob) -> None:
+        clock.advance(timedelta(minutes=6))
+        async with database.org_session(first) as other:
+            assert await take(other, ["test.work"], lease=timedelta(minutes=5)) is not None
+        raise ValueError("a line quoted from a document")
+
+    worker = Worker(database, {"test.work": Handler(outlived_then_failed)})
+    with caplog.at_level(logging.WARNING, logger="fource.jobs"):
+        assert await worker.run_once() == 1
+    [job] = await jobs(database, first)  # the other worker's hold is untouched
+    assert (job.state, job.attempts, job.last_error) == ("running", 2, None)
+    assert "taken over" in caplog.text and "will be retried" not in caplog.text
 
 
 async def test_a_job_whose_last_attempt_never_finished_fails(orgs: Orgs, clock: Any) -> None:

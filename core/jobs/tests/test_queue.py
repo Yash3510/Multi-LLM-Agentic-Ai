@@ -208,6 +208,27 @@ async def test_a_failed_attempt_waits_then_the_job_fails_for_good(orgs: Orgs, cl
     )
 
 
+async def test_a_stale_holder_cannot_record_a_failure(orgs: Orgs, clock: Any) -> None:
+    database, first, _ = orgs
+    job_id = await queue(database, first)
+    stale = await next_job(database, first)
+    clock.advance(LEASE + timedelta(seconds=1))
+    current = await next_job(database, first)
+    assert stale is not None and current is not None
+    before = await stored(database, first, job_id)
+    with pytest.raises(LeaseLost):
+        async with database.org_session(first) as session:
+            await retry_or_fail(session, stale, ValueError("text from a document"))
+    after = await stored(database, first, job_id)
+    assert (after.state, after.attempts, after.holder, after.last_error) == (
+        "running",
+        2,
+        current.holder,
+        None,
+    )
+    assert after.locked_until == before.locked_until
+
+
 def test_only_messages_written_for_people_are_kept() -> None:
     assert describe(FourceError("The signing key is missing.")) == "The signing key is missing."
     assert describe(ValueError("a line quoted from a document")) == "ValueError"
