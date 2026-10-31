@@ -27,7 +27,8 @@ MAX_REF_LENGTH = 1000
 
 
 class EntryType(StrEnum):
-    """Every type of entry 4CE writes (master plan Appendix B; identity.* by ADR-0039).
+    """Every type of entry 4CE writes (master plan Appendix B; identity.* by ADR-0039 and,
+    for identity.signin.throttled, ADR-0026).
 
     Each work package that adds an action adds its type here.
     """
@@ -36,6 +37,7 @@ class EntryType(StrEnum):
     USER_CREATE = "identity.user.create"
     SIGNIN_SUCCESS = "identity.signin.success"
     SIGNIN_FAILURE = "identity.signin.failure"
+    SIGNIN_THROTTLED = "identity.signin.throttled"
     LOCKOUT = "identity.lockout"
     SIGNOUT = "identity.signout"
 

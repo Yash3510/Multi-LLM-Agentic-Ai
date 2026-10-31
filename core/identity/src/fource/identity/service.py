@@ -36,6 +36,7 @@ _WRONG = "The email or password is wrong."
 _LOCKED = "Too many failed sign-ins. Try again in 15 minutes."
 _SIGN_IN_AGAIN = "Sign in again."
 _UNKNOWN_EMAIL_CONTEXT = b"4ce-ledger-unknown-email-v1"
+_CLIENT_ADDRESS_CONTEXT = b"4ce-ledger-client-address-v1"
 
 
 @dataclass(frozen=True)
@@ -57,9 +58,19 @@ def unknown_email_digest(email: str, secret: str) -> str:
     from the secret for this one purpose, so the token-signing secret is never used directly.
     Rotating `FOURCE_SECRET_KEY` means digests written earlier can no longer be confirmed.
     """
-    key = hmac.new(secret.encode("utf-8"), _UNKNOWN_EMAIL_CONTEXT, hashlib.sha256).digest()
-    address = normalise_email(email).encode("utf-8", "surrogatepass")
-    return hmac.new(key, address, hashlib.sha256).hexdigest()
+    return _keyed_digest(normalise_email(email), secret, _UNKNOWN_EMAIL_CONTEXT)
+
+
+def client_address_digest(address: str, secret: str) -> str:
+    """The keyed hash the ledger keeps of a throttled client address (ADR-0026): an address is
+    personal data and the ledger can never be erased. Derived like unknown_email_digest, with
+    a key of its own, so the two kinds of digest can never be matched with each other."""
+    return _keyed_digest(address, secret, _CLIENT_ADDRESS_CONTEXT)
+
+
+def _keyed_digest(text: str, secret: str, context: bytes) -> str:
+    key = hmac.new(secret.encode("utf-8"), context, hashlib.sha256).digest()
+    return hmac.new(key, text.encode("utf-8", "surrogatepass"), hashlib.sha256).hexdigest()
 
 
 def _storable(text: str) -> bool:
@@ -187,6 +198,19 @@ async def sign_in(
     refs = {"user": str(user.id), "token": str(token.payload.token_id)}
     await append(session, EntryType.SIGNIN_SUCCESS, actor=user_actor(user.id), refs=refs)
     return SignedIn(user=user, token=token)
+
+
+async def record_throttled(
+    session: AsyncSession, *, address: str, secret: str, limit: int, until: datetime
+) -> None:
+    """Records that sign-ins from a client address are refused until `until`, having gone over
+    `limit` attempts a minute (ADR-0026). The route calls it once per window, for the attempt
+    that first went over; the address is kept only as a keyed hash."""
+    refs = {"limit": str(limit), "until": format_time(until)}
+    digest = client_address_digest(address, secret)
+    await append(
+        session, EntryType.SIGNIN_THROTTLED, actor=ANONYMOUS, refs=refs, inputs_sha256=digest
+    )
 
 
 async def _is_revoked(session: AsyncSession, token_id: uuid.UUID) -> bool:

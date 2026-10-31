@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     ledger_key_file: Path | None = None
     ledger_checkpoint_minutes: int | None = Field(default=None, gt=0, le=525_600)  # a year
+    signin_attempts_per_minute: int = Field(default=30, gt=0)
     offline: bool = True
 
     @field_validator("secret_key")
