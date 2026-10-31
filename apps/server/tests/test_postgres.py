@@ -1,10 +1,12 @@
 import asyncio
 import logging
+import os
 import secrets
 import uuid
 from collections.abc import AsyncIterator, Generator
 from contextlib import contextmanager
 from datetime import timedelta
+from pathlib import Path
 
 import httpx
 import psycopg
@@ -29,6 +31,7 @@ from fource.jobs import (
     take,
 )
 from fource.ledger import EntryType, append, read_entries, verify_ledger
+from fource.server import cli
 from fource.server.main import UnsafeDatabaseRole, create_app
 from fource.server.migrate import downgrade, upgrade
 
@@ -389,6 +392,58 @@ async def test_the_server_starts_and_stops_as_the_app_role(postgres: tuple[str, 
     app = create_app(Settings(secret_key=SecretStr(SECRET), database_url=SecretStr(postgres[1])))
     async with app.router.lifespan_context(app):
         assert await app.state.database.ping()
+
+
+@pytest.fixture
+def worker_env(
+    postgres: tuple[str, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[str, str]:
+    """A migrated database, a throwaway signing key and scheduled checkpoints on, for the
+    worker command. Sync on purpose: the CLI runs its own event loop."""
+    owner, app = postgres
+    upgrade(owner)
+    monkeypatch.chdir(tmp_path)  # no .env from the repository, and data/ lands here
+    for name in [n for n in os.environ if n.startswith("FOURCE_")]:
+        monkeypatch.delenv(name)
+    monkeypatch.setenv("FOURCE_SECRET_KEY", SECRET)
+    monkeypatch.setenv("FOURCE_LEDGER_CHECKPOINT_MINUTES", "60")
+    monkeypatch.setenv("FOURCE_DATABASE_URL", owner)
+    assert cli.main(["ledger", "keygen"]) == 0
+    return owner, app
+
+
+def test_the_worker_refuses_to_run_as_the_owner(
+    worker_env: tuple[str, str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The same role check as the server's, before the worker takes any job: as the owner it
+    # would run jobs in every organisation with row-level security off.
+    owner, _ = worker_env
+    capsys.readouterr()
+    assert cli.main(["worker", "--once"]) == 1
+    out = capsys.readouterr().out
+    password = make_url(owner).password
+    assert "fource_app" in out and password is not None and password not in out
+    with connect(owner) as connection:
+        assert connection.execute(text("SELECT count(*) FROM jobs")).scalar() == 0
+
+
+def test_the_worker_signs_a_checkpoint_as_the_app_role(
+    worker_env: tuple[str, str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Jobs run under row-level security: the scheduled checkpoint reads the ledger of the one
+    # organisation it was enqueued for.
+    _, app = worker_env
+    monkeypatch.setenv("FOURCE_DATABASE_URL", app)
+    monkeypatch.setattr("getpass.getpass", lambda prompt="": PASSWORD)
+    assert cli.main(["create-user", "ada@example.com", "--role", "Viewer"]) == 0
+    capsys.readouterr()
+    assert cli.main(["worker", "--once"]) == 0
+    assert "Ran 1 job attempt." in capsys.readouterr().out
+    saved = tmp_path / "data" / "ledger" / "checkpoints"
+    assert [file.name for file in saved.iterdir()] == ["default-0000000001.json"]
 
 
 LEDGER_CHANGES = (
