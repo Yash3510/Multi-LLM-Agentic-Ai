@@ -99,6 +99,7 @@ async def test_the_worker_counts_the_attempts_that_failed(orgs: Orgs, clock: Any
     await queue(database, first, "test.bad", max_attempts=1)  # failed for good
     assert await worker.run_once() == 2
     assert worker.failed == 2
+    assert worker.errors == 0  # no organisation's pass broke
 
 
 async def test_an_attempt_that_lost_its_lease_rolls_back(orgs: Orgs, clock: Any) -> None:
@@ -290,6 +291,7 @@ async def test_one_organisations_failure_does_not_stop_the_others(
     assert [job.state for job in await jobs(database, first)] == ["queued"]
     assert f"a pass over organisation {first} failed: RuntimeError" in caplog.text
     assert "a line quoted from a document" not in caplog.text
+    assert (worker.errors, worker.failed) == (1, 0)  # a broken pass is not a failed attempt
 
 
 async def test_a_broken_organisation_is_logged_once_per_pass(
@@ -310,6 +312,7 @@ async def test_a_broken_organisation_is_logged_once_per_pass(
     with caplog.at_level(logging.WARNING, logger="fource.jobs"):
         assert await worker.run_once() == 3
     assert caplog.text.count(f"a pass over organisation {first} failed") == 1
+    assert worker.errors == 1  # once per pass, as logged
 
 
 async def test_a_failure_keeping_recurring_jobs_queued_does_not_stop_the_others(
@@ -332,6 +335,7 @@ async def test_a_failure_keeping_recurring_jobs_queued_does_not_stop_the_others(
     assert [job.org_id for job in recorder.ran] == [second]
     assert f"a pass over organisation {first} failed: RuntimeError" in caplog.text
     assert "a line quoted from a document" not in caplog.text
+    assert worker.errors == 1
 
 
 async def test_a_failing_recurring_step_does_not_stop_the_ordinary_jobs(

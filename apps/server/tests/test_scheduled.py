@@ -93,6 +93,22 @@ def test_a_retry_keeps_the_file_it_wrote_for_the_same_entry(
     assert cli.main(["ledger", "verify"]) == 0
 
 
+def test_a_pass_that_broke_fails_the_run_even_when_no_job_ran(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A database error on the jobs table is not a job attempt, yet cron must see it: if the
+    # checkpoint job could never be queued or taken, no checkpoint would ever be signed.
+    async def broken(*_: object, **__: object) -> None:
+        raise RuntimeError("the jobs table cannot be read")
+
+    monkeypatch.setattr("fource.jobs.worker.take", broken)
+    capsys.readouterr()
+    assert cli.main(["worker", "--once"]) == 1
+    out = capsys.readouterr().out
+    assert "Ran 0 job attempts." in out and "1 organisation pass failed." in out
+    assert "the jobs table cannot be read" not in out
+
+
 def test_a_file_that_signs_another_entry_fails_the_attempt(
     env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
