@@ -2,7 +2,7 @@
 
 Live, short-lived shared state between 4CE's processes (master plan §6.3): live events, short caches, locks and rate limits. Everything is per organisation, and nothing is durable: jobs and run state live in the database ([`core/jobs`](../jobs/README.md)), so losing all of this loses no work.
 
-**Owner:** R1 · **Decisions:** [ADR-0026](../../docs/adr/0026-redis-for-live-state.md)
+**Owner:** R1 · **Decisions:** [ADR-0026](../../docs/adr/0026-redis-for-live-state.md) · **Page:** [live state](../../docs/architecture/live.md)
 
 Two backends: Redis when `FOURCE_REDIS_URL` is set, otherwise this process's own memory (`MemoryLive`), for development and tests, like SQLite for the database. With more than one process, set the URL. This package never imports the database.
 

@@ -2,7 +2,7 @@
 
 The job queue (master plan §6.3): work queued in the database in the same transaction as the state that needs it, and the worker loop that takes and runs it. Every job belongs to one organisation, under row-level security.
 
-**Owner:** R1 · **Decisions:** [ADR-0040](../../docs/adr/0040-job-queue-on-postgresql.md)
+**Owner:** R1 · **Decisions:** [ADR-0040](../../docs/adr/0040-job-queue-on-postgresql.md) · **Page:** [jobs](../../docs/architecture/jobs.md)
 
 ## Public API
 
