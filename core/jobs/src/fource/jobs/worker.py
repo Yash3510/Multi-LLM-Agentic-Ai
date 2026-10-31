@@ -53,6 +53,12 @@ class Worker:
         missing = [each.kind for each in recurring if each.kind not in handlers]
         if missing:
             raise ValueError(f"recurring jobs without a handler: {', '.join(missing)}")
+        if any(each.lease <= timedelta(0) for each in handlers.values()):
+            raise ValueError("a handler's lease lasts longer than zero")
+        if any(each.every <= timedelta(0) for each in recurring):
+            raise ValueError("a recurring job's interval (every) lasts longer than zero")
+        if poll_seconds <= 0:
+            raise ValueError("poll_seconds is longer than zero")
         self._database = database
         self._handlers = dict(handlers)
         self._recurring = tuple(recurring)
