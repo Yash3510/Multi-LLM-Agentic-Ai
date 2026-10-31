@@ -390,6 +390,7 @@ source = { editable = "core/jobs" }
 dependencies = [
     { name = "fource-common" },
     { name = "fource-db" },
+    { name = "psycopg", extra = ["binary"] },
     { name = "sqlalchemy", extra = ["asyncio"] },
 ]
 
@@ -397,6 +398,7 @@ dependencies = [
 requires-dist = [
     { name = "fource-common", editable = "core/common" },
     { name = "fource-db", editable = "core/db" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.3.6" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.4" },
 ]
 

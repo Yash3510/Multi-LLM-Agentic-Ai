@@ -15,6 +15,7 @@ from fource.db import Database, Org
 from fource.jobs.errors import LeaseLost, Unfinished
 from fource.jobs.models import UNFINISHED, Job
 from fource.jobs.queue import HeldJob, complete, describe, enqueue, retry_or_fail, take
+from fource.jobs.wakeups import listen_for_jobs
 
 _log = logging.getLogger("fource.jobs")
 _UNFINISHED = "The last attempt did not finish: its worker stopped or it outlived its lease."
@@ -98,16 +99,25 @@ class Worker:
         return attempts
 
     async def run(self) -> None:
-        """Runs jobs until stop(): a pass over every organisation, then a wait for a wake-up or
-        the poll interval. A failed pass, such as a lost database, is logged and tried again at
-        the next poll."""
-        while not self._stopping.is_set():
-            self._woken.clear()
-            try:
-                await self.run_once()
-            except Exception as error:  # the next poll tries again
-                _log.warning("a pass over the job queue failed: %s", describe(error))
-            await self._wait()
+        """Runs jobs until stop(): a pass over every organisation, then a wait for a NOTIFY (on
+        PostgreSQL) or the poll interval. A failed pass, such as a lost database, is logged and
+        tried again at the next poll."""
+        listener = None
+        if self._database.engine.dialect.name == "postgresql":
+            url = self._database.engine.url.render_as_string(hide_password=False)
+            listener = asyncio.create_task(listen_for_jobs(url, self.wake, self._stopping))
+        try:
+            while not self._stopping.is_set():
+                self._woken.clear()
+                try:
+                    await self.run_once()
+                except Exception as error:  # the next poll tries again
+                    _log.warning("a pass over the job queue failed: %s", describe(error))
+                await self._wait()
+        finally:
+            if listener is not None:
+                listener.cancel()
+                await asyncio.gather(listener, return_exceptions=True)
 
     async def _wait(self) -> None:
         waits = [asyncio.ensure_future(event.wait()) for event in (self._woken, self._stopping)]

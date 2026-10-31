@@ -13,6 +13,7 @@ from fource.jobs.queue import (
     retry_or_fail,
     take,
 )
+from fource.jobs.wakeups import listen_for_jobs
 from fource.jobs.worker import Handler, Recurring, Worker
 
 __all__ = [
@@ -31,6 +32,7 @@ __all__ = [
     "complete",
     "describe",
     "enqueue",
+    "listen_for_jobs",
     "retry_or_fail",
     "take",
 ]
