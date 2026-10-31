@@ -16,7 +16,7 @@ Two backends: Redis when `FOURCE_REDIS_URL` is set, otherwise this process's own
 | `Locks`, `HeldLock` | `acquire(org, name, ttl)` gives the lock to one taker (or None), with a time to live; `extend(ttl)` and `release()` work only while it is still this holder's. Locks save duplicate work; they don't guard correctness (no fencing tokens), so mutual exclusion that matters uses the database. With Redis down, taking and extending raise `LiveUnavailable` |
 | `LiveUnavailable` | The store can't be reached (503, `live_unavailable`); the message never carries its URL |
 | `MemoryLive` | The in-process backend |
-| `open_live(redis_url)`, `RedisLive(url, *, prefix="fource")` | The live store for `FOURCE_REDIS_URL`: Redis (or Valkey) when it is set, this process's memory when not. Redis keys are `<prefix>:<organisation>:<kind>:<name>`. Connects and answers within 2 seconds or counts as down: then the cache misses and drops writes, and the rate limiter raises `LiveUnavailable` (it fails closed). Messages and logs never carry the URL |
+| `open_live(redis_url)`, `RedisLive(url, *, prefix="fource")` | The live store for `FOURCE_REDIS_URL`: Redis (or Valkey) when it is set, this process's memory when not. Redis keys are `<prefix>:<organisation>:<kind>:<name>`. Connects and answers within 2 seconds or counts as down: then the cache misses and drops writes, and the rate limiter raises `LiveUnavailable` (it fails closed). A URL that sets `socket_timeout`, `socket_connect_timeout`, `health_check_interval` or `retry` is refused. Messages and logs never carry the URL |
 
 ## Tests
 

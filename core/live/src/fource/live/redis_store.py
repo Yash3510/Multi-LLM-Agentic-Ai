@@ -31,6 +31,8 @@ _log = logging.getLogger("fource.live")
 _DOWN = (RedisError, OSError)
 _TIMEOUT = 2.0  # seconds to connect or to answer: a down Redis must not stall a sign-in
 _NOT_A_URL = "FOURCE_REDIS_URL is not a redis://, rediss:// or unix:// URL"
+_POOL_OWNS = ("socket_timeout", "socket_connect_timeout", "health_check_interval", "retry")
+_OWNED = "FOURCE_REDIS_URL may not set " + ", ".join(_POOL_OWNS)
 
 
 class _Untyped(Protocol):
@@ -163,6 +165,8 @@ class RedisLive:
             where = parse_url(url)
         except ValueError:  # its own message could quote the URL, which holds the password
             raise ValueError(_NOT_A_URL) from None
+        if any(option in where for option in _POOL_OWNS):
+            raise ValueError(_OWNED)
         self._pool = ConnectionPool(
             **where,
             socket_connect_timeout=_TIMEOUT,
