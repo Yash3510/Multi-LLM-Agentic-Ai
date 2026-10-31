@@ -21,6 +21,7 @@ from fource.jobs import (
     Handler,
     HeldJob,
     Job,
+    Recurring,
     Worker,
     enqueue,
     listen_for_jobs,
@@ -546,6 +547,61 @@ async def test_each_organisation_sees_only_its_own_jobs_on_postgres(
         set_org(connection, orgs[1])
         owners = connection.execute(text("SELECT org_id FROM jobs")).scalars().all()
     assert owners == [orgs[1]]
+
+
+async def test_the_app_role_cannot_add_or_change_another_organisations_jobs(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    database = Database(postgres[1])
+    try:
+        async with database.org_session(orgs[1]) as session:
+            await enqueue(session, "test.work")
+    finally:
+        await database.dispose()
+    with connect(postgres[1]) as connection:
+        set_org(connection, orgs[0])
+        with pytest.raises(DBAPIError, match="row-level security"):
+            connection.execute(
+                text(
+                    "INSERT INTO jobs (id, org_id, created_at, kind, payload, state, run_at,"
+                    " attempts, max_attempts) VALUES (:id, :org, now(), 'test.work', '{}',"
+                    " 'queued', now(), 0, 5)"
+                ),
+                {"id": new_id(), "org": orgs[1]},
+            )
+        connection.rollback()
+        changed = connection.execute(
+            text("UPDATE jobs SET state = 'failed' WHERE org_id = :org"), {"org": orgs[1]}
+        )
+        assert changed.rowcount == 0  # the other organisation's job is not even visible
+        connection.rollback()
+    with connect(postgres[1]) as connection:
+        set_org(connection, orgs[1])
+        states = connection.execute(text("SELECT state FROM jobs")).scalars().all()
+    assert states == ["queued"]
+
+
+async def test_two_workers_leave_one_recurring_occurrence_per_organisation_on_postgres(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    ran: list[uuid.UUID] = []
+
+    async def note(session: AsyncSession, job: HeldJob) -> None:
+        ran.append(job.org_id)
+
+    hourly = Recurring("test.work", every=timedelta(hours=1))
+    database = Database(postgres[1])
+    try:
+        workers = [Worker(database, {"test.work": Handler(note)}, recurring=[hourly]) for _ in "ab"]
+        await asyncio.gather(*(worker.run_once() for worker in workers))
+    finally:
+        await database.dispose()
+    assert sorted(ran) == sorted(orgs)  # each organisation's occurrence ran exactly once
+    with connect(postgres[1]) as connection:
+        for org_id in orgs:
+            set_org(connection, org_id)
+            states = connection.execute(text("SELECT state FROM jobs ORDER BY state")).scalars()
+            assert list(states) == ["done"]  # no second occurrence for this interval
 
 
 async def test_a_key_keeps_one_unfinished_job_on_postgres(
