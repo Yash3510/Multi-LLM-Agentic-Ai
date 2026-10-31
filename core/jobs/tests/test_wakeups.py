@@ -2,7 +2,6 @@ import asyncio
 import logging
 import socket
 from collections.abc import AsyncIterator
-from typing import Any
 
 import psycopg
 import pytest
@@ -56,9 +55,9 @@ async def test_a_wake_up_that_raises_is_logged_by_class_and_the_listener_goes_on
     caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     caplog.set_level(logging.WARNING)
-    options: list[dict[str, Any]] = []
+    options: list[dict[str, object]] = []
 
-    async def connect(conninfo: str, **given: Any) -> FakeListener:
+    async def connect(conninfo: str, **given: object) -> FakeListener:
         options.append(given)
         return FakeListener()
 
