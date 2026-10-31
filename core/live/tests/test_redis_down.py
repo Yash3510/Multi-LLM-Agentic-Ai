@@ -56,6 +56,15 @@ def test_a_url_that_is_not_redis_is_refused_without_repeating_it() -> None:
     assert PASSWORD not in str(refused.value)
 
 
+@pytest.mark.parametrize(
+    "option", ["socket_timeout", "socket_connect_timeout", "health_check_interval", "retry"]
+)
+def test_a_url_cannot_change_what_the_pool_sets_itself(option: str) -> None:
+    with pytest.raises(ValueError) as refused:
+        RedisLive(f"redis://:{PASSWORD}@127.0.0.1:1/0?{option}=5")
+    assert PASSWORD not in str(refused.value) and "://" not in str(refused.value)
+
+
 async def test_no_url_means_this_process_holds_it() -> None:
     assert open_live(None).backend == "memory"
     store = open_live("redis://127.0.0.1:1/0")  # nothing listens on port 1; never connected
