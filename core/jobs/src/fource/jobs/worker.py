@@ -134,20 +134,28 @@ class Worker:
         if job is None:
             return 0
         if job.attempts > job.max_attempts:  # the last attempt never finished
-            async with self._database.org_session(org_id) as session:
-                await retry_or_fail(session, job, Unfinished(_UNFINISHED))
+            await self._record_failure(org_id, job, Unfinished(_UNFINISHED))
             return 1
         try:
             async with self._database.org_session(org_id) as session:
                 await self._handlers[job.kind].run(session, job)
                 await complete(session, job)
         except LeaseLost:
-            _log.warning(
-                "job %s was taken over by another worker; this attempt rolled back", job.id
-            )
+            self._log_taken_over(job)
         except Exception as error:  # recorded on the job, never lost
+            await self._record_failure(org_id, job, error)
+        return 1
+
+    async def _record_failure(self, org_id: uuid.UUID, job: HeldJob, error: BaseException) -> None:
+        try:
             async with self._database.org_session(org_id) as session:
                 again = await retry_or_fail(session, job, error)
-            outcome = "will be retried" if again else "failed for good"
-            _log.warning("job %s (%s) %s: %s", job.id, job.kind, outcome, describe(error))
-        return 1
+        except LeaseLost:  # another worker holds the job: it records its own outcome
+            self._log_taken_over(job)
+            return
+        outcome = "will be retried" if again else "failed for good"
+        _log.warning("job %s (%s) %s: %s", job.id, job.kind, outcome, describe(error))
+
+    @staticmethod
+    def _log_taken_over(job: HeldJob) -> None:
+        _log.warning("job %s was taken over by another worker; this attempt rolled back", job.id)

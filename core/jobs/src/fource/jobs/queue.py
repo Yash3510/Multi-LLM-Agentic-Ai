@@ -215,21 +215,25 @@ async def complete(session: AsyncSession, job: HeldJob) -> None:
 async def retry_or_fail(session: AsyncSession, job: HeldJob, error: BaseException) -> bool:
     """Records a failed attempt (in a transaction of its own: the attempt's rolled back). The job
     is queued again after backoff(attempts), or fails for good once it has had max_attempts.
-    Returns True if it will be tried again. Changes nothing if another worker holds it now."""
+    Returns True if it will be tried again. Raises LeaseLost, changing nothing, if another worker
+    holds the job now."""
     current = now()
     again = job.attempts < job.max_attempts
     if again:
         outcome = {"state": JobState.QUEUED.value, "run_at": current + backoff(job.attempts)}
     else:
         outcome = {"state": JobState.FAILED.value, "finished_at": current}
-    await session.execute(
+    recorded = await session.execute(
         update(Job)
         .where(
             Job.id == job.id,
             Job.holder == job.holder,
             Job.state == JobState.RUNNING.value,
         )
-        .values(**outcome, locked_until=None, holder=None, last_error=describe(error)),
+        .values(**outcome, locked_until=None, holder=None, last_error=describe(error))
+        .returning(Job.id),
         execution_options=_UNSYNCED,
     )
+    if recorded.first() is None:
+        raise LeaseLost(job.id)
     return again
