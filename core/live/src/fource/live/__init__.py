@@ -1,7 +1,29 @@
 """Live, short-lived shared state: events, cache, locks and rate limits, on Redis or (for
 development) in this process (ADR-0026). Nothing here is durable."""
 
-from fource.live.base import Cache, Hit, Live, LiveUnavailable, RateLimiter
+from fource.live.base import (
+    Cache,
+    Hit,
+    Live,
+    LiveUnavailable,
+    RateLimiter,
+)
 from fource.live.memory import MemoryLive
+from fource.live.redis_store import RedisLive
 
-__all__ = ["Cache", "Hit", "Live", "LiveUnavailable", "MemoryLive", "RateLimiter"]
+
+def open_live(redis_url: str | None, *, prefix: str = "fource") -> Live:
+    """Redis when FOURCE_REDIS_URL is set; otherwise this process's own memory."""
+    return MemoryLive() if redis_url is None else RedisLive(redis_url, prefix=prefix)
+
+
+__all__ = [
+    "Cache",
+    "Hit",
+    "Live",
+    "LiveUnavailable",
+    "MemoryLive",
+    "RateLimiter",
+    "RedisLive",
+    "open_live",
+]

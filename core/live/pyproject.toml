@@ -5,6 +5,7 @@ description = "Live, short-lived shared state: events, cache, locks and rate lim
 requires-python = ">=3.12"
 dependencies = [
     "fource-common",
+    "redis>=8.1.0",
 ]
 
 [build-system]

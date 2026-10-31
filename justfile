@@ -19,13 +19,17 @@ setup:
 sync:
     uv run python tools/sync.py
 
-# Every test except the PostgreSQL-only ones
+# Every test except the PostgreSQL-only and Redis-only ones
 test:
-    uv run pytest -m "not postgres"
+    uv run pytest -m "not postgres and not redis"
 
 # The PostgreSQL-only tests; run just services first
 test-postgres:
     uv run pytest -m postgres
+
+# The Redis-only tests: FOURCE_TEST_REDIS_URL must name a Redis 8 server they may write to (CI's)
+test-redis:
+    uv run pytest -m redis
 
 # Formatting, lint and types
 lint:

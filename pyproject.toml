@@ -63,7 +63,10 @@ allowed_importers = ["fource.common"]
 addopts = ["--import-mode=importlib", "--strict-markers"]
 testpaths = ["core", "apps", "tools"]
 pythonpath = ["tools"]
-markers = ["postgres: needs PostgreSQL 18; run with just test-postgres after just services"]
+markers = [
+    "postgres: needs PostgreSQL 18; run with just test-postgres after just services",
+    "redis: needs a Redis 8 server the tests may write to (FOURCE_TEST_REDIS_URL); run with just test-redis",
+]
 
 [[tool.importlinter.contracts]]
 name = "Only the public API of fource.packs is imported from outside it"
@@ -125,3 +128,17 @@ name = "The live store never touches the database: nothing in it is durable"
 type = "forbidden"
 source_modules = ["fource.live"]
 forbidden_modules = ["fource.db", "fource.ledger", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
+name = "Redis is reached only through fource.live"
+type = "forbidden"
+source_modules = [
+    "fource.common",
+    "fource.db",
+    "fource.ledger",
+    "fource.jobs",
+    "fource.identity",
+    "fource.server",
+]
+forbidden_modules = ["redis"]
+allow_indirect_imports = true
