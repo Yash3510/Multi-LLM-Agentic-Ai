@@ -7,6 +7,7 @@ from fastapi import Depends, Request
 from fource.common import Settings
 from fource.db import Database
 from fource.identity import NotAuthenticated, TokenPayload, User, authenticate, read_token
+from fource.live import Live
 from fource.server.errors import CsrfFailed
 
 TOKEN_COOKIE = "fource_token"
@@ -23,6 +24,11 @@ def settings_of(request: Request) -> Settings:
 def database_of(request: Request) -> Database:
     database: Database = request.app.state.database
     return database
+
+
+def live_of(request: Request) -> Live:
+    live: Live = request.app.state.live
+    return live
 
 
 def token_of(request: Request) -> str:

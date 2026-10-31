@@ -19,6 +19,24 @@ class SetupIncomplete(FourceError):
     status = 503
 
 
+class RateLimited(FourceError):
+    """Too many attempts from one client address; the answer says when to try again."""
+
+    code = "rate_limited"
+    status = 429
+
+    def __init__(self, message: str, *, retry_after: int) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class RateLimitUnavailable(FourceError):
+    """The rate limit can't be checked (Redis is down), so the attempt is refused (ADR-0026)."""
+
+    code = "rate_limit_unavailable"
+    status = 503
+
+
 class ErrorBody(BaseModel):
     code: str
     message: str
@@ -41,7 +59,10 @@ def error_response(code: str, message: str, status: int) -> JSONResponse:
 
 async def _known(request: Request, error: Exception) -> JSONResponse:
     assert isinstance(error, FourceError)
-    return error_response(error.code, error.message, error.status)
+    response = error_response(error.code, error.message, error.status)
+    if isinstance(error, RateLimited):
+        response.headers["Retry-After"] = str(error.retry_after)
+    return response
 
 
 async def _invalid(request: Request, error: Exception) -> JSONResponse:
