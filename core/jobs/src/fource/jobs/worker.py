@@ -84,15 +84,17 @@ class Worker:
         if not self._handlers:
             return 0
         organisations = await self._organisations()
+        failed: set[uuid.UUID] = set()  # skipped for the rest of the pass, logged once
         for org_id in organisations:
-            await self._guarded(org_id, self._keep_all_queued(org_id))
+            await self._guarded(org_id, self._keep_all_queued(org_id), failed)
         attempts = 0
         while not self._stopping.is_set():
             ran = 0
             for org_id in organisations:
                 if self._stopping.is_set():
                     break
-                ran += await self._guarded(org_id, self._run_one(org_id))
+                if org_id not in failed:
+                    ran += await self._guarded(org_id, self._run_one(org_id), failed)
             if not ran:
                 break
             attempts += ran
@@ -131,13 +133,17 @@ class Worker:
         async with self._database.session() as session:
             return list((await session.scalars(select(Org.id).order_by(Org.slug))).all())
 
-    async def _guarded(self, org_id: uuid.UUID, step: Awaitable[int | None]) -> int:
-        """Runs one organisation's step. If it fails, logs it and returns 0 so the pass goes on
-        with the next organisation: one organisation's trouble never starves the others.
-        Cancellation is not an Exception and still propagates."""
+    async def _guarded(
+        self, org_id: uuid.UUID, step: Awaitable[int | None], failed: set[uuid.UUID]
+    ) -> int:
+        """Runs one organisation's step. If it fails, logs it, notes the organisation in `failed`
+        and returns 0 so the pass goes on with the next organisation: one organisation's trouble
+        never starves the others, nor floods the log. Cancellation is not an Exception and still
+        propagates."""
         try:
             return await step or 0
         except Exception as error:
+            failed.add(org_id)
             _log.warning("a pass over organisation %s failed: %s", org_id, describe(error))
             return 0
 
