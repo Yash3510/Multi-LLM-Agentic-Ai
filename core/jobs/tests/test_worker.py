@@ -66,12 +66,17 @@ async def test_a_handlers_writes_commit_with_its_job(orgs: Orgs, clock: Any) -> 
     assert stored[1].payload == {"after": str(job_id)}
 
 
-async def test_a_handler_that_fails_rolls_back_and_is_retried(orgs: Orgs, clock: Any) -> None:
+async def test_a_handler_that_fails_rolls_back_and_is_retried(
+    orgs: Orgs, clock: Any, caplog: pytest.LogCaptureFixture
+) -> None:
     database, first, _ = orgs
     await queue(database, first, max_attempts=2)
     recorder = Recorder(fail=ValueError("a line quoted from a document"), follow_up=True)
     worker = Worker(database, {"test.work": Handler(recorder)})
-    assert await worker.run_once() == 1
+    with caplog.at_level(logging.WARNING, logger="fource.jobs"):
+        assert await worker.run_once() == 1
+    assert "will be retried: ValueError" in caplog.text
+    assert "a line quoted from a document" not in caplog.text
     [job] = await jobs(database, first)  # the follow-up rolled back with the attempt
     assert (job.state, job.attempts, job.last_error) == ("queued", 1, "ValueError")
     clock.advance(timedelta(seconds=30))
@@ -113,6 +118,7 @@ async def test_a_failure_after_the_lease_was_lost_is_logged_as_lost(
     [job] = await jobs(database, first)  # the other worker's hold is untouched
     assert (job.state, job.attempts, job.last_error) == ("running", 2, None)
     assert "taken over" in caplog.text and "will be retried" not in caplog.text
+    assert "a line quoted from a document" not in caplog.text
 
 
 async def test_a_job_whose_last_attempt_never_finished_fails(orgs: Orgs, clock: Any) -> None:
@@ -192,15 +198,25 @@ async def test_run_finds_new_work_and_stops_after_the_running_job(orgs: Orgs) ->
 async def test_a_wake_up_ends_the_wait_early(orgs: Orgs) -> None:
     database, first, _ = orgs
     recorder = Recorder()
-    worker = Worker(database, {"test.work": Handler(recorder)}, poll_seconds=60)
+    idle = asyncio.Event()
+
+    class Watched(Worker):
+        async def run_once(self) -> int:
+            attempts = await super().run_once()
+            idle.set()  # a pass found nothing; the worker goes on to wait
+            return attempts
+
+    worker = Watched(database, {"test.work": Handler(recorder)}, poll_seconds=60)
     running = asyncio.create_task(worker.run())
-    await asyncio.sleep(0.2)  # the first pass found nothing; now it waits
+    await asyncio.wait_for(idle.wait(), 5)
     await queue(database, first)
     worker.wake()
-    for _ in range(100):
-        if recorder.ran:
-            break
-        await asyncio.sleep(0.05)
-    worker.stop()
-    await asyncio.wait_for(running, 5)
+    try:
+        # Only wake() can get the job run inside this time: the poll is a minute.
+        async with asyncio.timeout(10):
+            while not recorder.ran:
+                await asyncio.sleep(0.05)
+    finally:
+        worker.stop()
+        await asyncio.wait_for(running, 5)
     assert len(recorder.ran) == 1
