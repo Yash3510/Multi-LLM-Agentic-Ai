@@ -25,6 +25,7 @@ def test_zero_setup_defaults(env: pytest.MonkeyPatch) -> None:
     assert (settings.org, settings.token_ttl_minutes, settings.offline) == ("default", 480, True)
     assert settings.redis_url is None and settings.s3_endpoint is None
     assert settings.ledger_key_file is None
+    assert settings.ledger_checkpoint_minutes is None  # scheduled checkpoints are off
 
 
 def test_reads_prefixed_environment(env: pytest.MonkeyPatch) -> None:
@@ -62,5 +63,15 @@ def test_a_refused_secret_key_is_not_echoed_in_the_error(env: pytest.MonkeyPatch
 
 def test_invalid_values_are_errors(env: pytest.MonkeyPatch) -> None:
     env.setenv("FOURCE_TOKEN_TTL_MINUTES", "0")
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_scheduled_checkpoints_are_switched_on_by_a_positive_interval(
+    env: pytest.MonkeyPatch,
+) -> None:
+    env.setenv("FOURCE_LEDGER_CHECKPOINT_MINUTES", "1440")
+    assert Settings().ledger_checkpoint_minutes == 1440
+    env.setenv("FOURCE_LEDGER_CHECKPOINT_MINUTES", "0")
     with pytest.raises(ValidationError):
         Settings()
