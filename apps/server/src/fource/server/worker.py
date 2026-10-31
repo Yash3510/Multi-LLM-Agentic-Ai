@@ -80,15 +80,16 @@ async def run_worker(settings: Settings, *, once: bool) -> int:
         await database.org_id(settings.org)
         async with database.session() as session:
             await session.scalar(select(Job.id).limit(1))
-        ran = await worker.run_once()
-        if once:
-            print(f"Ran {ran} job attempt{'' if ran == 1 else 's'}.")
-            return 0
+        # Before the first pass, which can run long: a SIGTERM then stops the worker cleanly.
         task = asyncio.current_task()
         if task is not None and sys.platform != "win32":  # Windows: Ctrl+C stops at once
             loop = asyncio.get_running_loop()
             for each in (signal.SIGINT, signal.SIGTERM):
                 loop.add_signal_handler(each, stop_handler(worker, task))
+        ran = await worker.run_once()
+        if once:
+            print(f"Ran {ran} job attempt{'' if ran == 1 else 's'}.")
+            return 0
         kinds = ", ".join(sorted(handlers)) or "none yet (scheduled checkpoints are off)"
         print(f"The worker is running. Kinds of job: {kinds}. Stop it with Ctrl+C.")
         await worker.run()
