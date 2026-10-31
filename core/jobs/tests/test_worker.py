@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 import uuid
 from datetime import timedelta
 from typing import Any
@@ -239,6 +240,8 @@ async def test_a_wake_up_ends_the_wait_early(orgs: Orgs) -> None:
         ),
         ({"test.work": Handler(Recorder())}, {"poll_seconds": 0}, "poll_seconds"),
         ({"test.work": Handler(Recorder())}, {"poll_seconds": -1.5}, "poll_seconds"),
+        ({"test.work": Handler(Recorder())}, {"poll_seconds": math.nan}, "poll_seconds"),
+        ({"test.work": Handler(Recorder())}, {"poll_seconds": math.inf}, "poll_seconds"),
     ],
 )
 async def test_settings_that_cannot_work_are_refused(
