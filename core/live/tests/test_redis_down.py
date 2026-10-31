@@ -50,6 +50,17 @@ async def test_taking_a_lock_fails_closed(down: RedisLive) -> None:
         await down.locks.acquire(ORG, "index", MINUTE)
 
 
+async def test_publishing_says_it_was_not_sent_and_subscribing_fails(
+    down: RedisLive, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING)
+    assert not await down.events.publish(ORG, "run.1", {"seq": 1})
+    with pytest.raises(LiveUnavailable):
+        async with down.events.subscribe(ORG, "run.1"):
+            pass
+    assert PASSWORD not in caplog.text
+
+
 def test_a_url_that_is_not_redis_is_refused_without_repeating_it() -> None:
     with pytest.raises(ValueError) as refused:
         RedisLive(f"http://:{PASSWORD}@localhost:6379/0")
