@@ -50,6 +50,15 @@ def check_name(name: str) -> str:
     return name
 
 
+def check_org(org: object) -> uuid.UUID:
+    """The organisation as a UUID, or ValueError. Typed `object` so the check is real: a text
+    could hold `:` or a glob, and a key must be built from the UUID alone, never from whatever
+    a caller passed."""
+    if not isinstance(org, uuid.UUID):
+        raise ValueError("an organisation is identified by a UUID")
+    return org
+
+
 def check_topic(topic: str) -> str:
     """An event topic: lower case, digits and `_.:-`, such as `run.<id>`."""
     if not _TOPIC.fullmatch(topic):
