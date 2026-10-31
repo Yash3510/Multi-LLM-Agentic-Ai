@@ -84,6 +84,7 @@ layers = [
     "fource.server",
     "fource.identity",
     "fource.jobs",
+    "fource.live",
     "fource.ledger",
     "fource.db",
     "fource.common",
@@ -112,3 +113,15 @@ name = "Only the public API of fource.jobs is imported from outside it"
 type = "protected"
 protected_modules = ["fource.jobs.*"]
 allowed_importers = ["fource.jobs"]
+
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.live is imported from outside it"
+type = "protected"
+protected_modules = ["fource.live.*"]
+allowed_importers = ["fource.live"]
+
+[[tool.importlinter.contracts]]
+name = "The live store never touches the database: nothing in it is durable"
+type = "forbidden"
+source_modules = ["fource.live"]
+forbidden_modules = ["fource.db", "fource.ledger", "sqlalchemy"]

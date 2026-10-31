@@ -13,6 +13,7 @@ members = [
     "fource-identity",
     "fource-jobs",
     "fource-ledger",
+    "fource-live",
     "fource-packs",
     "fource-server",
     "fource-workspace",
@@ -420,6 +421,17 @@ requires-dist = [
     { name = "fource-db", editable = "core/db" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.1.4" },
 ]
+
+[[package]]
+name = "fource-live"
+version = "0.1.0"
+source = { editable = "core/live" }
+dependencies = [
+    { name = "fource-common" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "fource-common", editable = "core/common" }]
 
 [[package]]
 name = "fource-packs"
