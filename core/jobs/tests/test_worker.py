@@ -273,6 +273,26 @@ async def test_one_organisations_failure_does_not_stop_the_others(
     assert "a line quoted from a document" not in caplog.text
 
 
+async def test_a_broken_organisation_is_logged_once_per_pass(
+    orgs: Orgs, clock: Any, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    database, first, second = orgs
+    for _ in range(3):
+        await queue(database, second)
+    real_take = take
+
+    async def take_or_break(session: AsyncSession, *args: Any, **options: Any) -> HeldJob | None:
+        if org_of(session) == first:
+            raise RuntimeError("a line quoted from a document")
+        return await real_take(session, *args, **options)
+
+    monkeypatch.setattr("fource.jobs.worker.take", take_or_break)
+    worker = Worker(database, {"test.work": Handler(Recorder())})
+    with caplog.at_level(logging.WARNING, logger="fource.jobs"):
+        assert await worker.run_once() == 3
+    assert caplog.text.count(f"a pass over organisation {first} failed") == 1
+
+
 async def test_a_failure_keeping_recurring_jobs_queued_does_not_stop_the_others(
     orgs: Orgs, clock: Any, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
