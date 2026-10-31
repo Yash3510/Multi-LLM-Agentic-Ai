@@ -137,11 +137,15 @@ class Worker:
 
     async def _keep_queued(self, org_id: uuid.UUID, recurring: Recurring) -> None:
         """Queues the next occurrence unless one is pending: due one interval after the last one
-        finished, or now. The look and the insert are separate transactions, so SQLite never
-        upgrades a read lock; two workers doing this at once still queue one (the key)."""
+        finished, or now. The first look is its own transaction, so SQLite never upgrades a read
+        lock. The insert comes first in the next one, and only after it (when this transaction
+        holds the write lock, or the key's index entry) is the key looked at again: if another
+        worker has finished an occurrence since the first look, that interval is taken and this
+        transaction rolls back. An occurrence another worker has queued and not finished is
+        caught by the key's partial unique index."""
         key = f"recurring:{recurring.kind}"
+        mine = (Job.org_id == org_id, Job.key == key)
         async with self._database.org_session(org_id) as session:
-            mine = (Job.org_id == org_id, Job.key == key)
             pending = await session.scalar(select(Job.id).where(*mine, Job.state.in_(UNFINISHED)))
             last = await session.scalar(select(func.max(Job.finished_at)).where(*mine))
         if pending is not None:
@@ -149,6 +153,9 @@ class Worker:
         due = now() if last is None else max(now(), last + recurring.every)
         async with self._database.org_session(org_id) as session:
             await enqueue(session, recurring.kind, run_at=due, key=key)
+            latest = await session.scalar(select(func.max(Job.finished_at)).where(*mine))
+            if latest != last:
+                await session.rollback()  # another worker ran this interval's occurrence
 
     async def _run_one(self, org_id: uuid.UUID) -> int:
         async with self._database.org_session(org_id) as session:
