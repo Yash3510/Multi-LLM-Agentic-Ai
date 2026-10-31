@@ -1,0 +1,176 @@
+import asyncio
+import uuid
+from datetime import timedelta
+from typing import Any
+
+import pytest
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from fource.db import Database
+from fource.jobs import Handler, HeldJob, Job, Recurring, Worker, enqueue, take
+
+pytestmark = pytest.mark.anyio
+Orgs = tuple[Database, uuid.UUID, uuid.UUID]
+
+
+async def queue(
+    database: Database, org_id: uuid.UUID, kind: str = "test.work", **options: Any
+) -> uuid.UUID:
+    async with database.org_session(org_id) as session:
+        return await enqueue(session, kind, **options)
+
+
+async def jobs(database: Database, org_id: uuid.UUID) -> list[Job]:
+    async with database.org_session(org_id) as session:
+        return list((await session.scalars(select(Job).order_by(Job.created_at, Job.id))).all())
+
+
+class Recorder:
+    """A handler that notes what it ran, and can be told to fail or to queue follow-up work."""
+
+    def __init__(self, fail: Exception | None = None, follow_up: bool = False) -> None:
+        self.ran: list[HeldJob] = []
+        self.fail, self.follow_up = fail, follow_up
+
+    async def __call__(self, session: AsyncSession, job: HeldJob) -> None:
+        self.ran.append(job)
+        if self.follow_up:  # a write of the handler's, in the job's own transaction
+            await enqueue(session, "test.next", {"after": str(job.id)})
+        if self.fail is not None:
+            raise self.fail
+
+
+async def test_run_once_runs_due_jobs_in_every_organisation(orgs: Orgs, clock: Any) -> None:
+    database, first, second = orgs
+    await queue(database, first, payload={"n": 1})
+    await queue(database, second, payload={"n": 2})
+    recorder = Recorder()
+    assert await Worker(database, {"test.work": Handler(recorder)}).run_once() == 2
+    assert sorted((job.org_id, job.payload["n"]) for job in recorder.ran) == sorted(
+        [(first, 1), (second, 2)]
+    )
+    assert [job.state for job in await jobs(database, first)] == ["done"]
+
+
+async def test_a_handlers_writes_commit_with_its_job(orgs: Orgs, clock: Any) -> None:
+    database, first, _ = orgs
+    job_id = await queue(database, first)
+    await Worker(database, {"test.work": Handler(Recorder(follow_up=True))}).run_once()
+    stored = await jobs(database, first)
+    assert [(job.kind, job.state) for job in stored] == [
+        ("test.work", "done"),
+        ("test.next", "queued"),
+    ]
+    assert stored[1].payload == {"after": str(job_id)}
+
+
+async def test_a_handler_that_fails_rolls_back_and_is_retried(orgs: Orgs, clock: Any) -> None:
+    database, first, _ = orgs
+    await queue(database, first, max_attempts=2)
+    recorder = Recorder(fail=ValueError("a line quoted from a document"), follow_up=True)
+    worker = Worker(database, {"test.work": Handler(recorder)})
+    assert await worker.run_once() == 1
+    [job] = await jobs(database, first)  # the follow-up rolled back with the attempt
+    assert (job.state, job.attempts, job.last_error) == ("queued", 1, "ValueError")
+    clock.advance(timedelta(seconds=30))
+    assert await worker.run_once() == 1
+    [job] = await jobs(database, first)
+    assert (job.state, job.attempts, job.finished_at) == ("failed", 2, clock.current)
+
+
+async def test_an_attempt_that_lost_its_lease_rolls_back(orgs: Orgs, clock: Any) -> None:
+    database, first, _ = orgs
+    await queue(database, first)
+
+    async def outlived(session: AsyncSession, job: HeldJob) -> None:
+        clock.advance(timedelta(minutes=6))  # past the lease: another worker takes the job
+        async with database.org_session(first) as other:
+            assert await take(other, ["test.work"], lease=timedelta(minutes=5)) is not None
+        await enqueue(session, "test.next")  # this attempt's write must not survive
+
+    await Worker(database, {"test.work": Handler(outlived)}).run_once()
+    [job] = await jobs(database, first)
+    assert (job.kind, job.state, job.attempts) == ("test.work", "running", 2)
+
+
+async def test_a_job_whose_last_attempt_never_finished_fails(orgs: Orgs, clock: Any) -> None:
+    database, first, _ = orgs
+    await queue(database, first, max_attempts=1)
+    async with database.org_session(first) as session:  # a worker that then stopped
+        assert await take(session, ["test.work"], lease=timedelta(minutes=5)) is not None
+    clock.advance(timedelta(minutes=6))
+    recorder = Recorder()
+    await Worker(database, {"test.work": Handler(recorder)}).run_once()
+    [job] = await jobs(database, first)
+    assert recorder.ran == [] and job.state == "failed"
+    assert job.last_error is not None and "did not finish" in job.last_error
+
+
+async def test_jobs_without_a_handler_wait(orgs: Orgs, clock: Any) -> None:
+    database, first, _ = orgs
+    await queue(database, first, "other.work")
+    assert await Worker(database, {"test.work": Handler(Recorder())}).run_once() == 0
+    assert [job.state for job in await jobs(database, first)] == ["queued"]
+
+
+async def test_a_recurring_job_runs_once_per_interval_in_each_organisation(
+    orgs: Orgs, clock: Any
+) -> None:
+    database, first, second = orgs
+    recorder = Recorder()
+    hourly = Recurring("test.work", every=timedelta(hours=1))
+    worker = Worker(database, {"test.work": Handler(recorder)}, recurring=[hourly])
+    assert await worker.run_once() == 2  # due at once in both organisations
+    assert await worker.run_once() == 0  # the next ones wait an hour
+    clock.advance(timedelta(minutes=59))
+    assert await worker.run_once() == 0
+    clock.advance(timedelta(minutes=1))
+    assert await worker.run_once() == 2
+    assert await worker.run_once() == 0  # each pass first queues the next occurrence
+    states = [job.state for job in await jobs(database, first)]
+    assert states == ["done", "done", "queued"]  # never more than one waiting
+    assert len(await jobs(database, second)) == 3
+
+
+async def test_a_recurring_job_needs_a_handler(orgs: Orgs) -> None:
+    database, _, _ = orgs
+    with pytest.raises(ValueError, match="test.work"):
+        Worker(database, {}, recurring=[Recurring("test.work", every=timedelta(hours=1))])
+
+
+async def test_run_finds_new_work_and_stops_after_the_running_job(orgs: Orgs) -> None:
+    database, first, _ = orgs
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def slow(session: AsyncSession, job: HeldJob) -> None:
+        started.set()
+        await release.wait()
+
+    worker = Worker(database, {"test.work": Handler(slow)}, poll_seconds=0.05)
+    running = asyncio.create_task(worker.run())
+    await queue(database, first)
+    await asyncio.wait_for(started.wait(), 5)
+    worker.stop()
+    await asyncio.sleep(0.2)
+    assert not running.done()  # the running job finishes first
+    release.set()
+    await asyncio.wait_for(running, 5)
+    assert [job.state for job in await jobs(database, first)] == ["done"]
+
+
+async def test_a_wake_up_ends_the_wait_early(orgs: Orgs) -> None:
+    database, first, _ = orgs
+    recorder = Recorder()
+    worker = Worker(database, {"test.work": Handler(recorder)}, poll_seconds=60)
+    running = asyncio.create_task(worker.run())
+    await asyncio.sleep(0.2)  # the first pass found nothing; now it waits
+    await queue(database, first)
+    worker.wake()
+    for _ in range(100):
+        if recorder.ran:
+            break
+        await asyncio.sleep(0.05)
+    worker.stop()
+    await asyncio.wait_for(running, 5)
+    assert len(recorder.ran) == 1
