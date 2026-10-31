@@ -40,16 +40,21 @@ _TIMEOUT = 2.0  # seconds to connect or to answer: a down Redis must not stall a
 _NOT_A_URL = "FOURCE_REDIS_URL is not a redis://, rediss:// or unix:// URL"
 # The only query options a URL may carry. Anything else is refused: the pool sets the timeouts
 # and retries itself, and an option such as decode_responses would change what the client
-# returns and break the byte values the cache hands back.
-_QUERY_KEYS = (
-    "db",
+# returns and break the byte values the cache hands back. The trust options belong to TLS, so
+# only a rediss:// URL may carry them: on redis:// or unix:// the connection would reject them
+# at the first call, as a TypeError that is not a "down" error.
+_PLAIN_KEYS = frozenset({"db"})
+_TLS_KEYS = _PLAIN_KEYS | {
     "ssl_cert_reqs",
     "ssl_ca_certs",
     "ssl_certfile",
     "ssl_keyfile",
     "ssl_check_hostname",
+}
+_OPTIONS = (
+    "FOURCE_REDIS_URL may set only the query option db, and a TLS (rediss) URL also "
+    + ", ".join(sorted(_TLS_KEYS - _PLAIN_KEYS))
 )
-_OPTIONS = "FOURCE_REDIS_URL may set only these query options: " + ", ".join(_QUERY_KEYS)
 
 
 class _Untyped(Protocol):
@@ -256,7 +261,9 @@ class RedisLive:
             where = parse_url(url)
         except ValueError:  # its own message could quote the URL, which holds the password
             raise ValueError(_NOT_A_URL) from None
-        if not parse_qs(urlparse(url).query).keys() <= set(_QUERY_KEYS):
+        parts = urlparse(url)
+        allowed = _TLS_KEYS if parts.scheme == "rediss" else _PLAIN_KEYS
+        if not parse_qs(parts.query).keys() <= allowed:
             raise ValueError(_OPTIONS)
         self._pool = ConnectionPool(
             **where,
