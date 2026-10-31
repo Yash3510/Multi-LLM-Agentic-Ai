@@ -110,9 +110,9 @@ async def enqueue(
     else:  # the pending job finished between the insert and the look, three times over
         raise RuntimeError(f"the pending job with key {key!r} kept changing")
     if dialect == "postgresql":
-        await session.execute(
-            text("SELECT pg_notify(:channel, :org)"), {"channel": CHANNEL, "org": str(org_id)}
-        )
+        # An empty payload: NOTIFY is per database and row-level security does not apply to it,
+        # so any session of the app role may LISTEN. The listener ignores the payload anyway.
+        await session.execute(text("SELECT pg_notify(:channel, '')"), {"channel": CHANNEL})
     return job_id
 
 
