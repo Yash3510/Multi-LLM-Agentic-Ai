@@ -85,9 +85,12 @@ class Worker:
         if not self._handlers:
             return 0
         organisations = await self._organisations()
-        failed: set[uuid.UUID] = set()  # skipped for the rest of the pass, logged once
+        # Each step logs an organisation's failure once per pass. Only a failed job round keeps
+        # the organisation out of the later rounds: a recurring step that always fails must not
+        # stop its ordinary jobs.
         for org_id in organisations:
-            await self._guarded(org_id, self._keep_all_queued(org_id), failed)
+            await self._guarded(org_id, self._keep_all_queued(org_id), set())
+        failed: set[uuid.UUID] = set()
         attempts = 0
         while not self._stopping.is_set():
             ran = 0
