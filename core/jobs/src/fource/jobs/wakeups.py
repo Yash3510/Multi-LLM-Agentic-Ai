@@ -11,6 +11,7 @@ import psycopg
 from sqlalchemy.engine import make_url
 
 _log = logging.getLogger("fource.jobs")
+_CONNECT_TIMEOUT = 10  # seconds: a host that does not answer must not hang the listener
 
 
 async def _pause(stop: asyncio.Event, seconds: float) -> None:
@@ -25,16 +26,20 @@ async def listen_for_jobs(
 ) -> None:
     """Calls `on_wake` for every NOTIFY on the jobs channel until `stop` is set. The connection
     is the listener's own, in autocommit, so notifications arrive as soon as they are sent. If
-    it drops, it is opened again after `retry_seconds`; the worker's polling covers the gap."""
+    it drops, it is opened again after `retry_seconds`; the worker's polling covers the gap. Any
+    other error (a failing `on_wake`, say) is logged and handled alike: the listener never ends
+    on its own."""
     conninfo = make_url(url).set(drivername="postgresql").render_as_string(hide_password=False)
     while not stop.is_set():
         try:
-            async with await psycopg.AsyncConnection.connect(conninfo, autocommit=True) as listener:
+            async with await psycopg.AsyncConnection.connect(
+                conninfo, autocommit=True, connect_timeout=_CONNECT_TIMEOUT
+            ) as listener:
                 await listener.execute("LISTEN fource_jobs")
                 on_wake()  # anything queued while nobody was listening
                 while not stop.is_set():
                     async for _ in listener.notifies(timeout=1.0):
                         on_wake()
-        except (psycopg.Error, OSError) as error:  # the class only: its text can name the host
+        except Exception as error:  # the class only: its text can name the host or the URL
             _log.warning("job wake-ups paused (%s); polling continues", type(error).__name__)
             await _pause(stop, retry_seconds)
