@@ -84,15 +84,14 @@ class Worker:
             return 0
         organisations = await self._organisations()
         for org_id in organisations:
-            for each in self._recurring:
-                await self._keep_queued(org_id, each)
+            await self._guarded(org_id, self._keep_all_queued(org_id))
         attempts = 0
         while not self._stopping.is_set():
             ran = 0
             for org_id in organisations:
                 if self._stopping.is_set():
                     break
-                ran += await self._run_one(org_id)
+                ran += await self._guarded(org_id, self._run_one(org_id))
             if not ran:
                 break
             attempts += ran
@@ -121,6 +120,20 @@ class Worker:
     async def _organisations(self) -> list[uuid.UUID]:
         async with self._database.session() as session:
             return list((await session.scalars(select(Org.id).order_by(Org.slug))).all())
+
+    async def _guarded(self, org_id: uuid.UUID, step: Awaitable[int | None]) -> int:
+        """Runs one organisation's step. If it fails, logs it and returns 0 so the pass goes on
+        with the next organisation: one organisation's trouble never starves the others.
+        Cancellation is not an Exception and still propagates."""
+        try:
+            return await step or 0
+        except Exception as error:
+            _log.warning("a pass over organisation %s failed: %s", org_id, describe(error))
+            return 0
+
+    async def _keep_all_queued(self, org_id: uuid.UUID) -> None:
+        for each in self._recurring:
+            await self._keep_queued(org_id, each)
 
     async def _keep_queued(self, org_id: uuid.UUID, recurring: Recurring) -> None:
         """Queues the next occurrence unless one is pending: due one interval after the last one
