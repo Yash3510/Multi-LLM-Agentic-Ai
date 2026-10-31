@@ -69,6 +69,15 @@ class Worker:
         self._lease = max((each.lease for each in handlers.values()), default=timedelta(minutes=5))
         self._stopping = asyncio.Event()
         self._woken = asyncio.Event()
+        self._failed = 0
+
+    @property
+    def failed(self) -> int:
+        """How many attempts this worker has made that did not succeed (retried, failed for
+        good, or rolled back after another worker took the job over). `run_once()` returns only
+        how many it made, so a caller that must report failure, such as `worker --once`, reads
+        this before and after."""
+        return self._failed
 
     def stop(self) -> None:
         """Stop taking; the job that is running finishes first."""
@@ -190,12 +199,14 @@ class Worker:
                 await self._handlers[job.kind].run(session, job)
                 await complete(session, job)
         except LeaseLost:
+            self._failed += 1
             self._log_taken_over(job)
         except Exception as error:  # recorded on the job, never lost
             await self._record_failure(org_id, job, error)
         return 1
 
     async def _record_failure(self, org_id: uuid.UUID, job: HeldJob, error: BaseException) -> None:
+        self._failed += 1
         try:
             async with self._database.org_session(org_id) as session:
                 again = await retry_or_fail(session, job, error)
