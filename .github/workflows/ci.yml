@@ -61,6 +61,30 @@ jobs:
       - run: uv sync --all-packages --locked
       - run: just test-postgres
 
+  redis:
+    name: Redis tests
+    if: github.event_name == 'push' || contains(fromJSON('["opened", "synchronize", "reopened"]'), github.event.action)
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      # A throwaway server that lives for one job; the tests read only this variable.
+      FOURCE_TEST_REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.13.0"
+          enable-cache: true
+      - run: uv tool install rust-just==1.58.0
+      - run: uv sync --all-packages --locked
+      - run: just test-redis
+
   pull-request:
     name: pull request rules
     if: github.event_name == 'pull_request'
