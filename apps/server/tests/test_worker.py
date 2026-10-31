@@ -5,6 +5,12 @@ import sys
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+)
 
 from fource.common import Settings
 from fource.db import Database
@@ -42,6 +48,33 @@ def test_scheduled_checkpoints_need_the_signing_key(
     monkeypatch.setenv("FOURCE_LEDGER_CHECKPOINT_MINUTES", "60")
     assert cli.main(["worker", "--once"]) == 1
     assert "just ledger keygen" in capsys.readouterr().out
+
+
+def rsa_key() -> bytes:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    return key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
+
+
+@pytest.mark.parametrize("kind", ["garbage", "rsa"])
+def test_a_key_file_that_is_not_an_ed25519_key_is_refused_without_its_contents(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], kind: str
+) -> None:
+    cli.main(["migrate"])
+    path = env.parent / "not-a-key.pem"
+    if kind == "garbage":
+        marker = "marker-4f1d9c-from-the-key-file"
+        path.write_text(f"-----BEGIN PRIVATE KEY-----\n{marker}\n-----END PRIVATE KEY-----\n")
+    else:
+        content = rsa_key()
+        path.write_bytes(content)
+        marker = content.decode().splitlines()[1]  # a line of the key itself
+    monkeypatch.setenv("FOURCE_LEDGER_KEY_FILE", str(path))
+    monkeypatch.setenv("FOURCE_LEDGER_CHECKPOINT_MINUTES", "60")
+    capsys.readouterr()
+    assert cli.main(["worker", "--once"]) == 1
+    captured = capsys.readouterr()
+    assert str(path) in captured.out  # says which file
+    assert marker not in captured.out + captured.err  # never what is in it
 
 
 def test_the_worker_on_a_database_that_is_not_set_up_says_so(
