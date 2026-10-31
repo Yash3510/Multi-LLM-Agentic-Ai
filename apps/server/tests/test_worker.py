@@ -7,6 +7,7 @@ import pytest
 from fource.db import Database
 from fource.jobs import Worker
 from fource.server import cli
+from fource.server.migrate import upgrade
 from fource.server.worker import stop_handler
 
 pytestmark = pytest.mark.anyio
@@ -43,6 +44,19 @@ def test_scheduled_checkpoints_need_the_signing_key(
 def test_the_worker_on_a_database_that_is_not_set_up_says_so(
     env: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    assert cli.main(["worker", "--once"]) == 1
+    assert "just migrate" in capsys.readouterr().out
+
+
+def test_the_worker_on_a_database_migrated_only_to_slice_2_says_so(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # An install upgraded from slice 2 has orgs and the ledger but no jobs table. With scheduled
+    # checkpoints on, a pass over it would fail again and again behind the worker's guard.
+    upgrade(f"sqlite+aiosqlite:///{env.as_posix()}", "0004")
+    monkeypatch.setenv("FOURCE_LEDGER_CHECKPOINT_MINUTES", "1")
+    assert cli.main(["ledger", "keygen"]) == 0
+    capsys.readouterr()
     assert cli.main(["worker", "--once"]) == 1
     assert "just migrate" in capsys.readouterr().out
 
