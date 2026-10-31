@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from datetime import timedelta
 
 import httpx
+import psycopg
 import pytest
 from pydantic import SecretStr
 from sqlalchemy import Connection, create_engine, select, text
@@ -16,7 +17,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fource.common import Settings, new_id, now
 from fource.db import Database
 from fource.identity import InvalidEmail, Role, create_user
-from fource.jobs import Handler, HeldJob, Job, Worker, enqueue, listen_for_jobs, take
+from fource.jobs import (
+    Handler,
+    HeldJob,
+    Job,
+    Worker,
+    enqueue,
+    listen_for_jobs,
+    take,
+)
 from fource.ledger import EntryType, append, read_entries, verify_ledger
 from fource.server.main import UnsafeDatabaseRole, create_app
 from fource.server.migrate import downgrade, upgrade
@@ -40,6 +49,27 @@ def set_org(connection: Connection, org_id: uuid.UUID) -> None:
     connection.execute(
         text("SELECT set_config('fource.org_id', :org, false)"), {"org": str(org_id)}
     )
+
+
+async def listener_pid(owner: str) -> int:
+    """The backend of a job listener that is connected and idle, as the owner sees it."""
+    database = make_url(owner).database
+
+    async def look() -> int:
+        while True:
+            with connect(owner) as connection:
+                pid = connection.execute(
+                    text(
+                        "SELECT pid FROM pg_stat_activity WHERE datname = :db"
+                        " AND query = 'LISTEN fource_jobs' AND state = 'idle'"
+                    ),
+                    {"db": database},
+                ).scalar()
+            if pid is not None:
+                return int(pid)
+            await asyncio.sleep(0.1)
+
+    return await asyncio.wait_for(look(), 10)
 
 
 @pytest.fixture
@@ -606,6 +636,11 @@ async def test_a_running_worker_is_woken_and_records_a_failed_attempt_on_postgre
     worker = Worker(database, {"test.work": Handler(work)}, poll_seconds=60)
     running = asyncio.create_task(worker.run())
     try:
+        # Queue nothing before the listener is live and the first pass has ended, so that only
+        # a NOTIFY can bring the outcomes in under the 60 s poll. (A slow machine only makes the
+        # wait longer.)
+        await listener_pid(postgres[0])
+        await asyncio.sleep(1)
         async with database.org_session(orgs[0]) as session:
             good = await enqueue(session, "test.work")
         async with database.org_session(orgs[0]) as session:
@@ -639,3 +674,47 @@ def test_the_jobs_table_is_under_forced_row_level_security(postgres: tuple[str, 
             text("SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = 'jobs'")
         ).one()
     assert tuple(flags) == (True, True)
+
+
+async def test_a_notification_carries_no_organisation_id(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    # NOTIFY is per database and row-level security does not apply to it: any session of the
+    # app role may LISTEN, with no organisation set, and would see who is active.
+    _, app = postgres
+    conninfo = make_url(app).set(drivername="postgresql").render_as_string(hide_password=False)
+    database = Database(app)
+    try:
+        async with await psycopg.AsyncConnection.connect(conninfo, autocommit=True) as listener:
+            await listener.execute("LISTEN fource_jobs")
+            async with database.org_session(orgs[1]) as session:
+                await enqueue(session, "test.work")
+            received = [note async for note in listener.notifies(timeout=10, stop_after=1)]
+    finally:
+        await database.dispose()
+    assert [(note.channel, note.payload) for note in received] == [("fource_jobs", "")]
+
+
+async def test_the_listener_connects_again_after_its_backend_is_terminated(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    owner, app = postgres
+    wakes: list[bool] = []
+    first, second = asyncio.Event(), asyncio.Event()
+
+    def on_wake() -> None:
+        wakes.append(True)
+        (first if len(wakes) == 1 else second).set()
+
+    stop = asyncio.Event()
+    listener = asyncio.create_task(listen_for_jobs(app, on_wake, stop, retry_seconds=0.2))
+    try:
+        await asyncio.wait_for(first.wait(), 10)  # listening
+        pid = await listener_pid(owner)
+        with connect(owner) as connection:
+            connection.execute(text("SELECT pg_terminate_backend(:pid)"), {"pid": pid})
+        await asyncio.wait_for(second.wait(), 10)  # it listens again and wakes once more
+        assert not listener.done()
+    finally:
+        stop.set()
+        await asyncio.wait_for(listener, 10)
