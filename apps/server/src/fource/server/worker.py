@@ -89,10 +89,13 @@ async def run_worker(settings: Settings, *, once: bool) -> int:
         ran = await worker.run_once()
         if once:
             print(f"Ran {ran} job attempt{'' if ran == 1 else 's'}.")
-            if worker.failed:  # exit 1, so that cron and scripts can tell
+            # Exit 1 for either kind of trouble, so that cron and scripts can tell.
+            if worker.failed:
                 print(f"{worker.failed} job attempt{'' if worker.failed == 1 else 's'} failed.")
-                return 1
-            return 0
+            if worker.errors:
+                passes = "organisation pass" if worker.errors == 1 else "organisation passes"
+                print(f"{worker.errors} {passes} failed.")
+            return 1 if worker.failed or worker.errors else 0
         kinds = ", ".join(sorted(handlers)) or "none yet (scheduled checkpoints are off)"
         print(f"The worker is running. Kinds of job: {kinds}. Stop it with Ctrl+C.")
         await worker.run()

@@ -16,7 +16,7 @@ The 4CE server: the API routes, the `fource-server` command and the one Alembic 
 ```
 just dev                                    # migrate, then run on http://127.0.0.1:8000 with live reload
 just worker              # run queued jobs; with FOURCE_LEDGER_CHECKPOINT_MINUTES it signs checkpoints
-just worker --once       # run the jobs that are due now, then exit (1 if an attempt failed)
+just worker --once       # run the jobs that are due now, then exit (1 if an attempt or an organisation's pass failed)
 just migrate                                # bring the database schema up to date
 just create-user you@example.com --role Admin   # asks for the password twice
 just ledger keygen       # once: the installation's signing key, in data/ledger/ (never committed)
