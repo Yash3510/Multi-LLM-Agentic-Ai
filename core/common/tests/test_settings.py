@@ -75,3 +75,14 @@ def test_scheduled_checkpoints_are_switched_on_by_a_positive_interval(
     env.setenv("FOURCE_LEDGER_CHECKPOINT_MINUTES", "0")
     with pytest.raises(ValidationError):
         Settings()
+
+
+def test_the_checkpoint_interval_is_at_most_a_year(env: pytest.MonkeyPatch) -> None:
+    # An interval beyond datetime's range would fail when the worker adds it to a date, long
+    # after start-up: Settings refuses it at once, naming the variable.
+    env.setenv("FOURCE_LEDGER_CHECKPOINT_MINUTES", "525600")
+    assert Settings().ledger_checkpoint_minutes == 525600
+    env.setenv("FOURCE_LEDGER_CHECKPOINT_MINUTES", "525601")
+    with pytest.raises(ValidationError) as refused:
+        Settings()
+    assert "ledger_checkpoint_minutes" in str(refused.value)
