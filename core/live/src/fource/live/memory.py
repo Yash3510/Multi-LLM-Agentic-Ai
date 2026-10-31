@@ -4,15 +4,28 @@ For development and tests, like SQLite for the database. Each process has its ow
 counts, locks and events, so an installation with more than one process sets FOURCE_REDIS_URL.
 """
 
+import asyncio
 import secrets
 import time
 import uuid
+from collections.abc import AsyncGenerator, Mapping
+from contextlib import asynccontextmanager
 from datetime import timedelta
 
-from fource.live.base import Hit, check_limit, check_name, check_ttl
+from fource.live.base import (
+    Event,
+    Hit,
+    check_limit,
+    check_name,
+    check_topic,
+    check_ttl,
+    decode_event,
+    encode_event,
+)
 
 _Slot = tuple[uuid.UUID, str]
 _PURGE_AT = 1000  # entries; expired ones are dropped when a write finds this many
+_QUEUE_SIZE = 1000  # events a slow subscriber may fall behind before it misses some
 
 
 def _clock() -> float:
@@ -102,6 +115,44 @@ class MemoryLocks:
         return MemoryLock(self._held, slot, token)
 
 
+class MemorySubscription:
+    def __init__(self, topic: str, queue: asyncio.Queue[str]) -> None:
+        self._topic, self._queue = topic, queue
+
+    async def next(self, timeout: float) -> Event | None:
+        try:
+            text = await asyncio.wait_for(self._queue.get(), timeout)
+        except TimeoutError:
+            return None
+        data = decode_event(text)
+        return None if data is None else Event(topic=self._topic, data=data)
+
+
+class MemoryEvents:
+    def __init__(self) -> None:
+        self._queues: dict[_Slot, set[asyncio.Queue[str]]] = {}
+
+    async def publish(self, org: uuid.UUID, topic: str, data: Mapping[str, object]) -> bool:
+        text = encode_event(data)  # as JSON, so subscribers get what Redis would give them
+        for queue in self._queues.get((org, check_topic(topic)), set()):
+            if not queue.full():  # one that doesn't keep up misses events, as on Redis
+                queue.put_nowait(text)
+        return True
+
+    @asynccontextmanager
+    async def subscribe(self, org: uuid.UUID, topic: str) -> AsyncGenerator[MemorySubscription]:
+        slot = (org, check_topic(topic))
+        queue: asyncio.Queue[str] = asyncio.Queue(maxsize=_QUEUE_SIZE)
+        self._queues.setdefault(slot, set()).add(queue)
+        try:
+            yield MemorySubscription(topic, queue)
+        finally:
+            subscribers = self._queues.get(slot, set())
+            subscribers.discard(queue)
+            if not subscribers:
+                self._queues.pop(slot, None)
+
+
 class MemoryLive:
     """One process's live store: for development and tests (no FOURCE_REDIS_URL)."""
 
@@ -111,6 +162,7 @@ class MemoryLive:
         self.cache = MemoryCache()
         self.limits = MemoryLimiter()
         self.locks = MemoryLocks()
+        self.events = MemoryEvents()
 
     async def ping(self) -> bool:
         return True

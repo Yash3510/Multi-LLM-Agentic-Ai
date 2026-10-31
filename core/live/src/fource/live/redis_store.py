@@ -1,30 +1,36 @@
 """The Redis backend (ADR-0026). Every key and channel is `<prefix>:<org>:<kind>:<name>`.
 
-When Redis can't be reached: the cache misses and drops writes, and the rate limiter and
-taking a lock raise LiveUnavailable (they fail closed). No message carries the URL, which
-holds the password.
+When Redis can't be reached: the cache misses and drops writes, publishing returns False, and
+the rate limiter, lock taking and subscribing raise LiveUnavailable (they fail closed). No
+message carries the URL, which holds the password.
 """
 
+import asyncio
 import logging
 import secrets
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable, Mapping
+from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Protocol, cast
 
 from redis.asyncio import ConnectionPool, Redis
-from redis.asyncio.client import Pipeline
+from redis.asyncio.client import Pipeline, PubSub
 from redis.asyncio.connection import parse_url
 from redis.asyncio.retry import Retry
 from redis.backoff import NoBackoff
 from redis.exceptions import RedisError, WatchError
 
 from fource.live.base import (
+    Event,
     Hit,
     LiveUnavailable,
     check_limit,
     check_name,
+    check_topic,
     check_ttl,
+    decode_event,
+    encode_event,
 )
 
 _log = logging.getLogger("fource.live")
@@ -38,7 +44,19 @@ _OWNED = "FOURCE_REDIS_URL may not set " + ", ".join(_POOL_OWNS)
 class _Untyped(Protocol):
     """The client calls whose redis-py signatures leave `**kwargs` untyped, as used here."""
 
+    def pubsub(self) -> PubSub: ...
+
+    async def publish(self, channel: str, message: str) -> int: ...
+
     async def ping(self) -> bool: ...
+
+
+class _Messages(Protocol):
+    """PubSub.get_message, whose redis-py signature returns an untyped dict."""
+
+    async def get_message(
+        self, ignore_subscribe_messages: bool = False, timeout: float | None = 0.0
+    ) -> dict[str, object] | None: ...
 
 
 def _unavailable() -> LiveUnavailable:
@@ -155,6 +173,66 @@ class RedisLocks:
         return RedisLock(self._client, key, token) if taken else None
 
 
+class RedisSubscription:
+    def __init__(self, topic: str, pubsub: PubSub) -> None:
+        self._topic, self._pubsub = topic, pubsub
+
+    async def next(self, timeout: float) -> Event | None:
+        try:
+            message = await cast("_Messages", self._pubsub).get_message(
+                ignore_subscribe_messages=True, timeout=timeout
+            )
+        except _DOWN as error:  # the subscriber re-reads state from the database
+            raise _unavailable() from error
+        if message is None:
+            return None
+        raw = message.get("data")
+        data = decode_event(raw) if isinstance(raw, bytes | str) else None
+        return None if data is None else Event(topic=self._topic, data=data)
+
+
+async def _subscribed(pubsub: PubSub) -> None:
+    """Waits for Redis to confirm the subscription, so nothing published after it is missed."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + _TIMEOUT
+    while (left := deadline - loop.time()) > 0:
+        message = await cast("_Messages", pubsub).get_message(timeout=left)
+        if message is not None and message.get("type") == "subscribe":  # redis-py decodes it
+            return
+    raise _unavailable()
+
+
+class RedisEvents:
+    def __init__(self, client: Redis, names: _Names) -> None:
+        self._client, self._names = client, names
+
+    async def publish(self, org: uuid.UUID, topic: str, data: Mapping[str, object]) -> bool:
+        channel, text = self._names(org, "events", check_topic(topic)), encode_event(data)
+        try:
+            await cast("_Untyped", self._client).publish(channel, text)
+        except _DOWN as error:  # an event is a hint; the state it points to is in the database
+            _log.warning("live event not sent: %s", type(error).__name__)
+            return False
+        return True
+
+    @asynccontextmanager
+    async def subscribe(self, org: uuid.UUID, topic: str) -> AsyncGenerator[RedisSubscription]:
+        channel = self._names(org, "events", check_topic(topic))
+        pubsub = cast("_Untyped", self._client).pubsub()
+        try:
+            try:
+                await pubsub.subscribe(channel)
+                await _subscribed(pubsub)
+            except _DOWN as error:
+                raise _unavailable() from error
+            yield RedisSubscription(topic, pubsub)
+        finally:
+            try:
+                await pubsub.aclose()
+            except _DOWN as error:
+                _log.warning("live subscription not closed cleanly: %s", type(error).__name__)
+
+
 class RedisLive:
     """The live store on Redis (or Valkey): what an installation uses (FOURCE_REDIS_URL)."""
 
@@ -179,6 +257,7 @@ class RedisLive:
         self.cache = RedisCache(self._client, names)
         self.limits = RedisLimiter(self._client, names)
         self.locks = RedisLocks(self._client, names)
+        self.events = RedisEvents(self._client, names)
 
     async def ping(self) -> bool:
         try:
