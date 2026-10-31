@@ -25,7 +25,9 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--reload", action="store_true", help="restart when code changes")
     work = commands.add_parser("worker", help="run queued jobs until stopped")
-    work.add_argument("--once", action="store_true", help="run the jobs that are due, then exit")
+    work.add_argument(
+        "--once", action="store_true", help="run the due jobs, then exit (1 if an attempt failed)"
+    )
     commands.add_parser("migrate", help="bring the database schema up to date")
     create = commands.add_parser("create-user", help="add a user; asks for the password")
     create.add_argument("email")
