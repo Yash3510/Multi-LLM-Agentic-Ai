@@ -74,6 +74,10 @@ dev:
     uv run fource-server migrate
     uv run fource-server serve --reload
 
+# Run queued jobs until stopped; just worker --once runs the due ones and exits
+worker *args:
+    uv run fource-server worker {{args}}
+
 # Bring the database schema up to date
 migrate:
     uv run fource-server migrate

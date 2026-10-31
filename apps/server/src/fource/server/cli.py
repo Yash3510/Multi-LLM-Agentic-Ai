@@ -1,4 +1,4 @@
-"""The fource-server command: serve, migrate, create-user, ledger."""
+"""The fource-server command: serve, worker, migrate, create-user, ledger."""
 
 import argparse
 import asyncio
@@ -14,6 +14,7 @@ from fource.identity import Role, create_user
 from fource.server import ledger_commands
 from fource.server.loops import asyncio_loop_factory, uvicorn_loop
 from fource.server.migrate import migration_url, upgrade
+from fource.server.worker import run_worker
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -23,6 +24,8 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--reload", action="store_true", help="restart when code changes")
+    work = commands.add_parser("worker", help="run queued jobs until stopped")
+    work.add_argument("--once", action="store_true", help="run the jobs that are due, then exit")
     commands.add_parser("migrate", help="bring the database schema up to date")
     create = commands.add_parser("create-user", help="add a user; asks for the password")
     create.add_argument("email")
@@ -94,6 +97,14 @@ def main(argv: list[str] | None = None) -> int:
             loop=uvicorn_loop(),
         )
         return 0
+    if args.command == "worker":
+        try:
+            return asyncio.run(
+                run_worker(settings, once=args.once), loop_factory=asyncio_loop_factory()
+            )
+        except (KeyboardInterrupt, asyncio.CancelledError):  # a second signal, or Windows
+            print("Stopped.")
+            return 130
     if args.command == "ledger":
         return _ledger(settings, args)
     if args.command == "migrate":

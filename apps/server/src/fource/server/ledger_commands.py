@@ -46,6 +46,18 @@ def checkpoint_folder(settings: Settings) -> Path:
     return settings.data_dir / "ledger" / "checkpoints"
 
 
+def checkpoint_file(folder: Path, slug: str, seq: int) -> Path:
+    return folder / f"{slug}-{seq:010d}.json"
+
+
+def save_checkpoint(signed: Checkpoint, file: Path) -> None:
+    """Writes the checkpoint's JSON to `file`, never over an existing one (FileExistsError), or a
+    cut chain could hide behind a fresh checkpoint. The scheduled checkpoint writes it too."""
+    file.parent.mkdir(parents=True, exist_ok=True)
+    with file.open("x", encoding="utf-8") as handle:
+        handle.write(json.dumps(signed.to_dict(), indent=2) + "\n")
+
+
 def _plural(count: int, one: str, many: str) -> str:
     return f"{count} {one if count == 1 else many}"
 
@@ -116,15 +128,10 @@ async def make_checkpoint(settings: Settings, slug: str, folder: Path | None) ->
         await database.dispose()
     # The entry is already committed: show the checkpoint before writing, so a full disk
     # can't lose the only copy of the signature.
-    text = json.dumps(signed.to_dict(), indent=2)
-    print(text)
-    target = folder or checkpoint_folder(settings)
-    file = target / f"{slug}-{signed.seq:010d}.json"
+    print(json.dumps(signed.to_dict(), indent=2))
+    file = checkpoint_file(folder or checkpoint_folder(settings), slug, signed.seq)
     try:
-        target.mkdir(parents=True, exist_ok=True)
-        # "x": never over an existing file, or a cut chain could hide behind a fresh checkpoint.
-        with file.open("x", encoding="utf-8") as handle:
-            handle.write(text + "\n")
+        save_checkpoint(signed, file)
     except FileExistsError as error:
         print(
             f"The checkpoint entry was recorded, but its file was not saved because "
