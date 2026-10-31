@@ -131,11 +131,15 @@ class MemorySubscription:
 
     async def next(self, timeout: float) -> Event | None:
         """Waits the whole timeout for an event; text that isn't a JSON object is skipped. A
-        subscriber that missed events gets LiveUnavailable and re-reads the state."""
+        subscriber that missed events gets LiveUnavailable once, loses what was buffered, and
+        re-reads the state; the same subscription then follows new events."""
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout
         while True:
             if self._missed:
+                self._missed = False  # then it follows new events, as a reconnected Redis one does
+                while not self._queue.empty():
+                    self._queue.get_nowait()
                 raise LiveUnavailable("A subscriber fell too far behind and missed events.")
             try:
                 text = await asyncio.wait_for(self._queue.get(), max(deadline - loop.time(), 0))

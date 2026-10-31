@@ -21,7 +21,7 @@ Two backends: Redis when `FOURCE_REDIS_URL` is set, otherwise this process's own
 
 ## Delivery
 
-Events are at-most-once, in order for each subscriber, and best effort. `publish` returning `True` means only that the store took the event, not that anyone received it. A subscriber that falls too far behind (Redis cuts it off; the memory backend after 1000 unread events) gets `LiveUnavailable` from its next `next()`, and must read the state again before it follows events again.
+Events are at-most-once, in order for each subscriber, and best effort. `publish` returning `True` means only that the store took the event, not that anyone received it. A subscriber that falls too far behind (Redis cuts it off; the memory backend after 1000 unread events) gets `LiveUnavailable` from its next `next()`, and must read the state again before it follows events again; after that, the same subscription follows new events.
 
 ## Tests
 
