@@ -157,6 +157,26 @@ def test_a_url_may_set_only_the_options_that_are_allowed(query: str) -> None:
     assert PASSWORD not in str(refused.value) and "://" not in str(refused.value)
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        f"redis://:{PASSWORD}@127.0.0.1:1/0?ssl_cert_reqs=required",
+        f"redis://:{PASSWORD}@127.0.0.1:1/0?db=1&ssl_check_hostname=true",
+        f"unix://:{PASSWORD}@/tmp/redis.sock?ssl_ca_certs=/tmp/ca.pem",
+    ],
+)
+def test_trust_settings_need_a_rediss_url(url: str) -> None:
+    """On redis:// or unix:// they would only fail at the first connection, as a TypeError."""
+    with pytest.raises(ValueError) as refused:
+        RedisLive(url)
+    assert PASSWORD not in str(refused.value) and "://" not in str(refused.value)
+
+
+async def test_a_unix_url_may_choose_its_database() -> None:
+    store = RedisLive("unix:///tmp/redis.sock?db=2")
+    await store.close()
+
+
 async def test_a_url_may_choose_its_database_and_trust_settings() -> None:
     store = RedisLive("rediss://127.0.0.1:1/0?db=2&ssl_cert_reqs=required&ssl_check_hostname=true")
     await store.close()
