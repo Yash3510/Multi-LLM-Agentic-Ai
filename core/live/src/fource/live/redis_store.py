@@ -13,6 +13,7 @@ from collections.abc import AsyncGenerator, Callable, Mapping
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Protocol, cast
+from urllib.parse import parse_qs, urlparse
 
 from redis.asyncio import ConnectionPool, Redis
 from redis.asyncio.client import Pipeline, PubSub
@@ -37,8 +38,18 @@ _log = logging.getLogger("fource.live")
 _DOWN = (RedisError, OSError)
 _TIMEOUT = 2.0  # seconds to connect or to answer: a down Redis must not stall a sign-in
 _NOT_A_URL = "FOURCE_REDIS_URL is not a redis://, rediss:// or unix:// URL"
-_POOL_OWNS = ("socket_timeout", "socket_connect_timeout", "health_check_interval", "retry")
-_OWNED = "FOURCE_REDIS_URL may not set " + ", ".join(_POOL_OWNS)
+# The only query options a URL may carry. Anything else is refused: the pool sets the timeouts
+# and retries itself, and an option such as decode_responses would change what the client
+# returns and break the byte values the cache hands back.
+_QUERY_KEYS = (
+    "db",
+    "ssl_cert_reqs",
+    "ssl_ca_certs",
+    "ssl_certfile",
+    "ssl_keyfile",
+    "ssl_check_hostname",
+)
+_OPTIONS = "FOURCE_REDIS_URL may set only these query options: " + ", ".join(_QUERY_KEYS)
 
 
 class _Untyped(Protocol):
@@ -245,8 +256,8 @@ class RedisLive:
             where = parse_url(url)
         except ValueError:  # its own message could quote the URL, which holds the password
             raise ValueError(_NOT_A_URL) from None
-        if any(option in where for option in _POOL_OWNS):
-            raise ValueError(_OWNED)
+        if not parse_qs(urlparse(url).query).keys() <= set(_QUERY_KEYS):
+            raise ValueError(_OPTIONS)
         self._pool = ConnectionPool(
             **where,
             socket_connect_timeout=_TIMEOUT,
