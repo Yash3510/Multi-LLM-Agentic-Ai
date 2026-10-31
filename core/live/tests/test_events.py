@@ -79,13 +79,20 @@ async def test_an_organisation_must_be_a_uuid(live: Live) -> None:
 
 async def test_a_subscriber_that_fell_behind_learns_it_missed_events() -> None:
     """Past 1000 unread events the memory backend cuts the subscriber off, as Redis does, so
-    it reads the state again instead of trusting a stream with holes in it."""
+    it reads the state again instead of trusting a stream with holes in it. After that the same
+    subscription follows new events, as a reconnected Redis subscription does, and the old
+    buffered ones are gone."""
     live = MemoryLive()
     async with live.events.subscribe(ORG, TOPIC) as subscription:
         for seq in range(1001):
             await live.events.publish(ORG, TOPIC, {"seq": seq})
         with pytest.raises(LiveUnavailable):
             await subscription.next(timeout=0.1)
+        assert await subscription.next(timeout=0.1) is None
+        await live.events.publish(ORG, TOPIC, {"seq": 2000})
+        event = await subscription.next(timeout=1)
+        assert event is not None
+        assert event.data == {"seq": 2000}
 
 
 class _Publisher(Protocol):
