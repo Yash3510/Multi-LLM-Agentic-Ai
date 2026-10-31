@@ -103,6 +103,17 @@ async def app_role_is_idle(owner: str, app: str) -> None:
     await asyncio.wait_for(look(), 10)
 
 
+async def test_the_idle_wait_fails_when_the_probe_cannot_see_other_roles(
+    postgres: tuple[str, str],
+) -> None:
+    # pg_stat_activity shows another role's `state` only to a superuser or a member of
+    # pg_read_all_stats; for anyone else it is NULL, which must never count as idle. The app
+    # role is such a role.
+    _, app = postgres
+    with pytest.raises(pytest.fail.Exception, match="pg_read_all_stats"):
+        await app_role_is_idle(app, app)
+
+
 @pytest.fixture
 def orgs(postgres: tuple[str, str]) -> tuple[uuid.UUID, uuid.UUID]:
     """The migrated database with a second organisation. Sync on purpose: migrations run
