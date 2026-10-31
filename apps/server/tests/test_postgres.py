@@ -8,7 +8,7 @@ from datetime import timedelta
 import httpx
 import pytest
 from pydantic import SecretStr
-from sqlalchemy import Connection, create_engine, text
+from sqlalchemy import Connection, create_engine, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fource.common import Settings, new_id, now
 from fource.db import Database
 from fource.identity import InvalidEmail, Role, create_user
-from fource.jobs import Handler, HeldJob, Worker, enqueue, listen_for_jobs, take
+from fource.jobs import Handler, HeldJob, Job, Worker, enqueue, listen_for_jobs, take
 from fource.ledger import EntryType, append, read_entries, verify_ledger
 from fource.server.main import UnsafeDatabaseRole, create_app
 from fource.server.migrate import downgrade, upgrade
@@ -593,6 +593,40 @@ async def test_a_queued_job_wakes_a_listening_worker(
         stop.set()
         await asyncio.wait_for(listener, 10)
         await database.dispose()
+
+
+async def test_a_running_worker_is_woken_and_records_a_failed_attempt_on_postgres(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    async def work(session: AsyncSession, job: HeldJob) -> None:
+        if job.payload.get("fail"):
+            raise ValueError("a line quoted from a document")
+
+    database = Database(postgres[1])
+    worker = Worker(database, {"test.work": Handler(work)}, poll_seconds=60)
+    running = asyncio.create_task(worker.run())
+    try:
+        async with database.org_session(orgs[0]) as session:
+            good = await enqueue(session, "test.work")
+        async with database.org_session(orgs[0]) as session:
+            bad = await enqueue(session, "test.work", {"fail": True})
+
+        async def outcome() -> dict[uuid.UUID, tuple[str, int, str | None]]:
+            while True:  # only a wake-up gets here before the 60 s poll
+                async with database.org_session(orgs[0]) as session:
+                    rows = (await session.scalars(select(Job))).all()
+                seen = {row.id: (row.state, row.attempts, row.last_error) for row in rows}
+                if seen[good][0] == "done" and seen[bad][1] == 1 and seen[bad][0] == "queued":
+                    return seen
+                await asyncio.sleep(0.1)
+
+        seen = await asyncio.wait_for(outcome(), 10)
+    finally:
+        worker.stop()
+        await asyncio.wait_for(running, 10)
+        await database.dispose()
+    assert seen[good][0] == "done"
+    assert seen[bad] == ("queued", 1, "ValueError")
 
 
 def test_the_jobs_table_is_under_forced_row_level_security(postgres: tuple[str, str]) -> None:
