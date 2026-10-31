@@ -1,9 +1,14 @@
 import asyncio
+import os
 import uuid
+from collections.abc import AsyncIterator
+from typing import Protocol, cast
 
 import pytest
+from redis.asyncio import ConnectionPool, Redis
+from redis.asyncio.connection import parse_url
 
-from fource.live import Event, Live
+from fource.live import Event, Live, LiveUnavailable, MemoryLive, RedisLive
 
 pytestmark = pytest.mark.anyio
 ORG = uuid.UUID("0192f5a0-0000-7000-8000-000000000001")
@@ -58,3 +63,74 @@ async def test_data_must_be_json(live: Live, data: dict[str, object]) -> None:
 async def test_odd_topics_are_refused(live: Live, topic: str) -> None:
     with pytest.raises(ValueError):
         await live.events.publish(ORG, topic, {})
+    with pytest.raises(ValueError):
+        async with live.events.subscribe(ORG, topic):
+            pass
+
+
+async def test_an_organisation_must_be_a_uuid(live: Live) -> None:
+    stranger = cast("uuid.UUID", "x:*")
+    with pytest.raises(ValueError):
+        await live.events.publish(stranger, TOPIC, {})
+    with pytest.raises(ValueError):
+        async with live.events.subscribe(stranger, TOPIC):
+            pass
+
+
+async def test_a_subscriber_that_fell_behind_learns_it_missed_events() -> None:
+    """Past 1000 unread events the memory backend cuts the subscriber off, as Redis does, so
+    it reads the state again instead of trusting a stream with holes in it."""
+    live = MemoryLive()
+    async with live.events.subscribe(ORG, TOPIC) as subscription:
+        for seq in range(1001):
+            await live.events.publish(ORG, TOPIC, {"seq": seq})
+        with pytest.raises(LiveUnavailable):
+            await subscription.next(timeout=0.1)
+
+
+class _Publisher(Protocol):
+    """Redis.publish, whose redis-py signature leaves `**kwargs` untyped."""
+
+    async def publish(self, channel: str, message: str) -> int: ...
+
+
+@pytest.fixture
+async def raw() -> AsyncIterator[tuple[RedisLive, _Publisher, str]]:
+    """A store and a plain client on the same Redis, and the channel the store listens on."""
+    url = os.environ.get("FOURCE_TEST_REDIS_URL")
+    if not url:
+        pytest.fail("Redis tests need FOURCE_TEST_REDIS_URL (see core/live/README.md)")
+    prefix = f"fource_test_{uuid.uuid4().hex[:12]}"
+    pool = ConnectionPool(**parse_url(url))
+    client = Redis(connection_pool=pool)
+    store = RedisLive(url, prefix=prefix)
+    try:
+        yield store, cast("_Publisher", client), f"{prefix}:{ORG}:events:{TOPIC}"
+    finally:
+        await client.aclose()
+        await pool.aclose()
+        await store.close()
+
+
+@pytest.mark.redis
+async def test_a_message_that_is_not_an_event_is_skipped(
+    raw: tuple[RedisLive, _Publisher, str],
+) -> None:
+    store, client, channel = raw
+    async with store.events.subscribe(ORG, TOPIC) as subscription:
+        await client.publish(channel, "[1,2]")
+        await store.events.publish(ORG, TOPIC, {"seq": 7})
+        event = await subscription.next(timeout=2)
+    assert event == Event(topic=TOPIC, data={"seq": 7})
+
+
+@pytest.mark.redis
+async def test_waiting_goes_on_after_a_message_that_is_not_an_event(
+    raw: tuple[RedisLive, _Publisher, str],
+) -> None:
+    store, client, channel = raw
+    async with store.events.subscribe(ORG, TOPIC) as subscription:
+        await client.publish(channel, "[1,2]")
+        started = asyncio.get_running_loop().time()
+        assert await subscription.next(timeout=1) is None
+        assert asyncio.get_running_loop().time() - started >= 0.9

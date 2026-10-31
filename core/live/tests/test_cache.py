@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from datetime import timedelta
+from typing import cast
 
 import pytest
 
@@ -43,6 +44,20 @@ async def test_a_time_to_live_is_from_a_millisecond_to_a_day(live: Live, ttl: ti
 async def test_odd_keys_are_refused(live: Live, key: str) -> None:
     with pytest.raises(ValueError):
         await live.cache.get(ORG, key)
+
+
+async def test_an_organisation_must_be_a_uuid_everywhere(live: Live) -> None:
+    stranger = cast("uuid.UUID", "x:*")
+    with pytest.raises(ValueError):
+        await live.cache.get(stranger, "key")
+    with pytest.raises(ValueError):
+        await live.cache.set(stranger, "key", b"x", MINUTE)
+    with pytest.raises(ValueError):
+        await live.cache.delete(stranger, "key")
+    with pytest.raises(ValueError):
+        await live.limits.hit(stranger, "key", limit=3, window=MINUTE)
+    with pytest.raises(ValueError):
+        await live.locks.acquire(stranger, "key", MINUTE)
 
 
 async def test_the_store_answers_a_ping(live: Live) -> None:
