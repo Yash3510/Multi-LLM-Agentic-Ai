@@ -94,7 +94,7 @@ def test_a_retry_keeps_the_file_it_wrote_for_the_same_entry(
 
 
 def test_a_file_that_signs_another_entry_fails_the_attempt(
-    env: Path, monkeypatch: pytest.MonkeyPatch
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     add_user(monkeypatch)
     org, _ = first_entry(env)
@@ -102,7 +102,10 @@ def test_a_file_that_signs_another_entry_fails_the_attempt(
     other = sign_checkpoint(key, org=org, seq=1, hash="f" * 64, at=EARLIER)
     folder(env).mkdir(parents=True)
     (folder(env) / "default-0000000001.json").write_text(json.dumps(other.to_dict()))
-    assert cli.main(["worker", "--once"]) == 0
+    capsys.readouterr()
+    assert cli.main(["worker", "--once"]) == 1  # a script or cron sees that the pass failed
+    out = capsys.readouterr().out
+    assert "Ran 1 job attempt." in out and "1 job attempt failed." in out
     [(kind, state, attempts, error)] = jobs(env)
     assert (kind, state, attempts) == ("ledger.checkpoint", "queued", 1)  # retried later
     assert error is not None and "may have been cut" in error
