@@ -3,10 +3,10 @@ import socket
 import uuid
 from collections.abc import AsyncIterator
 from datetime import timedelta
-from typing import cast
+from typing import Any, cast
 
 import pytest
-from redis.asyncio import Redis
+from redis.asyncio import ConnectionPool, Redis
 from redis.asyncio.retry import Retry
 from redis.backoff import NoBackoff
 
@@ -177,6 +177,23 @@ def test_trust_settings_need_a_rediss_url(url: str) -> None:
     with pytest.raises(ValueError) as refused:
         RedisLive(url)
     assert PASSWORD not in str(refused.value) and "://" not in str(refused.value)
+
+
+async def test_the_pool_speaks_the_old_protocol_so_no_server_can_move_the_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RESP3 lets a server push a MOVING notice that redirects the client to another endpoint;
+    the client only ever talks to the endpoint FOURCE_REDIS_URL names."""
+    seen: list[dict[str, Any]] = []
+
+    def recording(**kwargs: Any) -> ConnectionPool:
+        seen.append(kwargs)
+        return ConnectionPool(**kwargs)
+
+    monkeypatch.setattr("fource.live.redis_store.ConnectionPool", recording)
+    store = RedisLive("redis://127.0.0.1:1/0")
+    await store.close()
+    assert seen[0]["protocol"] == 2
 
 
 async def test_a_unix_url_may_choose_its_database() -> None:
