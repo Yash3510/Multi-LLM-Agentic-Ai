@@ -282,6 +282,7 @@ class RedisLive:
             socket_timeout=_TIMEOUT,
             health_check_interval=30,
             retry=Retry(NoBackoff(), 0),  # fail within the timeouts, never retry for long
+            protocol=2,  # RESP3 lets a server push a notice that moves the client elsewhere
         )
         self._client = Redis(connection_pool=self._pool)
         names = _Names(prefix)
