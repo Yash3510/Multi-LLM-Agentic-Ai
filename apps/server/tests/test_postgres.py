@@ -817,6 +817,30 @@ async def test_takers_take_each_job_once_with_skip_locked(
     assert len(every) == 20 and set(every) == expected
 
 
+async def test_a_taker_skips_a_job_whose_row_another_transaction_holds(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    """Without SKIP LOCKED the taker would wait for the held row; it must go on to the next."""
+    database = Database(postgres[1])
+    try:
+        async with database.org_session(orgs[0]) as session:
+            first = await enqueue(session, "test.work", run_at=now() - timedelta(minutes=2))
+            second = await enqueue(session, "test.work", run_at=now() - timedelta(minutes=1))
+        with connect(postgres[1]) as connection:
+            set_org(connection, orgs[0])
+            connection.execute(text("SELECT id FROM jobs WHERE id = :id FOR UPDATE"), {"id": first})
+            try:  # the transaction stays open, holding the first job's row
+                async with database.org_session(orgs[0]) as session:
+                    job = await asyncio.wait_for(
+                        take(session, ["test.work"], lease=timedelta(minutes=5)), 5
+                    )
+            finally:
+                connection.rollback()
+    finally:
+        await database.dispose()
+    assert job is not None and job.id == second
+
+
 async def test_a_worker_runs_each_organisations_jobs_on_postgres(
     postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
 ) -> None:
