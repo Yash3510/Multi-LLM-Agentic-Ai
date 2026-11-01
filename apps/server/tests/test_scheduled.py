@@ -146,18 +146,20 @@ def test_an_unreadable_file_in_the_way_is_not_reported_as_a_cut_chain(
     assert "cut" not in error
 
 
+@pytest.mark.parametrize("failing", ["json.dumps", "os.fsync"])
 def test_a_failed_write_leaves_no_file_and_the_next_attempt_can_save(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failing: str
 ) -> None:
     key = Ed25519PrivateKey.generate()
     signed = sign_checkpoint(key, org="o", seq=1, hash="a" * 64, at=EARLIER)
     file = tmp_path / "checkpoints" / "default-0000000001.json"
+    file.parent.mkdir()
 
     def full(*_: object, **__: object) -> str:
         raise OSError("no space left on device")
 
     with monkeypatch.context() as broken:
-        broken.setattr("fource.server.ledger_commands.json.dumps", full)
+        broken.setattr(f"fource.server.ledger_commands.{failing}", full)
         with pytest.raises(OSError):
             ledger_commands.save_checkpoint(signed, file)
     assert list(file.parent.iterdir()) == []  # neither the file nor a leftover of the attempt

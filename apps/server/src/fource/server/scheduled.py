@@ -24,11 +24,19 @@ class CheckpointClash(FourceError):
     status = 409
 
 
+class CheckpointUnreadable(FourceError):
+    code = "checkpoint_unreadable"
+    status = 409
+
+
 def _signs_the_same_entry(file: Path, signed: Checkpoint) -> bool:
     try:
         kept = Checkpoint.from_dict(json.loads(file.read_text(encoding="utf-8")))
-    except (OSError, ValueError, RecursionError):
-        return False
+    except (OSError, ValueError, RecursionError):  # never quoted: it could carry the file's text
+        raise CheckpointUnreadable(
+            f"unreadable checkpoint file {file.name}: it exists but can't be read as a "
+            "checkpoint. Look at it, move it away, and run `just ledger verify`."
+        ) from None
     return (kept.org, kept.seq, kept.hash) == (signed.org, signed.seq, signed.hash)
 
 

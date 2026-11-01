@@ -4,8 +4,10 @@ People sign checkpoints, and a scheduled job may too once WP-F-07 lands (ADR-001
 Nothing in CI or the tests signs with a real installation key.
 """
 
+import errno
 import json
 import os
+import secrets
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
@@ -52,10 +54,26 @@ def checkpoint_file(folder: Path, slug: str, seq: int) -> Path:
 
 def save_checkpoint(signed: Checkpoint, file: Path) -> None:
     """Writes the checkpoint's JSON to `file`, never over an existing one (FileExistsError), or a
-    cut chain could hide behind a fresh checkpoint. The scheduled checkpoint writes it too."""
+    cut chain could hide behind a fresh checkpoint. The scheduled checkpoint writes it too.
+
+    The text goes to a file of its own in the same folder and is linked into place once it is
+    on disk, so `file` is either complete or absent: a write that fails halfway can't leave a
+    partial file for the next attempt to mistake for a cut chain. A link, unlike a rename,
+    refuses to replace an existing file on every platform."""
+    text = json.dumps(signed.to_dict(), indent=2) + "\n"
     file.parent.mkdir(parents=True, exist_ok=True)
-    with file.open("x", encoding="utf-8") as handle:
-        handle.write(json.dumps(signed.to_dict(), indent=2) + "\n")
+    partial = file.with_name(f".{file.name}.{secrets.token_hex(4)}.tmp")
+    try:
+        with partial.open("x", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(partial, file)
+        except FileExistsError:
+            raise FileExistsError(errno.EEXIST, os.strerror(errno.EEXIST), str(file)) from None
+    finally:
+        partial.unlink(missing_ok=True)
 
 
 def _plural(count: int, one: str, many: str) -> str:
