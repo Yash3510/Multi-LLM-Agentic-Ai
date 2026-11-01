@@ -142,9 +142,15 @@ class MemorySubscription:
                     self._queue.get_nowait()
                 raise LiveUnavailable("A subscriber fell too far behind and missed events.")
             try:
-                text = await asyncio.wait_for(self._queue.get(), max(deadline - loop.time(), 0))
-            except TimeoutError:
-                return None
+                text = self._queue.get_nowait()  # what is already there, even with no time left
+            except asyncio.QueueEmpty:
+                left = deadline - loop.time()
+                if left <= 0:
+                    return None
+                try:
+                    text = await asyncio.wait_for(self._queue.get(), left)
+                except TimeoutError:
+                    return None
             data = decode_event(text)
             if data is not None:
                 return Event(topic=self._topic, data=data)
