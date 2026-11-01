@@ -191,7 +191,7 @@ def test_an_idle_ledger_is_not_signed_again_until_something_is_written(
         assert cli.main(["worker", "--once"]) == 0  # due again, with nothing new to vouch for
         assert checkpoint_entries(env) == 1
         assert len(list(folder(env).iterdir())) == 1
-        assert [state for _, state, _, _ in jobs(env)] == ["done", "done", "queued"]
+        assert [state for _, state, _, _ in jobs(env)] == ["done", "done"]
         monkeypatch.setattr("getpass.getpass", lambda prompt="": PASSWORD)
         assert cli.main(["create-user", "grace@example.com", "--role", "Viewer"]) == 0
         moment += timedelta(hours=2)

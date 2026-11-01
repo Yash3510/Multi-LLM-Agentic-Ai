@@ -3,8 +3,10 @@ organisation when FOURCE_LEDGER_CHECKPOINT_MINUTES is set. That setting is the o
 decision to sign with the installation key; tests sign only with throwaway keys."""
 
 import json
+import uuid
 from datetime import timedelta
 from pathlib import Path
+from typing import cast
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from sqlalchemy import select
@@ -13,7 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fource.common import FourceError, Settings
 from fource.db import Org
 from fource.jobs import Handler, HeldJob, Recurring
-from fource.ledger import Checkpoint, EmptyLedger, checkpoint
+from fource.ledger import (
+    Checkpoint,
+    EmptyLedger,
+    EntryType,
+    LedgerEntry,
+    checkpoint,
+    key_id,
+)
 from fource.server.ledger_commands import checkpoint_file, checkpoint_folder, save_checkpoint
 
 CHECKPOINT = "ledger.checkpoint"
@@ -40,12 +49,32 @@ def _signs_the_same_entry(file: Path, signed: Checkpoint) -> bool:
     return (kept.org, kept.seq, kept.hash) == (signed.org, signed.seq, signed.hash)
 
 
+async def _head_is_checkpoint_by(session: AsyncSession, org_id: uuid.UUID, key: str) -> bool:
+    """Whether the newest entry is a checkpoint made with the key `key` names."""
+    head = (
+        await session.execute(
+            select(LedgerEntry.type, LedgerEntry.refs)
+            .where(LedgerEntry.org_id == org_id)
+            .order_by(LedgerEntry.seq.desc())
+            .limit(1)
+        )
+    ).first()
+    if head is None or head.type != EntryType.CHECKPOINT:
+        return False
+    refs: object = head.refs  # a tampered cell may hold anything
+    return isinstance(refs, dict) and cast("dict[str, object]", refs).get("key") == key
+
+
 def checkpoint_job(
     settings: Settings, private_key: Ed25519PrivateKey, every: timedelta
 ) -> tuple[Handler, Recurring]:
     """The handler of `ledger.checkpoint` jobs and their schedule."""
 
+    own_key = key_id(private_key.public_key())
+
     async def sign(session: AsyncSession, job: HeldJob) -> None:
+        if await _head_is_checkpoint_by(session, job.org_id, own_key):
+            return  # nothing written since: a checkpoint of a checkpoint vouches for nothing new
         try:
             signed = await checkpoint(session, private_key)
         except EmptyLedger:
