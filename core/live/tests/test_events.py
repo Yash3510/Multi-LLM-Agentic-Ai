@@ -53,6 +53,13 @@ async def test_waiting_with_nothing_published_ends_with_none(live: Live) -> None
         assert asyncio.get_running_loop().time() - started >= 0.15
 
 
+async def test_a_zero_timeout_still_returns_an_event_that_is_already_there(live: Live) -> None:
+    async with live.events.subscribe(ORG, TOPIC) as subscription:
+        await live.events.publish(ORG, TOPIC, {"seq": 1})
+        await asyncio.sleep(0.3)  # time for Redis to deliver it; memory has it at once
+        assert await subscription.next(timeout=0) == Event(topic=TOPIC, data={"seq": 1})
+
+
 @pytest.mark.parametrize("data", [{"bad": float("nan")}, {"bad": object()}])
 async def test_data_must_be_json(live: Live, data: dict[str, object]) -> None:
     with pytest.raises(ValueError):
