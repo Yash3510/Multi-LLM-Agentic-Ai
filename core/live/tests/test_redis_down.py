@@ -10,8 +10,7 @@ from redis.asyncio import Redis
 from redis.asyncio.retry import Retry
 from redis.backoff import NoBackoff
 
-from fource.live import LiveUnavailable, RedisLive, open_live
-from fource.live.redis_store import RedisLock
+from fource.live import LiveUnavailable, RedisLive, RedisLock, open_live
 
 pytestmark = pytest.mark.anyio
 ORG = uuid.UUID("0192f5a0-0000-7000-8000-000000000001")
