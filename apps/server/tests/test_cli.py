@@ -16,6 +16,8 @@ from cryptography.hazmat.primitives.serialization import (
     PrivateFormat,
 )
 from sqlalchemy.exc import OperationalError, ProgrammingError
+from uvicorn import Config
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from fource.ledger import key_id, load_public_key
 from fource.server import cli, loops
@@ -109,9 +111,59 @@ def test_serve_passes_the_app_factory_and_the_platform_loop(
                 "port": 8123,
                 "reload": False,
                 "loop": loops.uvicorn_loop(),
+                "proxy_headers": False,
             },
         )
     ]
+
+
+def served_with(monkeypatch: pytest.MonkeyPatch, *options: str) -> dict[str, Any]:
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: calls.append(kwargs))
+    assert cli.main(["serve", *options]) == 0
+    return calls[0]
+
+
+def test_serve_trusts_no_forwarded_header_unless_proxies_are_named(
+    env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A client must not choose its own address by sending X-Forwarded-For through a proxy on
+    the same host, so the headers are ignored until the operator names the proxies."""
+    assert served_with(monkeypatch)["proxy_headers"] is False
+    named = served_with(monkeypatch, "--forwarded-allow-ips", "10.0.0.5, 192.168.1.0/24")
+    assert named["proxy_headers"] is True
+    assert named["forwarded_allow_ips"] == ["10.0.0.5", "192.168.1.0/24"]
+
+
+@pytest.mark.parametrize("ips", ["*", "10.0.0.5,*", " * ", ""])
+def test_serve_refuses_a_wildcard_or_empty_proxy_list(
+    env: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    ips: str,
+) -> None:
+    def never(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("the server must not start")
+
+    monkeypatch.setattr("uvicorn.run", never)
+    assert cli.main(["serve", "--forwarded-allow-ips", ips]) == 1
+    assert "--forwarded-allow-ips" in capsys.readouterr().out
+
+
+def test_a_loopback_clients_forwarded_header_does_not_choose_its_address(
+    env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What `serve` passes to Uvicorn, loaded as Uvicorn loads it: with no proxy named, nothing
+    rewrites the client address from X-Forwarded-For."""
+
+    def wrapped(*options: str) -> bool:
+        kwargs = served_with(monkeypatch, *options)
+        config = Config("fource.server.main:app_factory", **kwargs)
+        config.load()
+        return isinstance(config.loaded_app, ProxyHeadersMiddleware)
+
+    assert not wrapped()
+    assert wrapped("--forwarded-allow-ips", "127.0.0.1")
 
 
 def add_users(env: Path, monkeypatch: pytest.MonkeyPatch, *emails: str) -> None:
