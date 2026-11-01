@@ -2,9 +2,12 @@ import asyncio
 import logging
 import socket
 from collections.abc import AsyncIterator
+from typing import Any
 
 import psycopg
 import pytest
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from sqlalchemy.engine import URL
 
 from fource.jobs import listen_for_jobs
 
@@ -81,3 +84,33 @@ async def test_a_wake_up_that_raises_is_logged_by_class_and_the_listener_goes_on
     await asyncio.wait_for(listener, 10)
     assert "job wake-ups paused (RuntimeError)" in caplog.text and PASSWORD not in caplog.text
     assert options[0]["connect_timeout"] == 10
+
+
+@pytest.mark.parametrize("as_url_object", [False, True])
+async def test_the_password_reaches_the_connection_as_it_was_written(
+    monkeypatch: pytest.MonkeyPatch, as_url_object: bool
+) -> None:
+    """A password with spaces or URI characters must not be re-rendered into a text that libpq
+    refuses (job wake-ups would pause for good): connect with keyword arguments."""
+    odd = "a b:c@d/e%f#g"
+    url = URL.create("postgresql+psycopg", "fource_app", odd, "db.local", 5433, "fource")
+    given: list[tuple[str, dict[str, Any]]] = []
+    seen = asyncio.Event()
+
+    async def connect(conninfo: str, **options: Any) -> FakeListener:
+        given.append((conninfo, options))
+        seen.set()
+        return FakeListener()
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    stop = asyncio.Event()
+    target = url if as_url_object else url.render_as_string(hide_password=False)
+    listener = asyncio.create_task(listen_for_jobs(target, lambda: None, stop))
+    await asyncio.wait_for(seen.wait(), 10)
+    stop.set()
+    await asyncio.wait_for(listener, 10)
+    conninfo, options = given[0]
+    assert odd not in conninfo  # never inside a rendered URI
+    parsed = conninfo_to_dict(make_conninfo(conninfo, **options))
+    assert (parsed["user"], parsed["password"], parsed["host"]) == ("fource_app", odd, "db.local")
+    assert (parsed["port"], parsed["dbname"]) == ("5433", "fource")
