@@ -5,9 +5,10 @@ import uuid
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from fource.ledger import load_private_key, sign_checkpoint
-from fource.server import cli
+from fource.server import cli, ledger_commands
 
 PASSWORD = "correct horse battery"
 EARLIER = "2026-01-01T00:00:00.000Z"
@@ -127,3 +128,41 @@ def test_a_file_that_signs_another_entry_fails_the_attempt(
     assert error is not None and "may have been cut" in error
     count = sqlite3.connect(env).execute("SELECT count(*) FROM ledger_entries").fetchone()
     assert count == (1,)  # the checkpoint entry rolled back with the attempt
+
+
+def test_an_unreadable_file_in_the_way_is_not_reported_as_a_cut_chain(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An empty or half-written file says nothing about the chain, so the alarm about a cut
+    chain stays for a file that signs a different entry."""
+    add_user(monkeypatch)
+    folder(env).mkdir(parents=True)
+    (folder(env) / "default-0000000001.json").write_text("", encoding="utf-8")
+    capsys.readouterr()
+    assert cli.main(["worker", "--once"]) == 1
+    [(_, _, _, error)] = jobs(env)
+    assert error is not None
+    assert "unreadable checkpoint file default-0000000001.json" in error
+    assert "cut" not in error
+
+
+def test_a_failed_write_leaves_no_file_and_the_next_attempt_can_save(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    key = Ed25519PrivateKey.generate()
+    signed = sign_checkpoint(key, org="o", seq=1, hash="a" * 64, at=EARLIER)
+    file = tmp_path / "checkpoints" / "default-0000000001.json"
+
+    def full(*_: object, **__: object) -> str:
+        raise OSError("no space left on device")
+
+    with monkeypatch.context() as broken:
+        broken.setattr("fource.server.ledger_commands.json.dumps", full)
+        with pytest.raises(OSError):
+            ledger_commands.save_checkpoint(signed, file)
+    assert list(file.parent.iterdir()) == []  # neither the file nor a leftover of the attempt
+    ledger_commands.save_checkpoint(signed, file)
+    assert [each.name for each in file.parent.iterdir()] == [file.name]
+    with pytest.raises(FileExistsError):  # an existing file is never replaced
+        ledger_commands.save_checkpoint(signed, file)
+    assert json.loads(file.read_text(encoding="utf-8")) == signed.to_dict()
