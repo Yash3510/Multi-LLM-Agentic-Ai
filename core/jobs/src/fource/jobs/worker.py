@@ -127,7 +127,7 @@ class Worker:
         tried again at the next poll."""
         listener = None
         if self._database.engine.dialect.name == "postgresql":
-            url = self._database.engine.url.render_as_string(hide_password=False)
+            url = self._database.engine.url
             listener = asyncio.create_task(listen_for_jobs(url, self.wake, self._stopping))
         try:
             while not self._stopping.is_set():

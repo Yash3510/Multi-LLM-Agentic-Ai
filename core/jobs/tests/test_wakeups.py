@@ -6,7 +6,7 @@ from typing import Any
 
 import psycopg
 import pytest
-from psycopg.conninfo import conninfo_to_dict, make_conninfo
+from psycopg.conninfo import conninfo_to_dict
 from sqlalchemy.engine import URL
 
 from fource.jobs import listen_for_jobs
@@ -94,11 +94,11 @@ async def test_the_password_reaches_the_connection_as_it_was_written(
     refuses (job wake-ups would pause for good): connect with keyword arguments."""
     odd = "a b:c@d/e%f#g"
     url = URL.create("postgresql+psycopg", "fource_app", odd, "db.local", 5433, "fource")
-    given: list[tuple[str, dict[str, Any]]] = []
+    given: list[str] = []
     seen = asyncio.Event()
 
     async def connect(conninfo: str, **options: Any) -> FakeListener:
-        given.append((conninfo, options))
+        given.append(conninfo)
         seen.set()
         return FakeListener()
 
@@ -109,8 +109,7 @@ async def test_the_password_reaches_the_connection_as_it_was_written(
     await asyncio.wait_for(seen.wait(), 10)
     stop.set()
     await asyncio.wait_for(listener, 10)
-    conninfo, options = given[0]
-    assert odd not in conninfo  # never inside a rendered URI
-    parsed = conninfo_to_dict(make_conninfo(conninfo, **options))
+    assert not given[0].startswith("postgres")  # not a URI, whose escaping libpq can refuse
+    parsed = conninfo_to_dict(given[0])
     assert (parsed["user"], parsed["password"], parsed["host"]) == ("fource_app", odd, "db.local")
     assert (parsed["port"], parsed["dbname"]) == ("5433", "fource")
