@@ -3,7 +3,7 @@ title: Architecture decision records
 type: index
 status: active
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-01
 covers:
   - docs/adr/
 tags: [4ce, adr]
