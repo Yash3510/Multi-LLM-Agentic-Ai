@@ -14,7 +14,7 @@ from fource.live.base import (
     Subscription,
 )
 from fource.live.memory import MemoryLive
-from fource.live.redis_store import RedisLive
+from fource.live.redis_store import RedisLive, check_redis_url
 
 
 def open_live(redis_url: str | None, *, prefix: str = "fource") -> Live:
@@ -34,6 +34,7 @@ __all__ = [
     "MemoryLive",
     "RateLimiter",
     "RedisLive",
+    "check_redis_url",
     "Subscription",
     "open_live",
 ]

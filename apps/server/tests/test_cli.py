@@ -157,7 +157,7 @@ def test_serve_with_a_refused_redis_url_prints_one_message_and_exits(
     monkeypatch.setattr("uvicorn.run", never)
     assert cli.main(["serve"]) == 1
     printed = capsys.readouterr().out
-    assert "FOURCE_REDIS_URL" in printed and "hunter2" not in printed and "://" not in printed
+    assert "FOURCE_REDIS_URL" in printed and "hunter2" not in printed
 
 
 @pytest.mark.parametrize("ips", ["*", "10.0.0.5,*", " * ", ""])

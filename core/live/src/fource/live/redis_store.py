@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlparse
 
 from redis.asyncio import ConnectionPool, Redis
 from redis.asyncio.client import Pipeline, PubSub
-from redis.asyncio.connection import parse_url
+from redis.asyncio.connection import ConnectKwargs, parse_url
 from redis.asyncio.retry import Retry
 from redis.backoff import NoBackoff
 from redis.exceptions import RedisError, WatchError
@@ -255,20 +255,27 @@ class RedisEvents:
                 _log.warning("live subscription not closed cleanly: %s", type(error).__name__)
 
 
+def check_redis_url(url: str) -> ConnectKwargs:
+    """The connection settings a FOURCE_REDIS_URL stands for, or ValueError with a message that
+    never quotes the URL (it holds the password). Nothing is connected."""
+    try:
+        where = parse_url(url)
+    except ValueError:  # its own message could quote the URL, which holds the password
+        raise ValueError(_NOT_A_URL) from None
+    parts = urlparse(url)
+    allowed = _TLS_KEYS if parts.scheme == "rediss" else _PLAIN_KEYS
+    if not parse_qs(parts.query).keys() <= allowed:
+        raise ValueError(_OPTIONS)
+    return where
+
+
 class RedisLive:
     """The live store on Redis (or Valkey): what an installation uses (FOURCE_REDIS_URL)."""
 
     backend = "redis"
 
     def __init__(self, url: str, *, prefix: str = "fource") -> None:
-        try:
-            where = parse_url(url)
-        except ValueError:  # its own message could quote the URL, which holds the password
-            raise ValueError(_NOT_A_URL) from None
-        parts = urlparse(url)
-        allowed = _TLS_KEYS if parts.scheme == "rediss" else _PLAIN_KEYS
-        if not parse_qs(parts.query).keys() <= allowed:
-            raise ValueError(_OPTIONS)
+        where = check_redis_url(url)
         self._pool = ConnectionPool(
             **where,
             socket_connect_timeout=_TIMEOUT,

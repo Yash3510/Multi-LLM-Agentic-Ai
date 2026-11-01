@@ -12,6 +12,7 @@ from sqlalchemy.exc import OperationalError
 from fource.common import FourceError, Settings
 from fource.db import Database
 from fource.identity import Role, create_user
+from fource.live import check_redis_url
 from fource.server import ledger_commands
 from fource.server.loops import asyncio_loop_factory, uvicorn_loop
 from fource.server.migrate import migration_url, upgrade
@@ -107,6 +108,12 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     settings = Settings()
     if args.command == "serve":
+        if settings.redis_url is not None:
+            try:
+                check_redis_url(settings.redis_url.get_secret_value())
+            except ValueError as error:  # the message never quotes the URL
+                print(error)
+                return 1
         trust: dict[str, Any] = {"proxy_headers": False}
         if args.forwarded_allow_ips is not None:
             proxies = _trusted_proxies(args.forwarded_allow_ips)
