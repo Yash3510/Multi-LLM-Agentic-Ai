@@ -3,7 +3,7 @@ title: Database
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-01
 covers:
   - core/db/
   - apps/server/src/fource/server/migrations/
@@ -60,6 +60,7 @@ To run them against a throwaway PostgreSQL on another port (when `localhost:5432
 
 - **Windows and PostgreSQL.** psycopg's async mode doesn't run on Windows' default event loop. The server and its commands use a selector event loop so it can work, but PostgreSQL from a Windows host is not exercised in CI (unverified). Production runs on Linux.
 - Bulk and Core statements are not scoped in code (above): a Core column select must filter by organisation explicitly, as `read_entries` does, because ScopedSession's confinement does not reach it (on SQLite that filter is the only guard).
+- **The start-up role check looks at `current_user` only.** It does not catch a connection whose `session_user` is a more privileged role that has `SET ROLE`d down (`RESET ROLE` would undo it), nor, before PostgreSQL 16, a role with `CREATEROLE` (it can grant itself the owner's membership). Either needs a deliberately misconfigured role, so the check does not guard against them.
 - **A SQLite batch rebuild of `ledger_entries` must recreate its insert-only triggers** (`ledger_entries_no_update`, `ledger_entries_no_delete`); a migration that rebuilds the table otherwise drops them silently.
 
 ## Decisions

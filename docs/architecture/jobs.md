@@ -3,7 +3,7 @@ title: Jobs
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-01
 covers:
   - core/jobs/
   - apps/server/src/fource/server/worker.py
@@ -39,7 +39,7 @@ A worker visits every organisation in turn. On PostgreSQL it LISTENs on a connec
 
 A recurring job is an ordinary job with the key `recurring:<kind>`: at the start of each pass the worker keeps one queued in every organisation, due one interval after the last one finished.
 
-**Scheduled checkpoints** are the first: when `FOURCE_LEDGER_CHECKPOINT_MINUTES` is set (1 to 525600; off by default), the worker signs each organisation's ledger head that often with the installation key ([ledger](ledger.md#checkpoints-and-the-key)). Setting it is the operator's decision to let the worker sign ([ADR-0014](../adr/0014-ledger-with-signed-checkpoints.md) point 8); unset, nothing is signed. Each one writes the same `checkpoint` entry and file as `just ledger checkpoint`, the file before its commit, so every file signs an entry that exists. An empty ledger is left alone. A file already there for the same entry (an earlier attempt's) is kept; one that signs another hash for that entry fails the job with "the chain may have been cut": run `just ledger verify`.
+**Scheduled checkpoints** are the first: when `FOURCE_LEDGER_CHECKPOINT_MINUTES` is set (1 to 525600; off by default), the worker signs each organisation's ledger head that often with the installation key ([ledger](ledger.md#checkpoints-and-the-key)). Setting it is the operator's decision to let the worker sign ([ADR-0014](../adr/0014-ledger-with-signed-checkpoints.md) point 8); unset, nothing is signed. Each one writes the same `checkpoint` entry and file as `just ledger checkpoint`, the file before its commit, so every file signs an entry that exists. An empty ledger is left alone, and so is an idle one: when the newest entry is already a checkpoint made with the installation key there is nothing new to vouch for, so the job completes without signing (a hand-run `just ledger checkpoint` always signs). The file is written atomically ([ledger](ledger.md#checkpoints-and-the-key)), so a failed write leaves none behind. A file already there for the same entry (an earlier attempt's) is kept; one that signs another hash for that entry fails the job with "the chain may have been cut"; one that exists but can't be read as a checkpoint fails it with "unreadable checkpoint file …". Either way, run `just ledger verify`.
 
 ## The worker command
 
