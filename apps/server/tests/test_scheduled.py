@@ -2,11 +2,13 @@ import json
 import os
 import sqlite3
 import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from fource.common import set_clock
 from fource.ledger import load_private_key, sign_checkpoint
 from fource.server import cli, ledger_commands
 
@@ -168,3 +170,33 @@ def test_a_failed_write_leaves_no_file_and_the_next_attempt_can_save(
     with pytest.raises(FileExistsError):  # an existing file is never replaced
         ledger_commands.save_checkpoint(signed, file)
     assert json.loads(file.read_text(encoding="utf-8")) == signed.to_dict()
+
+
+def checkpoint_entries(env: Path) -> int:
+    query = "SELECT count(*) FROM ledger_entries WHERE type = 'checkpoint'"
+    return int(sqlite3.connect(env).execute(query).fetchone()[0])
+
+
+def test_an_idle_ledger_is_not_signed_again_until_something_is_written(
+    env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A checkpoint of a checkpoint vouches for nothing new: it would only add an entry and a
+    file every interval to a ledger nobody writes to."""
+    add_user(monkeypatch)
+    moment = datetime.now(UTC)
+    set_clock(lambda: moment)
+    try:
+        assert cli.main(["worker", "--once"]) == 0
+        moment += timedelta(hours=2)
+        assert cli.main(["worker", "--once"]) == 0  # due again, with nothing new to vouch for
+        assert checkpoint_entries(env) == 1
+        assert len(list(folder(env).iterdir())) == 1
+        assert [state for _, state, _, _ in jobs(env)] == ["done", "done", "queued"]
+        monkeypatch.setattr("getpass.getpass", lambda prompt="": PASSWORD)
+        assert cli.main(["create-user", "grace@example.com", "--role", "Viewer"]) == 0
+        moment += timedelta(hours=2)
+        assert cli.main(["worker", "--once"]) == 0  # a new entry to vouch for
+        assert checkpoint_entries(env) == 2
+        assert len(list(folder(env).iterdir())) == 2
+    finally:
+        set_clock(None)
