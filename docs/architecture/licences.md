@@ -3,7 +3,7 @@ title: Licences and the licence gate
 type: architecture
 status: active
 owner: R4
-updated: 2026-10-31
+updated: 2026-11-01
 covers:
   - tools/licence_gate.py
   - tools/import_scan.py
@@ -56,7 +56,7 @@ On 2026-10-25, at commit `88c1cfa`, on Linux, with the ledger added, `just licen
 
 **Queue and live-state dependencies.** `redis` 8.1.0 (redis-py, the client of the bundled Redis) declares `License-Expression: MIT` and has no runtime dependencies on Python 3.12; it is imported only in `core/live`. `fource-jobs` now depends on `psycopg` directly (for LISTEN), approved by [ADR-0037](../adr/0037-licence-approvals-for-the-backend-stack.md). fakeredis was not added (BSD-3-Clause, but it would bring sortedcontainers, whose metadata says only "Apache 2.0"; [ADR-0026](../adr/0026-redis-for-live-state.md)).
 
-On 2026-10-31, at commit `e459081`, on Linux, with the queue and the live store added, `just licences` checked 66 components and scanned 93 files with no problems, and checked the 5 bundled services.
+On 2026-10-31, at commit `aab1c6c`, on Linux, with the queue and the live store added, `just licences` checked 66 components and scanned 93 files with no problems, and checked the 5 bundled services.
 
 ## Decisions
 

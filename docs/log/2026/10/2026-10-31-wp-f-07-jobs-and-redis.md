@@ -58,13 +58,13 @@ On `vps` (Debian, Python 3.12.15), 2026-10-31.
    - `FOURCE_TEST_REDIS_URL=redis://127.0.0.1:56379/0 uv run pytest -m redis -q`: `40 passed, 658 deselected in 6.47s`.
    - Both containers were removed afterwards; `docker ps -a` showed no `fource-test-*` container.
    Each task's own RED and GREEN were recorded during the work and are not part of this entry.
-4. **Fresh clone, SQLite, no Redis** (design "Done when" 2 and 3), `git clone --branch 4ce-core` of this checkout into a throwaway folder, deleted afterwards (the clone had the docs commits `e459081`, `3661a94` and `7826bd6` on top of `5dbd9c2`):
+4. **Fresh clone, SQLite, no Redis** (design "Done when" 2 and 3), `git clone --branch 4ce-core` of this checkout into a throwaway folder, deleted afterwards (the clone had the docs commits `aab1c6c`, `7078089` and `182974d` on top of `5dbd9c2`):
    - `just setup`: exit 0; `just migrate`: `The database is up to date.`
    - `create-user admin@example.com --role Admin` (password on stdin): `Created admin@example.com (Admin).`; `just ledger keygen` created the key and its public key under `data/ledger/`.
    - `FOURCE_SIGNIN_ATTEMPTS_PER_MINUTE=3 fource-server serve`: health `{"status":"ok","database":"ok","redis":"off"}`; four wrong-password sign-ins `401 401 401 429`; a fifth, with the right password, `HTTP/1.1 429 Too Many Requests` with `retry-after: 60`.
    - With the server stopped, `FOURCE_LEDGER_CHECKPOINT_MINUTES=60 fource-server worker --once`: `Ran 1 job attempt.`, exit 0.
    - `just ledger verify`: `Ledger of default: 6 entries, head 6.`, `A signed checkpoint vouches for it up to entry 5.`, `Verified.`, exit 0 (the user, three failures, one throttled entry, the checkpoint). No private key was printed.
-5. **`just check`** at `aa1a9f3` (the docs commits in place; only this entry and its index row uncommitted): exit 0. `188 files already formatted`, ruff `All checks passed!`, pyright `0 errors, 0 warnings, 0 informations`, `Contracts: 12 kept, 0 broken.`, repo, neutrality and docs checks clean, `66 components checked`, `93 files scanned`, `5 bundled services checked`, gitleaks over the branch history passed, and the tests ended with `619 passed, 79 deselected in 86.26s (0:01:26)` (the 79 are the 39 PostgreSQL and 40 Redis tests, which need their servers; items 2 and 3). `real 2m20.888s`.
+5. **`just check`** at `fba59c0` (the docs commits in place; only this entry and its index row uncommitted): exit 0. `188 files already formatted`, ruff `All checks passed!`, pyright `0 errors, 0 warnings, 0 informations`, `Contracts: 12 kept, 0 broken.`, repo, neutrality and docs checks clean, `66 components checked`, `93 files scanned`, `5 bundled services checked`, gitleaks over the branch history passed, and the tests ended with `619 passed, 79 deselected in 86.26s (0:01:26)` (the 79 are the 39 PostgreSQL and 40 Redis tests, which need their servers; items 2 and 3). `real 2m20.888s`.
 6. **Docs commits:** each passed the git hooks, including the docs check.
 
 ## Decisions
