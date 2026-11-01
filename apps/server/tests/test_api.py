@@ -499,6 +499,30 @@ class _Store:
         return None
 
 
+class _CloseFails(_Store):
+    async def close(self) -> None:
+        raise RuntimeError("the live store would not close")
+
+
+async def test_the_database_is_closed_even_when_the_live_store_fails_to_close(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = create_app(settings, live=_CloseFails())
+    database: Database = app.state.database
+    real_dispose = database.dispose
+    disposed: list[bool] = []
+
+    async def dispose() -> None:
+        disposed.append(True)
+        await real_dispose()
+
+    monkeypatch.setattr(database, "dispose", dispose)
+    with pytest.raises(RuntimeError, match="would not close"):
+        async with app.router.lifespan_context(app):
+            pass
+    assert disposed == [True]
+
+
 class _Down:
     async def hit(self, org: uuid.UUID, key: str, *, limit: int, window: timedelta) -> Hit:
         raise LiveUnavailable("The live store (Redis) can't be reached.")
