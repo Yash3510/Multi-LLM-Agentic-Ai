@@ -22,6 +22,7 @@ from fource.identity import (
     NotAuthenticated,
     Role,
     WeakPassword,
+    client_address_digest,
     create_user,
 )
 from fource.ledger import EntryType, read_entries
@@ -544,6 +545,15 @@ async def test_sign_ins_over_the_limit_get_429_and_one_ledger_entry(settings: Se
         failure,
         EntryType.SIGNIN_THROTTLED,  # once, for the first refusal of the window
     ]
+    database: Database = app.state.database
+    org_id = await database.org_id(settings.org)
+    assert org_id is not None
+    async with database.org_session(org_id) as session:
+        throttled = [e async for e in read_entries(session) if e.type == EntryType.SIGNIN_THROTTLED]
+    # The address the in-process client has, as a digest: the ledger never holds the address.
+    assert throttled[0].inputs_sha256 == client_address_digest(
+        "127.0.0.1", settings.secret_key.get_secret_value()
+    )
     await app.state.database.dispose()
 
 
