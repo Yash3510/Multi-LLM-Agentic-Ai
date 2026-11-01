@@ -139,6 +139,27 @@ def test_serve_trusts_no_forwarded_header_unless_proxies_are_named(
     assert named["forwarded_allow_ips"] == ["10.0.0.5", "192.168.1.0/24"]
 
 
+@pytest.mark.parametrize(
+    "url", ["redis://:hunter2@127.0.0.1:1/0?decode_responses=true", "http://:hunter2@localhost/0"]
+)
+def test_serve_with_a_refused_redis_url_prints_one_message_and_exits(
+    env: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    url: str,
+) -> None:
+    """Not a traceback, and never the URL, which holds the password."""
+    monkeypatch.setenv("FOURCE_REDIS_URL", url)
+
+    def never(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("the server must not start")
+
+    monkeypatch.setattr("uvicorn.run", never)
+    assert cli.main(["serve"]) == 1
+    printed = capsys.readouterr().out
+    assert "FOURCE_REDIS_URL" in printed and "hunter2" not in printed and "://" not in printed
+
+
 @pytest.mark.parametrize("ips", ["*", "10.0.0.5,*", " * ", ""])
 def test_serve_refuses_a_wildcard_or_empty_proxy_list(
     env: Path,
