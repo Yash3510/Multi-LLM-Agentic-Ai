@@ -5,8 +5,9 @@ import secrets
 import uuid
 from collections.abc import AsyncIterator, Generator
 from contextlib import contextmanager
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import httpx
 import psycopg
@@ -17,7 +18,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fource.common import Settings, new_id, now
+from fource.common import Settings, new_id, now, set_clock
 from fource.db import Database
 from fource.identity import InvalidEmail, Role, create_user
 from fource.jobs import (
@@ -712,6 +713,68 @@ async def test_two_workers_leave_one_recurring_occurrence_per_organisation_on_po
             set_org(connection, org_id)
             states = connection.execute(text("SELECT state FROM jobs ORDER BY state")).scalars()
             assert list(states) == ["done"]  # no second occurrence for this interval
+
+
+class HandClock:
+    """The time every 4CE package reads (fource.common.now), moved by hand."""
+
+    def __init__(self) -> None:
+        self.current = datetime(2026, 11, 14, 10, 0, tzinfo=UTC)
+
+    def __call__(self) -> datetime:
+        return self.current
+
+
+async def test_two_workers_after_downtime_run_a_recurring_job_once_on_postgres(
+    postgres: tuple[str, str],
+    orgs: tuple[uuid.UUID, uuid.UUID],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Worker B runs the due occurrence between worker A's look and A's insert. A's insert then
+    succeeds (B's job is finished, so the key's index no longer blocks it) and only A's second
+    look at the finished jobs, under READ COMMITTED, tells it that interval is taken."""
+    clock = HandClock()
+    set_clock(clock)
+    database = Database(postgres[1])
+    ran: list[uuid.UUID] = []
+
+    async def note(session: AsyncSession, job: HeldJob) -> None:
+        ran.append(job.org_id)
+
+    hourly = Recurring("test.work", every=timedelta(hours=1))
+    handlers = {"test.work": Handler(note)}
+    worker_a = Worker(database, handlers, recurring=[hourly])
+    worker_b = Worker(database, handlers, recurring=[hourly])
+    real_enqueue = enqueue
+    interleaved = False
+
+    async def enqueue_after_the_other_worker(
+        session: AsyncSession, *args: Any, **options: Any
+    ) -> uuid.UUID:
+        nonlocal interleaved
+        if not interleaved:
+            interleaved = True
+            assert await worker_b.run_once() == 2
+        return await real_enqueue(session, *args, **options)
+
+    try:
+        assert await worker_a.run_once() == 2  # 10:00 in both organisations
+        clock.current += timedelta(hours=2)  # downtime longer than the interval
+        monkeypatch.setattr("fource.jobs.worker.enqueue", enqueue_after_the_other_worker)
+        await worker_a.run_once()
+        assert interleaved
+        states: dict[uuid.UUID, list[str]] = {}
+        for org_id in orgs:
+            async with database.org_session(org_id) as session:
+                rows = await session.scalars(select(Job.state).order_by(Job.run_at, Job.id))
+                states[org_id] = list(rows)
+    finally:
+        set_clock(None)
+        await database.dispose()
+    # The organisation A was in when B ran: 10:00 and 12:00, not 12:00 twice. The other one: A
+    # looked after B, so it queued 13:00.
+    assert sorted(states.values()) == [["done", "done"], ["done", "done", "queued"]]
+    assert len(ran) == 4  # two organisations, two intervals
 
 
 async def test_a_key_keeps_one_unfinished_job_on_postgres(
