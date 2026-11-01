@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import getpass
 from pathlib import Path
+from typing import Any
 
 import uvicorn
 from sqlalchemy.exc import OperationalError
@@ -24,6 +25,12 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--reload", action="store_true", help="restart when code changes")
+    serve.add_argument(
+        "--forwarded-allow-ips",
+        metavar="IPS",
+        help="comma-separated addresses of the proxies whose X-Forwarded-For is trusted "
+        "(default: none, so every client shares one sign-in count); never *",
+    )
     work = commands.add_parser("worker", help="run queued jobs until stopped")
     work.add_argument(
         "--once",
@@ -48,6 +55,14 @@ def _parser() -> argparse.ArgumentParser:
     check.add_argument("--public-key", type=Path, help="the installation's public key file")
     check.add_argument("--checkpoints", type=Path, help="folder of checkpoint files")
     return parser
+
+
+def _trusted_proxies(text: str) -> list[str] | None:
+    """The addresses named after --forwarded-allow-ips, or None for a list that would let a
+    client choose its own address: Uvicorn takes the left-most entry of X-Forwarded-For when
+    every peer is trusted, and that entry is the one the client wrote."""
+    proxies = [item.strip() for item in text.split(",")]
+    return None if not all(proxies) or "*" in proxies else proxies
 
 
 def _ledger(settings: Settings, args: argparse.Namespace) -> int:
@@ -92,6 +107,16 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     settings = Settings()
     if args.command == "serve":
+        trust: dict[str, Any] = {"proxy_headers": False}
+        if args.forwarded_allow_ips is not None:
+            proxies = _trusted_proxies(args.forwarded_allow_ips)
+            if proxies is None:
+                print(
+                    "--forwarded-allow-ips takes the addresses of your proxies, separated by "
+                    "commas, and never *: with * a client could choose its own address."
+                )
+                return 1
+            trust = {"proxy_headers": True, "forwarded_allow_ips": proxies}
         uvicorn.run(
             "fource.server.main:app_factory",
             factory=True,
@@ -99,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
             port=args.port,
             reload=args.reload,
             loop=uvicorn_loop(),
+            **trust,
         )
         return 0
     if args.command == "worker":

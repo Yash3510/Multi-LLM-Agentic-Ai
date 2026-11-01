@@ -119,7 +119,11 @@ def test_serve_passes_the_app_factory_and_the_platform_loop(
 
 def served_with(monkeypatch: pytest.MonkeyPatch, *options: str) -> dict[str, Any]:
     calls: list[dict[str, Any]] = []
-    monkeypatch.setattr("uvicorn.run", lambda *args, **kwargs: calls.append(kwargs))
+
+    def record(*args: Any, **kwargs: Any) -> None:
+        calls.append(kwargs)
+
+    monkeypatch.setattr("uvicorn.run", record)
     assert cli.main(["serve", *options]) == 0
     return calls[0]
 
@@ -160,7 +164,7 @@ def test_a_loopback_clients_forwarded_header_does_not_choose_its_address(
         kwargs = served_with(monkeypatch, *options)
         config = Config("fource.server.main:app_factory", **kwargs)
         config.load()
-        return isinstance(config.loaded_app, ProxyHeadersMiddleware)
+        return isinstance(vars(config)["loaded_app"], ProxyHeadersMiddleware)
 
     assert not wrapped()
     assert wrapped("--forwarded-allow-ips", "127.0.0.1")
