@@ -75,8 +75,10 @@ def create_app(settings: Settings, *, live: Live | None = None) -> FastAPI:
             await check_database_role(database)
             yield
         finally:
-            await store.close()
-            await database.dispose()
+            try:
+                await store.close()
+            finally:
+                await database.dispose()
 
     app = FastAPI(
         title="4CE",
