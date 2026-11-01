@@ -3,7 +3,7 @@ title: "Identity and the API"
 type: log
 status: implemented
 owner: R1
-updated: 2026-10-24
+updated: 2026-11-01
 date: 2026-10-24
 branch: 4ce-core
 pr: null
@@ -21,7 +21,7 @@ Backend slice 1, in small commits on `4ce-core`: sign-in, session and sign-out o
 
 - **`core/identity`:** users in an organisation with the seven roles, argon2id passwords (12 to 1024 characters), lockout (5 failures, 15 minutes), HS256 tokens, and revocation on sign-out. Several review fixes hardened it: failed sign-ins are counted in the database so parallel guesses can't be lost, and NUL characters, lone surrogates and over-long values are refused before the database.
 - **`apps/server`:** the FastAPI app under `/api` (health, sign-in, session, sign-out, OpenAPI), cookie plus CSRF handling, one error envelope, migrations `0002` (users) and `0003` (revoked tokens) with row-level security on PostgreSQL, and the `fource-server` command (`serve`, `migrate`, `create-user`). The server and its commands use a selector event loop on Windows so psycopg's async mode can work there.
-- **Tests:** a smoke test that starts the real `fource-server serve` command and signs in, on every CI system (Task 10b, `bba6c20`); a Windows fix that names the garbage-token test cases so Windows can run them (`dbb7e77`); nine PostgreSQL tests (`just test-postgres`) showing the app role can't read, write or unlock other organisations' rows.
+- **Tests:** a smoke test that starts the real `fource-server serve` command and signs in, on every CI system (`bba6c20`); a Windows fix that names the garbage-token test cases so Windows can run them (`dbb7e77`); nine PostgreSQL tests (`just test-postgres`) showing the app role can't read, write or unlock other organisations' rows.
 - **Deploy and CI:** `deploy/config/postgres/10-app-role.sh` creates the `fource_app` role on a new data volume, and a CI job runs the PostgreSQL tests against a PostgreSQL 18 service. `just dev` runs the server; the bundled services moved to `just services`.
 - **Docs (this entry's commits):** three new pages, [database](../../../architecture/database.md), [identity](../../../architecture/identity.md) and [API](../../../architecture/api.md), which is now the one home of the contract; the [frontend page](../../../architecture/frontend.md) points at it. The overview, indexes and [state](../../../state.md) are updated, and [ADR-0038](../../../adr/0038-signed-tokens-for-sign-in.md) records the locked-account trade-off and the missing token invalidation on password change.
 
