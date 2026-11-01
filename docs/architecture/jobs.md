@@ -59,4 +59,4 @@ A recurring job is an ordinary job with the key `recurring:<kind>`: at the start
 
 ## Acceptance
 
-On SQLite: `core/jobs/tests/` (each job taken once by five takers, a handler's writes commit with its job, a lost lease rolls back) and `apps/server/tests/test_scheduled.py`. On PostgreSQL, in CI's PostgreSQL job: `apps/server/tests/test_postgres.py` (jobs per organisation under row-level security, `SKIP LOCKED` with five takers, a NOTIFY wakes a listener).
+On SQLite: `core/jobs/tests/` (each job taken once by five takers, a handler's writes commit with its job, a lost lease rolls back) and `apps/server/tests/test_scheduled.py`. On PostgreSQL, in CI's PostgreSQL job: `apps/server/tests/test_postgres.py` (jobs per organisation under row-level security, `SKIP LOCKED` with five takers and past a row another transaction holds, two staggered workers run a recurring interval once, a NOTIFY wakes a listener).
