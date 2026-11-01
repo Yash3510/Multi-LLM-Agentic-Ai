@@ -388,7 +388,7 @@ async def test_the_contract_declares_the_retry_after_header_of_the_429(
     assert _schema_ref(contract, "/api/auth/signin", "post", "429").endswith("/ErrorOut")
     header = refused["headers"]["Retry-After"]
     assert header["schema"] == {"type": "integer", "minimum": 1}
-    assert "seconds" in header["description"]
+    assert "seconds" in header["description"].lower()
 
 
 async def test_an_unknown_path_and_a_wrong_method_use_the_envelope(

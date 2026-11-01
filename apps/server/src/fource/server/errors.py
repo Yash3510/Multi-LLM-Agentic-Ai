@@ -48,9 +48,22 @@ class ErrorOut(BaseModel):
     error: ErrorBody
 
 
+_RETRY_AFTER = {
+    "Retry-After": {
+        "description": "Seconds to wait before trying again.",
+        "schema": {"type": "integer", "minimum": 1},
+    }
+}
+
+
 def declared(*statuses: int) -> dict[int | str, dict[str, Any]]:
-    """The `responses=` of a route that can answer these error statuses."""
-    return {status: {"model": ErrorOut, "description": "Error"} for status in statuses}
+    """The `responses=` of a route that can answer these error statuses. A 429 (RateLimited)
+    always carries Retry-After."""
+    return {
+        status: {"model": ErrorOut, "description": "Error"}
+        | ({"headers": _RETRY_AFTER} if status == 429 else {})
+        for status in statuses
+    }
 
 
 def error_response(code: str, message: str, status: int) -> JSONResponse:
