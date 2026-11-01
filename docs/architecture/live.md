@@ -3,7 +3,7 @@ title: Live state
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-01
 covers:
   - core/live/
 tags: [4ce, architecture, deploy, security]
@@ -45,11 +45,12 @@ Nothing durable: jobs and run state are in the database ([jobs](jobs.md)), so lo
 - If the limit can't be checked (Redis is down), sign-in answers 503 `rate_limit_unavailable`: it fails closed. Existing sessions keep working.
 - The per-account lockout (5 failures, 15 minutes) is unchanged and applies to every attempt let through ([identity](identity.md#lockout)).
 - **The limit is per exact client address,** so an IPv6 client can rotate through the addresses of its own /64 and escape it. A later work package may count per /64.
-- **Behind a proxy,** let Uvicorn see the client's address (`--forwarded-allow-ips`, see [API](api.md#running-it)), or every client shares one count, and a flood from one blocks everyone's sign-in for a minute.
+- **Behind a proxy,** `fource-server serve` ignores `X-Forwarded-For` unless you name the proxies: `--forwarded-allow-ips 10.0.0.5` takes their addresses, separated by commas, and never `*` (see [API](api.md#running-it)). The proxy must set or overwrite `X-Forwarded-For`, not pass on the client's own. Without the option every client shares one count, and a flood from one blocks everyone's sign-in for a minute.
+- **Failed sign-ins still reach the ledger,** at most `FOURCE_SIGNIN_ATTEMPTS_PER_MINUTE` per client address per minute, plus one throttled entry per window ([ledger](ledger.md#known-limits)).
 
 ## Connecting
 
-The client connects and answers within 2 seconds or counts Redis as down, and never retries for long, so a down Redis can't stall a sign-in. No message or log carries the URL, which holds the password. No Lua is used, so Valkey works and no `EVAL` right is needed.
+The client connects and answers within 2 seconds or counts Redis as down, and never retries for long, so a down Redis can't stall a sign-in. The connection speaks protocol 2 (RESP2), so a server can't push a notice that moves the client to another endpoint: it only talks to the one in `FOURCE_REDIS_URL`. No message or log carries the URL, which holds the password; `fource-server serve` checks the URL before it starts and, if it is refused, prints one fixed message and exits 1. No Lua is used, so Valkey works and no `EVAL` right is needed.
 
 ## Testing
 
@@ -59,7 +60,7 @@ The same contract tests run on both backends. The Redis half needs `FOURCE_TEST_
 
 - The in-process backend is one process's own.
 - Redis ACL users per purpose (§8.1) are a follow-up for the bundled services; the compose file sets a password for the default user.
-- Behind a proxy that hides client addresses, there is one shared count (above); an IPv6 client can rotate within a /64 (above).
+- Behind a proxy that isn't named with `--forwarded-allow-ips`, there is one shared count (above); an IPv6 client can rotate within a /64 (above).
 
 ## Decisions
 

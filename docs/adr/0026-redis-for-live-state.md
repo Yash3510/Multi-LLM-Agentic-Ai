@@ -3,7 +3,7 @@ title: "Redis for live events, cache, locks and rate limits"
 type: adr
 status: planned
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-01
 covers: []
 tags: [4ce, adr]
 number: 26
@@ -29,7 +29,7 @@ Master plan §2.7 and §6.3 put live events, short caches, distributed locks and
 8. **The sign-in rate limit** runs in the sign-in route before any password is checked or anything is written: `FOURCE_SIGNIN_ATTEMPTS_PER_MINUTE` (default 30) attempts per client address per minute, counting every attempt, whether or not it would have succeeded. Over it, the answer is 429 `rate_limited` with `Retry-After`. If the limit can't be checked, it is 503 `rate_limit_unavailable`: it fails closed, and existing sessions are unaffected. The project lead confirmed this on 2026-10-26. The per-account lockout is unchanged and applies to every attempt let through.
 9. **One ledger entry per throttle window:** the attempt that first goes over the limit writes `identity.signin.throttled` (actor `anonymous`; refs `limit` and `until`; `inputs_sha256` the HMAC-SHA256 of the client address under a key derived from `FOURCE_SECRET_KEY` with the context `4ce-ledger-client-address-v1`, as for unknown emails in [ADR-0039](0039-every-action-writes-a-ledger-entry.md)). Later refusals in the window write nothing, so a flood can't flood the ledger.
 10. **Health** reports `redis` as `ok`, `unavailable` or `off` (none configured), and answers 503 when a configured Redis can't be reached.
-11. **Proxies:** the limit counts the address the server sees. Without a configured proxy setting every client behind one proxy shares one address and one limit. The project lead accepted this on 2026-10-26; the consequences below record it.
+11. **Proxies:** the limit counts the address the server sees. `fource-server serve` trusts no forwarded headers by default, so without `--forwarded-allow-ips` every client behind one proxy shares one address and one limit. The project lead accepted this on 2026-10-26; the consequences below record it. `--forwarded-allow-ips` takes the proxies' addresses and enables `X-Forwarded-For` for exactly those; `*` is refused, because Uvicorn would then take the left-most entry, which the client wrote. The proxy must set or overwrite `X-Forwarded-For`. (Uvicorn's own default trusts any loopback peer, which would let a client behind a same-host proxy choose its address; the command no longer leaves it to that default.)
 12. **Tests and CI:** the contract tests run against the in-process backend everywhere and against real Redis in a CI job of its own. The project lead approved adding that job on 2026-10-26 (AGENTS.md §3 reserves CI changes for humans). Locally, tests may use a throwaway Redis on a private port, never the shared service; the project lead allowed this on 2026-10-26.
 
 ## Alternatives considered
@@ -47,7 +47,7 @@ Master plan §2.7 and §6.3 put live events, short caches, distributed locks and
 ## Consequences
 
 - With no Redis configured, each process counts, locks and publishes on its own: fine for development only.
-- Behind a proxy that doesn't pass the client's address on (Uvicorn's `--forwarded-allow-ips`), every client shares one limit.
+- Behind a proxy that isn't named with `serve --forwarded-allow-ips`, every client shares one limit.
 - The limit counts the exact client address, so an IPv6 client can rotate within its /64; a later work package may count per /64.
 - While Redis is down, new sign-ins are refused (503) and `/api/health` says so.
 - Redis ACL users per purpose (§8.1) are a follow-up for the bundled services.

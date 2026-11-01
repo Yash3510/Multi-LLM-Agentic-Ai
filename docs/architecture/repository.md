@@ -3,7 +3,7 @@ title: Repository layout and working rules
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-01
 covers:
   - justfile
   - pyproject.toml
@@ -186,7 +186,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just neutrality` | The neutrality check |
 | `just licences` | The SBOM, licence gate and import scan |
 | `just secrets` | gitleaks over the branch's whole history |
-| `just dev` | Bring the database up to date and run the server with live reload (SQLite unless `.env` says PostgreSQL) |
+| `just dev` | Bring the database up to date and run the server with live reload (SQLite unless `.env` says PostgreSQL). Behind a proxy, run `fource-server serve --forwarded-allow-ips <proxy address>` instead ([API](api.md#running-it)); the proxy must set `X-Forwarded-For`, and the list is never `*` |
 | `just migrate` | Bring the database schema up to date |
 | `just create-user <email> --role <role>` | Add a user; asks for the password |
 | `just worker` | Run queued jobs; `--once` for the due ones |
