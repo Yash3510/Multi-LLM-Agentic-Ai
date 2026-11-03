@@ -160,7 +160,9 @@ def test_serve_with_a_refused_redis_url_prints_one_message_and_exits(
     assert "FOURCE_REDIS_URL" in printed and "hunter2" not in printed
 
 
-@pytest.mark.parametrize("ips", ["*", "10.0.0.5,*", " * ", ""])
+@pytest.mark.parametrize(
+    "ips", ["*", "10.0.0.5,*", " * ", "", "0.0.0.0/0", "::/0", "10.0.0.5, ::/0", "10.0.0.0/0"]
+)
 def test_serve_refuses_a_wildcard_or_empty_proxy_list(
     env: Path,
     monkeypatch: pytest.MonkeyPatch,
