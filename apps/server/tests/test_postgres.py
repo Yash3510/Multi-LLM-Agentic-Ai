@@ -12,9 +12,10 @@ from typing import Any
 import httpx
 import psycopg
 import pytest
+from psycopg.conninfo import conninfo_to_dict
 from pydantic import SecretStr
 from sqlalchemy import Connection, create_engine, select, text
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,6 +60,24 @@ def set_org(connection: Connection, org_id: uuid.UUID) -> None:
 
 def conninfo(url: str) -> str:
     return make_url(url).set(drivername="postgresql").render_as_string(hide_password=False)
+
+
+def test_the_helpers_connect_with_a_password_that_has_spaces() -> None:
+    # No database needed: the text the probes hand to psycopg must keep the password whole.
+    url = URL.create(
+        "postgresql+psycopg",
+        username="fource",
+        password="pa ss:w@rd",
+        host="localhost",
+        port=55432,
+        database="fource_test_x",
+    ).render_as_string(hide_password=False)
+    parsed = conninfo_to_dict(conninfo(url))
+    assert (parsed["password"], parsed["port"], parsed["dbname"]) == (
+        "pa ss:w@rd",
+        "55432",
+        "fource_test_x",
+    )
 
 
 async def listener_pid(owner: str) -> int:
