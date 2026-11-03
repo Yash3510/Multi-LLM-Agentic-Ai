@@ -68,6 +68,7 @@ def test_the_real_lists_hold_digests_and_pass_an_ordinary_message() -> None:
         commit_words.ALLOWED,
     ):
         assert each and all(len(item) == 64 and int(item, 16) >= 0 for item in each)
+    assert len(commit_words.OPENINGS) == 2
     message = "fix(server): close the store after the database\n\nRuns in a finally block."
     assert commit_words.check_message(message, []) == []
 
@@ -85,3 +86,29 @@ def test_main_prints_each_problem_and_exits_1(
     assert commit_words.main([str(path)]) == 1
     printed = capsys.readouterr().out
     assert "commit message:1:" in printed and "AGENTS.md" in printed
+
+
+def test_hash_lines_are_checked_when_git_keeps_them() -> None:
+    message = "docs: x\n\n#12 acme"
+    assert problems(message) == []  # with an editor, git drops the line
+    assert commit_words.check_message(message, TERMS, True, **LISTS) == ["commit message:3: 'acme'"]
+
+
+def test_an_opening_counts_only_where_a_paragraph_starts() -> None:
+    assert problems("feat: x\n\nThe key is\nmade with care") == []
+    assert problems("feat: x\n\nMade with something") == ["commit message:3: 'made with'"]
+    assert problems("made with care: x") == ["commit message:1: 'made with'"]
+
+
+def test_main_reads_hash_lines_when_no_editor_opened(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    terms = commit_words.neutrality_check.load_terms(
+        commit_words.neutrality_check.TERMS_FILE.read_text(encoding="utf-8")
+    )
+    path = tmp_path / "COMMIT_EDITMSG"
+    path.write_text(f"docs: x\n\n#12 {terms[0]}\n", encoding="utf-8")
+    monkeypatch.delenv("GIT_EDITOR", raising=False)
+    assert commit_words.main([str(path)]) == 0
+    monkeypatch.setenv("GIT_EDITOR", ":")
+    assert commit_words.main([str(path)]) == 1
