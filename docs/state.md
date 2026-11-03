@@ -3,7 +3,7 @@ title: State
 type: state
 status: active
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-03
 tags: [4ce, state]
 ---
 
@@ -30,7 +30,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 ## In progress
 
-**Backend slice 3, the job queue and Redis, is built** (WP-F-07, WP-F-11): the `core/jobs` and `core/live` packages, migration `0005`, `fource-server worker` and `just worker`, scheduled ledger checkpoints, the sign-in rate limit per client address (429, or 503 when it can't be checked) with its `identity.signin.throttled` ledger entry, Redis in `/api/health`, and a Redis job in CI. The [log entry](log/2026/10/2026-10-31-wp-f-07-jobs-and-redis.md) has the commands and results. After pulling, run `just migrate` (migration `0005`). Set `FOURCE_REDIS_URL` when more than one process runs; behind a proxy, start Uvicorn with `--forwarded-allow-ips`, or every client shares one sign-in count.
+**Backend slice 3, the job queue and Redis, is built** (WP-F-07, WP-F-11): the `core/jobs` and `core/live` packages, migration `0005`, `fource-server worker` and `just worker`, scheduled ledger checkpoints, the sign-in rate limit per client address (429, or 503 when it can't be checked) with its `identity.signin.throttled` ledger entry, Redis in `/api/health`, and a Redis job in CI. The [log entry](log/2026/10/2026-10-31-wp-f-07-jobs-and-redis.md) has the commands and results. After pulling, run `just migrate` (migration `0005`). Set `FOURCE_REDIS_URL` when more than one process runs; behind a proxy, start Uvicorn with `--forwarded-allow-ips`, or every client shares one sign-in count. A TLS proxy on the same host now needs `--forwarded-allow-ips 127.0.0.1`, or session cookies lose `Secure`.
 
 **Backend slice 2, the evidence ledger, is built** (WP-LG-01, WP-LG-02): the `core/ledger` package, migration `0004` with insert-only triggers on both engines, a ledger entry for every identity action, the `ledger keygen`, `checkpoint` and `verify` commands, and a start-up refusal of a PostgreSQL role that bypasses row-level security. The [log entry](log/2026/10/2026-10-25-wp-lg-01-ledger.md) has the commands and results. A checkpoint is only as good as its outside copy: after `just ledger keygen` and `just ledger checkpoint`, keep the checkpoint file and the private key's backup off this machine.
 

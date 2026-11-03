@@ -3,7 +3,7 @@ title: "Ledger"
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-01
+updated: 2026-11-03
 covers:
   - core/ledger/
   - apps/server/src/fource/server/ledger_commands.py
@@ -93,7 +93,7 @@ The verifier (`chain.py`, `checkpoints.py`, `verify.py`) uses only the standard 
 - **SQLite's `INSERT OR REPLACE`** gets past the insert-only triggers on the development engine. PostgreSQL has no REPLACE and the app role has no UPDATE.
 - **The owner or a superuser between checkpoints:** they can disable a trigger and cut the newest entries unseen until the next outside checkpoint.
 - **Failed sign-ins still grow the ledger:** at most `FOURCE_SIGNIN_ATTEMPTS_PER_MINUTE` (30) per client address per minute, plus one `identity.signin.throttled` entry per window ([live state](live.md#the-sign-in-rate-limit)). The ledger is insert-only, so rows can't be pruned without breaking verification.
-- **Checkpoint folders need hard links:** the atomic write links a finished file into place, so a folder on a filesystem without hard links never gets a checkpoint file (the save is reported as failed; nothing partial is left). Keep `FOURCE_DATA_DIR` or `--folder` on a local disk.
+- **Checkpoint folders need hard links:** the atomic write links a finished file into place, so a folder on a filesystem without hard links, such as FAT or exFAT (most USB drives and SD cards), never gets a checkpoint file (the save is reported as failed; nothing partial is left). Write checkpoints to a local disk (`FOURCE_DATA_DIR`, or `--out`) and copy the file to removable media afterwards.
 - **No key rotation yet.**
 - **A SQLite batch rebuild of `ledger_entries` must recreate its triggers** ([database](database.md#known-limits)).
 - **PostgreSQL from a Windows host is untested** ([database](database.md#known-limits)).

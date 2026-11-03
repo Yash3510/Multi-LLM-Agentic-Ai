@@ -3,7 +3,7 @@ title: API
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-01
+updated: 2026-11-03
 covers:
   - apps/server/src/fource/server/
 tags: [4ce, architecture, server, security]
@@ -39,7 +39,7 @@ Details the table leaves out:
 - **The CSRF header:** every POST, PUT, PATCH or DELETE authenticated by the cookie must send the `fource_csrf` cookie's value as `X-CSRF-Token`, or the server answers 403 `csrf_failed`. Read it with `document.cookie` for each request. GET, HEAD and OPTIONS need no header.
 - **Scripts** can send `Authorization: Bearer <token>` instead of cookies; that needs no CSRF header, and when it is present the cookies are ignored.
 - **Signing in again replaces both cookies.** Signing out revokes the token on the server and clears both cookies. After the lifetime ends, any call answers 401 `not_authenticated`: send the person to the sign-in screen. How tokens work: [identity](identity.md#tokens).
-- **Behind a TLS proxy,** the server sees plain HTTP and would leave `Secure` off. Start `fource-server serve` with `--forwarded-allow-ips` set to the proxy's address, so it trusts `X-Forwarded-Proto` ([Running it](#running-it)).
+- **Behind a TLS proxy,** the server sees plain HTTP and would leave `Secure` off. Start `fource-server serve` with `--forwarded-allow-ips` set to the proxy's address, so it trusts `X-Forwarded-Proto` ([Running it](#running-it)). **After upgrading from a release before 2026-10-31:** `serve` used to trust these headers from 127.0.0.1 without being told; it no longer does, so a TLS proxy on the same host now needs `--forwarded-allow-ips 127.0.0.1`, or session cookies lose `Secure`.
 
 ## Errors
 
@@ -85,7 +85,7 @@ The `fource-server` command (`uv run fource-server …`):
 
 | Command | What it does |
 | --- | --- |
-| `serve [--host 127.0.0.1] [--port 8000] [--reload] [--forwarded-allow-ips IPS]` | runs the API with Uvicorn. It trusts no `X-Forwarded-*` header unless `IPS` (the proxies' addresses, comma-separated; never `*`) names the proxies. A refused `FOURCE_REDIS_URL` prints one message (never the URL) and exits 1 |
+| `serve [--host 127.0.0.1] [--port 8000] [--reload] [--forwarded-allow-ips IPS]` | runs the API with Uvicorn. It trusts no `X-Forwarded-*` header unless `IPS` (the proxies' addresses, comma-separated; never `*`, `0.0.0.0/0` or `::/0`) names the proxies. A refused `FOURCE_REDIS_URL` prints one message (never the URL) and exits 1 |
 | `migrate` | brings the database schema up to date (as the admin URL when set) |
 | `create-user EMAIL --role ROLE [--role …] [--name NAME]` | adds a user in `FOURCE_ORG`; `ROLE` is one of the seven [roles](identity.md#users-and-roles); asks for the password twice, with no echo (it reads stdin when it is not a terminal) |
 | `worker [--once]` | runs queued jobs, and the scheduled ledger checkpoint when `FOURCE_LEDGER_CHECKPOINT_MINUTES` is set; `--once` runs the due jobs and exits (1 if any attempt or organisation pass failed). See [jobs](jobs.md#the-worker-command) |
@@ -97,7 +97,7 @@ The `fource-server` command (`uv run fource-server …`):
 - **Migrate before the first sign-in.** Without it (no organisation row, or no tables at all), sign-in answers `setup_incomplete`. So does sign-in on a database migrated only to `0003` (an install from before the ledger), since sign-in writes the ledger: run `just migrate` after pulling. The session and sign-out calls need a valid token, which only a sign-in on a set-up database issues, so they can't reach an unmigrated database.
 - **Start-up on PostgreSQL.** `serve` connects to the database before it answers, to check its role, and refuses to start (`UnsafeDatabaseRole`) if the role is a superuser, has `BYPASSRLS`, or owns a table under row-level security (or is a member of the role that does); connect as `fource_app` through `FOURCE_DATABASE_URL` ([database](database.md#row-level-security)). An unreachable database therefore fails start-up, where it used to start and answer `/api/health` with 503. SQLite is not checked.
 - **Event loop.** On Windows the server and its commands use a selector event loop, because psycopg's async mode can't use the default one. Linux and macOS use the default.
-- **Behind a proxy,** run `fource-server serve --forwarded-allow-ips <proxy address>`. Without it the server ignores `X-Forwarded-For` and `X-Forwarded-Proto`, so every client shares one sign-in count ([live state](live.md#the-sign-in-rate-limit)) and `Secure` stays off. The proxy must set or overwrite `X-Forwarded-For` (not pass a client's own through), and the address list must never be `*`: the command refuses it, because Uvicorn would then take the left-most entry, which the client wrote.
+- **Behind a proxy,** run `fource-server serve --forwarded-allow-ips <proxy address>`. Without it the server ignores `X-Forwarded-For` and `X-Forwarded-Proto`, so every client shares one sign-in count ([live state](live.md#the-sign-in-rate-limit)) and `Secure` stays off. The proxy must set or overwrite `X-Forwarded-For` (not pass a client's own through), and the address list must never be `*` or a network of every address (`0.0.0.0/0`, `::/0`): the command refuses them, because Uvicorn would then take the left-most entry, which the client wrote.
 - **Using the API as a script:** sign in, keep the cookies, send the CSRF header.
 
 ```

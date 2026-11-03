@@ -3,7 +3,7 @@ title: Live state
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-01
+updated: 2026-11-03
 covers:
   - core/live/
 tags: [4ce, architecture, deploy, security]
@@ -45,7 +45,7 @@ Nothing durable: jobs and run state are in the database ([jobs](jobs.md)), so lo
 - If the limit can't be checked (Redis is down), sign-in answers 503 `rate_limit_unavailable`: it fails closed. Existing sessions keep working.
 - The per-account lockout (5 failures, 15 minutes) is unchanged and applies to every attempt let through ([identity](identity.md#lockout)).
 - **The limit is per exact client address,** so an IPv6 client can rotate through the addresses of its own /64 and escape it. A later work package may count per /64.
-- **Behind a proxy,** `fource-server serve` ignores `X-Forwarded-For` unless you name the proxies: `--forwarded-allow-ips 10.0.0.5` takes their addresses, separated by commas, and never `*` (see [API](api.md#running-it)). The proxy must set or overwrite `X-Forwarded-For`, not pass on the client's own. Without the option every client shares one count, and a flood from one blocks everyone's sign-in for a minute.
+- **Behind a proxy,** `fource-server serve` ignores `X-Forwarded-For` unless you name the proxies: `--forwarded-allow-ips 10.0.0.5` takes their addresses, separated by commas, and never `*`, `0.0.0.0/0` or `::/0` (see [API](api.md#running-it)). The proxy must set or overwrite `X-Forwarded-For`, not pass on the client's own. Without the option every client shares one count, and a flood from one blocks everyone's sign-in for a minute.
 - **Failed sign-ins still reach the ledger,** at most `FOURCE_SIGNIN_ATTEMPTS_PER_MINUTE` per client address per minute, plus one throttled entry per window ([ledger](ledger.md#known-limits)).
 
 ## Connecting

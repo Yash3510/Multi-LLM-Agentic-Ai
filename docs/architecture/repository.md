@@ -3,7 +3,7 @@ title: Repository layout and working rules
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-01
+updated: 2026-11-03
 covers:
   - justfile
   - pyproject.toml
@@ -155,7 +155,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 
 ### Checks
 
-`just check` runs every check locally, exactly as CI does. Before each commit, the git hooks (`.pre-commit-config.yaml`, installed by `just setup`) run the fast ones: ruff, the repo, neutrality and docs checks, and gitleaks on the staged changes; the commit-message hook rejects anything that isn't a Conventional Commit.
+`just check` runs every check locally, exactly as CI does. Before each commit, the git hooks (`.pre-commit-config.yaml`, installed by `just setup`) run the fast ones: ruff, the repo, neutrality and docs checks, and gitleaks on the staged changes; the commit-message hooks reject anything that isn't a Conventional Commit, and any message holding a sector term, a tool's name or attribution, or words about how the work was organised rather than what changed ([`tools/commit_words.py`](../../tools/commit_words.py), which keeps its word lists as digests; a teammate's `Co-authored-by` is fine).
 
 | Check | Tool | State |
 | --- | --- | --- |
@@ -163,6 +163,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | Python types | pyright (strict for `core/` and `apps/`) | built |
 | Repo hygiene, and every pack's `pack.yaml` against the spec | [`tools/repo_check.py`](../../tools/repo_check.py) | built |
 | Sector neutrality | [`tools/neutrality_check.py`](../../tools/neutrality_check.py) | built |
+| Commit message words | [`tools/commit_words.py`](../../tools/commit_words.py), a commit-msg hook | built |
 | Tests | pytest | built |
 | Frontend formatting, lint and types | prettier, eslint, svelte-check | _planned_ with `apps/web` |
 | Package boundaries | import-linter (`just imports`) | built |
