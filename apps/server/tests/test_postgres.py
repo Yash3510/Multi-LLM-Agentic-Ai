@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 import psycopg
 import pytest
-from psycopg.conninfo import conninfo_to_dict
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from pydantic import SecretStr
 from sqlalchemy import Connection, create_engine, select, text
 from sqlalchemy.engine import URL, make_url
@@ -59,7 +59,18 @@ def set_org(connection: Connection, org_id: uuid.UUID) -> None:
 
 
 def conninfo(url: str) -> str:
-    return make_url(url).set(drivername="postgresql").render_as_string(hide_password=False)
+    """The URL's parts as libpq keyword/value text, which psycopg quotes itself. A URI rendered
+    from the URL would need every character of the password escaped, and libpq refuses one
+    with a space."""
+    parts = make_url(url)
+    given: dict[str, str | int | None] = {
+        "host": parts.host,
+        "port": parts.port,
+        "user": parts.username,
+        "password": parts.password,
+        "dbname": parts.database,
+    }
+    return make_conninfo("", **{key: value for key, value in given.items() if value is not None})
 
 
 def test_the_helpers_connect_with_a_password_that_has_spaces() -> None:
@@ -954,10 +965,11 @@ async def test_a_notification_carries_no_organisation_id(
     # NOTIFY is per database and row-level security does not apply to it: any session of the
     # app role may LISTEN, with no organisation set, and would see who is active.
     _, app = postgres
-    conninfo = make_url(app).set(drivername="postgresql").render_as_string(hide_password=False)
     database = Database(app)
     try:
-        async with await psycopg.AsyncConnection.connect(conninfo, autocommit=True) as listener:
+        async with await psycopg.AsyncConnection.connect(
+            conninfo(app), autocommit=True
+        ) as listener:
             await listener.execute("LISTEN fource_jobs")
             async with database.org_session(orgs[1]) as session:
                 await enqueue(session, "test.work")
