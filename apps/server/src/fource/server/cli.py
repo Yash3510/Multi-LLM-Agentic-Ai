@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import getpass
+import ipaddress
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +31,7 @@ def _parser() -> argparse.ArgumentParser:
         "--forwarded-allow-ips",
         metavar="IPS",
         help="comma-separated addresses of the proxies whose X-Forwarded-For is trusted "
-        "(default: none, so every client shares one sign-in count); never *",
+        "(default: none, so every client shares one sign-in count); never * or 0.0.0.0/0",
     )
     work = commands.add_parser("worker", help="run queued jobs until stopped")
     work.add_argument(
@@ -61,9 +62,19 @@ def _parser() -> argparse.ArgumentParser:
 def _trusted_proxies(text: str) -> list[str] | None:
     """The addresses named after --forwarded-allow-ips, or None for a list that would let a
     client choose its own address: Uvicorn takes the left-most entry of X-Forwarded-For when
-    every peer is trusted, and that entry is the one the client wrote."""
+    every peer is trusted, and that entry is the one the client wrote. A network of prefix
+    length 0 (0.0.0.0/0, ::/0) trusts every peer, just as * does."""
     proxies = [item.strip() for item in text.split(",")]
-    return None if not all(proxies) or "*" in proxies else proxies
+    if not all(proxies) or "*" in proxies or any(_every_address(item) for item in proxies):
+        return None
+    return proxies
+
+
+def _every_address(item: str) -> bool:
+    try:
+        return ipaddress.ip_network(item, strict=False).prefixlen == 0
+    except ValueError:
+        return False  # an address, or a name Uvicorn compares as text
 
 
 def _ledger(settings: Settings, args: argparse.Namespace) -> int:
@@ -120,7 +131,8 @@ def main(argv: list[str] | None = None) -> int:
             if proxies is None:
                 print(
                     "--forwarded-allow-ips takes the addresses of your proxies, separated by "
-                    "commas, and never *: with * a client could choose its own address."
+                    "commas, and never * or a network of every address (0.0.0.0/0, ::/0): with "
+                    "those a client could choose its own address."
                 )
                 return 1
             trust = {"proxy_headers": True, "forwarded_allow_ips": proxies}
