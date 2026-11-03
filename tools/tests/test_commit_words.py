@@ -1,7 +1,8 @@
 from pathlib import Path
 
-import commit_words
 import pytest
+
+import commit_words
 
 # Stand-ins: the real lists are digests of words this file must not contain either.
 TERMS = ["widget"]
