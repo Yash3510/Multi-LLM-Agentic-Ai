@@ -40,8 +40,8 @@ export interface Revision {
 }
 
 export interface SignOffRequest {
-  /** What was checked, each with its verdict. */
-  checks: { label: string; verdict: 'pass' | 'review' | 'fail' }[];
+  /** What was checked, each with its verdict and the citation numbers it rests on. */
+  checks: { label: string; verdict: 'pass' | 'review' | 'fail'; cites?: number[] }[];
   /** Present when this draft is a later try after a send-back. */
   revision?: Revision;
 }

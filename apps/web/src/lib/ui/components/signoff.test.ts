@@ -118,3 +118,44 @@ describe('ReceiptStrip', () => {
     expect(container.textContent).toContain('Planner: reading the request');
   });
 });
+
+describe('SignOffPanel draft links', () => {
+  const linked = {
+    checks: [{ label: 'Measured ratio', verdict: 'pass' as const, cites: [1] }],
+  };
+
+  it('highlights the blocks a check rests on while it is hovered', async () => {
+    const { getByText, container } = render(SignOffPanel, {
+      props: {
+        request: linked,
+        draft: 'Within the limit [1].\n\nNo other figures.',
+        sources,
+        model: 'm',
+        ondecide: vi.fn(),
+      },
+    });
+    const row = getByText('Measured ratio').closest('li')!;
+    await fireEvent.mouseEnter(row);
+    expect(container.querySelectorAll('.draft-text [data-hl]')).toHaveLength(1);
+    await fireEvent.mouseLeave(row);
+    expect(container.querySelectorAll('.draft-text [data-hl]')).toHaveLength(0);
+  });
+
+  it('opens the passage under the block when a draft chip is pressed', async () => {
+    const { container } = render(SignOffPanel, {
+      props: {
+        request: linked,
+        draft: 'Within the limit [1].',
+        sources,
+        model: 'm',
+        ondecide: vi.fn(),
+      },
+    });
+    await fireEvent.click(container.querySelector('.draft-text .chip')!);
+    const card = container.querySelector('.draft-text .passage-card');
+    expect(card?.textContent).toContain('Rule R2 · Ratio');
+    expect(card?.textContent).toContain('The ratio shall not exceed 85 %.');
+    await fireEvent.click(container.querySelector('.draft-text .chip')!);
+    expect(container.querySelector('.draft-text .passage-card')).toBeNull();
+  });
+});

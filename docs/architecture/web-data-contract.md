@@ -38,7 +38,7 @@ Events arrive in order. `at` is the server's time in milliseconds.
 | `delta` | a piece of the answer's markdown | the answer text, streamed |
 | `tool` | a `ToolCall`: id, name, input, output, state (`running`, `done`, `failed`); a repeated id updates the call | the tool-call row |
 | `source` | a `Source`: citation number, title, passage | the `[n]` citations and the sources list |
-| `sign-off` | the checks for the person to review, each with a verdict, and on a later try a `revision` (try number, objections, removed and added lines) | the sign-off panel and its changes view; the receipt's revision card |
+| `sign-off` | the checks for the person to review, each with a verdict and the citation numbers it rests on (`cites`), and on a later try a `revision` (try number, objections, removed and added lines) | the sign-off panel and its changes view; the receipt's revision card |
 | `decision` | `released` or `withheld`, and who decided | the Sign-off node and the panel's result |
 | `receipt` | fingerprint, model, seconds, source count, who signed, external calls observed, and `folds` (titled markdown: full provenance and each agent's own output) | the receipt labels, then the folds; the execution timeline fold is built from the status events |
 | `done`, `stopped`, `error` | error: the server's `message` and optional plain-language `advice` | the end of the run; an error shows the run error card, which reads the cause from those two fields |

@@ -4,7 +4,7 @@
   // "approve" to release it or withholds it. Anything other than approve keeps it back.
   import type { SignOffRequest, Source } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
-  import { markChanges, renderMarkdown, safeHtml } from '$lib/ui/markdown';
+  import { markChanges, onChip, renderMarkdown, safeHtml } from '$lib/ui/markdown';
 
   type Props = {
     request: SignOffRequest;
@@ -30,6 +30,48 @@
     new Set([...draft.matchAll(/\[(\d+)\]/g)].map((match) => Number(match[1]))),
   );
   const html = $derived(renderMarkdown(draft, sources));
+
+  // The draft's links (look S13): a hovered check lights the blocks citing its sources; a chip in
+  // the draft opens its passage in a card under its block (press again to close).
+  let draftNode: HTMLElement | undefined;
+  const BLOCKS = 'p, li, td, h1, h2, h3, h4';
+
+  function highlight(cites: number[] = []) {
+    if (!draftNode) return;
+    draftNode.querySelectorAll('[data-hl]').forEach((block) => block.removeAttribute('data-hl'));
+    for (const index of cites)
+      draftNode
+        .querySelectorAll(`.chip[data-source="${index}"]`)
+        .forEach((chip) => chip.closest(BLOCKS)?.setAttribute('data-hl', ''));
+  }
+
+  function openPassage(index: number) {
+    const source = sources.find((item) => item.index === index);
+    const chip = draftNode?.querySelector(`.chip[data-source="${index}"]`);
+    const block = chip?.closest(BLOCKS);
+    const open = draftNode?.querySelector('.passage-card');
+    const same = open?.getAttribute('data-source') === String(index);
+    open?.remove();
+    draftNode
+      ?.querySelectorAll('.chip[data-open]')
+      .forEach((item) => item.removeAttribute('data-open'));
+    if (same || !source || !block) return;
+    const card = document.createElement('div');
+    card.className = 'passage-card';
+    card.setAttribute('data-source', String(index));
+    const head = document.createElement('div');
+    head.className = 'passage-head';
+    const label = document.createElement('span');
+    label.textContent = 'Passage';
+    const name = document.createElement('b');
+    name.textContent = source.title;
+    head.append(label, name);
+    const body = document.createElement('p');
+    body.textContent = source.passage || 'No passage.';
+    card.append(head, body);
+    block.after(card);
+    chip?.setAttribute('data-open', '');
+  }
 
   function approve() {
     if (!ready) {
@@ -78,6 +120,10 @@
           class="draft-text"
           {@attach safeHtml(html)}
           {@attach markChanges(revision?.changes ?? [], showChanges)}
+          {@attach (node) => {
+            draftNode = node;
+          }}
+          {@attach onChip(openPassage)}
         ></div>
       {:else}
         <p class="empty">The draft is empty.</p>
@@ -87,7 +133,11 @@
       <h3 class="section">Checked</h3>
       <ul class="checks">
         {#each request.checks as check (check.label)}
-          <li class="check">
+          <li
+            class="check"
+            onmouseenter={() => highlight(check.cites)}
+            onmouseleave={() => highlight()}
+          >
             <span class="mark" data-verdict={check.verdict} aria-hidden="true">
               {check.verdict === 'pass' ? '✓' : check.verdict === 'fail' ? '!' : '?'}
             </span>
@@ -321,6 +371,53 @@
 
   .taken {
     color: var(--color-gray-600);
+  }
+
+  /* A hovered check's blocks (look S13). */
+  .draft-text :global([data-hl]) {
+    border-radius: 6px;
+    background-color: rgb(139 92 246 / 0.09);
+    box-shadow: 0 0 0 3px rgb(139 92 246 / 0.09);
+    transition:
+      background-color 300ms,
+      box-shadow 300ms;
+  }
+
+  .draft-text :global(.chip[data-open]) {
+    border-color: var(--color-gray-500);
+    color: var(--color-gray-900);
+  }
+
+  /* The passage card under a pressed chip's block. */
+  .draft-text :global(.passage-card) {
+    margin-block: 5.6px var(--spacing-3);
+    padding: 9.6px var(--spacing-3);
+    border: 1px solid var(--color-gray-100);
+    border-radius: var(--radius-inset);
+    background-color: var(--color-white);
+    box-shadow: 0 14px 30px -20px rgb(16 24 40 / 0.35);
+    animation: enter-changes 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .draft-text :global(.passage-head) {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    margin-block-end: var(--spacing-1);
+    color: var(--color-gray-500);
+    font-size: var(--text-micro);
+  }
+
+  .draft-text :global(.passage-head b) {
+    color: var(--color-gray-700);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .draft-text :global(.passage-card p) {
+    margin: 0;
+    color: var(--color-gray-600);
+    font-size: 12.5px;
+    line-height: 1.6;
   }
 
   .draft-text :global([data-changed]) {

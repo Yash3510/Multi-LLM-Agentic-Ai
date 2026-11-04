@@ -118,8 +118,8 @@ function script(): Step[] {
         type: 'sign-off',
         request: {
           checks: [
-            { label: 'R2 · Ratio within its limit', verdict: 'pass' },
-            { label: 'Every figure has a source', verdict: 'pass' },
+            { label: 'R2 · Ratio within its limit', verdict: 'pass', cites: [1, 2] },
+            { label: 'Every figure has a source', verdict: 'pass', cites: [2] },
           ],
         },
       },
