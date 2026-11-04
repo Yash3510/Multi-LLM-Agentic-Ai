@@ -209,6 +209,10 @@
     box-shadow: inset -0.5px 0 0 color-mix(in srgb, var(--color-gray-50) 30%, transparent);
   }
 
+  :global([data-theme='dark']) .sidebar:not([data-open]) {
+    box-shadow: inset -0.5px 0 0 color-mix(in srgb, var(--color-gray-850) 30%, transparent);
+  }
+
   /* The panel keeps its full width while the frame animates, so content is clipped, not
      reflowed. */
   .panel {
@@ -376,11 +380,11 @@
     padding: var(--spacing-1);
   }
 
+  /* Rail (layout look §3.5): 32 px targets stacked with no gap under a 34 px logo slot. */
   .rail-group {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 2px;
+    align-items: flex-start;
   }
 
   .rail-open,
@@ -388,9 +392,8 @@
   .rail-user {
     display: grid;
     place-items: center;
-    inline-size: 30px;
-    block-size: 30px;
-    margin: 1px;
+    inline-size: 32px;
+    block-size: 32px;
     border-radius: 8px;
     color: inherit;
     transition:
@@ -399,7 +402,9 @@
   }
 
   .rail-open {
-    margin-block-end: var(--spacing-1);
+    inline-size: 34px;
+    block-size: 30px;
+    margin-block: 2px 6px;
     cursor: e-resize;
   }
 

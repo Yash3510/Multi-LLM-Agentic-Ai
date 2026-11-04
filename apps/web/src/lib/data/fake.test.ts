@@ -51,3 +51,17 @@ describe('fake source', () => {
     expect(seen).toHaveLength(3);
   });
 });
+
+describe('fake workspace', () => {
+  it('counts each workspace tab and lists models', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect(await source.workspaceCounts()).toEqual({
+      models: 0,
+      knowledge: 3,
+      prompts: 0,
+      skills: 0,
+      tools: 7,
+    });
+    expect(await source.listModels()).toEqual([]);
+  });
+});

@@ -100,6 +100,27 @@ export interface User {
   role: 'admin' | 'user' | 'pending';
 }
 
+/** The workspace tabs, in the running app's order. */
+export type WorkspaceTab = 'models' | 'knowledge' | 'prompts' | 'skills' | 'tools';
+
+/** A custom model in the workspace (a preset over a base model). */
+export interface WorkspaceModel {
+  id: string;
+  name: string;
+  /** The model it builds on. */
+  base?: string;
+  description?: string;
+  updated: Date;
+  owner?: { name: string; email?: string };
+  /** Switched on for chats. */
+  enabled: boolean;
+  /** Hidden from the model picker. */
+  hidden: boolean;
+  /** The person may change it. */
+  writable: boolean;
+  avatar?: string;
+}
+
 /** Where screens get their data. The fake replay implements it now; the API client later. */
 export interface DataSource {
   /** The person signed in on this device, or undefined. */
@@ -112,6 +133,9 @@ export interface DataSource {
   setupStatus(): Promise<{ firstAccount: boolean }>;
   createFirstAccount(name: string, email: string, password: string): Promise<User>;
   listChats(): Promise<ChatSummary[]>;
+  /** How many items each workspace tab holds. */
+  workspaceCounts(): Promise<Record<WorkspaceTab, number>>;
+  listModels(): Promise<WorkspaceModel[]>;
   getChat(id: string): Promise<Chat | undefined>;
   /** Asks a question in a chat and yields the answer's events as they arrive. */
   ask(chatId: string, question: string, signal?: AbortSignal): AsyncIterable<StreamEvent>;
