@@ -41,6 +41,12 @@ tags: [4ce, log, frontend]
   - The current tab carries a 2 px ink edge instead of the accent fill.
   - Tab and disclosure hovers use the tint, and focus is the soft glow instead of an outline.
   - Accordion and separator rules are hairlines.
+- **List parts, 2026-11-04 (layout look §4.2, §4.4, §9.2):**
+  - `timeGroup` and `formatAgo` in `format.ts` give each row its recency band (counted in calendar days) and a short time-ago (`1m` to `Ny`, never under a minute, units localised by Intl).
+  - New components: `GroupHeading` (a real heading), `SortHeader` (with `aria-sort`, and a hidden caret on unsorted columns so labels stay aligned, using `sort.ts`), and `ListRow` (side list and list-dialog sizes, tint hover, a current state).
+  - A new `/ui` Lists section shows them. Its recency headings only appear while sorted by time.
+  - The `ListboxPopup` float is borderless at a 12 px radius. The chosen option is marked by the tick at medium weight, not the accent fill. The keyboard highlight is the tint with a blue inner edge, with a forced-colours outline.
+  - The `Pill` copy button's focus is the glow.
 - **The contrast test pins every token to its measured value** and keeps three floors: body and verdict text at 4.5:1, and the focus ring at 3:1.
 
 ## Why
@@ -70,6 +76,7 @@ All run in `apps/web` on 2026-11-03:
 - `npm run lint`: eslint clean, and prettier reports every file formatted.
 - `npm run build`: the static site was written.
 - 2026-11-04, after the surfaces pass: `npx vitest run` (174 passed), `lint:design` clean, `svelte-check` 0 errors, eslint and prettier clean, and `npm run build` succeeded. From the repo root, `repo_check.py`, `neutrality_check.py` and `docs_check.py --base origin/4ce-core` all exited 0.
+- 2026-11-04, after the list parts: `npx vitest run` (19 files, 192 tests), the tools tests (10), `lint:design`, `svelte-check`, `npm run lint` and `npm run build` all passed. From the repo root, `repo_check.py`, `neutrality_check.py` and `docs_check.py --base origin/4ce-core` exited 0.
 - **Visual:** `/ui` was compared side by side with the running app at :5173 (Settings › Account). The owner reviewed a preview of the premium pass and approved it.
 
 ## Decisions
@@ -99,7 +106,8 @@ No issue numbers yet; each item needs one opened before the PR.
 - `design-system.md` still describes ADR-0035's language and needs rewriting to point at ADR-0041.
 - The OLED dark theme is planned, not built.
 - The on/off setting is still a segmented control; the measured app uses a switch.
-- `Pill` and `ListboxPopup` still use the accent fill and outline focus; they are planned for the data and list pass.
+- The recency bands match the measured app. The `avoid.md` lists flag them, but HANDOFF records that those lists no longer steer the look.
+- The pointer highlight in menus and the select list (gray-50 at 60 %) is barely visible on white. It is the measured value, kept for now.
 - The `/ui` explanation text still describes the old rules.
 - The pixel check against the running app is not automated yet.
 - CI (`ci.yml`) has no Node 24 or Playwright browser step, so `just check` will fail there until a human adds them.
