@@ -3,7 +3,7 @@ title: Repository layout and working rules
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-12
+updated: 2026-11-03
 covers:
   - justfile
   - pyproject.toml
@@ -117,7 +117,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 
 - Secrets, keys, certificates and `.env` files. Only `.env.example` is committed.
 - Model weights, and customer data of any kind, even anonymised.
-- Build outputs (`node_modules/`, `.venv/`, `.svelte-kit/`, `build/`, `dist/`, `__pycache__/`) and generated artefacts (SBOMs, notices bundles, API clients, coverage reports).
+- Build outputs (`node_modules/`, `.venv/`, `.svelte-kit/`, `build/`, `dist/`, `__pycache__/`) and generated artefacts (SBOMs, notices bundles, API clients, coverage reports, and `apps/web`'s generated icon and message modules and test results).
 - Logs, caches, local databases and uploaded files.
 - Obsidian per-person files: `.obsidian/workspace*.json`, caches, plugin state.
 - Tool-specific agent instruction or configuration files. [`AGENTS.md`](../../AGENTS.md) files are the only agent instructions committed.
