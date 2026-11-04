@@ -24,7 +24,7 @@ export const DEMO_CHATS: DemoChat[] = [
       { role: 'user', text: 'Is R2 · Ratio within the limit for CASE-0142?', at: hoursAgo(2.1) },
       {
         role: 'response',
-        text: 'Yes. R2 · Ratio for CASE-0142 is 82.5 %, against a limit of 85 %.\n\nThe reading comes from the second batch report; the first batch had no ratio recorded.',
+        text: 'Yes. **R2 · Ratio** for CASE-0142 is 82.5 %, against a limit of 85 %.\n\n| Batch | Ratio | Limit |\n| --- | ---: | ---: |\n| Second | 82.5 % | 85 % |\n\n- The reading comes from the second batch report.\n- The first batch had no ratio recorded.',
         at: hoursAgo(2),
       },
     ],

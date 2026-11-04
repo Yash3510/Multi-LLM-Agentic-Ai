@@ -27,6 +27,7 @@ describe('ResponseMessage', () => {
     });
     expect(getByText('Planner')).toBeTruthy();
     expect(container.querySelectorAll('.body p')).toHaveLength(2);
+    expect(container.querySelector('.body script')).toBeNull();
   });
 
   it('offers copy, regenerate and feedback on the answer', () => {

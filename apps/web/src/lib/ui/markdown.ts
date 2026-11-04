@@ -14,8 +14,21 @@ purify.addHook('afterSanitizeAttributes', (node) => {
   }
 });
 
-export function renderMarkdown(markdown: string): string {
-  return purify.sanitize(marked.parse(markdown, { async: false }), {
+declare const safe: unique symbol;
+/** HTML that came out of DOMPurify. Only this module can make one, so only sanitised HTML can be
+ * written to the page through `safeHtml`. */
+export type SafeHtml = string & { readonly [safe]: true };
+
+export function renderMarkdown(markdown: string): SafeHtml {
+  const clean = purify.sanitize(marked.parse(markdown, { async: false }), {
     USE_PROFILES: { html: true },
   });
+  // The one place the brand is applied: the string has just come out of DOMPurify.
+  return clean as SafeHtml;
 }
+
+/** Writes sanitised HTML into an element (a Svelte attachment), in place of {@html}, which the
+ * lint rejects for any string: here the type guarantees the string was sanitised. */
+export const safeHtml = (html: SafeHtml) => (node: HTMLElement) => {
+  node.innerHTML = html;
+};

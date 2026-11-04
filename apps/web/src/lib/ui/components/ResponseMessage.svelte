@@ -1,11 +1,11 @@
 <script lang="ts">
   // An answer (chat-messages look §3.1, §3.4, §3.6): the 4CE mark in a 40 px slot, the agent's
-  // name, the body in 15 px prose, and the action bar. Paragraphs are split on blank lines until
-  // the content renderer (markdown, citations) lands.
+  // name, the body in 15 px prose (markdown, sanitised), and the action bar.
   import { m } from '$lib/i18n/generated/messages.js';
   import { getLocale } from '$lib/i18n/generated/runtime.js';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { toIntlLocale } from '$lib/ui/format';
+  import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
   import { writeClipboard } from './clipboard';
   import Logomark from './Logomark.svelte';
   import './message.css';
@@ -20,7 +20,7 @@
 
   let { model, text, at, last = false }: Props = $props();
 
-  const paragraphs = $derived(text.split(/\n{2,}/).filter((part) => part.trim()));
+  const html = $derived(renderMarkdown(text));
   const short = new Intl.DateTimeFormat(toIntlLocale(getLocale()), {
     month: 'short',
     day: 'numeric',
@@ -34,11 +34,7 @@
     <div class="avatar"><Logomark size={30} /></div>
     <div class="column">
       <div class="name">{model}</div>
-      <div class="body">
-        {#each paragraphs as paragraph, index (index)}
-          <p>{paragraph}</p>
-        {/each}
-      </div>
+      <div class="body" {@attach safeHtml(html)}></div>
       <div class="bar" data-message-actions>
         {#each [{ name: 'rename', label: m.message_edit() }, { name: 'copy', label: m.message_copy() }, { name: 'read-aloud', label: m.message_read_aloud() }, { name: 'thumbs-up', label: m.message_good() }, { name: 'thumbs-down', label: m.message_bad() }, { name: 'regenerate', label: m.message_regenerate() }] as const as action (action.name)}
           <button
@@ -97,8 +93,70 @@
     overflow-wrap: anywhere;
   }
 
-  .body p {
+  /* Answer prose (chat-messages look §5): 4 px paragraph margins, compact lists, quiet tables
+     and code on the code ground. */
+  .body :global(:is(p, ul, ol, table, pre, blockquote)) {
     margin-block: var(--spacing-1);
+  }
+
+  .body :global(:is(ul, ol)) {
+    padding-inline-start: 1.5em;
+  }
+
+  .body :global(ul) {
+    list-style: disc;
+  }
+
+  .body :global(ol) {
+    list-style: decimal;
+  }
+
+  .body :global(li) {
+    margin-block: 2px;
+  }
+
+  .body :global(a) {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .body :global(strong) {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .body :global(table) {
+    border-collapse: collapse;
+    font-size: var(--text-small);
+  }
+
+  .body :global(:is(th, td)) {
+    padding: var(--spacing-1) var(--spacing-3);
+    border-block-end: 1px solid var(--color-line-1);
+  }
+
+  /* Columns marked right-aligned in the markdown (numbers) keep their align attribute. */
+  .body :global(:is(th, td):not([align])) {
+    text-align: start;
+  }
+
+  .body :global(th) {
+    font-weight: var(--font-weight-medium);
+  }
+
+  .body :global(pre) {
+    padding: var(--spacing-3);
+    overflow-x: auto;
+    border-radius: var(--radius-inset);
+    background-color: var(--color-code-ground);
+    color: var(--color-code-ink);
+    font-size: var(--text-small);
+  }
+
+  .body :global(:not(pre) > code) {
+    padding: 1px 4px;
+    border-radius: var(--radius-tight);
+    background-color: var(--color-gray-50);
+    font-size: 0.9em;
   }
 
   .bar {

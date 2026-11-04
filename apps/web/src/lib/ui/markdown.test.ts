@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderMarkdown } from './markdown';
+import { renderMarkdown, safeHtml } from './markdown';
 
 const dom = (markdown: string) => {
   const box = document.createElement('div');
@@ -45,5 +45,13 @@ describe('renderMarkdown', () => {
     expect(html).not.toMatch(/<script|onerror|javascript:/i);
     const box = dom('[click](javascript:alert(3))');
     expect(box.querySelector('a')?.hasAttribute('href') ?? false).toBe(false);
+  });
+});
+
+describe('safeHtml', () => {
+  it('writes only what renderMarkdown produced', () => {
+    const node = document.createElement('div');
+    safeHtml(renderMarkdown('**ok** <script>x()</script>'))(node);
+    expect(node.innerHTML).toBe('<p><strong>ok</strong> </p>\n');
   });
 });
