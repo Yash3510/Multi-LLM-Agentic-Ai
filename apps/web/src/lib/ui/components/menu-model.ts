@@ -13,7 +13,7 @@ export interface MenuAction {
   disabled?: boolean;
   /** Why it is disabled, shown under the label. */
   reason?: string;
-  /** Destructive: drawn in stop ink. */
+  /** Destructive. Drawn like the other rows, as the running app's Delete is; the caller confirms. */
   danger?: boolean;
   onSelect?: () => void;
 }
