@@ -142,7 +142,7 @@ function closing(outcome: 'released' | 'withheld', by: string): Step[] {
       event: {
         type: 'receipt',
         receipt: {
-          fingerprint: '3f9a21c0b7e4d815',
+          fingerprint: '0604685d984d94b44870bea051662d5c981671e220f8073eae5ab3c26543b5f7',
           model: 'qwen/qwen3-8b',
           seconds: 9.4,
           sources: 2,

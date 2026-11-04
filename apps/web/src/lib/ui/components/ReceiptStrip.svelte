@@ -15,9 +15,11 @@
     cited?: string[];
     /** The run's status events with their offset from the start. */
     timeline?: { at: string; text: string }[];
+    /** Opens the audit record. */
+    onaudit?: () => void;
   };
 
-  let { receipt, checks, releasedAt, cited = [], timeline = [] }: Props = $props();
+  let { receipt, checks, releasedAt, cited = [], timeline = [], onaudit }: Props = $props();
 
   let open = $state<Record<string, boolean>>({});
   const reservations = $derived(checks.filter((check) => check.verdict === 'review').length);
@@ -80,7 +82,7 @@
     >
       <b>{copied ? 'Copied' : 'Fingerprint'}</b> <code>{receipt.fingerprint.slice(0, 8)}</code>
     </button>
-    <button type="button" class="label audit">
+    <button type="button" class="label audit" onclick={onaudit}>
       <Icon name="file-text" size={12} /><b>Audit</b>
     </button>
   </div>

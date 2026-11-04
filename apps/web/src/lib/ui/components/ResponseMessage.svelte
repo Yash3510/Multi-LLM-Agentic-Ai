@@ -15,6 +15,8 @@
   import ReceiptStrip from './ReceiptStrip.svelte';
   import RunErrorCard from './RunErrorCard.svelte';
   import CitationDialog from './CitationDialog.svelte';
+  import AuditDialog from './AuditDialog.svelte';
+  import { formatStageTime } from '$lib/data/stages';
   import { deriveRun, RAIL } from '$lib/data/stages';
   import type { StreamEvent } from '$lib/data';
   import type { RailStage } from '$lib/data/stages';
@@ -92,6 +94,56 @@
   // The source shown in the citation dialog, opened from a chip or the sources list.
   let citing = $state<number | undefined>();
   let citationOpen = $state(false);
+  let auditOpen = $state(false);
+
+  // The audit record's chain: who did what, in order, then the person's decision.
+  const audit = $derived.by(() => {
+    if (!events || !receipt || !decision) return undefined;
+    const run = deriveRun(events, true, Date.now());
+    const start = events[0]?.at ?? 0;
+    type Row = {
+      role: string;
+      text: string;
+      time: string;
+      tone?: 'plain' | 'good' | 'warn' | 'ink' | 'faint';
+    };
+    const chain: Row[] = events.flatMap((event): Row[] => {
+      if (event.type !== 'status' || event.stage === 'sign-off') return [];
+      const role = event.stage === 'replan' ? '—' : event.stage;
+      const text = event.description.replace(/^[A-Za-z-]+:\s*/, '');
+      const tone =
+        event.stage === 'challenger'
+          ? /\bfail/i.test(text)
+            ? ('warn' as const)
+            : /\bpass/i.test(text)
+              ? ('good' as const)
+              : undefined
+          : event.stage === 'replan'
+            ? ('faint' as const)
+            : undefined;
+      return [{ role, text, time: `+${((event.at - start) / 1000).toFixed(1)}s`, tone }];
+    });
+    chain.push({
+      role: 'You',
+      text: decision.outcome === 'released' ? `Released it · ${decision.by}` : 'Withheld it',
+      time: '',
+      tone: 'ink' as const,
+    });
+    return {
+      outcome: decision.outcome,
+      tries: run.replans + 1,
+      externalCalls: receipt.receipt.externalCalls,
+      working: formatStageTime(run.workingMs),
+      at: new Date(decision.at),
+      chain,
+      evidence: sources.map((source) => ({
+        index: source.index,
+        title: source.title,
+        cited: text.includes(`[${source.index}]`),
+      })),
+      fingerprint: receipt.receipt.fingerprint,
+    };
+  });
   const cite = (index: number) => {
     citing = index;
     citationOpen = true;
@@ -158,7 +210,9 @@
             .filter((source) => text.includes(`[${source.index}]`))
             .map((source) => source.title)}
           {timeline}
+          onaudit={() => (auditOpen = true)}
         />
+        {#if audit}<AuditDialog bind:open={auditOpen} {...audit} />{/if}
       {/if}
       {#if sources.length}<SourcesBar {sources} onopen={cite} />{/if}
       <CitationDialog
