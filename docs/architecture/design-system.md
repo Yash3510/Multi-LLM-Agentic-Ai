@@ -3,7 +3,7 @@ title: Design system
 type: architecture
 status: planned
 owner: R3
-updated: 2026-10-08
+updated: 2026-10-13
 covers:
   - apps/web/src/lib/ui/
 tags: [4ce, architecture, frontend]
@@ -143,14 +143,14 @@ These follow the Rule Engine (master plan §7.9).
 
 Hit targets stay at least 24 × 24 px in every density.
 
-| Radius    | Value | Used for                                                |
-| --------- | ----- | ------------------------------------------------------- |
-| `panel`   | 20    | Docked panels, dialogs, sheets                          |
-| `card`    | 16    | Cards in the flow, popovers, menus                      |
-| `inset`   | 12    | Wells inside cards, text inputs, KPI tiles, code blocks |
-| `control` | 8     | Icon buttons, row hover shapes, thumbnails              |
-| `tight`   | 6     | Tags, inline code, diff marks, checkboxes               |
-| `pill`    | full  | Buttons, chips, badges                                  |
+| Radius    | Value | Used for                                                         |
+| --------- | ----- | ---------------------------------------------------------------- |
+| `panel`   | 20    | Docked panels, dialogs, sheets                                   |
+| `card`    | 16    | Cards in the flow, popovers, menus                               |
+| `inset`   | 12    | Wells inside cards, text inputs, KPI tiles, code blocks          |
+| `control` | 8     | Buttons, icon buttons, chips, tags, row hover shapes, thumbnails |
+| `tight`   | 6     | Inline code, diff marks, checkboxes                              |
+| `pill`    | full  | Status labels only                                               |
 
 **When one rounded shape sits inside another,** the inner radius is the outer radius minus the padding between them. No other values are allowed.
 

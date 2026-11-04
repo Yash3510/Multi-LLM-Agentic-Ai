@@ -1,0 +1,171 @@
+/*
+ * Tier 2: semantic roles and scales, exposed to Tailwind (ADR-0041). The measured look is written in
+ * Tailwind 4's default scales, so those stay on: the palette, spacing, type, radii, shadows, blur
+ * and animations are the framework's, and the area tables can be transcribed class for class. Only
+ * the grey ramp is replaced, by the measured one. The roles below are aliases onto it; dark.css
+ * swaps them. Tier 3, component aliases, point only at the roles, on the component's own selector.
+ */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+  /* The measured ramp (primitives.css), under the names the tables use. */
+  --color-gray-50: var(--ref-gray-50);
+  --color-gray-100: var(--ref-gray-100);
+  --color-gray-200: var(--ref-gray-200);
+  --color-gray-300: var(--ref-gray-300);
+  --color-gray-400: var(--ref-gray-400);
+  --color-gray-500: var(--ref-gray-500);
+  --color-gray-600: var(--ref-gray-600);
+  --color-gray-700: var(--ref-gray-700);
+  --color-gray-800: var(--ref-gray-800);
+  --color-gray-850: var(--ref-gray-850);
+  --color-gray-900: var(--ref-gray-900);
+  --color-gray-950: var(--ref-gray-950);
+
+  /* Neutrals: page and shell, menus and cards, the sidebar, row hover. */
+  --color-surface-page: var(--ref-white);
+  --color-surface-raised: var(--ref-white);
+  --color-surface-sunken: var(--ref-gray-50);
+  --color-surface-hover: var(--ref-gray-100);
+  --color-line-1: var(--ref-gray-100);
+  --color-line-2: var(--ref-gray-200);
+  --color-line-control: var(--ref-gray-300);
+
+  /* Text: titles, body, muted, disabled. */
+  --color-ink-1: var(--ref-gray-900);
+  --color-ink-2: var(--ref-gray-700);
+  --color-ink-3: var(--ref-gray-500);
+  --color-ink-disabled: var(--ref-gray-400);
+
+  /* The solid pill (Save, Create, Send): black on white, inverted in dark; and the 5% tint that
+     icon and ghost buttons hover with. */
+  --color-solid: var(--ref-black);
+  --color-on-solid: var(--ref-white);
+  --color-solid-hover: var(--ref-gray-950);
+  --color-tint: color-mix(in srgb, var(--ref-black) 4.5%, transparent);
+  /* The hairline edge and the faint track of a segmented control or switch. */
+  --color-hair: color-mix(in srgb, var(--ref-black) 10%, transparent);
+  --color-track: color-mix(in srgb, var(--ref-black) 4.5%, transparent);
+
+  /* Violet: an agent is working. Focus is the measured blue ring. */
+  --color-accent: var(--ref-violet-ink);
+  --color-accent-head: var(--ref-violet-ink);
+  --color-accent-tail: var(--ref-violet-dot);
+  --color-accent-soft: color-mix(in srgb, var(--ref-violet-dot) 10%, transparent);
+  --color-focus: var(--ref-blue-500);
+  --color-checked: var(--ref-blue-600);
+
+  /* Verdicts: the status badge's text, mark and 20% fill (common look F31). */
+  --color-ok: var(--ref-green-ok);
+  --color-ok-mark: var(--ref-green-mark);
+  --color-ok-soft: color-mix(in srgb, var(--ref-green-mark) 20%, transparent);
+  --color-caution: var(--ref-yellow-caution);
+  --color-caution-mark: var(--ref-yellow-mark);
+  --color-caution-soft: color-mix(in srgb, var(--ref-yellow-mark) 20%, transparent);
+  --color-stop: var(--ref-red-stop);
+  --color-stop-mark: var(--ref-red-mark);
+  --color-stop-soft: color-mix(in srgb, var(--ref-red-mark) 20%, transparent);
+
+  /* The dialog backdrop (common look F1): black at 45%, 60% in dark. */
+  --color-scrim: color-mix(in srgb, var(--ref-black) 45%, transparent);
+
+  /* The measured stack is system-first; Inter (self-hosted, app.css) fills in where it is missing. */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Inter', 'Noto Sans Devanagari', ui-sans-serif, system-ui,
+    'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', sans-serif, 'Helvetica Neue', Arial,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+  /* Spacing keys the components read directly; Tailwind's 4 px unit makes the rest. */
+  --spacing-0_5: 2px;
+  --spacing-1: 4px;
+  --spacing-1_5: 6px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-inset-card: var(--spacing-4);
+  --spacing-inset-panel: var(--spacing-5);
+  --spacing-inset-row: var(--spacing-2);
+
+  /* Named radii (ADR-0041 amendment): buttons a 10 px soft rectangle, fields and menus 12, cards
+     and dialogs 20. Full pills are kept for status chips only. */
+  --radius-panel: 20px;
+  --radius-card: 20px;
+  --radius-inset: 12px;
+  --radius-control: 10px;
+  --radius-tight: 6px;
+  --radius-tag: 7px;
+  --radius-notice: 14px;
+  --radius-pill: calc(infinity * 1px);
+
+  /* The file-kind tag's letter spacing. */
+  --tracking-tag: 0.02em;
+
+  /* Depth without borders (ADR-0041 amendment): a 0.5 px hairline ring plus soft contact and
+     ambient shadows. Hairline for controls, e1 for cards, e2 for menus, e3 for floating sheets.
+     The colours swap in dark through --depth-*. */
+  --shadow-e0: 0 0 #0000;
+  --shadow-hairline: 0 0 0 0.5px var(--color-hair), 0 1px 2px var(--depth-near);
+  --shadow-e1:
+    0 0 0 0.5px var(--color-hair), 0 1px 2px var(--depth-near), 0 8px 24px -12px var(--depth-far);
+  --shadow-e2:
+    0 0 0 0.5px var(--color-hair), 0 2px 4px var(--depth-near), 0 12px 32px -8px var(--depth-far);
+  --shadow-e3:
+    0 0 0 0.5px var(--color-hair), 0 4px 12px var(--depth-near), 0 24px 56px -16px var(--depth-far);
+  /* Keyboard focus: a soft blue glow outside the shape, never a hard ring. */
+  --shadow-focus: 0 0 0 0.5px var(--focus-edge), 0 0 0 4px var(--focus-glow);
+}
+
+/*
+ * Named type steps, on the sizes the tables use most: 11, 12, 13 (sidebar and menus), 14, 15
+ * (answers and chat titles), 18, 20 and 30 px. Inline, so each line height is worked out on the
+ * element that uses it; Indic scripts add 0.15 through --script-leading (set in app.css).
+ */
+@theme inline {
+  /* Count pills (10 px, weight 600) and file-kind tags (10.5 px, weight 500). */
+  --text-nano: 10px;
+  --text-nano--line-height: calc(16px + var(--script-leading, 0) * 1em);
+  --text-tag: 10.5px;
+  --text-tag--line-height: calc(16px + var(--script-leading, 0) * 1em);
+  --text-micro: 11px;
+  --text-micro--line-height: calc(16px + var(--script-leading, 0) * 1em);
+  --text-micro--font-weight: 400;
+  --text-caption: 12px;
+  --text-caption--line-height: calc(16px + var(--script-leading, 0) * 1em);
+  --text-caption--font-weight: 400;
+  --text-small: 13px;
+  --text-small--line-height: calc(20px + var(--script-leading, 0) * 1em);
+  --text-small--font-weight: 400;
+  --text-ui: 14px;
+  --text-ui--line-height: calc(20px + var(--script-leading, 0) * 1em);
+  --text-ui--font-weight: 400;
+  --text-body: 15px;
+  --text-body--line-height: calc(1.625em + var(--script-leading, 0) * 1em);
+  --text-body--font-weight: 400;
+  --text-title: 18px;
+  --text-title--line-height: calc(28px + var(--script-leading, 0) * 1em);
+  --text-title--font-weight: 500;
+  --text-heading: 20px;
+  --text-heading--line-height: calc(28px + var(--script-leading, 0) * 1em);
+  --text-heading--font-weight: 500;
+  --text-figure: 30px;
+  --text-figure--line-height: calc(36px + var(--script-leading, 0) * 1em);
+  --text-figure--font-weight: 400;
+}
+
+@layer theme {
+  :root {
+    color-scheme: light;
+    /* Every element's default border colour is grey 200, in both themes (data-and-logic look §3). */
+    --default-border-color: var(--ref-gray-200);
+
+    --depth-near: rgb(0 0 0 / 0.05);
+    --depth-far: rgb(0 0 0 / 0.1);
+    --focus-edge: color-mix(in srgb, var(--ref-blue-500) 50%, transparent);
+    --focus-glow: color-mix(in srgb, var(--ref-blue-500) 22%, transparent);
+  }
+}

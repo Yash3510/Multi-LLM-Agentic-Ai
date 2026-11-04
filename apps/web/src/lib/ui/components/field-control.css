@@ -1,0 +1,169 @@
+/*
+ * The box shared by every text-like field: TextInput, Textarea, the Select trigger and Combobox.
+ * Global classes, because the Select trigger is rendered through bits-ui and four components share
+ * one look: the measured settings field (ADR-0041; chat-composer look §9.2, common look F18, F25).
+ * 28 px tall, radius 8 px, a faint line and tint, 12 px text; focus turns the line blue, no ring.
+ * [data-preview] shows a state without interaction, for /ui.
+ */
+
+/*
+ * Line heights with the Indic extra. The token variables (--text-ui--line-height and the rest) are
+ * worked out on :root, where the script leading is 0, so a Hindi field would inherit the Latin
+ * value and clip its matras. Declared on each field part instead, the leading is the part's own;
+ * 1em stays unresolved until the element that uses it.
+ */
+:where(.field, .field-control, .choice, .segments, .field-menu, .field-hint) {
+  --field-line: calc(20px + var(--script-leading, 0) * 1em);
+  --field-line-caption: calc(16px + var(--script-leading, 0) * 1em);
+}
+
+:where(.field-control) {
+  --field-depth: var(--shadow-hairline);
+  --field-focus: 0 0 0 0.5px var(--focus-edge), 0 0 0 4px var(--focus-glow);
+  --field-invalid:
+    0 0 0 0.5px color-mix(in srgb, var(--color-stop-mark) 60%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--color-stop-mark) 12%, transparent);
+}
+
+/* The field (ADR-0041 amendment): 36 px, a 12 px radius, a raised fill edged by a hairline; focus
+   is a soft blue glow, an error a soft red one. No borders. */
+.field-control {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding-inline: var(--spacing-3);
+  border: 0;
+  border-radius: var(--radius-inset);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--field-depth);
+  color: var(--color-ink-1);
+  font-size: 13.5px;
+  line-height: var(--field-line);
+  text-align: start;
+  cursor: text;
+  transition: box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.field-control:not([data-invalid]):is(
+    :focus-visible,
+    :has(.field-control-input:focus),
+    [data-state='open'],
+    [data-preview='focus']
+  ) {
+  outline: none;
+  box-shadow: var(--field-focus);
+}
+
+.field-control[data-invalid] {
+  box-shadow: var(--field-invalid);
+}
+
+.field-control[data-readonly] {
+  background-color: var(--color-surface-sunken);
+  cursor: default;
+}
+
+.field-control[data-disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.field-control-input {
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: var(--field-line);
+  text-overflow: ellipsis;
+}
+
+.field-control-input:focus-visible {
+  outline: none;
+}
+
+.field-control-input::placeholder {
+  color: var(--color-ink-3);
+  opacity: 1;
+}
+
+/* Safari paints disabled text with its own grey and opacity; keep the token. */
+.field-control-input:disabled {
+  -webkit-text-fill-color: currentColor;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.field-control[data-disabled] .field-control-input::placeholder {
+  color: var(--color-ink-3);
+  -webkit-text-fill-color: var(--color-ink-3);
+}
+
+/* The field draws its own clear button. */
+.field-control-input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.field-control-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--color-ink-3);
+}
+
+/* Icon buttons at the end of the box (clear, copy, reveal): the secret field's eye, 6 px in. */
+
+.field-control-button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-inline-end: calc(var(--spacing-1) * -1);
+  border-radius: var(--radius-tight);
+  color: var(--color-ink-3);
+  cursor: pointer;
+  transition:
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.field-control-button:hover {
+  background-color: var(--color-tint);
+  color: var(--color-ink-1);
+}
+
+.field-control[data-disabled] .field-control-button {
+  cursor: not-allowed;
+}
+
+/* The hint of an icon-only field button (FieldButton): opacity only, at base; leaving takes two
+   thirds of that. Reduced motion caps both at 120 ms through the duration tokens. */
+/* The tooltip: a near-black box, white 12 px text, radius 8 px, soft depth. */
+.field-hint {
+  max-inline-size: 350px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background-color: var(--color-gray-950);
+  box-shadow: var(--shadow-e2);
+  color: var(--color-white);
+  font-size: var(--text-caption);
+  line-height: var(--field-line-caption);
+  transition: opacity 150ms ease;
+}
+
+.field-hint[data-starting-style] {
+  opacity: 0;
+}
+
+.field-hint[data-ending-style] {
+  opacity: 0;
+  transition-duration: calc(var(--duration-base) * 2 / 3);
+  transition-timing-function: var(--ease-exit);
+}

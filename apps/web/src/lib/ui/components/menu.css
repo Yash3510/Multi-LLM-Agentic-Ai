@@ -1,0 +1,145 @@
+/*
+ * The look of menu rows, by attribute, so the /ui reference can draw a still of every row state
+ * with the same rules the live menu uses. The panel is a float surface (surfaces.css): a 12 px
+ * radius with 4 px inside, so the rows take 8 px (12 − 4).
+ */
+@layer components {
+  [data-menu] {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: max(var(--bits-floating-anchor-width, 0px), 200px);
+    max-inline-size: min(calc(var(--spacing-12) * 8), var(--bits-floating-available-width, 100vw));
+    max-block-size: min(var(--bits-floating-available-height, 100vh), calc(var(--spacing-12) * 9));
+    padding: 2px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-control) transparent;
+  }
+
+  /* The menu card matches the running app exactly (common look F12): a 1 px line-1 border,
+     12 px radius, 2 px inside, the large soft drop shadow and ink text. */
+  [data-menu][data-surface='float'] {
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-inset);
+    background-color: var(--color-surface-raised);
+    box-shadow:
+      0 10px 15px -3px rgb(0 0 0 / 0.1),
+      0 4px 6px -4px rgb(0 0 0 / 0.1);
+    color: var(--color-solid);
+  }
+
+  [data-menu-row] {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    /* A 27 px row, radius 12, 8 px sides, 13 px text and 14 px icons (common look F12). */
+    min-block-size: 27px;
+    padding-inline: var(--spacing-2);
+    border-radius: var(--radius-inset);
+    color: inherit;
+    font-size: var(--text-small);
+    line-height: var(--text-small--line-height);
+    cursor: pointer;
+    user-select: none;
+    transition-property: background-color, color;
+    transition-duration: var(--duration-quick);
+    transition-timing-function: var(--ease-out);
+  }
+
+  :is([data-menu-lead], [data-menu-trail]) {
+    display: inline-flex;
+    flex-shrink: 0;
+    inline-size: 14px;
+    color: inherit;
+  }
+
+  [data-menu-text] {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-inline-size: 0;
+  }
+
+  [data-menu-label] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The reason stays readable in ink-3 when its row is disabled: it says what to do. */
+  [data-menu-reason] {
+    color: var(--color-ink-3);
+    font-size: var(--text-caption);
+    line-height: var(--text-caption--line-height);
+  }
+
+  [data-menu-hint] {
+    flex-shrink: 0;
+    color: var(--color-ink-3);
+    font-size: var(--text-small);
+    line-height: var(--text-small--line-height);
+  }
+
+  [data-menu-row][data-back] [data-menu-label] {
+    font-weight: var(--font-weight-medium);
+  }
+
+  [data-menu-heading] {
+    padding: var(--spacing-2) var(--spacing-2) var(--spacing-1);
+    color: var(--color-ink-3);
+    font-size: var(--text-caption);
+    line-height: var(--text-caption--line-height);
+  }
+
+  [data-menu-separator] {
+    flex-shrink: 0;
+    block-size: 1px;
+    margin: 2px var(--spacing-1);
+    background-color: color-mix(in srgb, var(--color-gray-50) 30%, transparent);
+  }
+
+  :where([data-theme='dark']) [data-menu-separator] {
+    background-color: color-mix(in srgb, var(--color-gray-800) 30%, transparent);
+  }
+
+  /* The pointer's highlight is the hover surface; a press goes one step darker for 100 ms. */
+  [data-menu-row][data-highlighted] {
+    background-color: color-mix(in srgb, var(--color-gray-50) 60%, transparent);
+  }
+
+  :where([data-theme='dark']) [data-menu-row][data-highlighted] {
+    background-color: color-mix(in srgb, var(--color-gray-800) 60%, transparent);
+  }
+
+  /* The keyboard's highlight: the hover fill plus a soft blue inner edge, so it still reads as
+     focus without a hard ring (ADR-0041 amendment). */
+  :is(
+    [data-menu][data-keyboard] [data-menu-row][data-highlighted],
+    [data-menu-row][data-preview='focus']
+  ) {
+    outline: none;
+    background-color: var(--color-tint);
+    box-shadow: inset 0 0 0 1px var(--focus-edge);
+  }
+
+  /* The chosen option: the measured pickers mark it with the tick alone. */
+  [data-menu-row][data-checked] [data-menu-trail] {
+    color: var(--color-ink-1);
+  }
+
+  /* A destructive row reads like the rest, as the running app's Delete does; its confirmation
+     carries the warning. */
+
+  [data-menu-row][data-disabled],
+  [data-menu-row][data-disabled] :is([data-menu-lead], [data-menu-trail], [data-menu-hint]) {
+    color: var(--color-ink-disabled);
+    cursor: not-allowed;
+  }
+
+  @media (forced-colors: active) {
+    [data-menu-row][data-checked] {
+      outline: 1px solid Highlight;
+    }
+  }
+}

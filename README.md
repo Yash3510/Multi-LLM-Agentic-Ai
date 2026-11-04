@@ -8,7 +8,7 @@ The `4ce-core` branch of this repository is the owned rebuild, with its own hist
 
 ## Set up
 
-You need [uv](https://docs.astral.sh/uv/) and git 2.38 or newer. Then:
+You need [uv](https://docs.astral.sh/uv/), [Node.js](https://nodejs.org/) 24 LTS for the web app, and git 2.38 or newer. Then:
 
 ```
 uv tool install rust-just==1.58.0
@@ -19,7 +19,7 @@ just check
 just dev
 ```
 
-`just setup` installs Python 3.12, syncs every package and installs the git hooks. `just check` runs every check CI runs. `just dev` runs the server on http://127.0.0.1:8000; `just create-user you@example.com --role Admin` adds the first user. `just` on its own lists every command.
+`just setup` installs Python 3.12, syncs every package, installs the web app's npm packages and installs the git hooks. Run `npx --prefix apps/web playwright install chromium` once for the browser tests. `just check` runs every check CI runs, the web app's included. `just web-dev` runs the web app on http://localhost:5173. `just dev` runs the server on http://127.0.0.1:8000; `just create-user you@example.com --role Admin` adds the first user. `just` on its own lists every command.
 
 ## Where things live
 

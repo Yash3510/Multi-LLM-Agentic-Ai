@@ -26,3 +26,4 @@ One canonical page per subsystem. Start with the [overview](overview.md).
 | [API](api.md) | active |
 | [Frontend](frontend.md) | planned |
 | [Design system](design-system.md) | planned |
+| [Web screens](web-screens.md) | planned |

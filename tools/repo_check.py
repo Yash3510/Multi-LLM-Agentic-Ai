@@ -74,6 +74,17 @@ SNAKE = re.compile(r"_?[a-z][a-z0-9_]*")
 # A module name, or a numbered database migration such as 0007_add_cases_table.py.
 PYTHON_FILE = re.compile(r"_{0,2}[a-z][a-z0-9_]*\.py|[0-9]{4}_[a-z][a-z0-9_]*\.py")
 OTHER_FILE = re.compile(r"[a-z0-9][a-z0-9.-]*")
+# Svelte's convention: components are PascalCase (a test harness adds .test); kebab names stay
+# allowed, and SvelteKit's route files keep the names the framework looks for.
+SVELTE_COMPONENT = re.compile(r"[A-Z][a-zA-Z0-9]*(\.test)?\.svelte")
+SVELTEKIT_ROUTE = re.compile(r"\+(page|layout|error|server)(\.server)?\.(svelte|ts|js)")
+# A component's own test sits beside it under the component's name.
+COMPONENT_TEST = re.compile(r"[A-Z][a-zA-Z0-9]*\.test\.ts")
+
+# The web app's formatter config and its message project; the tools look for these exact names.
+WEB_APP = "apps/web/"
+WEB_DOTFILES = {".prettierrc", ".prettierignore"}
+WEB_FOLDERS = {"project.inlang"}
 
 BANNED_WORDS = {"final", "new", "old", "backup", "copy", "temp", "tmp"}
 BANNED_TOKEN = re.compile(r"v\d+|test\d+|copy\d+")
@@ -142,10 +153,15 @@ def _path_problem(path: str) -> str:
         is_file = depth == len(parts) - 1
         if " " in name:
             reasons.append("spaces in a name")
-        if name.startswith("."):
+        in_web = path.startswith(WEB_APP)
+        if name.startswith(".") and not (in_web and is_file and name in WEB_DOTFILES):
             reasons.append(f"hidden file or folder '{name}' (tool files stay local)")
+        elif name.startswith("."):
+            pass
         elif is_file:
-            reasons += _file_name_problems(name)
+            reasons += _file_name_problems(name, in_web)
+        elif in_web and name in WEB_FOLDERS:
+            pass
         elif not (KEBAB.fullmatch(name) or (in_src and SNAKE.fullmatch(name))):
             reasons.append(f"folder '{name}' is not kebab-case")
         tokens = re.split(r"[-_.]", name.lower())
@@ -159,8 +175,14 @@ def _path_problem(path: str) -> str:
     return "; ".join(dict.fromkeys(reasons))
 
 
-def _file_name_problems(name: str) -> list[str]:
+def _file_name_problems(name: str, in_web: bool = False) -> list[str]:
     if name in UPPERCASE_NAMES:
+        return []
+    if name.endswith(".svelte"):
+        if any(rule.fullmatch(name) for rule in (SVELTE_COMPONENT, SVELTEKIT_ROUTE, OTHER_FILE)):
+            return []
+        return [f"'{name}' is not a PascalCase component, kebab name or SvelteKit route file"]
+    if in_web and (SVELTEKIT_ROUTE.fullmatch(name) or COMPONENT_TEST.fullmatch(name)):
         return []
     if name.endswith(".py"):
         return [] if PYTHON_FILE.fullmatch(name) else [f"'{name}' is not a snake_case module"]
@@ -177,7 +199,11 @@ def _package_problems(paths: list[str]) -> list[str]:
     for package, files in sorted(packages.items()):
         if "README.md" not in files:
             problems.append(f"{package}: package has no README.md")
-        if not any(f.startswith("tests/") for f in files):
+        # The web app keeps its tests beside the code (vitest) and in e2e/ (Playwright).
+        web_tests = package == WEB_APP.rstrip("/") and any(
+            f.startswith("e2e/") or ".test." in f for f in files
+        )
+        if not (web_tests or any(f.startswith("tests/") for f in files)):
             problems.append(f"{package}: package has no tests")
     pack_folders = {"/".join(p.split("/")[:3]) for p in paths if p.count("/") >= 3}
     for pack in sorted(f for f in pack_folders if f.startswith("packs/")):

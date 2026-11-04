@@ -3,7 +3,7 @@ title: Frontend
 type: architecture
 status: planned
 owner: R3
-updated: 2026-10-24
+updated: 2026-11-04
 covers:
   - apps/web/
 tags: [4ce, architecture, frontend]
@@ -21,6 +21,7 @@ The web UI is not built yet; the backend contract below is. This page is the sta
 | --- | --- | --- |
 | [ADR-0035](../adr/0035-frontend-foundations.md) | Stack and exact versions, static serving from the server, live updates, the fake API until the backend lands, roles and labels, devices, languages, theme, accessibility, no glass, icons, quality gates, clean room | proposed; accepted by the frontend owner; R1 to accept §2 (serving) and §5 (roles) |
 | [ADR-0036](../adr/0036-mpl-build-tools-and-licence-mapping.md) | How the licence gate treats MPL-2.0 build and test tools (lightningcss, axe-core) and permissive licences Appendix A doesn't name | proposed; R4 to accept before `apps/web` lands on `4ce-core` |
+| [ADR-0041](../adr/0041-exact-match-look.md) | The look matches the running 4CE app, measured; its amendment sets premium base components (the running app's Phosphor icons, hairline depth, soft focus glow). Supersedes ADR-0035's theme, colour values, no-glass rule and design-lint part | proposed; accepted by the frontend owner; R1 to accept |
 | [Design system](design-system.md) | Tokens, type, spacing, depth, motion, states, numbers, keyboard, tables, print, icons | planned |
 
 Frontend work can proceed against these now. The parts R1 and R4 decide take effect when `apps/web` is merged into `4ce-core`.
@@ -86,9 +87,9 @@ Point the Vite proxy at `http://127.0.0.1:8000`. To test against PostgreSQL inst
 
 The first PR that adds `apps/web` also wires it into the repository's checks. In the same PR:
 
-- [ ] **Node 24 LTS** (ADR-0035 §1) in the README's setup and in CI.
-- [ ] **just recipes** for installing (`npm ci`), format, lint and types (prettier, eslint, svelte-check), unit tests (vitest) and browser tests (Playwright), all inside `just check`.
-- [ ] **The repo check learns the frontend's naming:** today it rejects upper-case file names, so `SignOffPanel.svelte`, camelCase `.ts` modules and SvelteKit's `+page.svelte` need rules in `tools/repo_check.py`, with tests.
+- [ ] **Node 24 LTS** (ADR-0035 §1) in the README's setup and in CI. The README is done (2026-11-04). CI is not: `ci.yml` must add a Node 24 step and a Playwright browser install before `just check` passes there, and that change is for a human.
+- [x] **just recipes** for installing (`npm ci`), format, lint and types (prettier, eslint, svelte-check), unit tests (vitest) and browser tests (Playwright), all inside `just check`: `web-install`, `web-format`, `web-lint` (which also runs the design lint), `web-test` (which also runs the icon-generator and design-lint tests), `web-e2e` and `web-dev`. `just setup` runs `npm ci` (2026-11-04).
+- [x] **The repo check learns the frontend's naming:** PascalCase components and their `.test.ts` files, SvelteKit's route files, the web app's formatter config and message project, and colocated or `e2e/` tests are accepted by `tools/repo_check.py`, with tests (2026-11-04). Modules stay kebab-case, so there is no camelCase rule.
 - [ ] **The licence gate reads the npm SBOM:** generate it with `@cyclonedx/cyclonedx-npm` into `build/sbom/` and pass it to `tools/licence_gate.py`, which already checks any CycloneDX SBOM. ADR-0036 must be decided first.
 - [ ] **Dependabot** gains the npm ecosystem, targeting `4ce-core`.
 - [ ] **`.gitignore`** gains `apps/web/src/lib/api/` (generated).

@@ -1,0 +1,54 @@
+/*
+ * Dark theme: the same roles with the measured dark values (ADR-0041). Utilities can also use the
+ * dark: variant (theme.css), as the area tables are written that way. Screen only, so paper always
+ * prints from the light values (print rules are in app.css).
+ */
+@layer theme {
+  @media not print {
+    [data-theme='dark'] {
+      color-scheme: dark;
+
+      --color-surface-page: var(--ref-gray-900);
+      --color-surface-raised: var(--ref-gray-850);
+      --color-surface-sunken: var(--ref-gray-950);
+      --color-surface-hover: var(--ref-gray-800);
+      --color-line-1: var(--ref-gray-800);
+      --color-line-2: var(--ref-gray-700);
+      --color-line-control: var(--ref-gray-600);
+
+      --color-ink-1: var(--ref-white);
+      --color-ink-2: var(--ref-gray-300);
+      --color-ink-3: var(--ref-gray-400);
+      --color-ink-disabled: var(--ref-gray-600);
+
+      --color-solid: var(--ref-white);
+      --color-on-solid: var(--ref-black);
+      --color-solid-hover: var(--ref-gray-100);
+      --color-tint: color-mix(in srgb, var(--ref-white) 6%, transparent);
+      --color-hair: color-mix(in srgb, var(--ref-white) 10%, transparent);
+      --color-track: color-mix(in srgb, var(--ref-white) 6%, transparent);
+      --depth-near: rgb(0 0 0 / 0.3);
+      --depth-far: rgb(0 0 0 / 0.6);
+      --focus-glow: color-mix(in srgb, var(--ref-blue-500) 30%, transparent);
+
+      --color-accent: var(--ref-violet-caret-dark);
+      --color-accent-head: var(--ref-violet-lit-dark);
+      --color-accent-tail: var(--ref-violet-dot-dark);
+      --color-accent-soft: color-mix(in srgb, var(--ref-violet-dot-dark) 12%, transparent);
+      --color-focus: var(--ref-blue-500);
+      --color-checked: var(--ref-blue-600);
+
+      --color-ok: var(--ref-green-ok-dark);
+      --color-ok-mark: var(--ref-green-mark);
+      --color-ok-soft: color-mix(in srgb, var(--ref-green-mark) 20%, transparent);
+      --color-caution: var(--ref-yellow-caution-dark);
+      --color-caution-mark: var(--ref-yellow-mark);
+      --color-caution-soft: color-mix(in srgb, var(--ref-yellow-mark) 20%, transparent);
+      --color-stop: var(--ref-red-stop-dark);
+      --color-stop-mark: var(--ref-red-mark);
+      --color-stop-soft: color-mix(in srgb, var(--ref-red-mark) 20%, transparent);
+
+      --color-scrim: color-mix(in srgb, var(--ref-black) 60%, transparent);
+    }
+  }
+}

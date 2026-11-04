@@ -1,0 +1,13 @@
+package-lock.json
+build/
+.svelte-kit/
+coverage/
+test-results/
+playwright-report/
+src/lib/ui/icons/generated/
+src/lib/i18n/generated/
+project.inlang/*
+!project.inlang/settings.json
+
+# Dot-folders here hold local editor and tool state, never source.
+.*/

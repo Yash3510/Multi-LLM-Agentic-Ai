@@ -1,0 +1,69 @@
+/*
+ * The worded trigger that Disclosure and Accordion share: a full-width row with a caret, the label
+ * and an optional detail at its end. The caret swaps between right (closed) and down (open); it
+ * never rotates, because transitions have no rotation.
+ */
+@layer components {
+  [data-expand-trigger] {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    inline-size: 100%;
+    min-block-size: var(--row-height);
+    padding-inline: var(--spacing-2);
+    border-radius: var(--radius-control);
+    color: var(--color-ink-1);
+    font-size: var(--text-ui);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--text-ui--line-height);
+    text-align: start;
+    cursor: pointer;
+    transition-property: background-color, color;
+    transition-duration: var(--duration-quick);
+    transition-timing-function: var(--ease-out);
+  }
+
+  [data-expand-trigger] [data-caret] {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--color-ink-2);
+  }
+
+  [data-expand-trigger] [data-label] {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+  }
+
+  [data-expand-trigger] [data-detail] {
+    flex-shrink: 0;
+    color: var(--color-ink-3);
+    font-size: var(--text-small);
+    font-weight: var(--font-weight-normal);
+    line-height: var(--text-small--line-height);
+  }
+
+  [data-expand-trigger]:not([data-disabled]):is(
+      :hover,
+      :active,
+      [data-preview='hover'],
+      [data-preview='active']
+    ) {
+    background-color: var(--color-tint);
+  }
+
+  [data-expand-trigger]:is(:focus-visible, [data-preview='focus']) {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  [data-expand-trigger][data-disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* The region's content lines up with the label, past the caret. */
+  [data-expand-body] {
+    padding-block: var(--spacing-1) var(--spacing-3);
+    padding-inline: calc(var(--spacing-2) * 2 + var(--spacing-4)) var(--spacing-2);
+  }
+}
