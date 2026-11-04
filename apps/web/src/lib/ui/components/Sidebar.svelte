@@ -12,14 +12,13 @@
 <script lang="ts">
   // The sidebar frame (layout look §3): open, a 245 px panel with the header row, New Chat, Search,
   // the pinned destinations, the caller's lists and the user button; closed, the 42 px rail with
-  // the same actions as icons. Drawn in the premium look (ADR-0041 amendment): 18 px Phosphor
-  // icons in muted grey, rows that take the soft tint on hover and a firmer tint with a hairline
-  // when current. Resizing and the phone drawer are planned.
+  // the same actions as icons. Matches the running app exactly (layout look §3): 16 px icons in
+  // the row ink, a gray-100 hover and a 3.5 % black fill on the current row. Resizing and the
+  // phone drawer are planned.
   import { resolve } from '$app/paths';
   import type { Snippet } from 'svelte';
   import { m } from '$lib/i18n/generated/messages.js';
   import Icon from '$lib/ui/icons/Icon.svelte';
-  import IconButton from './IconButton.svelte';
   import Logomark from './Logomark.svelte';
   import { sidebarWidth } from './sidebar-width';
 
@@ -80,21 +79,25 @@
           <span class="mark"><Logomark size={22} /></span>
         </a>
         <a class="name" href={resolve('/')}>{productName}</a>
-        <IconButton
-          icon="sidebar-simple"
-          label={m.shell_close_sidebar()}
+        <button
+          type="button"
+          class="closer"
+          aria-label={m.shell_close_sidebar()}
+          title={m.shell_close_sidebar()}
           onclick={() => (open = false)}
-        />
+        >
+          <Icon name="sidebar-simple" size={16} />
+        </button>
       </div>
 
       <div class="scroll">
         <div class="primary">
           <button type="button" class="row" onclick={onnewchat}>
-            <span class="glyph"><Icon name="new-chat" size={18} /></span>
+            <span class="glyph"><Icon name="new-chat" size={16} /></span>
             {m.shell_new_chat()}
           </button>
           <button type="button" class="row" onclick={onsearch}>
-            <span class="glyph"><Icon name="magnifying-glass" size={18} /></span>
+            <span class="glyph"><Icon name="magnifying-glass" size={16} /></span>
             {m.shell_search()}
           </button>
           {#each destinations as destination (destination.href)}
@@ -104,7 +107,7 @@
               data-current={isCurrent(destination.href) ? '' : undefined}
               aria-current={isCurrent(destination.href) ? 'page' : undefined}
             >
-              <span class="glyph"><Icon name={destination.icon} size={18} /></span>
+              <span class="glyph"><Icon name={destination.icon} size={16} /></span>
               {destination.label}
             </a>
           {/each}
@@ -119,7 +122,8 @@
           aria-label={`${m.shell_user_menu()}: ${userName}`}
           onclick={onusermenu}
         >
-          <span class="avatar" aria-hidden="true">{userInitials}</span>
+          <span class="avatar" aria-hidden="true">{userInitials}<span class="presence"></span></span
+          >
           <span class="truncate">{userName}</span>
         </button>
       </div>
@@ -134,11 +138,27 @@
           onclick={() => (open = true)}
         >
           <span class="mark"><Logomark size={22} /></span>
-          <span class="open-glyph" aria-hidden="true"><Icon name="sidebar-simple" size={18} /></span
+          <span class="open-glyph" aria-hidden="true"><Icon name="sidebar-simple" size={16} /></span
           >
         </button>
-        <IconButton icon="new-chat" label={m.shell_new_chat()} onclick={onnewchat} />
-        <IconButton icon="magnifying-glass" label={m.shell_search()} onclick={onsearch} />
+        <button
+          type="button"
+          class="rail-link"
+          aria-label={m.shell_new_chat()}
+          title={m.shell_new_chat()}
+          onclick={onnewchat}
+        >
+          <Icon name="new-chat" size={16} />
+        </button>
+        <button
+          type="button"
+          class="rail-link"
+          aria-label={m.shell_search()}
+          title={m.shell_search()}
+          onclick={onsearch}
+        >
+          <Icon name="magnifying-glass" size={16} />
+        </button>
         {#each destinations as destination (destination.href)}
           <a
             class="rail-link"
@@ -148,7 +168,7 @@
             data-current={isCurrent(destination.href) ? '' : undefined}
             aria-current={isCurrent(destination.href) ? 'page' : undefined}
           >
-            <Icon name={destination.icon} size={18} />
+            <Icon name={destination.icon} size={16} />
           </a>
         {/each}
       </div>
@@ -158,7 +178,7 @@
         aria-label={`${m.shell_user_menu()}: ${userName}`}
         onclick={onusermenu}
       >
-        <span class="avatar" aria-hidden="true">{userInitials}</span>
+        <span class="avatar" aria-hidden="true">{userInitials}<span class="presence"></span></span>
       </button>
     </div>
   {/if}
@@ -202,14 +222,34 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-1);
-    padding: 6px var(--spacing-1) var(--spacing-1);
+    /* End padding measured: the running app's header, list and footer stop short of the edge by
+       9, 14 and 5 px (its scrollbar lane). */
+    padding: 6px 9px var(--spacing-1) var(--spacing-1);
+    /* Overlaps the list by 8 px (layout look §3.6). */
+    margin-block-end: calc(var(--spacing-2) * -1);
+  }
+
+  .closer {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    inline-size: 30px;
+    block-size: 30px;
+    border-radius: 8px;
+    color: var(--color-gray-600);
+    cursor: w-resize;
+    transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  :global([data-theme='dark']) .closer {
+    color: var(--color-gray-400);
   }
 
   .logo {
     display: grid;
     place-items: center;
     inline-size: 34px;
-    block-size: 32px;
+    block-size: 30px;
     border-radius: var(--radius-inset);
   }
 
@@ -235,6 +275,7 @@
     gap: 6px;
     min-block-size: 0;
     padding-block: 10px;
+    padding-inline-end: var(--spacing-2);
     overflow-y: auto;
     scrollbar-width: none;
   }
@@ -265,45 +306,27 @@
       color 150ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Icons are muted and darken with the row. */
   .glyph {
     display: inline-flex;
-    color: var(--color-gray-600);
-    transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  :global([data-theme='dark']) .glyph {
-    color: var(--color-gray-400);
   }
 
   @media (hover: hover) {
-    .row:hover {
-      background-color: var(--color-tint);
-      color: var(--color-ink-1);
-    }
-
-    .row:hover .glyph {
-      color: var(--color-ink-1);
+    :is(.row, .closer, .logo):hover {
+      background-color: var(--color-row-hover);
     }
   }
 
   .row[data-current] {
-    background-color: var(--color-tint);
-    box-shadow: var(--shadow-hairline);
-    color: var(--color-ink-1);
+    background-color: var(--color-row-current);
   }
 
-  .row[data-current] .glyph {
-    color: var(--color-ink-1);
-  }
-
-  :is(.row, .logo, .name, .rail-open, .rail-link, .rail-user):focus-visible {
+  :is(.row, .logo, .name, .closer, .rail-open, .rail-link, .rail-user):focus-visible {
     outline: none;
     box-shadow: var(--shadow-focus);
   }
 
   .foot {
-    padding: var(--spacing-1) var(--spacing-1) 6px;
+    padding: var(--spacing-1) 5px 6px var(--spacing-1);
   }
 
   .user {
@@ -322,6 +345,26 @@
     color: var(--color-ink-2);
     font-size: var(--text-nano);
     font-weight: var(--font-weight-medium);
+  }
+
+  /* Presence (layout look §3.10): a green dot with a 2 px ring at the avatar's lower end. */
+  .avatar {
+    position: relative;
+  }
+
+  .presence {
+    position: absolute;
+    inset-block-end: -2px;
+    inset-inline-end: -2px;
+    inline-size: 10px;
+    block-size: 10px;
+    border: 2px solid var(--color-white);
+    border-radius: var(--radius-pill);
+    background-color: var(--color-green-500);
+  }
+
+  :global([data-theme='dark']) .presence {
+    border-color: var(--color-gray-900);
   }
 
   .rail {
@@ -345,10 +388,11 @@
   .rail-user {
     display: grid;
     place-items: center;
-    inline-size: 32px;
-    block-size: 32px;
-    border-radius: var(--radius-control);
-    color: var(--color-gray-600);
+    inline-size: 30px;
+    block-size: 30px;
+    margin: 1px;
+    border-radius: 8px;
+    color: inherit;
     transition:
       background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
       color 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -357,10 +401,6 @@
   .rail-open {
     margin-block-end: var(--spacing-1);
     cursor: e-resize;
-  }
-
-  :global([data-theme='dark']) :is(.rail-open, .rail-link, .rail-user) {
-    color: var(--color-gray-400);
   }
 
   /* On hover the mark gives way to the sidebar glyph, as in the measured rail. */
@@ -375,8 +415,7 @@
 
   @media (hover: hover) {
     :is(.rail-open, .rail-link, .rail-user):hover {
-      background-color: var(--color-tint);
-      color: var(--color-ink-1);
+      background-color: var(--color-row-hover);
     }
 
     .rail-open:hover .mark {
@@ -389,9 +428,7 @@
   }
 
   .rail-link[data-current] {
-    background-color: var(--color-tint);
-    box-shadow: var(--shadow-hairline);
-    color: var(--color-ink-1);
+    background-color: var(--color-row-current);
   }
 
   @media (prefers-reduced-motion: reduce) {

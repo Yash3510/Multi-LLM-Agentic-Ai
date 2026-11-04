@@ -1,6 +1,6 @@
 <script lang="ts">
-  // One row of a list (layout look §4.4, §9.2): a soft rectangle that takes the faint tint on
-  // hover and a firmer tint when it is the open item. A link when it opens something; otherwise a
+  // One row of a list (layout look §4.4, §9.2), as the running app draws it: gray-100 on hover in
+  // the side list (gray-50 at 70 % in list dialogs) and a 3.5 % black fill on the open item. A link when it opens something; otherwise a
   // plain row, so actions inside it stay their own buttons.
   import { resolve } from '$app/paths';
   import type { PathnameWithSearchOrHash } from '$app/types';
@@ -53,7 +53,9 @@
   }
 
   [data-list-row][data-variant='sidebar'] {
-    padding: 6px var(--spacing-2);
+    /* 11 px sides and no gap: the run marker's 20 px slot lines titles up at 37 px (measured). */
+    gap: 0;
+    padding: 6px 11px;
     border-radius: var(--radius-inset);
     font-size: var(--text-small);
     line-height: var(--text-small--line-height);
@@ -68,14 +70,21 @@
 
   /* Touch screens get no hover fill (layout look §4.4). */
   @media (hover: hover) {
-    [data-list-row]:hover {
-      background-color: var(--color-tint);
+    [data-list-row][data-variant='sidebar']:hover {
+      background-color: var(--color-row-hover);
+    }
+
+    [data-list-row][data-variant='dialog']:hover {
+      background-color: color-mix(in srgb, var(--color-gray-50) 70%, transparent);
+    }
+
+    :global([data-theme='dark']) [data-list-row][data-variant='dialog']:hover {
+      background-color: color-mix(in srgb, var(--color-gray-850) 50%, transparent);
     }
   }
 
   [data-list-row][data-current] {
-    background-color: var(--color-tint);
-    box-shadow: var(--shadow-hairline);
+    background-color: var(--color-row-current);
   }
 
   [data-list-row]:focus-visible {

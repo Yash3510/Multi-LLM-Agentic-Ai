@@ -62,6 +62,11 @@
     font-size: var(--text-body);
   }
 
+  /* 4 px more inset while the sidebar is open (chat-composer look §2.1). */
+  :global(nav[data-open] ~ main) .title {
+    margin-inline-start: var(--spacing-1);
+  }
+
   .unsaved {
     visibility: hidden;
   }

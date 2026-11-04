@@ -25,6 +25,9 @@
       --color-on-solid: var(--ref-black);
       --color-solid-hover: var(--ref-gray-100);
       --color-tint: color-mix(in srgb, var(--ref-white) 6%, transparent);
+      --color-prose: oklch(0.872 0.01 258.338);
+      --color-row-hover: var(--ref-gray-900);
+      --color-row-current: color-mix(in srgb, var(--ref-white) 4.5%, transparent);
       --color-hair: color-mix(in srgb, var(--ref-white) 10%, transparent);
       --color-track: color-mix(in srgb, var(--ref-white) 6%, transparent);
       --depth-near: rgb(0 0 0 / 0.3);
