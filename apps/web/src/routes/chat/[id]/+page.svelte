@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A conversation at /chat?id= (chat-composer look §1.3, chat-messages look §1-3): the top bar with the title,
+  // A conversation at /chat/[id] (chat-composer look §1.3, chat-messages look §1-3): the top bar with the title,
   // the thread from 72 px down, and the composer at the bottom. The thread is a stand-in until
   // the chat API lands (WP-RT-01).
   import { page } from '$app/state';
@@ -12,8 +12,7 @@
   import TopBar from '$lib/ui/components/TopBar.svelte';
   import UserMessage from '$lib/ui/components/UserMessage.svelte';
 
-  // The chat id rides in the query (?id=) until the repo check accepts route-parameter folders.
-  const chat = $derived(DEMO_CHATS.find((item) => item.id === page.url.searchParams.get('id')));
+  const chat = $derived(DEMO_CHATS.find((item) => item.id === page.params.id));
   const messages = $derived(chat?.messages ?? []);
   const lastResponse = $derived(messages.findLastIndex((message) => message.role === 'response'));
 </script>
