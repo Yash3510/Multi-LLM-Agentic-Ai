@@ -1,4 +1,4 @@
-// Design lint for apps/web (ADR-0037 §3: retuned to the measured look; ADR-0035 §13).
+// Design lint for apps/web (ADR-0041 §3: retuned to the measured look; ADR-0035 §13).
 // Usage: node tools/design-lint/check.mjs [dir]   (default: apps/web/src)
 // Prints file:line:column for every hit and exits 1 if there is any.
 import { readdirSync, readFileSync } from 'node:fs';

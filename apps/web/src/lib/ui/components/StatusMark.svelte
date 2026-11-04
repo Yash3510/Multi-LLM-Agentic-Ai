@@ -89,7 +89,7 @@
   });
 </script>
 
-<!-- The status chip (ADR-0037 amendment): a full pill, the verdict's soft fill, 12 px medium. -->
+<!-- The status chip (ADR-0041 amendment): a full pill, the verdict's soft fill, 12 px medium. -->
 <span
   class="inline-flex shrink-0 items-center gap-1.25 text-caption font-medium {look.text} {variant ===
   'badge'

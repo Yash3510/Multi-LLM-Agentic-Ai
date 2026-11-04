@@ -1,7 +1,7 @@
 /*
  * The box shared by every text-like field: TextInput, Textarea, the Select trigger and Combobox.
  * Global classes, because the Select trigger is rendered through bits-ui and four components share
- * one look: the measured settings field (ADR-0037; chat-composer look §9.2, common look F18, F25).
+ * one look: the measured settings field (ADR-0041; chat-composer look §9.2, common look F18, F25).
  * 28 px tall, radius 8 px, a faint line and tint, 12 px text; focus turns the line blue, no ring.
  * [data-preview] shows a state without interaction, for /ui.
  */
@@ -25,7 +25,7 @@
     0 0 0 4px color-mix(in srgb, var(--color-stop-mark) 12%, transparent);
 }
 
-/* The field (ADR-0037 amendment): 36 px, a 12 px radius, a raised fill edged by a hairline; focus
+/* The field (ADR-0041 amendment): 36 px, a 12 px radius, a raised fill edged by a hairline; focus
    is a soft blue glow, an error a soft red one. No borders. */
 .field-control {
   display: flex;

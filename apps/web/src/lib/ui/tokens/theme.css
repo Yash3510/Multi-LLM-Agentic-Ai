@@ -1,5 +1,5 @@
 /*
- * Tier 2: semantic roles and scales, exposed to Tailwind (ADR-0037). The measured look is written in
+ * Tier 2: semantic roles and scales, exposed to Tailwind (ADR-0041). The measured look is written in
  * Tailwind 4's default scales, so those stay on: the palette, spacing, type, radii, shadows, blur
  * and animations are the framework's, and the area tables can be transcribed class for class. Only
  * the grey ramp is replaced, by the measured one. The roles below are aliases onto it; dark.css
@@ -91,7 +91,7 @@
   --spacing-inset-panel: var(--spacing-5);
   --spacing-inset-row: var(--spacing-2);
 
-  /* Named radii (ADR-0037 amendment): buttons a 10 px soft rectangle, fields and menus 12, cards
+  /* Named radii (ADR-0041 amendment): buttons a 10 px soft rectangle, fields and menus 12, cards
      and dialogs 20. Full pills are kept for status chips only. */
   --radius-panel: 20px;
   --radius-card: 20px;
@@ -105,7 +105,7 @@
   /* The file-kind tag's letter spacing. */
   --tracking-tag: 0.02em;
 
-  /* Depth without borders (ADR-0037 amendment): a 0.5 px hairline ring plus soft contact and
+  /* Depth without borders (ADR-0041 amendment): a 0.5 px hairline ring plus soft contact and
      ambient shadows. Hairline for controls, e1 for cards, e2 for menus, e3 for floating sheets.
      The colours swap in dark through --depth-*. */
   --shadow-e0: 0 0 #0000;

@@ -2,7 +2,7 @@
   // One choice from two to five short options, drawn as one strip: a view, a unit, a range, and the
   // worded on/off choice (OnOffChoice). It is a radio group (bits-ui): one tab stop, arrow keys move
   // and choose. The chosen segment sits on a raised thumb that slides along a faint track
-  // (ADR-0037 amendment).
+  // (ADR-0041 amendment).
   import { RadioGroup } from 'bits-ui';
   import type { HTMLAttributes } from 'svelte/elements';
   import { getField, idList } from './field-context';
@@ -111,7 +111,7 @@
 </RadioGroup.Root>
 
 <style>
-  /* A faint track with a raised white thumb that slides to the chosen option (ADR-0037 amendment). */
+  /* A faint track with a raised white thumb that slides to the chosen option (ADR-0041 amendment). */
   .segments {
     position: relative;
     display: inline-flex;

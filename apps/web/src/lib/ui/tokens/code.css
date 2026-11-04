@@ -1,5 +1,5 @@
 /*
- * Code-block colours, measured from the running app on 2026-11-03 (ADR-0037). Its highlighting
+ * Code-block colours, measured from the running app on 2026-11-03 (ADR-0041). Its highlighting
  * theme loads after the app's own token colours and wins wherever both name a token, so these are
  * the painted values; the app's colours survive only for tokens the theme leaves alone (tag, link,
  * params, builtin-name). Same in light and dark.

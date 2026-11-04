@@ -10,7 +10,7 @@
   <span class="scale-100 active:scale-96 grid-rows-2" style="transform: scale(0.98)">{n}</span>
 {/each}
 <input class="placeholder-ink-3" onblur={() => (open = !open)} />
-<!-- The measured look (ADR-0037) uses palette classes, dark variants, translucency and blur. -->
+<!-- The measured look (ADR-0041) uses palette classes, dark variants, translucency and blur. -->
 <div class="bg-gray-100 text-white hover:text-violet-500 border-zinc-950/40 bg-white/60"></div>
 <div class="dark:bg-gray-850 backdrop-blur-md blur-sm scale-125"></div>
 

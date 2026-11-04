@@ -146,7 +146,7 @@
     min-width: 0;
   }
 
-  /* A 12.5 px medium label 6 px above the control, a 12 px muted description (ADR-0037 amendment). */
+  /* A 12.5 px medium label 6 px above the control, a 12 px muted description (ADR-0041 amendment). */
   .head {
     display: flex;
     flex-direction: column;

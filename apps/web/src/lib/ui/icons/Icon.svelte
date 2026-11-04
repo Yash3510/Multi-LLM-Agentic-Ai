@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Every icon by name: Lucide glyphs listed in registry.json (ADR-0037 amendment), drawn at a
+  // Every icon by name: Lucide glyphs listed in registry.json (ADR-0041 amendment), drawn at a
   // 1.75 stroke with round caps and joins. Colour is currentColor, so it comes from the wrapper.
   import { ICONS, type IconName } from './generated/icons';
 

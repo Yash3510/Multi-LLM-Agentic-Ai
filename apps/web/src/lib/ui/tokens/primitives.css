@@ -1,5 +1,5 @@
 /*
- * Tier 1: primitives. The values measured from the running 4CE app (ADR-0037; data-and-logic look
+ * Tier 1: primitives. The values measured from the running 4CE app (ADR-0041; data-and-logic look
  * §3 and the area tables). Only the semantic roles in theme.css and dark.css reference them; the
  * grey ramp is also exposed to Tailwind as gray-50 to gray-950, under the names the tables use.
  * contrast.test.ts pins every value here.

@@ -19,7 +19,7 @@ describe('StatusMark', () => {
     for (const verdict of ['no-data', 'unverified'] as const) {
       const root = render(StatusMark, { verdict, variant: 'badge' }).container.firstElementChild!;
       expect(root.className).toContain('text-ink-1');
-      // ADR-0037: the status badge's muted fill (common look F31).
+      // ADR-0041: the status badge's muted fill (common look F31).
       expect(root.className).toContain('bg-gray-500/20');
       expect(root.className).not.toMatch(/\b(ok|caution|stop|accent)/);
     }

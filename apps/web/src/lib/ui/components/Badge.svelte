@@ -27,7 +27,7 @@
 
   let { count, max = 99, tone = 'neutral', label }: Props = $props();
 
-  // A soft count on the faint track; sky for a count that waits on a person (ADR-0037 amendment).
+  // A soft count on the faint track; sky for a count that waits on a person (ADR-0041 amendment).
   const TONE = {
     neutral: 'bg-track text-ink-2',
     ink: 'bg-sky-500/10 text-sky-700 dark:bg-sky-400/12 dark:text-sky-300',

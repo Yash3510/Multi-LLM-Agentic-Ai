@@ -1,7 +1,7 @@
 /*
  * The look of every action, drawn once: Button, IconButton and TextButton (ActionBase sets
  * data-action, data-variant and data-size on the button) and Link (data-link). Values are the
- * measured ones (ADR-0037; chat-composer look header, layout look §5.4, chat-messages look §2.4).
+ * measured ones (ADR-0041; chat-composer look header, layout look §5.4, chat-messages look §2.4).
  * [data-preview] shows a state without interaction, for /ui. In the components layer, so a utility
  * class on an instance (w-full, say) still wins.
  */
@@ -40,7 +40,7 @@
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Buttons: a 32 px soft rectangle, 10 px radius (ADR-0037 amendment). */
+  /* Buttons: a 32 px soft rectangle, 10 px radius (ADR-0041 amendment). */
   [data-action='button'] {
     min-height: 32px;
     padding-inline: 14px;

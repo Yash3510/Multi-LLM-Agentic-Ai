@@ -1,6 +1,6 @@
 // Measures what ships: the semantic roles are read from the token files and resolved to their hex
 // primitives. It pins the grey ramp and every role to the values measured from the running app
-// (ADR-0037), so a token cannot drift from the look, and keeps the contrast floors that the look
+// (ADR-0041), so a token cannot drift from the look, and keeps the contrast floors that the look
 // itself meets: body text, the focus ring and the verdict text.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -148,7 +148,7 @@ describe.each(Object.keys(THEMES) as Theme[])('%s theme', (theme) => {
     expect(shipped).toEqual(MEASURED[theme]);
   });
 
-  // The look's own floors. Muted ink-3 sits below 4.5:1 by design (ADR-0037); accessibility mode
+  // The look's own floors. Muted ink-3 sits below 4.5:1 by design (ADR-0041); accessibility mode
   // raises it.
   it('gives body text and verdict text at least 4.5:1 on page and raised surfaces', () => {
     const low = ['ink-1', 'ink-2', 'ok', 'caution', 'stop'].flatMap((fg) =>

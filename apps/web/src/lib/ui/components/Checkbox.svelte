@@ -113,7 +113,7 @@
 </label>
 
 <style>
-  /* 16 px, radius 5 px (ADR-0037 amendment). */
+  /* 16 px, radius 5 px (ADR-0041 amendment). */
   .box {
     width: 16px;
     height: 16px;

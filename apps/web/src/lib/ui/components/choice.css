@@ -55,7 +55,7 @@
 }
 
 /*
- * The mark (ADR-0037 amendment): 16 px, a raised fill edged by an inset hairline; checked a solid
+ * The mark (ADR-0041 amendment): 16 px, a raised fill edged by an inset hairline; checked a solid
  * fill (black in light, white in dark) with the inverse mark; focus the soft glow. A press 4 px
  * around it still hits it.
  */

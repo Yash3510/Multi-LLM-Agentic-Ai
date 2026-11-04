@@ -8,12 +8,12 @@ covers:
   - apps/web/src/lib/ui/
   - tools/design-lint/
 tags: [4ce, adr, frontend]
-number: 37
+number: 41
 decision_status: proposed
 superseded_by: null
 ---
 
-# ADR-0037: Exact-match look
+# ADR-0041: Exact-match look
 
 ## Context
 

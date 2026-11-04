@@ -22,7 +22,7 @@ describe('Badge', () => {
     expect(container.querySelector('.sr-only')?.textContent).toBe('2 waiting for sign-off');
   });
 
-  // ADR-0037 amendment: a sky count for what waits on a person.
+  // ADR-0041 amendment: a sky count for what waits on a person.
   it('draws a count that waits on a person in sky, never a verdict hue', () => {
     const badge = render(Badge, { count: 2, tone: 'ink' }).container.firstElementChild!;
     expect(badge.className).toContain('bg-sky-500/10');
@@ -45,7 +45,7 @@ describe('Tag', () => {
     expect(tag.className).not.toMatch(/\b(ok|caution|stop|accent)/);
   });
 
-  // ADR-0037 amendment: the 7 px tag on the faint track.
+  // ADR-0041 amendment: the 7 px tag on the faint track.
   it('takes the tag radius on the faint track, never a pill', () => {
     const tag = render(Tag, { label: 'Draft' }).container.firstElementChild!;
     expect(tag.className).toContain('rounded-tag');

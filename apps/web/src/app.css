@@ -106,7 +106,7 @@
   }
 
   /*
-   * Keyboard focus (ADR-0037 amendment): a soft blue glow that follows the control's curve, never
+   * Keyboard focus (ADR-0041 amendment): a soft blue glow that follows the control's curve, never
    * a hard ring. Text fields draw their own glow on the box.
    */
   :focus-visible {

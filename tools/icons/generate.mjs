@@ -1,4 +1,4 @@
-// Icon generator for apps/web (ADR-0037 amendment: Lucide replaces Phosphor and the signature set).
+// Icon generator for apps/web (ADR-0041 amendment: Lucide replaces Phosphor and the signature set).
 // Source: src/lib/ui/icons/registry.json, our name -> a lucide-static glyph. Writes
 // src/lib/ui/icons/generated/icons.ts and contact-sheet.html, or exits 1 listing every problem and
 // writing nothing. Paths resolve from this file, so it runs from any directory.

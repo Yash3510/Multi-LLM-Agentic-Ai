@@ -18,12 +18,12 @@ tags: [4ce, log, frontend]
 ## What changed
 
 - **apps/web lands on the branch:** the SvelteKit scaffold, tokens, number formats, icons, the `/ui` reference route and the base components (actions, fields, status, surfaces). It was built in earlier sessions and is committed here for the first time.
-- **[ADR-0037](../../../adr/0037-exact-match-look.md), proposed:** the new app matches the running 4CE app, so its look is measured, not designed.
+- **[ADR-0041](../../../adr/0041-exact-match-look.md), proposed:** the new app matches the running 4CE app, so its look is measured, not designed.
 - **Tokens rewritten to the measured theme:**
   - the measured grey ramp (`gray-50` to `gray-950`) and Tailwind 4's default scales, with the semantic roles as aliases onto the ramp
   - a `dark:` variant keyed on `data-theme`
   - code-block colours measured from the running app on 2026-11-03 (`tokens/code.css`)
-- **Premium pass on the base components** (the ADR-0037 amendment), after the owner reviewed a side-by-side and then approved a preview:
+- **Premium pass on the base components** (the ADR-0041 amendment), after the owner reviewed a side-by-side and then approved a preview:
   - Lucide icons from `lucide-static` 0.460.0 (ISC). They replace Phosphor and the owned hexagon signature set.
   - 10 px buttons, 12 px fields and menus, 20 px cards.
   - Hairline depth instead of borders, and a soft blue focus glow instead of a ring.
@@ -40,9 +40,9 @@ The owner compared mocks of ADR-0035's new language with the current app, and ch
 | Path | Change |
 | --- | --- |
 | `apps/web/` | New: the app, tokens, components, `/ui` route and tests |
-| `tools/design-lint/` | New: the lint, retuned to ADR-0037, with fixtures |
+| `tools/design-lint/` | New: the lint, retuned to ADR-0041, with fixtures |
 | `tools/icons/` | New: the Lucide icon generator and its tests |
-| `docs/adr/0037-exact-match-look.md` | New ADR and amendment |
+| `docs/adr/0041-exact-match-look.md` | New ADR and amendment |
 | `docs/architecture/web-screens.md` | New: the screen inventory |
 | `docs/architecture/design-system.md` | Edited in an earlier session; it still describes ADR-0035's language (see Known limits) |
 | `.gitignore` | Ignores the web build, test output and generated icon and message files |
@@ -61,19 +61,19 @@ All run in `apps/web` on 2026-11-03:
 
 ## Decisions
 
-- [ADR-0037](../../../adr/0037-exact-match-look.md) and its amendment, proposed; R1's acceptance is pending.
+- [ADR-0041](../../../adr/0041-exact-match-look.md) and its amendment, proposed; R1's acceptance is pending.
 - The owner approved retuning design-lint and the contrast test, and adding `lucide-static` (ISC).
 
 ## Docs updated
 
-- ADR-0037 is new.
+- ADR-0041 is new.
 - `web-screens.md` is new.
 
 ## Known limits and follow-ups
 
 No issue numbers yet; each item needs one opened before the PR.
 
-- `design-system.md` still describes ADR-0035's language and needs rewriting to point at ADR-0037.
+- `design-system.md` still describes ADR-0035's language and needs rewriting to point at ADR-0041.
 - The OLED dark theme is planned, not built.
 - The on/off setting is still a segmented control; the measured app uses a switch.
 - Surfaces (menu panels, cards, dialogs) have not had the premium pass.

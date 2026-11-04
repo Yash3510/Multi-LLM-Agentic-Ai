@@ -1,5 +1,5 @@
 /*
- * Dark theme: the same roles with the measured dark values (ADR-0037). Utilities can also use the
+ * Dark theme: the same roles with the measured dark values (ADR-0041). Utilities can also use the
  * dark: variant (theme.css), as the area tables are written that way. Screen only, so paper always
  * prints from the light values (print rules are in app.css).
  */

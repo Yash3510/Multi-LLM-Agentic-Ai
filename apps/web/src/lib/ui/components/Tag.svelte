@@ -26,7 +26,7 @@
 </script>
 
 <script lang="ts">
-  // A neutral label: a kind, a pack, a file type, on the faint track (ADR-0037 amendment). It never
+  // A neutral label: a kind, a pack, a file type, on the faint track (ADR-0041 amendment). It never
   // borrows verdict colours. Not interactive; file tags show their type as text, without a glyph.
   import Icon from '$lib/ui/icons/Icon.svelte';
 
