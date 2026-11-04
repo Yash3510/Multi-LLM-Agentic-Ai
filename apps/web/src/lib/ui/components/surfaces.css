@@ -1,0 +1,361 @@
+/*
+ * The look the surface components share, drawn once: floating layers (popover, menu, tooltip),
+ * the panel shape that dialogs, sheets and the side panel share, the scrim, cards and the grid-rows
+ * expand. In the components layer, so a utility class on an instance still wins. [data-preview]
+ * shows a state without interaction, for /ui.
+ *
+ * Stacking: the side panel sits over the page (20), the scrim and dialogs over it (40), and every
+ * floating layer over all of them (60), so a menu or a tooltip opened inside a dialog shows on top.
+ */
+@layer components {
+  /* e2: popovers and menus. Radius card; arrives at calm with 4 px of travel from its trigger. */
+  [data-surface='float'] {
+    z-index: 60;
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-card);
+    background-color: var(--color-surface-raised);
+    box-shadow: var(--shadow-e2);
+    color: var(--color-ink-1);
+    transition-property: opacity, translate;
+    transition-duration: var(--duration-calm);
+    transition-timing-function: var(--ease-out);
+  }
+
+  [data-surface='float']:is([data-starting-style], [data-ending-style]) {
+    opacity: 0;
+    translate: 0 calc(var(--spacing-1) * -1);
+  }
+
+  [data-surface='float'][data-side='top']:is([data-starting-style], [data-ending-style]) {
+    translate: 0 var(--spacing-1);
+  }
+
+  [data-surface='float'][data-side='left']:is([data-starting-style], [data-ending-style]) {
+    translate: var(--spacing-1) 0;
+  }
+
+  [data-surface='float'][data-side='right']:is([data-starting-style], [data-ending-style]) {
+    translate: calc(var(--spacing-1) * -1) 0;
+  }
+
+  /* While its menu or popover is open, the trigger keeps its hover look: it reads as the anchor. */
+  [data-action][data-layer-trigger][aria-expanded='true'] {
+    border-color: var(--action-hover-line);
+    background-color: var(--action-hover-fill);
+    color: var(--action-hover-ink);
+  }
+
+  /* Tooltips: e2 on the control radius, opacity only, at base. Text only, never actions. */
+  [data-surface='tip'] {
+    z-index: 60;
+    max-inline-size: calc(var(--spacing-12) * 6);
+    padding: var(--spacing-1) var(--spacing-2);
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-control);
+    background-color: var(--color-surface-raised);
+    box-shadow: var(--shadow-e2);
+    color: var(--color-ink-1);
+    font-size: var(--text-caption);
+    line-height: var(--text-caption--line-height);
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+
+  [data-surface='tip']:is([data-starting-style], [data-ending-style]) {
+    opacity: 0;
+  }
+
+  /* Exits take two thirds of the entrance's time and ease away. */
+  :is([data-surface='float'], [data-surface='tip'])[data-ending-style] {
+    transition-duration: calc(var(--duration-calm) * 2 / 3);
+    transition-timing-function: var(--ease-exit);
+  }
+
+  [data-surface='tip'][data-ending-style] {
+    transition-duration: calc(var(--duration-base) * 2 / 3);
+  }
+
+  /*
+   * Other components' floating layers, such as the action tooltips and the select list, take the
+   * same stacking, so they also open above a dialog or the side panel.
+   */
+  :where([data-tooltip-content], [data-select-content], [data-combobox-content]) {
+    z-index: 60;
+  }
+
+  /* The scrim is a flat colour, never glass. It fades at slow. */
+  [data-surface='scrim'] {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background-color: var(--color-scrim);
+    transition: opacity var(--duration-slow) var(--ease-out);
+  }
+
+  [data-surface='scrim']:is([data-starting-style], [data-ending-style]) {
+    opacity: 0;
+  }
+
+  [data-surface='scrim'][data-ending-style] {
+    transition-duration: calc(var(--duration-slow) * 2 / 3);
+  }
+
+  /*
+   * e3: docked panels, dialogs and sheets, on the panel radius. No border: e3 is shadow alone. The
+   * transparent outline becomes a real edge in forced-colours mode, where shadows are dropped.
+   */
+  [data-surface='panel'] {
+    display: flex;
+    flex-direction: column;
+    min-block-size: 0;
+    border-radius: var(--radius-panel);
+    background-color: var(--color-surface-raised);
+    box-shadow: var(--shadow-e3);
+    color: var(--color-ink-1);
+    outline: 1px solid transparent;
+    overflow: hidden;
+  }
+
+  [data-surface='panel']:focus-visible {
+    outline: 2px solid var(--color-focus);
+  }
+
+  /*
+   * Dialogs: centred without a transform (inset 0 and auto margins), so the entrance's 8 px of
+   * travel is the only translate. Arrive at slow; leave in two thirds of that.
+   */
+  [data-placement='center'] {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    block-size: fit-content;
+    max-block-size: calc(100dvh - var(--spacing-12));
+    inline-size: calc(100vw - var(--spacing-8));
+    margin: auto;
+  }
+
+  [data-placement='center'][data-size='small'] {
+    max-inline-size: calc(var(--spacing-12) * 9);
+  }
+
+  [data-placement='center'][data-size='medium'] {
+    max-inline-size: calc(var(--spacing-12) * 12);
+  }
+
+  [data-placement='center'][data-size='large'] {
+    max-inline-size: calc(var(--spacing-12) * 16);
+  }
+
+  /* Sheets dock to the bottom edge: only the top corners are rounded. */
+  [data-placement='bottom'] {
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: 40;
+    max-block-size: calc(100dvh - var(--spacing-12));
+    inline-size: 100%;
+    max-inline-size: calc(var(--spacing-12) * 20);
+    margin-inline: auto;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+  }
+
+  :is([data-placement='center'], [data-placement='bottom']) {
+    transition-property: opacity, translate;
+    transition-duration: var(--duration-slow);
+    transition-timing-function: var(--ease-out);
+  }
+
+  :is([data-placement='center'], [data-placement='bottom']):is(
+    [data-starting-style],
+    [data-ending-style]
+  ) {
+    opacity: 0;
+    translate: 0 var(--spacing-2);
+  }
+
+  :is([data-placement='center'], [data-placement='bottom'])[data-ending-style] {
+    transition-duration: calc(var(--duration-slow) * 2 / 3);
+    transition-timing-function: var(--ease-exit);
+  }
+
+  /*
+   * The side panel. On a desktop it docks in the flow at the right of whatever row holds it, so the
+   * page beside it reflows and stays usable. On a tablet it is a full-height layer on the right edge,
+   * still without a scrim. It arrives at slow with 8 px of travel from the edge it docks to.
+   */
+  [data-placement='dock'] {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-end: 0;
+    z-index: 20;
+    inline-size: min(calc(var(--spacing-12) * 10), 100vw);
+    transition-property: opacity, translate;
+    transition-duration: var(--duration-slow);
+    transition-timing-function: var(--ease-out);
+  }
+
+  @starting-style {
+    [data-placement='dock'] {
+      opacity: 0;
+      translate: var(--spacing-2) 0;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    [data-placement='dock'] {
+      position: sticky;
+      inset-block: var(--spacing-3);
+      align-self: stretch;
+      flex-shrink: 0;
+      max-block-size: calc(100dvh - var(--spacing-6));
+      inline-size: calc(var(--spacing-12) * 9);
+    }
+
+    [data-placement='dock'][data-size='wide'] {
+      inline-size: calc(var(--spacing-12) * 12);
+    }
+  }
+}
+
+@layer components {
+  /*
+   * Cards in the flow: e0, a line-1 edge and no shadow. An interactive card (a link or a button)
+   * rises to e1 on hover, with no movement, and settles one surface step darker while pressed.
+   */
+  [data-surface='card'] {
+    --card-fill: var(--color-surface-raised);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    padding: var(--spacing-inset-card);
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-card);
+    background-color: var(--card-fill);
+    color: var(--color-ink-1);
+    text-align: start;
+    transition-property: background-color, border-color, box-shadow, color;
+    transition-duration: var(--duration-quick);
+    transition-timing-function: var(--ease-out);
+  }
+
+  [data-surface='card'][data-interactive] {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  @media (hover: hover) {
+    [data-surface='card'][data-interactive]:not([data-disabled], [aria-busy='true']):hover {
+      border-color: var(--color-line-2);
+      box-shadow: var(--shadow-e1);
+    }
+  }
+
+  [data-surface='card'][data-preview='hover'] {
+    border-color: var(--color-line-2);
+    box-shadow: var(--shadow-e1);
+  }
+
+  [data-surface='card'][data-preview='focus'] {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  [data-surface='card'][data-interactive]:not([data-disabled], [aria-busy='true']):is(
+      :active,
+      [data-preview='active']
+    ) {
+    border-color: var(--color-line-2);
+    box-shadow: none;
+    background-color: var(--color-surface-sunken);
+    transition-duration: var(--duration-instant);
+  }
+
+  /* Selected or current: accent-soft fill, a 2 px accent edge on the leading side, ink-1 text. */
+  [data-surface='card']:is([aria-current]:not([aria-current='false']), [aria-pressed='true']) {
+    --card-fill: var(--color-accent-soft);
+    color: var(--color-ink-1);
+  }
+
+  /* The edge is a bar, not a border, so it stays straight inside the rounded shape. */
+  [data-surface='card']:is(
+      [aria-current]:not([aria-current='false']),
+      [aria-pressed='true']
+    )::before {
+    content: '';
+    position: absolute;
+    inset-block: var(--spacing-3);
+    inset-inline-start: -1px;
+    inline-size: 2px;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-accent);
+  }
+
+  /* Disabled: ink-disabled text throughout and a line-1 edge, never opacity. */
+  [data-surface='card'][data-disabled] {
+    cursor: not-allowed;
+  }
+
+  [data-surface='card'][aria-busy='true'] {
+    cursor: progress;
+  }
+
+  /* An error is said in place, inside the card; the edge only reinforces it. */
+  [data-surface='card'][data-invalid] {
+    border-color: var(--color-stop);
+  }
+
+  @media (forced-colors: active) {
+    [data-surface='card']:is([aria-current]:not([aria-current='false']), [aria-pressed='true']) {
+      border-color: Highlight;
+    }
+  }
+
+  /*
+   * Expand and collapse: grid rows from 0fr to 1fr at calm, so nothing jumps in height. Collapsing
+   * takes two thirds of the time; visibility follows the rows, so hidden content leaves the tab
+   * order and the accessibility tree once it is closed. The inner element clips and fades.
+   */
+  [data-expand] {
+    display: grid;
+    grid-template-rows: 0fr;
+    visibility: hidden;
+    transition:
+      grid-template-rows calc(var(--duration-calm) * 2 / 3) var(--ease-in-out),
+      visibility 0s linear calc(var(--duration-calm) * 2 / 3);
+  }
+
+  [data-expand][data-state='open'] {
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition:
+      grid-template-rows var(--duration-calm) var(--ease-in-out),
+      visibility 0s;
+  }
+
+  [data-expand] > * {
+    min-block-size: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity calc(var(--duration-calm) * 2 / 3) var(--ease-exit);
+  }
+
+  [data-expand][data-state='open'] > * {
+    opacity: 1;
+    transition: opacity var(--duration-calm) var(--ease-out);
+  }
+}
+
+/*
+ * Outside the layers on purpose: a disabled card's content is ink-disabled throughout, which has to
+ * win over the colour utilities its content carries (text-ink-2, a verdict's word).
+ */
+[data-surface='card'][data-disabled],
+[data-surface='card'][data-disabled] * {
+  color: var(--color-ink-disabled);
+}
+
+/* The reason stays readable: it is what tells the person what to do. */
+[data-surface='card'][data-disabled] [data-card-reason] {
+  color: var(--color-ink-3);
+}

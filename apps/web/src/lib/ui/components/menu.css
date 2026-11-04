@@ -1,0 +1,130 @@
+/*
+ * The look of menu rows, by attribute, so the /ui reference can draw a still of every row state
+ * with the same rules the live menu uses. The panel is a float surface (surfaces.css): radius card
+ * with 8 px inside, so the rows take the control radius (16 − 8).
+ */
+@layer components {
+  [data-menu] {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: max(var(--bits-floating-anchor-width, 0px), calc(var(--spacing-12) * 5));
+    max-inline-size: min(calc(var(--spacing-12) * 8), var(--bits-floating-available-width, 100vw));
+    max-block-size: min(var(--bits-floating-available-height, 100vh), calc(var(--spacing-12) * 9));
+    padding: var(--spacing-2);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-control) transparent;
+  }
+
+  [data-menu-row] {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    /* The measured menu row (common look F12): 27 px, radius 12 px, 13 px text, 14 px icons. */
+    min-block-size: 27px;
+    padding-inline: var(--spacing-2);
+    border-radius: var(--radius-inset);
+    color: inherit;
+    font-size: var(--text-small);
+    line-height: var(--text-small--line-height);
+    cursor: pointer;
+    user-select: none;
+    transition-property: background-color, color;
+    transition-duration: var(--duration-quick);
+    transition-timing-function: var(--ease-out);
+  }
+
+  :is([data-menu-lead], [data-menu-trail]) {
+    display: inline-flex;
+    flex-shrink: 0;
+    inline-size: 14px;
+    color: inherit;
+  }
+
+  [data-menu-text] {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-inline-size: 0;
+  }
+
+  [data-menu-label] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The reason stays readable in ink-3 when its row is disabled: it says what to do. */
+  [data-menu-reason] {
+    color: var(--color-ink-3);
+    font-size: var(--text-caption);
+    line-height: var(--text-caption--line-height);
+  }
+
+  [data-menu-hint] {
+    flex-shrink: 0;
+    color: var(--color-ink-3);
+    font-size: var(--text-small);
+    line-height: var(--text-small--line-height);
+  }
+
+  [data-menu-row][data-back] [data-menu-label] {
+    font-weight: var(--font-weight-medium);
+  }
+
+  [data-menu-heading] {
+    padding: var(--spacing-2) var(--spacing-2) var(--spacing-1);
+    color: var(--color-ink-3);
+    font-size: var(--text-caption);
+    line-height: var(--text-caption--line-height);
+  }
+
+  [data-menu-separator] {
+    flex-shrink: 0;
+    block-size: 1px;
+    margin-block: var(--spacing-1);
+    background-color: var(--color-line-1);
+  }
+
+  /* The pointer's highlight is the hover surface; a press goes one step darker for 100 ms. */
+  [data-menu-row][data-highlighted] {
+    background-color: color-mix(in srgb, var(--color-gray-50) 60%, transparent);
+  }
+
+  :where([data-theme='dark']) [data-menu-row][data-highlighted] {
+    background-color: color-mix(in srgb, var(--color-gray-800) 60%, transparent);
+  }
+
+  /* The keyboard's highlight is focus: the outline, turned inward inside the scrolling panel. */
+  :is(
+    [data-menu][data-keyboard] [data-menu-row][data-highlighted],
+    [data-menu-row][data-preview='focus']
+  ) {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
+
+  /* The chosen option: the measured pickers mark it with the tick alone. */
+  [data-menu-row][data-checked] [data-menu-trail] {
+    color: var(--color-ink-1);
+  }
+
+  [data-menu-row][data-danger],
+  [data-menu-row][data-danger] [data-menu-lead] {
+    color: var(--color-stop);
+  }
+
+  [data-menu-row][data-disabled],
+  [data-menu-row][data-disabled] :is([data-menu-lead], [data-menu-trail], [data-menu-hint]) {
+    color: var(--color-ink-disabled);
+    cursor: not-allowed;
+  }
+
+  @media (forced-colors: active) {
+    [data-menu-row][data-checked] {
+      outline: 1px solid Highlight;
+    }
+  }
+}
