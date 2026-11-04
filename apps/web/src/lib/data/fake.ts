@@ -147,6 +147,21 @@ function closing(outcome: 'released' | 'withheld', by: string): Step[] {
           seconds: 9.4,
           sources: 2,
           signedBy: by,
+          externalCalls: 0,
+          folds: [
+            {
+              title: 'Full provenance',
+              body: '| Figure | Source |\n| --- | --- |\n| 82.5 % | [2] |\n| 85 % limit | [1] |',
+            },
+            {
+              title: 'Analyst — analysis · qwen/qwen3-8b',
+              body: 'The second batch report gives a ratio of 82.5 % [2]; rule R2 sets the limit at 85 % [1]. The first batch has no ratio, so it is not assessed.',
+            },
+            {
+              title: 'Challenger — verification — PASS · qwen/qwen3-1.7b',
+              body: 'Every figure in the answer appears in the source it cites.',
+            },
+          ],
         },
       },
     },

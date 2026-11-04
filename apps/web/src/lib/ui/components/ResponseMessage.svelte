@@ -90,6 +90,15 @@
   let handover = $state<RailStage | undefined>();
   const receipt = $derived((events ?? []).findLast((event) => event.type === 'receipt'));
   const decision = $derived((events ?? []).findLast((event) => event.type === 'decision'));
+  // Each status with its offset from the run's start, for the execution timeline.
+  const timeline = $derived.by(() => {
+    const start = events?.[0]?.at ?? 0;
+    return (events ?? []).flatMap((event) =>
+      event.type === 'status'
+        ? [{ at: `+${((event.at - start) / 1000).toFixed(1)}s`, text: event.description }]
+        : [],
+    );
+  });
   const checks = $derived(
     (events ?? []).findLast((event) => event.type === 'sign-off')?.request.checks ?? [],
   );
@@ -126,10 +135,18 @@
       {:else}
         <div class="body" data-typing={typing ? '' : undefined} {@attach safeHtml(html)}></div>
       {/if}
-      {#if sources.length}<SourcesBar {sources} />{/if}
       {#if receipt && decision?.outcome === 'released'}
-        <ReceiptStrip receipt={receipt.receipt} {checks} releasedAt={new Date(decision.at)} />
+        <ReceiptStrip
+          receipt={receipt.receipt}
+          {checks}
+          releasedAt={new Date(decision.at)}
+          cited={sources
+            .filter((source) => text.includes(`[${source.index}]`))
+            .map((source) => source.title)}
+          {timeline}
+        />
       {/if}
+      {#if sources.length}<SourcesBar {sources} />{/if}
       {#if direct}
         <p class="direct">
           {m.message_direct_reply()} · <code>{direct.model}</code> · {direct.seconds.toFixed(1)}s — {m.message_direct_reason()}

@@ -1,18 +1,38 @@
 <script lang="ts">
   // The receipt under a released answer (own-4ce look S7, features F36-F37): labels saying how
   // the answer was produced, the fingerprint (click to copy) and the audit record, then what was
-  // checked.
+  // checked, then the folds: full provenance, each agent's output and the execution timeline.
   import type { Receipt, SignOffRequest } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
-  import { formatTime } from '$lib/ui/format';
+  import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
   import { COPY_HOLD_MS, writeClipboard } from './clipboard';
 
-  type Props = { receipt: Receipt; checks: SignOffRequest['checks']; releasedAt?: Date };
+  type Props = {
+    receipt: Receipt;
+    checks: SignOffRequest['checks'];
+    releasedAt?: Date;
+    /** The names of the sources the answer cites, for the Grounded label's hover. */
+    cited?: string[];
+    /** The run's status events with their offset from the start. */
+    timeline?: { at: string; text: string }[];
+  };
 
-  let { receipt, checks, releasedAt }: Props = $props();
+  let { receipt, checks, releasedAt, cited = [], timeline = [] }: Props = $props();
+
+  let open = $state<Record<string, boolean>>({});
+  const reservations = $derived(checks.filter((check) => check.verdict === 'review').length);
+  const clock = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  const folds = $derived([
+    ...(receipt.folds ?? []),
+    ...(timeline.length ? [{ title: 'Execution timeline', body: '' }] : []),
+  ]);
 
   let copied = $state(false);
-  const passed = $derived(checks.every((check) => check.verdict === 'pass'));
+  const passed = $derived(checks.every((check) => check.verdict !== 'fail'));
 
   async function copy() {
     if (await writeClipboard(receipt.fingerprint)) {
@@ -26,19 +46,31 @@
   <div class="labels">
     <span class="label"><b>Local</b> {receipt.model}</span>
     {#if receipt.sources > 0}
-      <span class="label"
+      <span
+        class="label"
+        data-label="grounded"
+        title={cited.length ? cited.map((name) => `Cited: ${name}`).join('\n') : undefined}
         ><b>Grounded</b> {receipt.sources} {receipt.sources === 1 ? 'source' : 'sources'}</span
       >
     {:else}
       <span class="label" data-tone="muted"><b>Not grounded</b> no documents used</span>
     {/if}
-    <span class="label" data-tone={passed ? 'good' : 'warn'}>
-      <b>Checked</b> Challenger {passed ? 'passed it' : 'failed it'}
+    <span class="label" data-label="checked" data-tone={passed && !reservations ? 'good' : 'warn'}>
+      <b>Checked</b> Challenger {passed ? 'passed it' : 'failed it'}{reservations
+        ? `, ${reservations} ${reservations === 1 ? 'reservation' : 'reservations'}`
+        : ''}
     </span>
     {#if receipt.signedBy}
       <span class="label">
-        <b>Released</b> by {receipt.signedBy}{releasedAt ? `, ${formatTime(releasedAt)}` : ''}
+        <b>Released</b> by {receipt.signedBy}{releasedAt ? `, ${clock.format(releasedAt)}` : ''}
       </span>
+    {/if}
+    <span class="label"><b>{Math.round(receipt.seconds)}s</b> working</span>
+    {#if receipt.externalCalls !== undefined}
+      <span class="label"
+        ><b>{receipt.externalCalls}</b>
+        {receipt.externalCalls === 1 ? 'external call' : 'external calls'}, observed</span
+      >
     {/if}
     <button
       type="button"
@@ -71,6 +103,32 @@
       </ul>
     </div>
   {/if}
+  {#each folds as fold (fold.title)}
+    <div class="fold">
+      <button
+        type="button"
+        class="fold-toggle"
+        aria-expanded={open[fold.title] ?? false}
+        onclick={() => (open[fold.title] = !open[fold.title])}
+      >
+        {fold.title}
+        <span class="caret" data-open={open[fold.title] ? '' : undefined}
+          ><Icon name="sort-caret-down" size={12} /></span
+        >
+      </button>
+      {#if open[fold.title]}
+        {#if fold.title === 'Execution timeline'}
+          <ol class="timeline">
+            {#each timeline as step, index (index)}
+              <li><span class="offset">{step.at}</span>{step.text}</li>
+            {/each}
+          </ol>
+        {:else}
+          <div class="fold-body" {@attach safeHtml(renderMarkdown(fold.body))}></div>
+        {/if}
+      {/if}
+    </div>
+  {/each}
 </div>
 
 <style>
@@ -203,6 +261,81 @@
 
   .text {
     flex: 1;
+  }
+
+  /* Folds (chat-messages look §5.5): 13.5 px muted toggles with a caret that turns. */
+  .fold {
+    margin-block-start: 6px;
+  }
+
+  .fold-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    padding-block: 3px;
+    color: var(--color-gray-500);
+    font-size: 13.5px;
+    transition: color 150ms;
+  }
+
+  .fold-toggle:hover {
+    color: var(--color-gray-900);
+  }
+
+  :global([data-theme='dark']) .fold-toggle {
+    color: var(--color-gray-400);
+  }
+
+  :global([data-theme='dark']) .fold-toggle:hover {
+    color: var(--color-gray-100);
+  }
+
+  .fold-toggle:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  .caret {
+    display: inline-flex;
+    transition: rotate 300ms;
+  }
+
+  .caret[data-open] {
+    rotate: 180deg;
+  }
+
+  .fold-body,
+  .timeline {
+    margin-block-end: 6px;
+    color: var(--color-prose);
+    font-size: var(--text-ui);
+    line-height: 1.625;
+  }
+
+  .fold-body :global(table) {
+    border-collapse: collapse;
+    font-size: var(--text-small);
+  }
+
+  .fold-body :global(:is(th, td)) {
+    padding: var(--spacing-1) var(--spacing-3);
+    border-block-end: 1px solid var(--color-line-1);
+    text-align: start;
+  }
+
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--text-small);
+  }
+
+  .offset {
+    display: inline-block;
+    min-inline-size: 4.5em;
+    color: var(--color-gray-500);
+    font-family: var(--font-mono);
+    font-size: var(--text-caption);
   }
 
   .by {

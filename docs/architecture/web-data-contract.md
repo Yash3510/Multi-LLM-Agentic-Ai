@@ -40,7 +40,7 @@ Events arrive in order. `at` is the server's time in milliseconds.
 | `source` | a `Source`: citation number, title, passage | the `[n]` citations and the sources list |
 | `sign-off` | the checks for the person to review, each with a verdict | the sign-off panel |
 | `decision` | `released` or `withheld`, and who decided | the Sign-off node and the panel's result |
-| `receipt` | fingerprint, model, seconds, source count, who signed | the receipt strip under the answer |
+| `receipt` | fingerprint, model, seconds, source count, who signed, external calls observed, and `folds` (titled markdown: full provenance and each agent's own output) | the receipt labels, then the folds; the execution timeline fold is built from the status events |
 | `done`, `stopped`, `error` | error: the server's `message` and optional plain-language `advice` | the end of the run; an error shows the run error card, which reads the cause from those two fields |
 
 ## The six roles

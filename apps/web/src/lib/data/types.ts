@@ -42,6 +42,10 @@ export interface Receipt {
   seconds: number;
   sources: number;
   signedBy?: string;
+  /** Connections that left the machine during the run, as observed. */
+  externalCalls?: number;
+  /** Folds under the receipt: full provenance and each agent's own output, as markdown. */
+  folds?: { title: string; body: string }[];
 }
 
 export interface Message {
