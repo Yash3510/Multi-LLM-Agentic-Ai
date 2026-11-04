@@ -215,6 +215,31 @@
     margin-block-start: var(--spacing-3);
   }
 
+  /* Tables and lists in the draft read as in the answer. */
+  .draft-text :global(table) {
+    margin-block: var(--spacing-2);
+    border-collapse: collapse;
+    font-size: var(--text-small);
+  }
+
+  .draft-text :global(:is(th, td)) {
+    padding: var(--spacing-1) var(--spacing-3);
+    border-block-end: 1px solid var(--color-line-1);
+  }
+
+  .draft-text :global(:is(th, td):not([align])) {
+    text-align: start;
+  }
+
+  .draft-text :global(th) {
+    font-weight: var(--font-weight-medium);
+  }
+
+  .draft-text :global(ul) {
+    padding-inline-start: 1.5em;
+    list-style: disc;
+  }
+
   .draft-text :global(cite) {
     padding: 1px 6px;
     border: 1px solid var(--color-gray-200);
