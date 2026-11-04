@@ -32,9 +32,45 @@
         root.setAttribute('data-density', density);
       })();
     </script>
+    <style>
+      /* The splash (entry look E0). It paints before any stylesheet loads, so its grounds name
+         the token values themselves: --ref-white and --ref-gray-900. The brand-kit mark sits
+         where the running app draws it, 86 px tall at 44 % of the viewport plus 5 px. */
+      html:has(#splash) {
+        overflow-y: hidden;
+      }
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background-color: #ffffff;
+      }
+      [data-theme='dark'] #splash {
+        background-color: #161616;
+      }
+      #splash img {
+        position: absolute;
+        inset-block-start: calc(44% + 5px);
+        inset-inline-start: 50%;
+        block-size: 86px;
+        inline-size: auto;
+        translate: -50% 0;
+      }
+      #splash .dark,
+      [data-theme='dark'] #splash .light {
+        display: none;
+      }
+      [data-theme='dark'] #splash .dark {
+        display: block;
+      }
+    </style>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
     <div style="display: contents">%sveltekit.body%</div>
+    <div id="splash" aria-hidden="true">
+      <img class="light" src="%sveltekit.assets%/brand/4ce-logomark-ink.svg" alt="" />
+      <img class="dark" src="%sveltekit.assets%/brand/4ce-logomark-white.svg" alt="" />
+    </div>
   </body>
 </html>
