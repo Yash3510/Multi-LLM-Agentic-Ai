@@ -12,6 +12,7 @@
   import StatusLine from './StatusLine.svelte';
   import SourcesBar from './SourcesBar.svelte';
   import ToolGroup from './ToolGroup.svelte';
+  import ReceiptStrip from './ReceiptStrip.svelte';
   import type { StreamEvent } from '$lib/data';
   import './message.css';
 
@@ -62,6 +63,11 @@
     ).values(),
   ]);
   const html = $derived(renderMarkdown(text, sources));
+  const receipt = $derived((events ?? []).findLast((event) => event.type === 'receipt'));
+  const decision = $derived((events ?? []).findLast((event) => event.type === 'decision'));
+  const checks = $derived(
+    (events ?? []).findLast((event) => event.type === 'sign-off')?.request.checks ?? [],
+  );
   // Text is still arriving: live, with some text, and not yet handed to the person.
   const typing = $derived(
     !finished && text.length > 0 && !(events ?? []).some((event) => event.type === 'sign-off'),
@@ -87,6 +93,9 @@
       {#if status}<div class="status">{status}</div>{/if}
       <div class="body" data-typing={typing ? '' : undefined} {@attach safeHtml(html)}></div>
       {#if sources.length}<SourcesBar {sources} />{/if}
+      {#if receipt && decision?.outcome === 'released'}
+        <ReceiptStrip receipt={receipt.receipt} {checks} releasedAt={new Date(decision.at)} />
+      {/if}
       {#if direct}
         <p class="direct">
           {m.message_direct_reply()} · <code>{direct.model}</code> · {direct.seconds.toFixed(1)}s — {m.message_direct_reason()}

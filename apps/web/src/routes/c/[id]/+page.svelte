@@ -3,12 +3,13 @@
   // chat-messages look §1-3): the top bar with the title, the thread from 72 px down, and the
   // composer at the bottom. Sending streams the answer from the data source
   // (web-data-contract.md); Stop aborts it.
-  import { data as source, type Message } from '$lib/data';
+  import { data as source, type Message, type StreamEvent } from '$lib/data';
   import { m } from '$lib/i18n/generated/messages.js';
   import Composer from '$lib/ui/components/Composer.svelte';
   import EgressIndicator from '$lib/ui/components/EgressIndicator.svelte';
   import IconButton from '$lib/ui/components/IconButton.svelte';
   import ResponseMessage from '$lib/ui/components/ResponseMessage.svelte';
+  import SignOffPanel from '$lib/ui/components/SignOffPanel.svelte';
   import TopBar from '$lib/ui/components/TopBar.svelte';
   import UserMessage from '$lib/ui/components/UserMessage.svelte';
 
@@ -25,6 +26,43 @@
     return () => controller?.abort();
   });
 
+  // The answer waiting for the person: its sign-off request arrived and no decision yet.
+  const waiting = $derived.by(() => {
+    const answer = messages.at(-1);
+    const events = answer?.role === 'response' ? (answer.events ?? []) : [];
+    const request = events.findLast((event) => event.type === 'sign-off');
+    if (!answer || !request || events.some((event) => event.type === 'decision')) return undefined;
+    const sources = events.flatMap((event) => (event.type === 'source' ? [event.source] : []));
+    return { answer, request: request.request, sources };
+  });
+
+  async function stream(answer: Message, events: AsyncIterable<StreamEvent>, signal: AbortSignal) {
+    try {
+      for await (const event of events) {
+        answer.events?.push(event);
+        if (event.type === 'delta') answer.text += event.text;
+        if (event.type === 'done' || event.type === 'error') answer.finished = true;
+      }
+    } finally {
+      if (signal.aborted) {
+        answer.events?.push({ type: 'stopped', at: Date.now() });
+        answer.finished = true;
+      }
+      controller = undefined;
+    }
+  }
+
+  function decide(outcome: 'released' | 'withheld') {
+    const answer = waiting?.answer;
+    if (!answer) return;
+    controller = new AbortController();
+    void stream(
+      answer,
+      source.decide(chat.id, outcome, 'Asha Rao', controller.signal),
+      controller.signal,
+    );
+  }
+
   async function ask(question: string) {
     const now = new Date();
     messages.push({ id: `u-${now.getTime()}`, role: 'user', text: question, at: now });
@@ -39,20 +77,7 @@
     // The pushed object is proxied; read it back so updates reach the screen.
     const answer = messages[messages.length - 1];
     controller = new AbortController();
-    const { signal } = controller;
-    try {
-      for await (const event of source.ask(chat.id, question, signal)) {
-        answer.events?.push(event);
-        if (event.type === 'delta') answer.text += event.text;
-        if (event.type === 'done' || event.type === 'error') answer.finished = true;
-      }
-    } finally {
-      if (signal.aborted) {
-        answer.events?.push({ type: 'stopped', at: Date.now() });
-        answer.finished = true;
-      }
-      controller = undefined;
-    }
+    await stream(answer, source.ask(chat.id, question, controller.signal), controller.signal);
   }
   const lastResponse = $derived(messages.findLastIndex((message) => message.role === 'response'));
 </script>
@@ -88,14 +113,24 @@
 
   <div class="composer">
     <div class="inner">
-      <Composer
-        model="Planner"
-        tools={7}
-        onsend={ask}
-        busy={controller !== undefined}
-        onstop={() => controller?.abort()}
-        placeholder={m.composer_reply_placeholder()}
-      />
+      {#if waiting}
+        <SignOffPanel
+          request={waiting.request}
+          draft={waiting.answer.text}
+          sources={waiting.sources}
+          model="qwen/qwen3-8b"
+          ondecide={decide}
+        />
+      {:else}
+        <Composer
+          model="Planner"
+          tools={7}
+          onsend={ask}
+          busy={controller !== undefined}
+          onstop={() => controller?.abort()}
+          placeholder={m.composer_reply_placeholder()}
+        />
+      {/if}
     </div>
   </div>
 </div>
