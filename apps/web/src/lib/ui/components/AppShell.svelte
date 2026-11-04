@@ -47,9 +47,9 @@
           <GroupHeading group={row.heading} first={index === 0} variant="sidebar" />
         {/if}
         <ListRow
-          href={`/chat/${row.id}`}
+          href={`/c/${row.id}`}
           variant="sidebar"
-          current={page.url.pathname === `/chat/${row.id}`}
+          current={page.url.pathname === `/c/${row.id}`}
         >
           <span class="truncate">{row.title}</span>
           <time class="ago" datetime={row.updated.toISOString()}>

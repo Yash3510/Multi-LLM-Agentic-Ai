@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A conversation at /chat/[id] (chat-composer look §1.3, chat-messages look §1-3): the top bar with the title,
+  // A conversation at /c/[id], as the running app addresses it (chat-composer look §1.3, chat-messages look §1-3): the top bar with the title,
   // the thread from 72 px down, and the composer at the bottom. The thread is a stand-in until
   // the chat API lands (WP-RT-01).
   import { page } from '$app/state';
