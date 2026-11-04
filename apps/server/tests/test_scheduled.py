@@ -1,0 +1,202 @@
+import json
+import os
+import sqlite3
+import uuid
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+from fource.common import set_clock
+from fource.ledger import load_private_key, sign_checkpoint
+from fource.server import cli, ledger_commands
+
+PASSWORD = "correct horse battery"
+EARLIER = "2026-01-01T00:00:00.000Z"
+
+
+@pytest.fixture
+def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A migrated SQLite database with a signing key in tmp_path, and scheduled checkpoints on.
+    The key is a throwaway one made for this test."""
+    monkeypatch.chdir(tmp_path)  # no .env from the repository
+    for name in [n for n in os.environ if n.startswith("FOURCE_")]:
+        monkeypatch.delenv(name)
+    monkeypatch.setenv("FOURCE_SECRET_KEY", "s" * 40)
+    database = tmp_path / "scheduled.db"
+    monkeypatch.setenv("FOURCE_DATABASE_URL", f"sqlite+aiosqlite:///{database.as_posix()}")
+    monkeypatch.setenv("FOURCE_LEDGER_CHECKPOINT_MINUTES", "60")
+    assert cli.main(["migrate"]) == 0
+    assert cli.main(["ledger", "keygen"]) == 0
+    return database
+
+
+def folder(env: Path) -> Path:
+    return env.parent / "data" / "ledger" / "checkpoints"
+
+
+def add_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("getpass.getpass", lambda prompt="": PASSWORD)
+    assert cli.main(["create-user", "ada@example.com", "--role", "Viewer"]) == 0
+
+
+def first_entry(env: Path) -> tuple[str, str]:
+    """The organisation (as entries name it) and hash of entry 1."""
+    row = sqlite3.connect(env).execute("SELECT org_id, hash FROM ledger_entries WHERE seq = 1")
+    org_hex, digest = row.fetchone()
+    return str(uuid.UUID(org_hex)), digest
+
+
+def jobs(env: Path) -> list[tuple[str, str, int, str | None]]:
+    query = "SELECT kind, state, attempts, last_error FROM jobs ORDER BY created_at"
+    return sqlite3.connect(env).execute(query).fetchall()
+
+
+def test_the_worker_signs_the_head_and_the_chain_verifies(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_user(monkeypatch)
+    capsys.readouterr()
+    assert cli.main(["worker", "--once"]) == 0
+    assert "Ran 1 job attempt." in capsys.readouterr().out
+    saved = folder(env) / "default-0000000001.json"
+    assert json.loads(saved.read_text(encoding="utf-8"))["seq"] == 1
+    assert cli.main(["worker", "--once"]) == 0  # the next one is an hour away
+    assert "Ran 0 job attempts." in capsys.readouterr().out
+    assert [file.name for file in folder(env).iterdir()] == ["default-0000000001.json"]
+    assert [(kind, state) for kind, state, _, _ in jobs(env)] == [
+        ("ledger.checkpoint", "done"),
+        ("ledger.checkpoint", "queued"),
+    ]
+    assert cli.main(["ledger", "verify"]) == 0
+    out = capsys.readouterr().out
+    assert "2 entries" in out and "up to entry 1" in out and out.rstrip().endswith("\nVerified.")
+
+
+def test_an_empty_ledger_is_not_signed(env: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["worker", "--once"]) == 0
+    assert not folder(env).exists()
+    assert jobs(env) == [("ledger.checkpoint", "done", 1, None)]
+
+
+def test_a_retry_keeps_the_file_it_wrote_for_the_same_entry(
+    env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    add_user(monkeypatch)
+    org, digest = first_entry(env)
+    key = load_private_key(env.parent / "data" / "ledger" / "signing-key.pem")
+    earlier = sign_checkpoint(key, org=org, seq=1, hash=digest, at=EARLIER)
+    folder(env).mkdir(parents=True)
+    saved = folder(env) / "default-0000000001.json"
+    saved.write_text(json.dumps(earlier.to_dict()), encoding="utf-8")  # its commit then failed
+    assert cli.main(["worker", "--once"]) == 0
+    assert json.loads(saved.read_text(encoding="utf-8"))["at"] == EARLIER  # kept, not replaced
+    assert jobs(env)[0][:2] == ("ledger.checkpoint", "done")
+    assert cli.main(["ledger", "verify"]) == 0
+
+
+def test_a_pass_that_broke_fails_the_run_even_when_no_job_ran(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A database error on the jobs table is not a job attempt, yet cron must see it: if the
+    # checkpoint job could never be queued or taken, no checkpoint would ever be signed.
+    async def broken(*_: object, **__: object) -> None:
+        raise RuntimeError("the jobs table cannot be read")
+
+    monkeypatch.setattr("fource.jobs.worker.take", broken)
+    capsys.readouterr()
+    assert cli.main(["worker", "--once"]) == 1
+    out = capsys.readouterr().out
+    assert "Ran 0 job attempts." in out and "1 organisation pass failed." in out
+    assert "the jobs table cannot be read" not in out
+
+
+def test_a_file_that_signs_another_entry_fails_the_attempt(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    add_user(monkeypatch)
+    org, _ = first_entry(env)
+    key = load_private_key(env.parent / "data" / "ledger" / "signing-key.pem")
+    other = sign_checkpoint(key, org=org, seq=1, hash="f" * 64, at=EARLIER)
+    folder(env).mkdir(parents=True)
+    (folder(env) / "default-0000000001.json").write_text(json.dumps(other.to_dict()))
+    capsys.readouterr()
+    assert cli.main(["worker", "--once"]) == 1  # a script or cron sees that the pass failed
+    out = capsys.readouterr().out
+    assert "Ran 1 job attempt." in out and "1 job attempt failed." in out
+    [(kind, state, attempts, error)] = jobs(env)
+    assert (kind, state, attempts) == ("ledger.checkpoint", "queued", 1)  # retried later
+    assert error is not None and "may have been cut" in error
+    count = sqlite3.connect(env).execute("SELECT count(*) FROM ledger_entries").fetchone()
+    assert count == (1,)  # the checkpoint entry rolled back with the attempt
+
+
+def test_an_unreadable_file_in_the_way_is_not_reported_as_a_cut_chain(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An empty or half-written file says nothing about the chain, so the alarm about a cut
+    chain stays for a file that signs a different entry."""
+    add_user(monkeypatch)
+    folder(env).mkdir(parents=True)
+    (folder(env) / "default-0000000001.json").write_text("", encoding="utf-8")
+    capsys.readouterr()
+    assert cli.main(["worker", "--once"]) == 1
+    [(_, _, _, error)] = jobs(env)
+    assert error is not None
+    assert "unreadable checkpoint file default-0000000001.json" in error
+    assert "cut" not in error
+
+
+@pytest.mark.parametrize("failing", ["json.dumps", "os.fsync"])
+def test_a_failed_write_leaves_no_file_and_the_next_attempt_can_save(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failing: str
+) -> None:
+    key = Ed25519PrivateKey.generate()
+    signed = sign_checkpoint(key, org="o", seq=1, hash="a" * 64, at=EARLIER)
+    file = tmp_path / "checkpoints" / "default-0000000001.json"
+    file.parent.mkdir()
+
+    def full(*_: object, **__: object) -> str:
+        raise OSError("no space left on device")
+
+    with monkeypatch.context() as broken:
+        broken.setattr(f"fource.server.ledger_commands.{failing}", full)
+        with pytest.raises(OSError):
+            ledger_commands.save_checkpoint(signed, file)
+    assert list(file.parent.iterdir()) == []  # neither the file nor a leftover of the attempt
+    ledger_commands.save_checkpoint(signed, file)
+    assert [each.name for each in file.parent.iterdir()] == [file.name]
+    with pytest.raises(FileExistsError):  # an existing file is never replaced
+        ledger_commands.save_checkpoint(signed, file)
+    assert json.loads(file.read_text(encoding="utf-8")) == signed.to_dict()
+
+
+def checkpoint_entries(env: Path) -> int:
+    query = "SELECT count(*) FROM ledger_entries WHERE type = 'checkpoint'"
+    return int(sqlite3.connect(env).execute(query).fetchone()[0])
+
+
+def test_an_idle_ledger_is_not_signed_again_until_something_is_written(
+    env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A checkpoint of a checkpoint vouches for nothing new: it would only add an entry and a
+    file every interval to a ledger nobody writes to."""
+    add_user(monkeypatch)
+    moment = datetime.now(UTC)
+    set_clock(lambda: moment)
+    try:
+        assert cli.main(["worker", "--once"]) == 0
+        moment += timedelta(hours=2)
+        assert cli.main(["worker", "--once"]) == 0  # due again, with nothing new to vouch for
+        assert checkpoint_entries(env) == 1
+        assert len(list(folder(env).iterdir())) == 1
+        assert [state for _, state, _, _ in jobs(env)] == ["done", "done"]
+        monkeypatch.setattr("getpass.getpass", lambda prompt="": PASSWORD)
+        assert cli.main(["create-user", "grace@example.com", "--role", "Viewer"]) == 0
+        moment += timedelta(hours=2)
+        assert cli.main(["worker", "--once"]) == 0  # a new entry to vouch for
+        assert checkpoint_entries(env) == 2
+        assert len(list(folder(env).iterdir())) == 2
+    finally:
+        set_clock(None)

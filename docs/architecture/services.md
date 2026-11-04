@@ -3,7 +3,7 @@ title: Bundled services
 type: architecture
 status: active
 owner: R4
-updated: 2026-10-12
+updated: 2026-10-31
 covers:
   - deploy/compose/
   - deploy/config/
@@ -17,8 +17,8 @@ The services 4CE talks to over the network. Each runs unmodified as its own cont
 
 | Service | Version | Licence | Used for |
 | --- | --- | --- | --- |
-| PostgreSQL | 18.6 | PostgreSQL | State, cases, the ledger, the job queue, full-text search, row-level security |
-| Redis | 8.10.2 | AGPL-3.0 (of its three options) | Live events, short caches, locks, rate limits. Jobs and run state stay in PostgreSQL, so a Redis restart loses no work. |
+| PostgreSQL | 18.6 | PostgreSQL | State, cases, the ledger, the job queue ([jobs](jobs.md)), full-text search, row-level security |
+| Redis | 8.10.2 | AGPL-3.0 (of its three options) | Live events, short caches, locks, the sign-in rate limit ([live state](live.md)). Jobs and run state stay in PostgreSQL, so a Redis restart loses no work. |
 | MinIO | `RELEASE.2025-10-15T17-29-55Z`, built from source | AGPL-3.0 | Originals, page renders, deliverables, pack bundles |
 | Prometheus | 3.15.0 | Apache-2.0 | Operations metrics |
 | Grafana | 13.2.3 (OSS) | AGPL-3.0 | Operations dashboards for admins, later reached through the 4CE login |
@@ -26,11 +26,13 @@ The services 4CE talks to over the network. Each runs unmodified as its own cont
 ## Running them
 
 ```
-just dev     # build MinIO the first time, start everything, wait until healthy
-just down    # stop everything; the data volumes are kept
+just services  # build MinIO the first time, start everything, wait until healthy
+just down      # stop everything; the data volumes are kept
 ```
 
-Both read `.env` (copy [`.env.example`](../../.env.example) and replace every `change-me`); the stack refuses to start without its passwords. `just dev` publishes each service on `127.0.0.1` only: PostgreSQL 5432, Redis 6379, MinIO 9000 (console 9001), Prometheus 9090, Grafana 3000.
+Both read `.env` (copy [`.env.example`](../../.env.example) and replace every `change-me`); the stack refuses to start without its passwords. `just services` publishes each service on `127.0.0.1` only: PostgreSQL 5432, Redis 6379, MinIO 9000 (console 9001), Prometheus 9090, Grafana 3000.
+
+The server uses Redis only when `FOURCE_REDIS_URL` is set (commented out in [`.env.example`](../../.env.example)); without it, live state stays in the process ([live state](live.md)).
 
 ## How they are set up
 
@@ -38,6 +40,7 @@ Both read `.env` (copy [`.env.example`](../../.env.example) and replace every `c
 - **[`deploy/compose/dev.yml`](../../deploy/compose/dev.yml)** publishes the ports for development. Publishing needs a second, non-internal network, which also gives the services a route out, so it never ships in an appliance.
 - **Nothing phones home.** Grafana's usage reporting, update and plugin checks, news feed, Gravatar, external snapshots and plugin preinstalls are off; MinIO's update check and call-home are off.
 - **Configuration** lives in `deploy/config/<service>/`: Prometheus's scrape list, Grafana's provisioned Prometheus data source, and the MinIO build.
+- **PostgreSQL's app role.** `deploy/config/postgres/10-app-role.sh` runs once on a new data volume and creates `fource_app` from `FOURCE_POSTGRES_APP_PASSWORD`: not a superuser and unable to bypass row-level security. The server connects as it; migrations run as the owner (`FOURCE_DATABASE_ADMIN_URL`). A volume created before this script has no app role; `just test-postgres` creates it, or run the script's `CREATE ROLE` line with `docker compose --env-file .env -f deploy/compose/core.yml exec postgres psql -U fource -d fource`.
 
 ## MinIO
 

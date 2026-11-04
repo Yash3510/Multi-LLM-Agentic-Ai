@@ -96,3 +96,30 @@ licence = "BSD-3-Clause"
 checked = "LICENSE file in the wheel, 2026-10-12"
 """
     assert licence_gate.load_reviewed(text) == {("nodeenv", "1.11.0"): "BSD-3-Clause"}
+
+
+APPROVALS = """
+[[approved]]
+name = "psycopg-binary"
+licence = "LGPL-3.0-only"
+adr = "ADR-0037"
+"""
+
+
+def test_approvals_are_read_by_package_name() -> None:
+    assert licence_gate.load_approved(APPROVALS) == {"psycopg-binary": "LGPL-3.0-only"}
+
+
+def test_an_approved_review_licence_passes_for_that_package_only() -> None:
+    approved = licence_gate.load_approved(APPROVALS)
+    ok = [component("psycopg_binary", "3.3.6", "LGPL-3.0-only")]
+    assert licence_gate.check_components(ok, reviewed={}, approved=approved) == []
+    other = [component("other-lgpl", "1.0", "LGPL-3.0-only")]
+    assert licence_gate.check_components(other, reviewed={}, approved=approved) != []
+
+
+def test_an_approval_lapses_when_the_licence_changes() -> None:
+    approved = licence_gate.load_approved(APPROVALS)
+    changed = [component("psycopg-binary", "4.0", "AGPL-3.0-only")]
+    problems = licence_gate.check_components(changed, reviewed={}, approved=approved)
+    assert problems and "denied" in problems[0]

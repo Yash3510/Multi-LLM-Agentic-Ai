@@ -29,9 +29,9 @@ Folders marked _planned_ don't exist yet; they arrive with their work packages.
 | --- | --- | --- |
 | `.github/` | `CODEOWNERS`, `pull_request_template.md`, `ISSUE_TEMPLATE/`, `dependabot.yml`, `workflows/` | partly built |
 | `.obsidian/` | shared vault settings only: `app.json`, `core-plugins.json`, `templates.json` | built |
-| `apps/server/` | the FastAPI app: thin wiring, no business logic | _planned_ |
+| `apps/server/` | the FastAPI app: thin wiring, no business logic, and the one Alembic migration history | package and migrations built; routes _planned_ |
 | `apps/web/` | the SvelteKit UI and Pack Studio ([frontend](frontend.md)) | _planned_; on hold here while Pranay, the frontend owner, develops it |
-| `core/<package>/` | sector-neutral Python packages, all uv workspace members | `common` and `packs` built |
+| `core/<package>/` | sector-neutral Python packages, all uv workspace members | `common`, `db`, `identity`, `jobs`, `ledger`, `live` and `packs` built |
 | `packs/sector/<pack-id>/`, `packs/cross/<pack-id>/` | one industry or one department each | _planned_ |
 | `skills/<skill-name>/` | 4CE's built-in skills | _planned_ |
 | `tests/` | tests that cross package boundaries: `integration/`, `e2e/`, `security/` | _planned_ |
@@ -72,7 +72,7 @@ core/rules/
 - `apps/*` wire everything together and hold no business logic.
 - `tools/` may import anything, and nothing imports `tools/`.
 
-import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. The apps-above-core contract arrives with `apps/server`, and the packs rule with the Pack SDK.
+import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. A layers contract puts `fource.server` above `fource.identity` above `fource.jobs` above `fource.live` above `fource.ledger` above `fource.db` above `fource.common`, so the core never imports the server. `fource.live` may not import the database, and only `fource.live` imports Redis. A forbidden-imports contract keeps the ledger verifier's modules (`chain`, `checkpoints`, `verify`) free of `fource.common`, `fource.db`, SQLAlchemy and pydantic; the packs rule arrives with the Pack SDK.
 
 ## Naming
 
@@ -155,14 +155,15 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 
 ### Checks
 
-`just check` runs every check locally, exactly as CI does. Before each commit, the git hooks (`.pre-commit-config.yaml`, installed by `just setup`) run the fast ones: ruff, the repo, neutrality and docs checks, and gitleaks on the staged changes; the commit-message hook rejects anything that isn't a Conventional Commit.
+`just check` runs every check locally, exactly as CI does. Before each commit, the git hooks (`.pre-commit-config.yaml`, installed by `just setup`) run the fast ones: ruff, the repo, neutrality and docs checks, and gitleaks on the staged changes; the commit-message hooks reject anything that isn't a Conventional Commit, and any message holding a sector term, a tool's name or attribution, or words about how the work was organised rather than what changed ([`tools/commit_words.py`](../../tools/commit_words.py), which keeps its word lists as digests; a teammate's `Co-authored-by` is fine).
 
 | Check | Tool | State |
 | --- | --- | --- |
 | Python formatting and lint | ruff | built |
-| Python types | pyright (strict for `core/`) | built |
+| Python types | pyright (strict for `core/` and `apps/`) | built |
 | Repo hygiene, and every pack's `pack.yaml` against the spec | [`tools/repo_check.py`](../../tools/repo_check.py) | built |
 | Sector neutrality | [`tools/neutrality_check.py`](../../tools/neutrality_check.py) | built |
+| Commit message words | [`tools/commit_words.py`](../../tools/commit_words.py), a commit-msg hook | built |
 | Tests | pytest | built |
 | Frontend formatting, lint and types | prettier, eslint, svelte-check | _planned_ with `apps/web` |
 | Package boundaries | import-linter (`just imports`) | built |
@@ -177,14 +178,21 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | --- | --- |
 | `just setup` | Install Python through uv, sync every package from the lockfile (failing if it is out of date), and install pre-commit and its git hooks |
 | `just sync` | Start of every session: fast-forward `4ce-core` from GitHub and list the docs pages changed since your last sync. It never overwrites local commits. |
-| `just test` | Unit tests |
+| `just test` | Every test except the PostgreSQL-only and Redis-only ones |
+| `just test-postgres` | The PostgreSQL-only tests; run `just services` first |
+| `just test-redis` | The Redis-only tests; needs `FOURCE_TEST_REDIS_URL`, CI's Redis job |
 | `just lint` | Formatting, lint and types |
 | `just repo-check` | The repo check |
 | `just imports` | The package-boundary contracts |
 | `just neutrality` | The neutrality check |
 | `just licences` | The SBOM, licence gate and import scan |
 | `just secrets` | gitleaks over the branch's whole history |
-| `just dev` | Start the bundled services on localhost and wait until they are healthy |
+| `just dev` | Bring the database up to date and run the server with live reload (SQLite unless `.env` says PostgreSQL). Behind a proxy, run `fource-server serve --forwarded-allow-ips <proxy address>` instead ([API](api.md#running-it)); the proxy must set `X-Forwarded-For`, and the list is never `*` |
+| `just migrate` | Bring the database schema up to date |
+| `just create-user <email> --role <role>` | Add a user; asks for the password |
+| `just worker` | Run queued jobs; `--once` for the due ones |
+| `just ledger <keygen\|checkpoint\|verify>` | Create the ledger signing key, sign the chain head, or check the chain ([ledger](ledger.md)) |
+| `just services` | Start the bundled services on localhost and wait until they are healthy |
 | `just down` | Stop the bundled services, keeping their data |
 | `just docs` | The docs check; add `--base origin/4ce-core` for the PR rules |
 | `just new-package <name>` | Scaffold `core/<name>/` from the package template and install it |

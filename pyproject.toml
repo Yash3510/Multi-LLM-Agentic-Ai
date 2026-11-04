@@ -8,6 +8,8 @@ requires-python = ">=3.12"
 
 [dependency-groups]
 dev = [
+    "anyio>=4.15.1",
+    "httpx>=0.28.1",
     "import-linter>=2.15",
     "jsonschema>=4.26.0",
     "pyright>=1.1.414",
@@ -21,7 +23,7 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = ["core/*"]
+members = ["core/*", "apps/*"]
 
 [tool.ruff]
 line-length = 100
@@ -36,12 +38,13 @@ known-first-party = ["fource"]
 
 [tool.pyright]
 pythonVersion = "3.12"
-include = ["core", "tools"]
-strict = ["core"]
+include = ["core", "apps", "tools"]
+strict = ["core", "apps"]
 extraPaths = ["tools"]
 
 [tool.importlinter]
 root_packages = ["fource"]
+include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "common depends on no other 4CE package"
@@ -57,12 +60,85 @@ allowed_importers = ["fource.common"]
 
 [tool.pytest.ini_options]
 # Every package has a tests/ folder, so test file names repeat across packages.
-addopts = ["--import-mode=importlib"]
-testpaths = ["core", "tools"]
+addopts = ["--import-mode=importlib", "--strict-markers"]
+testpaths = ["core", "apps", "tools"]
 pythonpath = ["tools"]
+markers = [
+    "postgres: needs PostgreSQL 18; run with just test-postgres after just services",
+    "redis: needs a Redis 8 server the tests may write to (FOURCE_TEST_REDIS_URL); run with just test-redis",
+]
 
 [[tool.importlinter.contracts]]
 name = "Only the public API of fource.packs is imported from outside it"
 type = "protected"
 protected_modules = ["fource.packs.*"]
 allowed_importers = ["fource.packs"]
+
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.db is imported from outside it"
+type = "protected"
+protected_modules = ["fource.db.*"]
+allowed_importers = ["fource.db"]
+
+[[tool.importlinter.contracts]]
+name = "The server sits above the core packages; core never imports it"
+type = "layers"
+layers = [
+    "fource.server",
+    "fource.identity",
+    "fource.jobs",
+    "fource.live",
+    "fource.ledger",
+    "fource.db",
+    "fource.common",
+]
+
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.identity is imported from outside it"
+type = "protected"
+protected_modules = ["fource.identity.*"]
+allowed_importers = ["fource.identity"]
+
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.ledger is imported from outside it"
+type = "protected"
+protected_modules = ["fource.ledger.*"]
+allowed_importers = ["fource.ledger"]
+
+[[tool.importlinter.contracts]]
+name = "The ledger verifier imports only the standard library and cryptography"
+type = "forbidden"
+source_modules = ["fource.ledger.chain", "fource.ledger.checkpoints", "fource.ledger.verify"]
+forbidden_modules = ["fource.common", "fource.db", "sqlalchemy", "pydantic", "pydantic_settings"]
+
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.jobs is imported from outside it"
+type = "protected"
+protected_modules = ["fource.jobs.*"]
+allowed_importers = ["fource.jobs"]
+
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.live is imported from outside it"
+type = "protected"
+protected_modules = ["fource.live.*"]
+allowed_importers = ["fource.live"]
+
+[[tool.importlinter.contracts]]
+name = "The live store never touches the database: nothing in it is durable"
+type = "forbidden"
+source_modules = ["fource.live"]
+forbidden_modules = ["fource.db", "fource.ledger", "sqlalchemy"]
+
+[[tool.importlinter.contracts]]
+name = "Redis is reached only through fource.live"
+type = "forbidden"
+source_modules = [
+    "fource.common",
+    "fource.db",
+    "fource.ledger",
+    "fource.jobs",
+    "fource.identity",
+    "fource.server",
+]
+forbidden_modules = ["redis"]
+allow_indirect_imports = true

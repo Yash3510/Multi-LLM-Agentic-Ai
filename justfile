@@ -7,10 +7,11 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 default:
     @just --list
 
-# Install Python through uv, sync every package and install the git hooks
+# Install Python through uv, sync every package, create .env, and install the git hooks
 setup:
     uv python install
     uv sync --all-packages --locked
+    uv run python tools/dev/env.py
     uv tool install pre-commit==4.6.2
     pre-commit install --install-hooks --allow-missing-config
 
@@ -18,9 +19,17 @@ setup:
 sync:
     uv run python tools/sync.py
 
-# Unit and integration tests
+# Every test except the PostgreSQL-only and Redis-only ones
 test:
-    uv run pytest
+    uv run pytest -m "not postgres and not redis"
+
+# The PostgreSQL-only tests; run just services first
+test-postgres:
+    uv run pytest -m postgres
+
+# The Redis-only tests: FOURCE_TEST_REDIS_URL must name a Redis 8 server they may write to (CI's)
+test-redis:
+    uv run pytest -m redis
 
 # Formatting, lint and types
 lint:
@@ -64,8 +73,29 @@ licences:
     uv run python tools/import_scan.py build/sbom/python.cdx.json
     uv run python tools/licence_gate.py --bundle
 
-# Start the bundled services on localhost and wait until they are healthy (needs .env)
+# Run the server with live reload, after bringing the database up to date (SQLite by default)
 dev:
+    uv run fource-server migrate
+    uv run fource-server serve --reload
+
+# Run queued jobs until stopped; just worker --once runs the due ones and exits
+worker *args:
+    uv run fource-server worker {{args}}
+
+# Bring the database schema up to date
+migrate:
+    uv run fource-server migrate
+
+# Add a user, e.g. just create-user you@example.com --role Admin (asks for a password)
+create-user *args:
+    uv run fource-server create-user {{args}}
+
+# The evidence ledger: just ledger keygen | checkpoint | verify (docs/architecture/ledger.md)
+ledger *args:
+    uv run fource-server ledger {{args}}
+
+# Start the bundled services on localhost and wait until they are healthy (needs .env)
+services:
     docker compose --env-file .env -f deploy/compose/core.yml -f deploy/compose/dev.yml up --detach --build --wait
 
 # Stop the bundled services; their data volumes are kept

@@ -1,0 +1,108 @@
+---
+title: "Ledger"
+type: architecture
+status: active
+owner: R1
+updated: 2026-11-03
+covers:
+  - core/ledger/
+  - apps/server/src/fource/server/ledger_commands.py
+tags: [4ce, architecture, ledger, security]
+---
+
+# Ledger
+
+The evidence ledger records every action 4CE takes as a hash-chained, insert-only list of entries per organisation, so a later edit, deletion, reordering or cut can be detected. The code is [`core/ledger`](../../core/ledger/README.md); the three commands are in [`ledger_commands.py`](../../apps/server/src/fource/server/ledger_commands.py) and listed in the [API](api.md#running-it) page.
+
+## Entries
+
+Each organisation has its own chain, counting from 1. An entry holds hashes and ids, never content (master plan Appendix B):
+
+| Field | What it holds |
+| --- | --- |
+| `seq` | Its number in the organisation's chain |
+| `at` | UTC time with milliseconds: `2026-11-14T10:22:31.512Z` |
+| `org` | The organisation's id |
+| `run`, `case` | The run and case it belongs to, or null (runs and cases come later) |
+| `type` | One of `EntryType`: `checkpoint`, the five identity types of [ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md), and `identity.signin.throttled` ([ADR-0026](../adr/0026-redis-for-live-state.md)) |
+| `actor` | `system`, `anonymous` or `user:<id>` |
+| `inputs_sha256`, `outputs_sha256` | SHA-256 (64 hex digits) of what went in and came out, or null. Today two entries set one, both keyed hashes: a failed sign-in with an unknown email and `identity.signin.throttled` (the client address); see [identity](identity.md#ledger) |
+| `refs` | Short named strings (names in lower snake case, values printable text of up to 1000 characters): ids, reasons, times |
+| `prev` | The previous entry's hash; 64 zeros for the first |
+| `hash` | SHA-256 of all the fields above |
+
+`make_entry` accepts exactly one form per value (lower-case UUIDs, the time format above, and so on) and raises `ValueError` for anything else, because a malformed entry is a bug in the code writing it.
+
+**The hash** is SHA-256, in hex, of every field but `hash`, as JSON with sorted keys, no spaces and UTF-8 text. For seq 1, at `2026-11-14T10:22:31.512Z`, org `0192f5a0-0000-7000-8000-000000000001`, type `identity.user.create`, actor `system`, refs `{"user": "0192f5a0-0000-7000-8000-0000000000aa", "roles": "Admin"}`, everything else null and `prev` the 64 zeros, the hash is `29c04f35f9fa3620715310e44047300b908992276697f036c12778ffae208585` (pinned in `core/ledger/tests/test_chain.py`; rerun by hand when this page was written).
+
+## Writing
+
+`append(session, type, actor=, refs=, …)` writes in the caller's session, so the entry is committed with its action or not at all. It first writes the organisation's row in `ledger_heads` (insert if missing, then add one to `seq`), which locks that row on PostgreSQL and takes SQLite's write lock: parallel writers queue, and numbers are never shared or skipped. A rolled-back action takes its number back. The head row is not evidence and the verifier never reads it.
+
+## Insert-only
+
+- Triggers refuse UPDATE and DELETE on `ledger_entries` on both engines, and TRUNCATE on PostgreSQL ("ledger_entries is insert-only").
+- On PostgreSQL the app role (`fource_app`) may only SELECT and INSERT entries, under row-level security like every table ([database](database.md#row-level-security)). The server also refuses to start as a role that is a superuser, bypasses row-level security, or owns (or is a member of the owner of) a table under row-level security.
+- The trigger stops the table owner too, but the owner can disable it (or turn off the forced row-level security), and a superuser bypasses everything. Signed checkpoints kept outside the database are what detect that.
+
+## Checkpoints and the key
+
+- `just ledger keygen` creates the installation's Ed25519 key at `FOURCE_LEDGER_KEY_FILE` (default `<FOURCE_DATA_DIR>/ledger/signing-key.pem`, with `FOURCE_DATA_DIR` defaulting to `data`; git-ignored), with the public key beside it (`signing-key.pub.pem`). It never overwrites either file: if one exists it changes nothing and exits 1. The private key is owner-only (mode 0600) on Linux and macOS; on Windows it takes the folder's permissions, so keep the data folder private. Back the private key up; give the public key to auditors.
+- `just ledger checkpoint [--org SLUG] [--out DIR]` signs the chain head, records the signature as the next entry (type `checkpoint`, actor `system`, refs `seq`, `hash`, `key`, `signature`), prints the checkpoint as JSON and writes it to `<FOURCE_DATA_DIR>/ledger/checkpoints/<slug>-<seq>.json` (`<slug>` is the organisation's slug; `seq` padded to ten digits, the entry that was signed). **Keep a copy off the machine** (print it, or put it on write-once storage): only an outside copy can prove how long the chain was.
+- A checkpoint file is never overwritten, and is complete or absent: the text is written and synced to a temporary file beside it, then linked into place (a link, unlike a rename, refuses to replace a file on every platform), and the temporary file is removed. If the file exists, the checkpoint entry is still recorded, the JSON is printed, the existing file is left as it is and the command exits 1. The same applies when the file cannot be saved: keep the printed JSON. A filesystem that cannot make hard links (some network shares) fails the save with the system's reason; the command reports it, and the scheduled job's attempt fails and is retried until the folder is on a filesystem that can.
+- A checkpoint signs the bytes `4ce-ledger-checkpoint-v1\n` followed by the canonical `{org, seq, hash, at, key}`, where `key` is the SHA-256 of the raw public key.
+- **Who signs.** People run `just ledger checkpoint`, which always signs. When `FOURCE_LEDGER_CHECKPOINT_MINUTES` is set, the worker signs every organisation's head that often ([jobs](jobs.md#recurring-and-scheduled-jobs), [ADR-0014](../adr/0014-ledger-with-signed-checkpoints.md)). Nothing in CI or the tests signs with a real installation key; tests use throwaway keys.
+
+## Verifying
+
+`just ledger verify [--org SLUG] [--public-key FILE] [--checkpoints DIR]` reads the organisation's chain and every checkpoint file of that organisation in the folder (default `<FOURCE_DATA_DIR>/ledger/checkpoints`), uses the public key beside the private key unless `--public-key` is given, and reports each problem as `entry N: kind: message`. When it has a public key it first prints `Checked against key <id>.`, the SHA-256 of the raw public key. **An auditor should verify with their own copies** of the public key (`--public-key`) and of the checkpoint files (`--checkpoints`), not the ones on the machine being checked, and compare the printed key id with the one they hold:
+
+| Problem | Means |
+| --- | --- |
+| `altered` | an entry's contents don't match its hash (or its number isn't a whole number) |
+| `broken_link` | an entry doesn't link to the one before it |
+| `missing` | numbers are skipped |
+| `out_of_order` | numbers go backwards |
+| `wrong_org` | an entry or checkpoint of another organisation |
+| `bad_checkpoint` | a checkpoint, in an entry or a file, whose signature or references are wrong |
+| `checkpoint_mismatch` | the chain differs from what a checkpoint signed (rewritten) |
+| `truncated` | a checkpoint signed an entry that is gone (cut tail) |
+| `unreadable` | the database could not return an entry or the ones after it, so they were not checked |
+
+The exit code and the last line:
+
+| Exit | Last line | Means |
+| --- | --- | --- |
+| 0 | `Verified.` | no problems, every signature checked |
+| 0 | `Verified through entry N; entries after it are not covered by any checkpoint.` | the same, but entries after the last outside checkpoint can't be shown intact |
+| 1 | `Failed.` | at least one problem found in the chain or the checkpoints |
+| 1 | a message naming the path | an explicit `--public-key` file or `--checkpoints` folder that doesn't exist, or a key, folder or file that could not be read or is unusable; nothing is checked |
+| 1 | `There is no organisation '<slug>'.` | the organisation doesn't exist; nothing is checked |
+| 1 | ``The database isn't set up yet: run `just migrate` first.`` | the database has no ledger tables yet (on either engine); nothing is checked |
+| 1 | `Could not read the database: <ErrorClass>.` | any other database error; the message never repeats the error's text or the database URL |
+| 2 | `Incomplete: nothing wrong found, but not all checked.` | there are signatures to check but no public key at the default place (the output names where it looked); never reported as verified. With nothing signed, a missing default key is not an error and the run can exit 0 |
+
+Exit 0 is not proof of the chain's length: a cut-off tail is only visible against a checkpoint that was signed with the key and kept outside the database. So when no valid outside checkpoint anchors the chain, even a clean run prints "The chain's length is not proven …" before `Verified.`, and when entries follow the last anchor it says they are not covered and to make a new checkpoint. The newest checkpoint entry always follows the entry it signs; it alone is not counted as uncovered.
+
+Anything that cannot be read is a failure (exit 1), never "no checkpoints": an explicit `--checkpoints` folder that doesn't exist, an unreadable or malformed checkpoint file, key file or folder, and a default folder that is a dangling link. Only a missing default folder means none. Rows changed in the database (any odd cell value) are reported as problems, never a crash.
+
+The verifier (`chain.py`, `checkpoints.py`, `verify.py`) uses only the standard library and `cryptography`, and takes entries from anywhere, so it can later run on an auditor's machine without a database. An import contract (`just imports`) keeps `fource.common`, `fource.db`, SQLAlchemy and pydantic out of those three modules.
+
+## Known limits
+
+- **SQLite's `INSERT OR REPLACE`** gets past the insert-only triggers on the development engine. PostgreSQL has no REPLACE and the app role has no UPDATE.
+- **The owner or a superuser between checkpoints:** they can disable a trigger and cut the newest entries unseen until the next outside checkpoint.
+- **Failed sign-ins still grow the ledger:** at most `FOURCE_SIGNIN_ATTEMPTS_PER_MINUTE` (30) per client address per minute, plus one `identity.signin.throttled` entry per window ([live state](live.md#the-sign-in-rate-limit)). The ledger is insert-only, so rows can't be pruned without breaking verification.
+- **Checkpoint folders need hard links:** the atomic write links a finished file into place, so a folder on a filesystem without hard links, such as FAT or exFAT (most USB drives and SD cards), never gets a checkpoint file (the save is reported as failed; nothing partial is left). Write checkpoints to a local disk (`FOURCE_DATA_DIR`, or `--out`) and copy the file to removable media afterwards.
+- **No key rotation yet.**
+- **A SQLite batch rebuild of `ledger_entries` must recreate its triggers** ([database](database.md#known-limits)).
+- **PostgreSQL from a Windows host is untested** ([database](database.md#known-limits)).
+- **Export, QR codes and evidence packs** are not built; they come with the release work packages.
+
+## Decisions
+
+[ADR-0014](../adr/0014-ledger-with-signed-checkpoints.md) (the ledger) and [ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md) (every action writes an entry), both still proposed.
+
+## Acceptance
+
+Edits, deletions, reordering and, against a checkpoint, truncation are detected: `core/ledger/tests/test_verify.py` and `apps/server/tests/test_cli.py`. On PostgreSQL the ledger can't be changed or emptied by the app role: `apps/server/tests/test_postgres.py`, run in CI's PostgreSQL job.

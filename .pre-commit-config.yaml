@@ -47,3 +47,8 @@ repos:
         entry: uv run python tools/repo_check.py --commit-msg
         language: system
         stages: [commit-msg]
+      - id: commit-words
+        name: commit message words
+        entry: uv run python tools/commit_words.py
+        language: system
+        stages: [commit-msg]

@@ -1,0 +1,22 @@
+[project]
+name = "fource-ledger"
+version = "0.1.0"
+description = "The evidence ledger: an insert-only hash chain per organisation, signed checkpoints and the verifier."
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=50.0.2",
+    "fource-common",
+    "fource-db",
+    "sqlalchemy[asyncio]>=2.1.4",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "fource.ledger"
+
+[tool.uv.sources]
+fource-common = { workspace = true }
+fource-db = { workspace = true }
