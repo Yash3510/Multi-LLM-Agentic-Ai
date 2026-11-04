@@ -35,5 +35,15 @@
   "shell_user_menu": "उपयोगकर्ता मेनू",
   "shell_temporary_chat": "अस्थायी चैट",
   "shell_controls": "नियंत्रण",
-  "shell_chat_actions": "चैट क्रियाएँ"
+  "shell_chat_actions": "चैट क्रियाएँ",
+  "composer_label": "संदेश",
+  "composer_placeholder": "अपने दस्तावेज़ों के बारे में पूछें, या 4CE को कोई काम दें",
+  "composer_more": "और",
+  "composer_integrations": "एकीकरण",
+  "composer_tools": "{count} उपलब्ध टूल",
+  "composer_dictate": "आवाज़ से लिखें",
+  "composer_voice_mode": "आवाज़ मोड",
+  "composer_send": "भेजें",
+  "composer_model": "चुना गया मॉडल: {model}",
+  "home_suggested": "सुझाव"
 }

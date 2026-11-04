@@ -22,7 +22,8 @@
 <div class="bar">
   {@render start?.()}
   <div class="title">
-    <span class="truncate">{title ?? m.shell_new_chat()}</span>
+    <!-- A new chat keeps the title for height but shows nothing (chat-composer look §2.1). -->
+    <span class="truncate" class:unsaved={!title}>{title ?? m.shell_new_chat()}</span>
     {#if title && onchatactions}
       <IconButton icon="dots-three" label={m.shell_chat_actions()} onclick={onchatactions} />
     {/if}
@@ -59,6 +60,10 @@
     padding: 2px var(--spacing-1);
     color: var(--color-ink-2);
     font-size: var(--text-body);
+  }
+
+  .unsaved {
+    visibility: hidden;
   }
 
   .end {

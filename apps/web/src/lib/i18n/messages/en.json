@@ -146,5 +146,15 @@
   "shell_user_menu": "User menu",
   "shell_temporary_chat": "Temporary Chat",
   "shell_controls": "Controls",
-  "shell_chat_actions": "Chat actions"
+  "shell_chat_actions": "Chat actions",
+  "composer_label": "Message",
+  "composer_placeholder": "Ask about your documents, or give 4CE a task",
+  "composer_more": "More",
+  "composer_integrations": "Integrations",
+  "composer_tools": "{count} Available Tools",
+  "composer_dictate": "Voice Input",
+  "composer_voice_mode": "Voice mode",
+  "composer_send": "Send",
+  "composer_model": "Selected model: {model}",
+  "home_suggested": "Suggested"
 }
