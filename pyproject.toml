@@ -24,6 +24,8 @@ package = false
 
 [tool.uv.workspace]
 members = ["core/*", "apps/*"]
+# apps/web is the npm frontend, not a Python package.
+exclude = ["apps/web"]
 
 [tool.ruff]
 line-length = 100
