@@ -3,11 +3,18 @@ import tailwindcss from '@tailwindcss/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { searchForWorkspaceRoot } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { thirdPartyNotices } from '../../tools/notices/notices.mjs';
 
 const testing = !!process.env.VITEST;
 
 export default defineConfig({
-  plugins: [tailwindcss(), sveltekit(), svelteTesting()],
+  plugins: [
+    tailwindcss(),
+    sveltekit(),
+    svelteTesting(),
+    // The icon paths are generated from @phosphor-icons/core into the source, so it is named here.
+    thirdPartyNotices({ include: ['@phosphor-icons/core'] }),
+  ],
   // Vite 8 drops legal comments when it minifies; keep them so third-party notices (the Phosphor
   // MIT licence on the icon table) ship in the built app.
   build: { rolldownOptions: { output: { comments: { legal: true } } } },
