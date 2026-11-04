@@ -27,5 +27,13 @@
   "list_group_today": "आज",
   "list_group_yesterday": "कल",
   "list_group_week": "पिछले 7 दिन",
-  "list_group_month": "पिछले 30 दिन"
+  "list_group_month": "पिछले 30 दिन",
+  "shell_new_chat": "नई चैट",
+  "shell_search": "खोजें",
+  "shell_open_sidebar": "साइडबार खोलें",
+  "shell_close_sidebar": "साइडबार बंद करें",
+  "shell_user_menu": "उपयोगकर्ता मेनू",
+  "shell_temporary_chat": "अस्थायी चैट",
+  "shell_controls": "नियंत्रण",
+  "shell_chat_actions": "चैट क्रियाएँ"
 }

@@ -105,7 +105,7 @@
   "ui_motion_hide": "Hide",
   "ui_motion_expand_toggle": "Details",
   "ui_motion_expand_body": "Rows expand inline instead of hiding details in tooltips. Nothing jumps in height.",
-  "ui_icons_intro": "Lucide for every icon, at a 1.75 stroke with round caps and joins. 4CE's own concepts use plain Lucide glyphs; a verdict settles in once when it arrives live.",
+  "ui_icons_intro": "Phosphor for every icon, in the weight the running app uses in each place: 16 px in rows and menus, 18 px in the sidebar and top bar. 4CE's own concepts use the closest regular glyph; a verdict settles in once when it arrives live.",
   "ui_icons_phosphor": "All icons",
   "ui_icons_signature": "4CE concepts",
   "ui_icons_glyph": "Glyph",
@@ -138,5 +138,13 @@
   "list_group_today": "Today",
   "list_group_yesterday": "Yesterday",
   "list_group_week": "Previous 7 days",
-  "list_group_month": "Previous 30 days"
+  "list_group_month": "Previous 30 days",
+  "shell_new_chat": "New Chat",
+  "shell_search": "Search",
+  "shell_open_sidebar": "Open Sidebar",
+  "shell_close_sidebar": "Close Sidebar",
+  "shell_user_menu": "User menu",
+  "shell_temporary_chat": "Temporary Chat",
+  "shell_controls": "Controls",
+  "shell_chat_actions": "Chat actions"
 }
