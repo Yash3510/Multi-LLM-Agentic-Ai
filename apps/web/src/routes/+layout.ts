@@ -11,7 +11,7 @@ export const prerender = false;
 // Who is signed in, and the sidebar's chat list (web-data-contract.md). Everything but the
 // sign-in page and the design reference needs a signed-in person.
 export const load: LayoutLoad = async ({ route }) => {
-  const open = route.id === '/auth' || route.id?.startsWith('/ui');
+  const open = route.id === '/auth' || route.id === '/error' || route.id?.startsWith('/ui');
   const user = await data.currentUser();
   if (!user && !open) redirect(307, '/auth');
   return { user, chats: user ? await data.listChats() : [] };

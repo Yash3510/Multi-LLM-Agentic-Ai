@@ -178,5 +178,8 @@
   "message_answered_directly": "Answered directly",
   "composer_reply_placeholder": "Send a message",
   "composer_stop": "Stop",
-  "chat_scroll_bottom": "Scroll to bottom"
+  "chat_scroll_bottom": "Scroll to bottom",
+  "backend_required_title": "{name} Backend Required",
+  "backend_required_body": "The {name} web app can't run on its own. Serve it from the {name} backend.",
+  "backend_check_again": "Check Again"
 }

@@ -67,5 +67,8 @@
   "message_answered_directly": "सीधे जवाब दिया",
   "composer_reply_placeholder": "संदेश भेजें",
   "composer_stop": "रोकें",
-  "chat_scroll_bottom": "नीचे जाएँ"
+  "chat_scroll_bottom": "नीचे जाएँ",
+  "backend_required_title": "{name} बैकएंड ज़रूरी है",
+  "backend_required_body": "{name} वेब ऐप अकेले नहीं चल सकता। इसे {name} बैकएंड से चलाएँ।",
+  "backend_check_again": "फिर से जाँचें"
 }
