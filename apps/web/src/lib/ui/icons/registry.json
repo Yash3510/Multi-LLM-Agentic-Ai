@@ -79,6 +79,8 @@
   "thumbs-up": { "phosphor": "thumbs-up" },
   "thumbs-down": { "phosphor": "thumbs-down" },
   "read-aloud": { "phosphor": "speaker-high" },
+  "continue": { "phosphor": "play-circle" },
+  "fork": { "phosphor": "git-fork" },
   "sidebar-simple": { "phosphor": "sidebar-simple" },
   "command": { "phosphor": "command" },
   "keyboard": { "phosphor": "keyboard" },

@@ -169,5 +169,12 @@
   "message_read_aloud": "Read Aloud",
   "message_good": "Good Response",
   "message_bad": "Bad Response",
-  "message_regenerate": "Regenerate"
+  "message_regenerate": "Regenerate",
+  "message_info": "Info",
+  "message_continue": "Continue Response",
+  "message_fork": "Fork chat",
+  "message_direct_reply": "Direct reply",
+  "message_direct_reason": "conversation needs no agent chain or approval",
+  "message_answered_directly": "Answered directly",
+  "composer_reply_placeholder": "Send a message"
 }

@@ -58,5 +58,12 @@
   "message_read_aloud": "पढ़कर सुनाएँ",
   "message_good": "अच्छा जवाब",
   "message_bad": "खराब जवाब",
-  "message_regenerate": "फिर से बनाएँ"
+  "message_regenerate": "फिर से बनाएँ",
+  "message_info": "जानकारी",
+  "message_continue": "जवाब जारी रखें",
+  "message_fork": "चैट की शाखा बनाएँ",
+  "message_direct_reply": "सीधा जवाब",
+  "message_direct_reason": "बातचीत को एजेंट शृंखला या मंज़ूरी की ज़रूरत नहीं",
+  "message_answered_directly": "सीधे जवाब दिया",
+  "composer_reply_placeholder": "संदेश भेजें"
 }

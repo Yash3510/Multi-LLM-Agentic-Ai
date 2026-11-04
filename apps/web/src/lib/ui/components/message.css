@@ -56,8 +56,9 @@
     box-shadow: var(--shadow-focus);
   }
 
-  /* Hidden until the row is hovered or focused, unless the row says to keep them shown. */
-  [data-message-row]:not([data-actions-shown]) :is([data-message-action], [data-message-time]) {
+  /* Hidden until the row is hovered or focused; the last answer keeps its actions (not its time). */
+  [data-message-row]:not([data-actions-shown]) [data-message-action],
+  [data-message-time] {
     opacity: 0;
   }
 

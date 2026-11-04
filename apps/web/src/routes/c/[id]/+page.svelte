@@ -33,7 +33,9 @@
         <UserMessage text={message.text} at={message.at} />
       {:else}
         <ResponseMessage
-          model="Planner"
+          model="4CE / Planner"
+          status={message.status}
+          direct={message.direct}
           text={message.text}
           at={message.at}
           last={index === lastResponse}
@@ -44,7 +46,12 @@
 
   <div class="composer">
     <div class="inner">
-      <Composer model="Planner" tools={7} onsend={() => {}} placeholder="" />
+      <Composer
+        model="Planner"
+        tools={7}
+        onsend={() => {}}
+        placeholder={m.composer_reply_placeholder()}
+      />
     </div>
   </div>
 </div>
@@ -71,13 +78,12 @@
     display: flex;
     justify-content: center;
     /* 8 px block padding, the 2 px footer spacer and the empty disclaimer line: 22 px measured. */
-    padding: 0 var(--spacing-3) 22px;
+    padding: 0 var(--spacing-2) 22px;
     background: linear-gradient(to top, var(--color-surface-page) 60%, transparent);
   }
 
   .inner {
     inline-size: 100%;
     max-inline-size: 928px;
-    padding-inline: var(--spacing-2);
   }
 </style>

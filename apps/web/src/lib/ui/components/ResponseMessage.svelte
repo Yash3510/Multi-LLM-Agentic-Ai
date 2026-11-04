@@ -16,9 +16,25 @@
     at: Date;
     /** The last answer keeps its actions shown. */
     last?: boolean;
+    /** The status line under the name (own-4ce look S5), e.g. "Answered directly". */
+    status?: string;
+    /** A direct reply's receipt line: the model that answered and how long it took. */
+    direct?: { model: string; seconds: number };
   };
 
-  let { model, text, at, last = false }: Props = $props();
+  let { model, text, at, last = false, status, direct }: Props = $props();
+
+  const ACTIONS = [
+    { name: 'rename', label: m.message_edit() },
+    { name: 'copy', label: m.message_copy() },
+    { name: 'read-aloud', label: m.message_read_aloud() },
+    { name: 'info', label: m.message_info() },
+    { name: 'thumbs-up', label: m.message_good() },
+    { name: 'thumbs-down', label: m.message_bad() },
+    { name: 'continue', label: m.message_continue() },
+    { name: 'regenerate', label: m.message_regenerate() },
+    { name: 'fork', label: m.message_fork() },
+  ] as const;
 
   const html = $derived(renderMarkdown(text));
   const short = new Intl.DateTimeFormat(toIntlLocale(getLocale()), {
@@ -34,9 +50,15 @@
     <div class="avatar"><Logomark size={30} /></div>
     <div class="column">
       <div class="name">{model}</div>
+      {#if status}<div class="status">{status}</div>{/if}
       <div class="body" {@attach safeHtml(html)}></div>
+      {#if direct}
+        <p class="direct">
+          {m.message_direct_reply()} · <code>{direct.model}</code> · {direct.seconds.toFixed(1)}s — {m.message_direct_reason()}
+        </p>
+      {/if}
       <div class="bar" data-message-actions>
-        {#each [{ name: 'rename', label: m.message_edit() }, { name: 'copy', label: m.message_copy() }, { name: 'read-aloud', label: m.message_read_aloud() }, { name: 'thumbs-up', label: m.message_good() }, { name: 'thumbs-down', label: m.message_bad() }, { name: 'regenerate', label: m.message_regenerate() }] as const as action (action.name)}
+        {#each ACTIONS as action (action.name)}
           <button
             type="button"
             data-message-action
@@ -78,7 +100,43 @@
   .name {
     color: var(--color-black);
     font-size: var(--text-body);
-    line-height: 24px;
+    line-height: 1.5;
+  }
+
+  /* Gaps measured on the running app: 2 px under the name, 10 px before the body. */
+  .status {
+    margin-block: 2px 10px;
+    color: var(--color-gray-600);
+    font-size: var(--text-body);
+    line-height: 1.5;
+  }
+
+  :global([data-theme='dark']) .status {
+    color: var(--color-gray-400);
+  }
+
+  /* The direct-reply receipt line (own-4ce look): italic prose with the model in a mono chip. */
+  .direct {
+    margin-block-start: 12px;
+    color: var(--color-prose);
+    font-size: var(--text-body);
+    font-style: italic;
+    line-height: 1.625;
+  }
+
+  .direct code {
+    padding: 2.4px 4.8px;
+    border-radius: 6px;
+    background-color: var(--color-gray-100);
+    color: var(--color-gray-800);
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    font-style: normal;
+  }
+
+  :global([data-theme='dark']) .direct code {
+    background-color: var(--color-gray-800);
+    color: var(--color-gray-200);
   }
 
   :global([data-theme='dark']) .name {
@@ -86,7 +144,7 @@
   }
 
   .body {
-    color: var(--color-ink-1);
+    color: var(--color-prose);
     font-size: var(--text-body);
     /* The answer prose's relaxed line (24.4 px at 15 px), measured on the running app. */
     line-height: 1.625;
