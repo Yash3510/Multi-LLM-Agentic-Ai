@@ -84,6 +84,7 @@
   "tools-done": { "phosphor": "check-circle", "weight": "bold" },
   "tools-failed": { "phosphor": "x", "weight": "bold" },
   "stop-square": { "phosphor": "stop" },
+  "arrow-down": { "phosphor": "arrow-down" },
   "sidebar-simple": { "phosphor": "sidebar-simple" },
   "command": { "phosphor": "command" },
   "keyboard": { "phosphor": "keyboard" },

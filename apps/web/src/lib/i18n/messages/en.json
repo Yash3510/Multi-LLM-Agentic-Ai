@@ -177,5 +177,6 @@
   "message_direct_reason": "conversation needs no agent chain or approval",
   "message_answered_directly": "Answered directly",
   "composer_reply_placeholder": "Send a message",
-  "composer_stop": "Stop"
+  "composer_stop": "Stop",
+  "chat_scroll_bottom": "Scroll to bottom"
 }

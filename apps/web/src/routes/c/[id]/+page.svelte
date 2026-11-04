@@ -12,6 +12,9 @@
   import SignOffPanel from '$lib/ui/components/SignOffPanel.svelte';
   import TopBar from '$lib/ui/components/TopBar.svelte';
   import UserMessage from '$lib/ui/components/UserMessage.svelte';
+  import Icon from '$lib/ui/icons/Icon.svelte';
+  import { nearBottom } from '$lib/ui/follow';
+  import { onMount, tick } from 'svelte';
 
   import type { PageProps } from './$types';
 
@@ -34,6 +37,29 @@
     if (!answer || !request || events.some((event) => event.type === 'decision')) return undefined;
     const sources = events.flatMap((event) => (event.type === 'source' ? [event.source] : []));
     return { answer, request: request.request, sources };
+  });
+
+  // Follow the newest text while the reader is at the end of the thread.
+  let scroller: HTMLElement | null = null;
+  let following = $state(true);
+  const toBottom = () => scroller?.scrollTo({ top: scroller.scrollHeight });
+
+  onMount(() => {
+    scroller = document.getElementById('main');
+    if (!scroller) return;
+    const element = scroller;
+    const onScroll = () => (following = nearBottom(element));
+    element.addEventListener('scroll', onScroll, { passive: true });
+    toBottom();
+    return () => element.removeEventListener('scroll', onScroll);
+  });
+
+  // Every change to the last message (text, events) keeps the end in view while following.
+  $effect(() => {
+    const last = messages.at(-1);
+    void last?.text;
+    void last?.events?.length;
+    if (following) void tick().then(() => toBottom());
   });
 
   async function stream(answer: Message, events: AsyncIterable<StreamEvent>, signal: AbortSignal) {
@@ -65,6 +91,7 @@
 
   async function ask(question: string) {
     const now = new Date();
+    following = true;
     messages.push({ id: `u-${now.getTime()}`, role: 'user', text: question, at: now });
     messages.push({
       id: `r-${now.getTime()}`,
@@ -112,6 +139,22 @@
   </div>
 
   <div class="composer">
+    {#if !following}
+      <!-- Scroll-to-bottom (chat-composer look §4.1): 48 px above the composer, round. -->
+      <div class="to-bottom">
+        <button
+          type="button"
+          aria-label={m.chat_scroll_bottom()}
+          title={m.chat_scroll_bottom()}
+          onclick={() => {
+            following = true;
+            toBottom();
+          }}
+        >
+          <Icon name="arrow-down" size={20} />
+        </button>
+      </div>
+    {/if}
     <div class="inner">
       {#if waiting}
         <SignOffPanel
@@ -159,6 +202,36 @@
     /* 8 px block padding, the 2 px footer spacer and the empty disclaimer line: 22 px measured. */
     padding: 0 var(--spacing-2) 22px;
     background: linear-gradient(to top, var(--color-surface-page) 60%, transparent);
+  }
+
+  .to-bottom {
+    position: absolute;
+    inset-block-start: -48px;
+    inset-inline: 0;
+    z-index: 30;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .to-bottom button {
+    display: grid;
+    place-items: center;
+    padding: 6px;
+    border: 1px solid var(--color-gray-100);
+    border-radius: var(--radius-pill);
+    background-color: var(--color-white);
+    pointer-events: auto;
+  }
+
+  :global([data-theme='dark']) .to-bottom button {
+    border: 0;
+    background-color: rgb(255 255 255 / 0.2);
+  }
+
+  .to-bottom button:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
   }
 
   .inner {

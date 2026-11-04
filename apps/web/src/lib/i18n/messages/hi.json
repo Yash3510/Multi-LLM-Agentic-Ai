@@ -66,5 +66,6 @@
   "message_direct_reason": "बातचीत को एजेंट शृंखला या मंज़ूरी की ज़रूरत नहीं",
   "message_answered_directly": "सीधे जवाब दिया",
   "composer_reply_placeholder": "संदेश भेजें",
-  "composer_stop": "रोकें"
+  "composer_stop": "रोकें",
+  "chat_scroll_bottom": "नीचे जाएँ"
 }
