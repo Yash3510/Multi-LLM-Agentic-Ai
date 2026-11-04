@@ -132,10 +132,13 @@ export function deriveRun(events: StreamEvent[], finished: boolean, now: number)
     challenger: view('challenger'),
     'sign-off': view('sign-off'),
   };
-  const workingMs = RAIL.filter((stage) => stage !== 'sign-off').reduce(
-    (sum, stage) => sum + stages[stage].ms,
-    0,
-  );
+  // Every agent's time, Reader's included, without the person's wait at sign-off.
+  const workingMs = segments
+    .filter((segment) => segment.stage !== 'sign-off')
+    .reduce(
+      (sum, segment) => sum + ((segment.end ?? (running ? now : segment.start)) - segment.start),
+      0,
+    );
   return {
     rail: segments.some((segment) => AGAIN.has(segment.stage)),
     stages,

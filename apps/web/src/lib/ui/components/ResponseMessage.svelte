@@ -9,6 +9,7 @@
   import { writeClipboard } from './clipboard';
   import Logomark from './Logomark.svelte';
   import StageRail from './StageRail.svelte';
+  import StatusLine from './StatusLine.svelte';
   import type { StreamEvent } from '$lib/data';
   import './message.css';
 
@@ -55,7 +56,10 @@
     <div class="avatar"><Logomark size={30} /></div>
     <div class="column">
       <div class="name">{model}</div>
-      {#if events}<StageRail {events} {finished} />{/if}
+      {#if events}
+        <StageRail {events} {finished} />
+        <StatusLine {events} {finished} />
+      {/if}
       {#if status}<div class="status">{status}</div>{/if}
       <div class="body" {@attach safeHtml(html)}></div>
       {#if direct}
