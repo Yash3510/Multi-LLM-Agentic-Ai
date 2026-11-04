@@ -529,7 +529,7 @@
         </dd>
       </div>
       <div class="row">
-        <dt>Lucide glyph, no action</dt>
+        <dt>Icon glyph, no action</dt>
         <dd>
           <div class="card">
             <EmptyState

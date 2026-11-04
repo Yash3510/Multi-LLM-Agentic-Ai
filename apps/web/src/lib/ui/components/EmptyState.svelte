@@ -6,7 +6,7 @@
   import Icon from '$lib/ui/icons/Icon.svelte';
 
   type Props = {
-    /** A Lucide glyph from the registry. */
+    /** A glyph from the icon registry. */
     icon: IconName;
     title: string;
     /** What was checked, so empty reads as a result, not a fault. */

@@ -10,7 +10,7 @@ describe('Icon', () => {
     const svg = svgOf(render(Icon, { name: 'copy' }).container);
     expect(svg.getAttribute('aria-hidden')).toBe('true');
     expect(svg.hasAttribute('role')).toBe(false);
-    expect(svg.getAttribute('width')).toBe('20');
+    expect(svg.getAttribute('width')).toBe('16');
   });
 
   it('is a named image with a label', () => {
@@ -18,13 +18,12 @@ describe('Icon', () => {
     expect(getByRole('img', { name: 'Copy' }).hasAttribute('aria-hidden')).toBe(false);
   });
 
-  it('draws the Lucide shapes as a 1.75 round stroke in the current colour', () => {
-    const svg = svgOf(render(Icon, { name: 'verdict-pass', size: 16 }).container);
-    expect(svg.getAttribute('fill')).toBe('none');
-    expect(svg.getAttribute('stroke')).toBe('currentColor');
-    expect(svg.getAttribute('stroke-width')).toBe('1.75');
-    expect(svg.getAttribute('stroke-linecap')).toBe('round');
-    expect(svg.children).toHaveLength(ICONS['verdict-pass'].length);
-    expect(svg.querySelector('circle')!.getAttribute('r')).toBe('10');
+  it('fills the Phosphor path on its 256 grid in the current colour', () => {
+    const svg = svgOf(render(Icon, { name: 'verdict-pass', size: 18 }).container);
+    expect(svg.getAttribute('viewBox')).toBe('0 0 256 256');
+    expect(svg.getAttribute('fill')).toBe('currentColor');
+    expect(svg.hasAttribute('stroke')).toBe(false);
+    expect(svg.getAttribute('width')).toBe('18');
+    expect(svg.querySelector('path')!.getAttribute('d')).toBe(ICONS['verdict-pass']);
   });
 });

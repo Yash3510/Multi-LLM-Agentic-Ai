@@ -20,7 +20,8 @@
 
   const ALL = Object.entries(registry).map(([name, entry]) => ({
     name: name as IconName,
-    glyph: entry.lucide,
+    // The Phosphor file, with its weight when the running app draws that place bold.
+    glyph: 'weight' in entry ? `${entry.phosphor} · ${entry.weight}` : entry.phosphor,
   }));
 
   const CONCEPTS: { name: IconName; concept: () => string; verdict?: Verdict }[] = [
@@ -42,7 +43,7 @@
     { name: 'challenger', concept: m.ui_concept_challenger },
   ];
 
-  const SIZES = [16, 20, 24];
+  const SIZES = [16, 18, 24];
 
   // A replay remounts a verdict with live off, then turns it on: the change StatusMark treats as
   // "seen live".
@@ -115,7 +116,7 @@
         <li class="flex min-w-0 flex-col gap-3 rounded-inset bg-surface-raised p-3 shadow-hairline">
           <span class="flex items-end gap-3 text-ink-1">
             <Icon {name} size={16} />
-            <Icon {name} size={20} />
+            <Icon {name} size={18} />
             <Icon {name} size={24} />
           </span>
           <span class="flex min-w-0 flex-col">

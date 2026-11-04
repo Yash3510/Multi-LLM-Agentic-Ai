@@ -102,7 +102,7 @@
           <span class="value" data-placeholder={selected ? undefined : ''}>
             {selected?.label ?? placeholder}
           </span>
-          <span class="field-control-icon"><Icon name="caret-up-down" size={16} /></span>
+          <span class="field-control-icon"><Icon name="caret-down" size={12} /></span>
         </button>
       {/snippet}
     </Select.Trigger>

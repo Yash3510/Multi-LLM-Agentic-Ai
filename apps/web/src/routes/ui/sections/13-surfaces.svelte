@@ -696,25 +696,25 @@
           <div class="still-menu" data-surface="float" data-menu aria-hidden="true">
             <div data-menu-heading>CASE-0142</div>
             <div data-menu-row>
-              <span data-menu-lead><Icon name="arrow-up-right" size={16} /></span>
+              <span data-menu-lead><Icon name="arrow-up-right" size={14} /></span>
               <span data-menu-text><span data-menu-label>Open CASE-0142 · default</span></span>
               <Kbd keys={['mod', 'o']} />
             </div>
             <div data-menu-row data-highlighted>
-              <span data-menu-lead><Icon name="copy" size={16} /></span>
+              <span data-menu-lead><Icon name="copy" size={14} /></span>
               <span data-menu-text><span data-menu-label>Copy case id · hover</span></span>
               <Kbd keys={['mod', 'c']} />
             </div>
             <div data-menu-row data-highlighted data-preview="focus">
-              <span data-menu-lead><Icon name="download-simple" size={16} /></span>
+              <span data-menu-lead><Icon name="download-simple" size={14} /></span>
               <span data-menu-text><span data-menu-label>Export receipt · focus</span></span>
             </div>
             <div data-menu-row data-preview="active">
-              <span data-menu-lead><Icon name="arrow-clockwise" size={16} /></span>
+              <span data-menu-lead><Icon name="arrow-clockwise" size={14} /></span>
               <span data-menu-text><span data-menu-label>Re-run R3 · active</span></span>
             </div>
             <div data-menu-row data-disabled>
-              <span data-menu-lead><Icon name="arrow-clockwise" size={16} /></span>
+              <span data-menu-lead><Icon name="arrow-clockwise" size={14} /></span>
               <span data-menu-text>
                 <span data-menu-label>Re-run R2 · disabled</span>
                 <span data-menu-reason>{REASON}</span>
@@ -722,19 +722,19 @@
             </div>
             <div data-menu-separator></div>
             <div data-menu-row>
-              <span data-menu-lead><Icon name="list" size={16} /></span>
+              <span data-menu-lead><Icon name="list" size={14} /></span>
               <span data-menu-text><span data-menu-label>Density</span></span>
               <span data-menu-hint>Default</span>
-              <span data-menu-trail><Icon name="caret-right" size={16} /></span>
+              <span data-menu-trail><Icon name="caret-right" size={14} /></span>
             </div>
             <div data-menu-row data-danger>
-              <span data-menu-lead><Icon name="x" size={16} /></span>
+              <span data-menu-lead><Icon name="x" size={14} /></span>
               <span data-menu-text><span data-menu-label>Discard draft</span></span>
             </div>
           </div>
           <div class="still-menu" data-surface="float" data-menu aria-hidden="true">
             <div data-menu-row data-back>
-              <span data-menu-lead><Icon name="arrow-left" size={16} /></span>
+              <span data-menu-lead><Icon name="caret-left" size={14} /></span>
               <span data-menu-text><span data-menu-label>Density</span></span>
             </div>
             <div data-menu-separator></div>
@@ -744,7 +744,7 @@
             </div>
             <div data-menu-row data-checked>
               <span data-menu-text><span data-menu-label>Default · chosen</span></span>
-              <span data-menu-trail><Icon name="check" size={16} /></span>
+              <span data-menu-trail><Icon name="check" size={14} /></span>
             </div>
             <div data-menu-row>
               <span data-menu-text><span data-menu-label>Compact</span></span>

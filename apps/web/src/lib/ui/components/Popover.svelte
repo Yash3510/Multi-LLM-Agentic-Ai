@@ -138,7 +138,7 @@
         >
           {#if icon}<Icon name={icon} size={16} />{/if}
           <span>{label}</span>
-          <Icon name="caret-down" size={16} />
+          <Icon name="caret-down" size={12} />
         </button>
       {/if}
     {/snippet}

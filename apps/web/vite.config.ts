@@ -8,6 +8,9 @@ const testing = !!process.env.VITEST;
 
 export default defineConfig({
   plugins: [tailwindcss(), sveltekit(), svelteTesting()],
+  // Vite 8 drops legal comments when it minifies; keep them so third-party notices (the Phosphor
+  // MIT licence on the icon table) ship in the built app.
+  build: { rolldownOptions: { output: { comments: { legal: true } } } },
   // Component tests mount real Svelte components, so they need Svelte's browser build.
   resolve: testing ? { conditions: ['browser'] } : undefined,
   // The repo tools' own tests (tools/*) sit outside this app; only the test run may read them.

@@ -35,7 +35,7 @@
     label?: string;
     /** A file name or extension: shows its type as its extension. */
     file?: string;
-    /** A Lucide glyph before the label. Decorative, because the label says the same. */
+    /** A glyph before the label. Decorative, because the label says the same. */
     icon?: IconName;
     /** The label's language when it differs from the page's, e.g. a pack label. */
     lang?: string;

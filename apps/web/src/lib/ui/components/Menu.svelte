@@ -113,7 +113,7 @@
 {#snippet lead(name: IconName | undefined)}
   {#if iconColumn}
     <span data-menu-lead
-      >{#if name}<Icon {name} size={16} />{/if}</span
+      >{#if name}<Icon {name} size={14} />{/if}</span
     >
   {/if}
 {/snippet}
@@ -157,7 +157,7 @@
         {@render lead(entry.icon)}
         <span data-menu-text><span data-menu-label>{entry.label}</span></span>
         {#if hint}<span data-menu-hint>{hint}</span>{/if}
-        <span data-menu-trail><Icon name="caret-right" size={16} /></span>
+        <span data-menu-trail><Icon name="caret-right" size={14} /></span>
       </div>
     {/snippet}
   </DropdownMenu.Item>
@@ -180,7 +180,7 @@
             {@render lead(option.icon)}
             <span data-menu-text><span data-menu-label>{option.label}</span></span>
             <span data-menu-trail
-              >{#if checked}<Icon name="check" size={16} />{/if}</span
+              >{#if checked}<Icon name="check" size={14} />{/if}</span
             >
           </div>
         {/snippet}
@@ -235,9 +235,9 @@
           data-trail=""
           data-layer-trigger
         >
-          {#if icon}<Icon name={icon} size={16} />{/if}
+          {#if icon}<Icon name={icon} size={14} />{/if}
           <span>{label}</span>
-          <Icon name="caret-down" size={16} />
+          <Icon name="caret-down" size={12} />
         </button>
       {/if}
     {/snippet}
@@ -265,7 +265,7 @@
               <DropdownMenu.Item textValue={parent.label} closeOnSelect={false} onSelect={back}>
                 {#snippet child({ props: rowProps })}
                   <div {...rowProps} data-menu-row data-back>
-                    <span data-menu-lead><Icon name="arrow-left" size={16} /></span>
+                    <span data-menu-lead><Icon name="caret-left" size={14} /></span>
                     <span data-menu-text>
                       <span data-menu-label
                         ><span class="sr-only">{backLabel}: </span>{parent.label}</span

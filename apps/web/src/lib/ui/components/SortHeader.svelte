@@ -22,7 +22,7 @@
   <button type="button" class="sort-button" onclick={() => onsort(column)}>
     {label}
     <span data-caret aria-hidden="true" data-hidden={state === 'none' ? '' : undefined}>
-      <Icon name={state === 'descending' ? 'caret-down' : 'caret-up'} size={12} />
+      <Icon name={state === 'descending' ? 'sort-caret-down' : 'caret-up'} size={12} />
     </span>
   </button>
 </div>
