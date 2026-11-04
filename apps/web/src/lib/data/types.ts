@@ -53,6 +53,8 @@ export interface Message {
   events?: StreamEvent[];
   /** The response is complete (streamed to the end, stopped or failed). */
   finished?: boolean;
+  /** A direct reply (no agent chain): its status line and the model that answered. */
+  direct?: { status: string; model: string; seconds: number };
 }
 
 export interface Chat extends ChatSummary {
@@ -71,7 +73,8 @@ export type StreamEvent =
   | { type: 'sign-off'; at: number; request: SignOffRequest }
   | { type: 'decision'; at: number; outcome: 'released' | 'withheld'; by: string }
   | { type: 'receipt'; at: number; receipt: Receipt }
-  | { type: 'done' | 'stopped'; at: number }
+  | { type: 'done'; at: number }
+  | { type: 'stopped'; at: number }
   | { type: 'error'; at: number; message: string };
 
 /** Where screens get their data. The fake replay implements it now; the API client later. */
@@ -80,4 +83,11 @@ export interface DataSource {
   getChat(id: string): Promise<Chat | undefined>;
   /** Asks a question in a chat and yields the answer's events as they arrive. */
   ask(chatId: string, question: string, signal?: AbortSignal): AsyncIterable<StreamEvent>;
+  /** Records the person's sign-off decision and yields the rest of the run. */
+  decide(
+    chatId: string,
+    outcome: 'released' | 'withheld',
+    by: string,
+    signal?: AbortSignal,
+  ): AsyncIterable<StreamEvent>;
 }
