@@ -240,7 +240,7 @@
     list-style: disc;
   }
 
-  .draft-text :global(cite) {
+  .draft-text :global(.chip) {
     padding: 1px 6px;
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-pill);

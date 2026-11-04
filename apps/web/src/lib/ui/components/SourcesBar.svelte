@@ -3,7 +3,7 @@
   // list, each with its citation number.
   import type { Source } from '$lib/data';
 
-  let { sources }: { sources: Source[] } = $props();
+  let { sources, onopen }: { sources: Source[]; onopen?: (index: number) => void } = $props();
 
   let open = $state(false);
   const count = $derived(sources.length);
@@ -23,7 +23,12 @@
     <ul class="list">
       {#each sources as source (source.index)}
         <li>
-          <button type="button" class="item" aria-label="View source: {source.title}">
+          <button
+            type="button"
+            class="item"
+            aria-label="View source: {source.title}"
+            onclick={() => onopen?.(source.index)}
+          >
             <span class="badge">{source.index}</span>
             <span class="title">{source.title}</span>
           </button>

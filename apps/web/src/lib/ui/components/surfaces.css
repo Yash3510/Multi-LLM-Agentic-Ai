@@ -147,6 +147,10 @@
     max-inline-size: calc(var(--spacing-12) * 16);
   }
 
+  [data-placement='center'][data-size='wide'] {
+    max-inline-size: 896px;
+  }
+
   /* Sheets dock to the bottom edge: only the top corners are rounded. */
   [data-placement='bottom'] {
     position: fixed;

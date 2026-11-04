@@ -25,7 +25,8 @@
     closeLabel: string;
     role?: 'dialog' | 'alertdialog';
     dismissible?: boolean;
-    size?: 'small' | 'medium' | 'large';
+    /** `wide` is the running app's 896 px record dialog (citations, audit). */
+    size?: 'small' | 'medium' | 'large' | 'wide';
     placement?: 'center' | 'bottom';
     /** Renders the opener, so focus returns to it; spread the props onto a button. */
     trigger?: Snippet<[{ props: Record<string, unknown> }]>;

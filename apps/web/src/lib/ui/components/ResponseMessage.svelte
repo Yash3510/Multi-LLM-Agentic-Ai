@@ -5,7 +5,7 @@
   import { getLocale } from '$lib/i18n/generated/runtime.js';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { toIntlLocale } from '$lib/ui/format';
-  import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
+  import { onChip, renderMarkdown, safeHtml } from '$lib/ui/markdown';
   import { writeClipboard } from './clipboard';
   import Logomark from './Logomark.svelte';
   import StageRail from './StageRail.svelte';
@@ -14,6 +14,7 @@
   import ToolGroup from './ToolGroup.svelte';
   import ReceiptStrip from './ReceiptStrip.svelte';
   import RunErrorCard from './RunErrorCard.svelte';
+  import CitationDialog from './CitationDialog.svelte';
   import { deriveRun, RAIL } from '$lib/data/stages';
   import type { StreamEvent } from '$lib/data';
   import type { RailStage } from '$lib/data/stages';
@@ -88,6 +89,14 @@
     return stage.charAt(0).toUpperCase() + stage.slice(1);
   });
   let handover = $state<RailStage | undefined>();
+  // The source shown in the citation dialog, opened from a chip or the sources list.
+  let citing = $state<number | undefined>();
+  let citationOpen = $state(false);
+  const cite = (index: number) => {
+    citing = index;
+    citationOpen = true;
+  };
+
   const receipt = $derived((events ?? []).findLast((event) => event.type === 'receipt'));
   const decision = $derived((events ?? []).findLast((event) => event.type === 'decision'));
   // Each status with its offset from the run's start, for the execution timeline.
@@ -133,7 +142,12 @@
           onretry={last ? onretry : undefined}
         />
       {:else}
-        <div class="body" data-typing={typing ? '' : undefined} {@attach safeHtml(html)}></div>
+        <div
+          class="body"
+          data-typing={typing ? '' : undefined}
+          {@attach safeHtml(html)}
+          {@attach onChip(cite)}
+        ></div>
       {/if}
       {#if receipt && decision?.outcome === 'released'}
         <ReceiptStrip
@@ -146,7 +160,11 @@
           {timeline}
         />
       {/if}
-      {#if sources.length}<SourcesBar {sources} />{/if}
+      {#if sources.length}<SourcesBar {sources} onopen={cite} />{/if}
+      <CitationDialog
+        source={sources.find((source) => source.index === citing)}
+        bind:open={citationOpen}
+      />
       {#if direct}
         <p class="direct">
           {m.message_direct_reply()} · <code>{direct.model}</code> · {direct.seconds.toFixed(1)}s — {m.message_direct_reason()}
@@ -308,7 +326,7 @@
   }
 
   /* Evidence chips for [n] (own-4ce look S14). */
-  .body :global(cite) {
+  .body :global(.chip) {
     display: inline-flex;
     align-items: center;
     max-inline-size: 16rem;
@@ -330,13 +348,13 @@
     cursor: pointer;
   }
 
-  .body :global(cite:hover) {
+  .body :global(.chip:hover) {
     border-color: var(--color-gray-300);
     background-color: var(--color-gray-100);
     color: var(--color-gray-900);
   }
 
-  :global([data-theme='dark']) .body :global(cite) {
+  :global([data-theme='dark']) .body :global(.chip) {
     border-color: var(--color-gray-700);
     background-color: var(--color-gray-850);
     color: var(--color-gray-200);

@@ -65,7 +65,7 @@ describe('citations', () => {
   it('turns [n] into an evidence chip named for its source', () => {
     const box = document.createElement('div');
     box.innerHTML = renderMarkdown('Within the limit [1], per the report [2].', sources);
-    const chips = [...box.querySelectorAll('cite')];
+    const chips = [...box.querySelectorAll<HTMLElement>('button.chip')];
     expect(chips.map((chip) => chip.dataset.source)).toEqual(['1', '2']);
     expect(chips[0].textContent).toBe('Rule R2 · Ratio');
     expect(chips[1].textContent).toBe('CASE-0142 secon... the plant');
@@ -77,7 +77,7 @@ describe('citations', () => {
   it('leaves [n] alone inside code and when no such source exists', () => {
     const box = document.createElement('div');
     box.innerHTML = renderMarkdown('`a[1]` and [9]', sources);
-    expect(box.querySelector('cite')).toBeNull();
+    expect(box.querySelector('.chip')).toBeNull();
     expect(box.textContent).toContain('a[1]');
     expect(box.textContent).toContain('[9]');
   });

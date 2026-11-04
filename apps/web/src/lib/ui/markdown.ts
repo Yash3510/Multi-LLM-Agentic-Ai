@@ -32,7 +32,7 @@ const citation: TokenizerAndRendererExtension = {
   renderer(token) {
     const source: Source = token.source;
     const name = escape(source.title);
-    return `<cite data-source="${source.index}" title="View source: ${name}">${escape(chipLabel(source.title))}</cite>`;
+    return `<button type="button" class="chip" data-source="${source.index}" title="View source: ${name}" aria-label="View source: ${name}">${escape(chipLabel(source.title))}</button>`;
   },
 };
 
@@ -64,4 +64,14 @@ export function renderMarkdown(markdown: string, sources: Source[] = []): SafeHt
  * lint rejects for any string: here the type guarantees the string was sanitised. */
 export const safeHtml = (html: SafeHtml) => (node: HTMLElement) => {
   node.innerHTML = html;
+};
+
+/** Calls `open` with the source number when an evidence chip inside the element is pressed. */
+export const onChip = (open: (index: number) => void) => (node: HTMLElement) => {
+  const press = (event: Event) => {
+    const chip = event.target instanceof Element ? event.target.closest('.chip') : null;
+    if (chip) open(Number(chip.getAttribute('data-source')));
+  };
+  node.addEventListener('click', press);
+  return () => node.removeEventListener('click', press);
 };
