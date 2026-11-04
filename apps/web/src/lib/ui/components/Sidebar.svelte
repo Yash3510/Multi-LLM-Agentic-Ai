@@ -76,7 +76,7 @@
     <div class="panel">
       <div class="head">
         <a class="logo" href={resolve('/')} aria-label={productName}>
-          <span class="mark"><Logomark size={22} /></span>
+          <span class="mark" data-intro-logo><Logomark size={22} /></span>
         </a>
         <a class="name" href={resolve('/')}>{productName}</a>
         <button
@@ -137,7 +137,7 @@
           aria-label={m.shell_open_sidebar()}
           onclick={() => (open = true)}
         >
-          <span class="mark"><Logomark size={22} /></span>
+          <span class="mark" data-intro-logo><Logomark size={22} /></span>
           <span class="open-glyph" aria-hidden="true"><Icon name="sidebar-simple" size={16} /></span
           >
         </button>
