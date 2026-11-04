@@ -122,6 +122,19 @@
     --action-hover-ink: var(--color-ink-1);
   }
 
+  /* Quiet icon buttons (sidebar, top bar, row actions): a muted grey that darkens to ink on a soft
+     tint, flat, as the running app and Takeoff draw them. Gray-600 / gray-400 keep the glyph above
+     3:1 on its ground (ADR-0041 amendment). */
+  [data-action='icon'][data-variant='quiet'] {
+    --action-ink: var(--color-gray-600);
+    --action-hover-fill: var(--color-tint);
+    --action-hover-depth: var(--shadow-e0);
+  }
+
+  :where([data-theme='dark']) [data-action='icon'][data-variant='quiet'] {
+    --action-ink: var(--color-gray-400);
+  }
+
   [data-action]:not(
       :disabled,
       [aria-disabled='true'],

@@ -42,7 +42,8 @@
     ...rest
   }: Props = $props();
 
-  const iconSize = $derived(size === 'small' ? 16 : 20);
+  // 18 px in the sidebar and top bar, 16 px in rows (ADR-0041 amendment).
+  const iconSize = $derived(size === 'small' ? 16 : 18);
   const announced = $derived(
     keyshortcuts ?? (shortcut?.length ? ariaShortcut(shortcut, isApple()) : undefined),
   );
