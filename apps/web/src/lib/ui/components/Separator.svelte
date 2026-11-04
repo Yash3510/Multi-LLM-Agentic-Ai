@@ -21,7 +21,7 @@
 <style>
   .separator {
     flex-shrink: 0;
-    background-color: var(--color-line-1);
+    background-color: var(--color-hair);
   }
 
   .separator[data-orientation='horizontal'] {

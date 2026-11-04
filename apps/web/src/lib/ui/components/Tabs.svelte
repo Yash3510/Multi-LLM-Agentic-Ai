@@ -16,8 +16,8 @@
 <script lang="ts">
   // Tabs (bits-ui). The row is one tab stop: arrow keys move between tabs, Home and End jump, and the
   // panel follows focus unless activation is manual (Enter or Space then chooses). The current tab
-  // carries the selected recipe: accent-soft fill, a 2 px accent edge along its bottom and ink-1
-  // text. Switching is instant: tabs are switched often and by key, so nothing slides. When the
+  // carries a 2 px ink edge along its bottom and ink-1 text; hover is the faint tint (ADR-0041
+  // amendment). Switching is instant: tabs are switched often and by key, so nothing slides. When the
   // tabs outgrow the row it scrolls sideways; the page never does.
   import { Tabs } from 'bits-ui';
   import type { Snippet } from 'svelte';
@@ -85,12 +85,13 @@
 </Tabs.Root>
 
 <style>
-  /* The tabs sit on a line-1 rule; the current tab's edge lies along it. */
+  /* The tabs sit on a hairline rule; the current tab carries a 2 px ink edge along it (ADR-0041
+     amendment). Hover is the faint tint, focus the soft glow. */
   .list {
     display: flex;
     gap: var(--spacing-1);
     overflow-x: auto;
-    border-block-end: 1px solid var(--color-line-1);
+    box-shadow: inset 0 -1px 0 var(--color-hair);
     scrollbar-width: thin;
     scrollbar-color: var(--color-line-control) transparent;
   }
@@ -102,14 +103,14 @@
     gap: var(--spacing-1_5);
     min-block-size: var(--row-height);
     padding-inline: var(--spacing-3);
-    border-start-start-radius: var(--radius-control);
-    border-start-end-radius: var(--radius-control);
-    color: var(--color-ink-2);
+    border-radius: 8px 8px 0 0;
+    color: var(--color-ink-3);
+    font-weight: var(--font-weight-medium);
     white-space: nowrap;
     cursor: pointer;
     transition-property: background-color, color, box-shadow;
-    transition-duration: var(--duration-quick);
-    transition-timing-function: var(--ease-out);
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .count {
@@ -117,43 +118,38 @@
     font-weight: var(--font-weight-normal);
   }
 
-  @media (hover: hover) {
-    .tab:not([data-disabled], [data-state='active']):hover {
-      background-color: var(--color-surface-hover);
-      color: var(--color-ink-1);
-    }
-  }
-
-  .tab[data-preview='hover'] {
-    background-color: var(--color-surface-hover);
+  .tab:not([data-disabled], [data-state='active']):is(
+      :hover,
+      :active,
+      [data-preview='hover'],
+      [data-preview='active']
+    ) {
+    background-color: var(--color-tint);
     color: var(--color-ink-1);
   }
 
-  .tab[data-preview='focus'] {
-    outline: 2px solid var(--color-focus);
-    outline-offset: -2px;
+  .tab:is(:focus-visible, [data-preview='focus']) {
+    outline: none;
+    box-shadow: var(--shadow-focus);
   }
 
-  .tab:not([data-disabled]):is(:active, [data-preview='active']) {
-    background-color: color-mix(in oklab, var(--color-surface-hover) 92%, var(--color-ink-1));
-    color: var(--color-ink-1);
-    transition-duration: var(--duration-instant);
-  }
-
-  /* Current: accent-soft fill, a 2 px accent edge along the bottom, ink-1 text. */
   .tab[data-state='active'] {
-    background-color: var(--color-accent-soft);
-    box-shadow: inset 0 -2px 0 var(--color-accent);
+    box-shadow: inset 0 -2px 0 var(--color-ink-1);
     color: var(--color-ink-1);
+  }
+
+  .tab[data-state='active']:is(:focus-visible, [data-preview='focus']) {
+    box-shadow:
+      inset 0 -2px 0 var(--color-ink-1),
+      var(--shadow-focus);
   }
 
   .tab[data-state='active'] .count {
     color: var(--color-ink-2);
   }
 
-  .tab[data-disabled],
-  .tab[data-disabled] .count {
-    color: var(--color-ink-disabled);
+  .tab[data-disabled] {
+    opacity: 0.45;
     cursor: not-allowed;
   }
 

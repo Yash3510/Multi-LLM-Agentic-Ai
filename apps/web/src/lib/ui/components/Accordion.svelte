@@ -92,14 +92,14 @@
 {/if}
 
 <style>
-  /* Items are separated by line-1 rules, not boxed. */
+  /* Items are separated by hairline rules, not boxed. */
   .accordion {
     display: flex;
     flex-direction: column;
   }
 
   .item:not(:first-child) {
-    border-block-start: 1px solid var(--color-line-1);
+    border-block-start: 1px solid var(--color-hair);
   }
 
   .item {

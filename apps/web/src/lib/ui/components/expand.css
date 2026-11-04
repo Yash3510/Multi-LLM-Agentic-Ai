@@ -42,29 +42,22 @@
     line-height: var(--text-small--line-height);
   }
 
-  @media (hover: hover) {
-    [data-expand-trigger]:not([data-disabled]):hover {
-      background-color: var(--color-surface-hover);
-    }
+  [data-expand-trigger]:not([data-disabled]):is(
+      :hover,
+      :active,
+      [data-preview='hover'],
+      [data-preview='active']
+    ) {
+    background-color: var(--color-tint);
   }
 
-  [data-expand-trigger][data-preview='hover'] {
-    background-color: var(--color-surface-hover);
+  [data-expand-trigger]:is(:focus-visible, [data-preview='focus']) {
+    outline: none;
+    box-shadow: var(--shadow-focus);
   }
 
-  [data-expand-trigger][data-preview='focus'] {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
-  }
-
-  [data-expand-trigger]:not([data-disabled]):is(:active, [data-preview='active']) {
-    background-color: color-mix(in oklab, var(--color-surface-hover) 92%, var(--color-ink-1));
-    transition-duration: var(--duration-instant);
-  }
-
-  [data-expand-trigger][data-disabled],
-  [data-expand-trigger][data-disabled] :is([data-caret], [data-detail]) {
-    color: var(--color-ink-disabled);
+  [data-expand-trigger][data-disabled] {
+    opacity: 0.45;
     cursor: not-allowed;
   }
 

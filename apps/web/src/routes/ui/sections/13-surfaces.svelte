@@ -782,8 +782,8 @@
     <dl class="rows">
       <div class="row">
         <dt>
-          One tab stop; ← → move and the panel follows. Current is accent-soft with a 2 px accent
-          edge; a disabled tab is skipped
+          One tab stop; ← → move and the panel follows. Current carries a 2 px ink edge; a disabled
+          tab is skipped
         </dt>
         <dd class="full">
           <Tabs tabs={TABS} bind:value={tab} label="Case views">
