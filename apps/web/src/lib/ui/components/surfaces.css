@@ -8,11 +8,12 @@
  * floating layer over all of them (60), so a menu or a tooltip opened inside a dialog shows on top.
  */
 @layer components {
-  /* e2: popovers and menus. Radius card; arrives at calm with 4 px of travel from its trigger. */
+  /* e2: popovers and menus (ADR-0041 amendment). A 12 px radius and hairline depth, no border;
+     arrives at calm with 4 px of travel from its trigger. */
   [data-surface='float'] {
     z-index: 60;
-    border: 1px solid var(--color-line-1);
-    border-radius: var(--radius-card);
+    border: 0;
+    border-radius: var(--radius-inset);
     background-color: var(--color-surface-raised);
     box-shadow: var(--shadow-e2);
     color: var(--color-ink-1);
@@ -40,21 +41,22 @@
 
   /* While its menu or popover is open, the trigger keeps its hover look: it reads as the anchor. */
   [data-action][data-layer-trigger][aria-expanded='true'] {
-    border-color: var(--action-hover-line);
     background-color: var(--action-hover-fill);
+    box-shadow: var(--action-hover-depth);
     color: var(--action-hover-ink);
   }
 
-  /* Tooltips: e2 on the control radius, opacity only, at base. Text only, never actions. */
+  /* Tooltips: a near-black chip with white text in both themes, 8 px radius, opacity only. Text
+     only, never actions. */
   [data-surface='tip'] {
     z-index: 60;
     max-inline-size: calc(var(--spacing-12) * 6);
-    padding: var(--spacing-1) var(--spacing-2);
-    border: 1px solid var(--color-line-1);
-    border-radius: var(--radius-control);
-    background-color: var(--color-surface-raised);
+    padding: 5px 9px;
+    border: 0;
+    border-radius: 8px;
+    background-color: var(--color-gray-950);
     box-shadow: var(--shadow-e2);
-    color: var(--color-ink-1);
+    color: var(--color-white);
     font-size: var(--text-caption);
     line-height: var(--text-caption--line-height);
     transition: opacity var(--duration-base) var(--ease-out);
@@ -116,7 +118,7 @@
   }
 
   [data-surface='panel']:focus-visible {
-    outline: 2px solid var(--color-focus);
+    box-shadow: var(--shadow-e3), var(--shadow-focus);
   }
 
   /*
@@ -219,24 +221,26 @@
 
 @layer components {
   /*
-   * Cards in the flow: e0, a line-1 edge and no shadow. An interactive card (a link or a button)
-   * rises to e1 on hover, with no movement, and settles one surface step darker while pressed.
+   * Cards in the flow (ADR-0041 amendment): a 20 px radius, raised fill and hairline depth, no
+   * border. An interactive card lifts to e1 on hover and settles to 99% while pressed.
    */
   [data-surface='card'] {
     --card-fill: var(--color-surface-raised);
+    --card-depth: var(--shadow-hairline);
     position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-2);
     padding: var(--spacing-inset-card);
-    border: 1px solid var(--color-line-1);
+    border: 0;
     border-radius: var(--radius-card);
     background-color: var(--card-fill);
+    box-shadow: var(--card-depth);
     color: var(--color-ink-1);
     text-align: start;
-    transition-property: background-color, border-color, box-shadow, color;
-    transition-duration: var(--duration-quick);
-    transition-timing-function: var(--ease-out);
+    transition-property: background-color, box-shadow, color, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   [data-surface='card'][data-interactive] {
@@ -244,55 +248,34 @@
     touch-action: manipulation;
   }
 
-  @media (hover: hover) {
-    [data-surface='card'][data-interactive]:not([data-disabled], [aria-busy='true']):hover {
-      border-color: var(--color-line-2);
-      box-shadow: var(--shadow-e1);
-    }
+  [data-surface='card'][data-interactive]:not([data-disabled], [aria-busy='true']):is(
+      :hover,
+      [data-preview='hover']
+    ) {
+    --card-depth: var(--shadow-e1);
   }
 
-  [data-surface='card'][data-preview='hover'] {
-    border-color: var(--color-line-2);
-    box-shadow: var(--shadow-e1);
-  }
-
-  [data-surface='card'][data-preview='focus'] {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
+  [data-surface='card']:is(:focus-visible, [data-preview='focus']) {
+    outline: none;
+    box-shadow: var(--card-depth), var(--shadow-focus);
   }
 
   [data-surface='card'][data-interactive]:not([data-disabled], [aria-busy='true']):is(
       :active,
       [data-preview='active']
     ) {
-    border-color: var(--color-line-2);
-    box-shadow: none;
-    background-color: var(--color-surface-sunken);
-    transition-duration: var(--duration-instant);
+    transform: scale(0.99);
   }
 
-  /* Selected or current: accent-soft fill, a 2 px accent edge on the leading side, ink-1 text. */
+  /* Selected or current: the page tint behind it and a firmer hairline, never a coloured bar. */
   [data-surface='card']:is([aria-current]:not([aria-current='false']), [aria-pressed='true']) {
-    --card-fill: var(--color-accent-soft);
+    --card-fill: var(--color-surface-sunken);
+    --card-depth: 0 0 0 1px var(--color-line-2);
     color: var(--color-ink-1);
   }
 
-  /* The edge is a bar, not a border, so it stays straight inside the rounded shape. */
-  [data-surface='card']:is(
-      [aria-current]:not([aria-current='false']),
-      [aria-pressed='true']
-    )::before {
-    content: '';
-    position: absolute;
-    inset-block: var(--spacing-3);
-    inset-inline-start: -1px;
-    inline-size: 2px;
-    border-radius: var(--radius-pill);
-    background-color: var(--color-accent);
-  }
-
-  /* Disabled: ink-disabled text throughout and a line-1 edge, never opacity. */
   [data-surface='card'][data-disabled] {
+    opacity: 0.6;
     cursor: not-allowed;
   }
 
@@ -300,12 +283,16 @@
     cursor: progress;
   }
 
-  /* An error is said in place, inside the card; the edge only reinforces it. */
+  /* An error is said in place, inside the card; a soft red edge only reinforces it. */
   [data-surface='card'][data-invalid] {
-    border-color: var(--color-stop);
+    --card-depth: 0 0 0 1px color-mix(in srgb, var(--color-stop-mark) 45%, transparent);
   }
 
   @media (forced-colors: active) {
+    [data-surface='card'] {
+      border: 1px solid CanvasText;
+    }
+
     [data-surface='card']:is([aria-current]:not([aria-current='false']), [aria-pressed='true']) {
       border-color: Highlight;
     }
@@ -346,16 +333,7 @@
   }
 }
 
-/*
- * Outside the layers on purpose: a disabled card's content is ink-disabled throughout, which has to
- * win over the colour utilities its content carries (text-ink-2, a verdict's word).
- */
-[data-surface='card'][data-disabled],
-[data-surface='card'][data-disabled] * {
-  color: var(--color-ink-disabled);
-}
-
-/* The reason stays readable: it is what tells the person what to do. */
+/* The reason stays readable when a card is disabled: it is what tells the person what to do. */
 [data-surface='card'][data-disabled] [data-card-reason] {
-  color: var(--color-ink-3);
+  color: var(--color-ink-2);
 }
