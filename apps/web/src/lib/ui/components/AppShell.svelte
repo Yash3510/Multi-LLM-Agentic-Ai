@@ -13,7 +13,8 @@
   import type { Snippet } from 'svelte';
   import type { ChatSummary } from '$lib/data';
 
-  let { children, chats }: { children: Snippet; chats: ChatSummary[] } = $props();
+  let { children, chats, userName }: { children: Snippet; chats: ChatSummary[]; userName: string } =
+    $props();
 
   const locale = toIntlLocale(getLocale());
   // Planned routes (web-screens.md); the hash keeps them typed until they exist.
@@ -48,7 +49,7 @@
   <Sidebar
     bind:open
     productName={m.app_name()}
-    userName="Asha Rao"
+    {userName}
     destinations={DESTINATIONS}
     current={page.url.pathname + page.url.hash}
   >

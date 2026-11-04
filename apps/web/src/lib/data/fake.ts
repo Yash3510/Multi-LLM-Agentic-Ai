@@ -336,7 +336,13 @@ async function* replay(steps: Step[], pace: number, signal?: AbortSignal) {
 export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSource {
   // The session lives in memory only. Passwords are accepted and dropped: nothing checks, keeps
   // or forwards them.
-  let user: User | undefined;
+  // A demo person is signed in from the start, so local work opens straight into the app.
+  let user: User | undefined = {
+    id: 'u-asha',
+    name: 'Asha Rao',
+    email: 'asha@example.org',
+    role: 'admin',
+  };
   let hasAccount = true;
   const person = (name: string, email: string, role: User['role']): User => ({
     id: `u-${email}`,

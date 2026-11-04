@@ -89,6 +89,7 @@
   "cube": { "phosphor": "cube" },
   "clock": { "phosphor": "clock" },
   "warning-circle": { "phosphor": "warning-circle" },
+  "caps-lock": { "phosphor": "arrow-fat-line-up" },
   "sidebar-simple": { "phosphor": "sidebar-simple" },
   "command": { "phosphor": "command" },
   "keyboard": { "phosphor": "keyboard" },
