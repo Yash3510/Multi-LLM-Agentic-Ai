@@ -15,6 +15,9 @@
     placeholder?: string;
     /** The draft, bindable so a suggestion can fill it. */
     value?: string;
+    /** An answer is streaming: the round action becomes Stop. */
+    busy?: boolean;
+    onstop?: () => void;
   };
 
   let {
@@ -23,11 +26,13 @@
     tools = 0,
     placeholder = m.composer_placeholder(),
     value = $bindable(''),
+    busy = false,
+    onstop,
   }: Props = $props();
   const ready = $derived(value.trim().length > 0);
 
   function send() {
-    if (!ready) return;
+    if (!ready || busy) return;
     onsend(value.trim());
     value = '';
   }
@@ -79,7 +84,11 @@
       >
         <Icon name="microphone" size={18} />
       </button>
-      {#if ready}
+      {#if busy}
+        <button type="button" class="action" aria-label={m.composer_stop()} onclick={onstop}>
+          <Icon name="stop-square" size={16} />
+        </button>
+      {:else if ready}
         <button type="button" class="action" aria-label={m.composer_send()} onclick={send}>
           <Icon name="send" size={18} />
         </button>

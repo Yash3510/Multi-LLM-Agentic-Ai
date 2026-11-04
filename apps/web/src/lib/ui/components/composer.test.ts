@@ -41,3 +41,18 @@ describe('Composer', () => {
     expect(getByRole('button', { name: '7 Available Tools' })).toBeTruthy();
   });
 });
+
+describe('Composer while an answer streams', () => {
+  it('offers Stop in place of send and calls onstop', async () => {
+    const onstop = vi.fn();
+    const { getByRole, queryByRole } = render(Composer, {
+      onsend: vi.fn(),
+      onstop,
+      busy: true,
+      model: 'Planner',
+    });
+    expect(queryByRole('button', { name: 'Voice mode' })).toBeNull();
+    await fireEvent.click(getByRole('button', { name: 'Stop' }));
+    expect(onstop).toHaveBeenCalledOnce();
+  });
+});

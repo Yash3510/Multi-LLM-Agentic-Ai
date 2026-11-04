@@ -62,6 +62,10 @@
     ).values(),
   ]);
   const html = $derived(renderMarkdown(text, sources));
+  // Text is still arriving: live, with some text, and not yet handed to the person.
+  const typing = $derived(
+    !finished && text.length > 0 && !(events ?? []).some((event) => event.type === 'sign-off'),
+  );
   const short = new Intl.DateTimeFormat(toIntlLocale(getLocale()), {
     month: 'short',
     day: 'numeric',
@@ -81,27 +85,29 @@
         {#if calls.length}<ToolGroup {calls} />{/if}
       {/if}
       {#if status}<div class="status">{status}</div>{/if}
-      <div class="body" {@attach safeHtml(html)}></div>
+      <div class="body" data-typing={typing ? '' : undefined} {@attach safeHtml(html)}></div>
       {#if sources.length}<SourcesBar {sources} />{/if}
       {#if direct}
         <p class="direct">
           {m.message_direct_reply()} · <code>{direct.model}</code> · {direct.seconds.toFixed(1)}s — {m.message_direct_reason()}
         </p>
       {/if}
-      <div class="bar" data-message-actions>
-        {#each ACTIONS as action (action.name)}
-          <button
-            type="button"
-            data-message-action
-            aria-label={action.label}
-            title={action.label}
-            onclick={action.name === 'copy' ? () => writeClipboard(text) : undefined}
-          >
-            <Icon name={action.name} size={16} />
-          </button>
-        {/each}
-        <time data-message-time datetime={at.toISOString()}>{short.format(at)}</time>
-      </div>
+      {#if finished}
+        <div class="bar" data-message-actions>
+          {#each ACTIONS as action (action.name)}
+            <button
+              type="button"
+              data-message-action
+              aria-label={action.label}
+              title={action.label}
+              onclick={action.name === 'copy' ? () => writeClipboard(text) : undefined}
+            >
+              <Icon name={action.name} size={16} />
+            </button>
+          {/each}
+          <time data-message-time datetime={at.toISOString()}>{short.format(at)}</time>
+        </div>
+      {/if}
     </div>
   </div>
 </div>
@@ -281,6 +287,28 @@
     border-radius: var(--radius-tight);
     background-color: var(--color-gray-50);
     font-size: 0.9em;
+  }
+
+  /* The typing caret at the end of the text while it streams (chat-messages look §3.4). */
+  .body[data-typing] > :global(:last-child)::after {
+    content: '';
+    display: inline-block;
+    inline-size: 2px;
+    block-size: 14px;
+    margin-inline-start: 2px;
+    background-color: var(--color-gray-400);
+    vertical-align: baseline;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  :global([data-theme='dark']) .body[data-typing] > :global(:last-child)::after {
+    background-color: var(--color-gray-500);
+  }
+
+  @keyframes pulse {
+    50% {
+      opacity: 0.3;
+    }
   }
 
   .bar {
