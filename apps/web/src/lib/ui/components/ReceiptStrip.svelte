@@ -2,7 +2,8 @@
   // The receipt under a released answer (own-4ce look S7, features F36-F37): labels saying how
   // the answer was produced, the fingerprint (click to copy) and the audit record, then what was
   // checked, then the folds: full provenance, each agent's output and the execution timeline.
-  import type { Receipt, SignOffRequest } from '$lib/data';
+  import type { Receipt, Revision, SignOffRequest } from '$lib/data';
+  import RevisionCard from './RevisionCard.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
   import { COPY_HOLD_MS, writeClipboard } from './clipboard';
@@ -17,9 +18,19 @@
     timeline?: { at: string; text: string }[];
     /** Opens the audit record. */
     onaudit?: () => void;
+    /** What changed on a later try, shown above the checks. */
+    revision?: Revision;
   };
 
-  let { receipt, checks, releasedAt, cited = [], timeline = [], onaudit }: Props = $props();
+  let {
+    receipt,
+    checks,
+    releasedAt,
+    cited = [],
+    timeline = [],
+    onaudit,
+    revision,
+  }: Props = $props();
 
   let open = $state<Record<string, boolean>>({});
   const reservations = $derived(checks.filter((check) => check.verdict === 'review').length);
@@ -86,6 +97,7 @@
       <Icon name="file-text" size={12} /><b>Audit</b>
     </button>
   </div>
+  {#if revision}<RevisionCard {revision} {passed} />{/if}
   {#if checks.length}
     <div class="checks">
       <h3 class="heading">What was checked</h3>

@@ -75,3 +75,43 @@ export const onChip = (open: (index: number) => void) => (node: HTMLElement) => 
   node.addEventListener('click', press);
   return () => node.removeEventListener('click', press);
 };
+
+const words = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}%.]+/gu, ' ')
+    .trim();
+
+/**
+ * Marks what changed since the last try in rendered markdown (own-4ce features F33): each block
+ * holding an added line (found by its first nine words) gets `data-changed`, and the line it
+ * replaced goes before it with `data-was`, its citation markers stripped. A change found in no
+ * block is left out rather than pinned to the wrong one.
+ */
+export const markChanges =
+  (changes: { removed?: string; added?: string }[], on: boolean) => (node: HTMLElement) => {
+    if (!on) return;
+    const marked: Element[] = [];
+    const inserted: Element[] = [];
+    const blocks = [...node.querySelectorAll('p, li, td, h1, h2, h3, h4')];
+    for (const change of changes) {
+      if (!change.added) continue;
+      const key = words(change.added).split(' ').slice(0, 9).join(' ');
+      const block = blocks.find((item) => words(item.textContent ?? '').includes(key));
+      if (!block) continue;
+      block.setAttribute('data-changed', '');
+      marked.push(block);
+      if (change.removed) {
+        const was = document.createElement(block.tagName === 'LI' ? 'li' : 'p');
+        was.setAttribute('data-was', '');
+        was.textContent = change.removed.replace(/\s*\[\d+\]/g, '');
+        block.before(was);
+        inserted.push(was);
+      }
+    }
+    marked[0]?.scrollIntoView?.({ block: 'nearest' });
+    return () => {
+      marked.forEach((block) => block.removeAttribute('data-changed'));
+      inserted.forEach((was) => was.remove());
+    };
+  };

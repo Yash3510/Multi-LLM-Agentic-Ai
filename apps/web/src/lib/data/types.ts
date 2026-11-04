@@ -30,9 +30,20 @@ export interface ToolCall {
   state: 'running' | 'done' | 'failed';
 }
 
+export interface Revision {
+  /** The try this draft is (2 after one send-back). */
+  try: number;
+  /** What the reviewer objected to on the previous try. */
+  objections: { by: string; text: string }[];
+  /** Lines rewritten, added or taken out since the previous try. */
+  changes: { removed?: string; added?: string }[];
+}
+
 export interface SignOffRequest {
   /** What was checked, each with its verdict. */
   checks: { label: string; verdict: 'pass' | 'review' | 'fail' }[];
+  /** Present when this draft is a later try after a send-back. */
+  revision?: Revision;
 }
 
 export interface Receipt {

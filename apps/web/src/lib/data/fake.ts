@@ -127,6 +127,82 @@ function script(): Step[] {
   ];
 }
 
+function replanned(): Step[] {
+  const run = script();
+  const author = run.findIndex(
+    (step) => step.event.type === 'status' && step.event.stage === 'author',
+  );
+  const challenger = run.findIndex(
+    (step) => step.event.type === 'status' && step.event.stage === 'challenger',
+  );
+  const deltas = run.slice(author + 1, challenger);
+  const signOff = run.at(-1);
+  const request = signOff?.event.type === 'sign-off' ? signOff.event.request : { checks: [] };
+  return [
+    ...run.slice(0, author + 1),
+    {
+      after: 2200,
+      event: {
+        type: 'status',
+        stage: 'challenger',
+        description: 'Challenger: fail, the ratio is rounded without saying so',
+      },
+    },
+    {
+      after: 600,
+      event: {
+        type: 'status',
+        stage: 'replan',
+        description: 'Replanned, with the objections attached for the Analyst and Author',
+      },
+    },
+    {
+      after: 500,
+      event: {
+        type: 'status',
+        stage: 'analyst',
+        description: 'Analyst: checking the exact reading',
+      },
+    },
+    {
+      after: 1800,
+      event: { type: 'status', stage: 'author', description: 'Author: revising the answer' },
+    },
+    ...deltas,
+    {
+      after: 500,
+      event: {
+        type: 'status',
+        stage: 'challenger',
+        description: 'Challenger: pass, every figure is supported',
+      },
+    },
+    {
+      after: 300,
+      event: { type: 'status', stage: 'sign-off', description: 'Waiting for sign-off' },
+    },
+    {
+      after: 200,
+      event: {
+        type: 'sign-off',
+        request: {
+          ...request,
+          revision: {
+            try: 2,
+            objections: [{ by: 'Challenger', text: 'The ratio is rounded without saying so.' }],
+            changes: [
+              {
+                removed: 'Yes. R2 · Ratio for CASE-0142 is about 83 %, within the limit [1].',
+                added: 'Yes. R2 · Ratio for CASE-0142 is 82.5 %, within the 85 % limit [1].',
+              },
+            ],
+          },
+        },
+      },
+    },
+  ];
+}
+
 function failing(): Step[] {
   return [
     ...script().slice(0, 7),
@@ -271,6 +347,8 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       // A question about the server being down replays a run that stops at the Analyst, so the
       // run error card can be seen without a backend.
       if (/server down/i.test(question)) return replay(failing(), pace, signal);
+      // A question about rounding replays a run the Challenger sends back once.
+      if (/rounded/i.test(question)) return replay(replanned(), pace, signal);
       return replay(script(), pace, signal);
     },
     decide(_chatId, outcome, by, signal) {

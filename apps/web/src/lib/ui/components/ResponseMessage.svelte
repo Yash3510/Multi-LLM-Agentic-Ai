@@ -211,6 +211,7 @@
             .map((source) => source.title)}
           {timeline}
           onaudit={() => (auditOpen = true)}
+          revision={(events ?? []).findLast((event) => event.type === 'sign-off')?.request.revision}
         />
         {#if audit}<AuditDialog bind:open={auditOpen} {...audit} />{/if}
       {/if}

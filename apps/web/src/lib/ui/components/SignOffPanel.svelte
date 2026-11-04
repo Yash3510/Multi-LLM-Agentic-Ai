@@ -4,7 +4,7 @@
   // "approve" to release it or withholds it. Anything other than approve keeps it back.
   import type { SignOffRequest, Source } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
-  import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
+  import { markChanges, renderMarkdown, safeHtml } from '$lib/ui/markdown';
 
   type Props = {
     request: SignOffRequest;
@@ -18,6 +18,12 @@
 
   let word = $state('');
   let refused = $state(false);
+  let showChanges = $state(false);
+  const revision = $derived(request.revision);
+  // Removals with no replacement are listed in the box; the rest are marked in the draft.
+  const takenOut = $derived(
+    (revision?.changes ?? []).filter((change) => change.removed && !change.added),
+  );
   const ready = $derived(word.trim().toLowerCase() === 'approve');
   const passed = $derived(request.checks.every((check) => check.verdict === 'pass'));
   const cited = $derived(
@@ -47,8 +53,32 @@
 
   <div class="body">
     <div class="draft">
+      {#if revision}
+        <button
+          type="button"
+          class="changes-toggle"
+          aria-pressed={showChanges}
+          onclick={() => (showChanges = !showChanges)}
+        >
+          {showChanges ? 'Hide the changes' : 'Show what changed since try 1'}
+        </button>
+        {#if showChanges}
+          <div class="changes">
+            {#each revision.objections as objection (objection.text)}
+              <p>{objection.by.toUpperCase()} on try {revision.try - 1}: “{objection.text}”</p>
+            {/each}
+            {#each takenOut as change, index (index)}
+              <p class="taken">Taken out: <s>{change.removed}</s></p>
+            {/each}
+          </div>
+        {/if}
+      {/if}
       {#if draft.trim()}
-        <div class="draft-text" {@attach safeHtml(html)}></div>
+        <div
+          class="draft-text"
+          {@attach safeHtml(html)}
+          {@attach markChanges(revision?.changes ?? [], showChanges)}
+        ></div>
       {:else}
         <p class="empty">The draft is empty.</p>
       {/if}
@@ -248,6 +278,71 @@
     font-size: 0.66rem;
     font-style: normal;
     font-weight: var(--font-weight-medium);
+  }
+
+  /* What changed since try 1 (look S13). */
+  .changes-toggle {
+    display: inline-flex;
+    margin-block-end: var(--spacing-3);
+    padding: 4px var(--spacing-3);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-pill);
+    color: var(--color-gray-600);
+    font-size: var(--text-caption);
+    transition:
+      border-color 150ms,
+      color 150ms;
+  }
+
+  .changes-toggle:hover,
+  .changes-toggle[aria-pressed='true'] {
+    border-color: var(--color-gray-900);
+    color: var(--color-gray-900);
+  }
+
+  .changes-toggle:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  .changes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    margin-block-end: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-inset);
+    background-color: var(--color-amber-50);
+    color: var(--color-amber-800);
+    font-size: 12.5px;
+    line-height: 1.625;
+    animation: enter-changes 260ms;
+  }
+
+  .taken {
+    color: var(--color-gray-600);
+  }
+
+  .draft-text :global([data-changed]) {
+    border-radius: 6px;
+    background-color: rgb(16 185 129 / 0.08);
+    box-shadow: 0 0 0 3px rgb(16 185 129 / 0.08);
+  }
+
+  .draft-text :global([data-was]) {
+    padding-inline: var(--spacing-1);
+    border-radius: 5px;
+    background-color: rgb(239 68 68 / 0.08);
+    color: var(--color-red-700);
+    text-decoration: line-through;
+    text-decoration-color: rgb(185 28 28 / 0.4);
+  }
+
+  @keyframes enter-changes {
+    from {
+      opacity: 0;
+      translate: 0 -4px;
+    }
   }
 
   .empty {
