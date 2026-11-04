@@ -23,5 +23,9 @@
   "ui_section_motion": "गति",
   "ui_section_icons": "आइकन",
   "ui_type_latin": "लैटिन",
-  "ui_type_devanagari": "देवनागरी"
+  "ui_type_devanagari": "देवनागरी",
+  "list_group_today": "आज",
+  "list_group_yesterday": "कल",
+  "list_group_week": "पिछले 7 दिन",
+  "list_group_month": "पिछले 30 दिन"
 }

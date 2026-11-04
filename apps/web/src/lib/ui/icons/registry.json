@@ -36,6 +36,7 @@
 
   "caret-down": { "lucide": "chevron-down" },
   "caret-right": { "lucide": "chevron-right" },
+  "caret-up": { "lucide": "chevron-up" },
   "caret-up-down": { "lucide": "chevrons-up-down" },
   "check": { "lucide": "check" },
   "x": { "lucide": "x" },

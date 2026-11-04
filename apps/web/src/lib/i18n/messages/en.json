@@ -134,5 +134,9 @@
   "ui_format_intro": "One module for every number, unit, time and hash, in the active locale. Missing values print —.",
   "ui_format_call": "Call",
   "ui_format_output": "Output, {locale}",
-  "ui_format_chars": "Beyond ASCII"
+  "ui_format_chars": "Beyond ASCII",
+  "list_group_today": "Today",
+  "list_group_yesterday": "Yesterday",
+  "list_group_week": "Previous 7 days",
+  "list_group_month": "Previous 30 days"
 }
