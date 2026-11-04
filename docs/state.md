@@ -3,7 +3,7 @@ title: State
 type: state
 status: active
 owner: R1
-updated: 2026-10-12
+updated: 2026-11-03
 tags: [4ce, state]
 ---
 
@@ -25,10 +25,11 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 **The backend and the database come first.** The next work packages build the server and its PostgreSQL foundations, towards Phase 0's "app with a login" as an API.
 
-**The frontend is on hold in this stream.** Pranay, the frontend owner, develops `apps/web` separately; the [frontend page](architecture/frontend.md) has everything needed to do that independently. The backend's API is the contract between the two: the frontend codes against its OpenAPI document (ADR-0035 §4).
+**The frontend is on hold in this stream.** Pranay, the frontend owner, develops `apps/web` separately; the [frontend page](architecture/frontend.md) has everything needed to do that independently. The backend's API is the contract between the two: the frontend codes against its OpenAPI document (ADR-0035 §4). On `wp/WP-F-09-design-system`, `apps/web` now has its tokens, base components and `/ui` reference, built to match the current app's look ([ADR-0037](adr/0037-exact-match-look.md), proposed; [log](log/2026/11/2026-11-03-wp-wp-f-09-design-system.md)).
 
 ## Open questions
 
+- **ADR-0037** (exact-match look and its premium-components amendment) waits on R1.
 - **ADR-0035 and ADR-0036** (frontend foundations; MPL-2.0 build tools) wait on R1 and R4, before `apps/web` and the npm side of the licence gate land on `4ce-core`.
 - **The proposed ADRs** 0009, 0015, 0018, 0023, 0029, 0031 and 0032 need their owners' acceptance.
 - **ADR-0025:** MinIO's patch source; options in [MinIO patch source](research/minio-patch-source.md).
