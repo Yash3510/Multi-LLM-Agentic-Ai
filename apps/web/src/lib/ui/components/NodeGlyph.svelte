@@ -12,6 +12,8 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   // The node glyph (own-4ce look S4): a ring on a 14-unit grid. Waiting is six dashes, working is
   // six dots with a violet light running round them, and the finished looks close the ring with
   // their mark. Used on the stage rail (14 px) and as the sidebar run marker (12 px).
@@ -24,6 +26,12 @@
   };
 
   let { state, size = 12, label, bloom = 0 }: Props = $props();
+
+  // A node that mounts finished is drawn complete; one that finishes in front of the reader
+  // plays the close (look S4): dots stretch into the ring, the centre or the mark draws in.
+  const FINISHED = ['done', 'fail', 'interrupted', 'released', 'withheld'];
+  const initial = untrack(() => state);
+  const fresh = $derived(state !== initial && FINISHED.includes(state));
 
   // Six positions on the ring, from the top, every 60 degrees clockwise.
   const DOTS = Array.from({ length: 6 }, (_, index) => {
@@ -42,6 +50,7 @@
   height={size}
   class="node"
   data-state={state}
+  data-fresh={fresh ? '' : undefined}
   role={label ? 'img' : undefined}
   aria-label={label}
   aria-hidden={label ? undefined : true}
@@ -71,14 +80,16 @@
     {/each}
     <circle class="hub" cx="7" cy="7" r="1" />
   {:else}
-    <circle class="ring" cx="7" cy="7" r="5.2" />
-    {#if state === 'released'}
-      <path class="mark" d="M4.6 7.2l1.5 1.5 3-3.3" />
-    {:else if state === 'withheld' || state === 'interrupted'}
-      <path class="mark" d="M4.8 7h4.4" />
-    {:else}
-      <circle class="dot" cx="7" cy="7" r="1.9" />
-    {/if}
+    {#key state}
+      <circle class="ring" cx="7" cy="7" r="5.2" pathLength="6" />
+      {#if state === 'released'}
+        <path class="mark" d="M4.6 7.2l1.5 1.5 3-3.3" pathLength="1" />
+      {:else if state === 'withheld' || state === 'interrupted'}
+        <path class="mark" d="M4.8 7h4.4" pathLength="1" />
+      {:else}
+        <circle class="dot" cx="7" cy="7" r="1.9" />
+      {/if}
+    {/key}
   {/if}
 </svg>
 
@@ -176,6 +187,55 @@
     stroke: var(--node-amber);
   }
 
+  /* The close (look S4): six round dots fade in by 30 %, then stretch into the ring as it thins;
+     the centre dot grows in after 450 ms; a mark draws in after 1.1 s. */
+  .node[data-fresh] .ring {
+    animation: close 1.4s cubic-bezier(0.65, 0, 0.35, 1) both;
+  }
+
+  .node[data-fresh] .dot {
+    transform-origin: 7px 7px;
+    animation: core 1s cubic-bezier(0.65, 0, 0.35, 1) 450ms both;
+  }
+
+  .node[data-fresh] .mark {
+    stroke-dasharray: 1;
+    animation: draw 900ms cubic-bezier(0.45, 0, 0.2, 1) 1.1s both;
+  }
+
+  @keyframes close {
+    0% {
+      opacity: 0;
+      stroke-width: 2.4;
+      stroke-dasharray: 0 1;
+    }
+    30% {
+      opacity: 1;
+      stroke-width: 2.4;
+      stroke-dasharray: 0 1;
+    }
+    100% {
+      stroke-width: 1.25;
+      stroke-dasharray: 1 0;
+    }
+  }
+
+  @keyframes core {
+    from {
+      opacity: 0;
+      scale: 0.5;
+    }
+  }
+
+  @keyframes draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
   .node[data-state='fail'] .dot {
     fill: var(--node-amber);
   }
@@ -208,6 +268,10 @@
 
     .bloom {
       display: none;
+    }
+
+    .node[data-fresh] :is(.ring, .dot, .mark) {
+      animation: none;
     }
   }
 </style>

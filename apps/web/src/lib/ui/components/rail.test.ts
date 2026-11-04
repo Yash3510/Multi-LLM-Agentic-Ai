@@ -97,3 +97,34 @@ describe('StageRail pacing', () => {
     expect(onhandover).toHaveBeenLastCalledWith(undefined);
   });
 });
+
+describe('StageRail re-plan spark', () => {
+  it('sends a spark along the arc once per re-plan on a live run only', async () => {
+    const live: StreamEvent[] = [
+      status(0, 'planner'),
+      status(100, 'analyst'),
+      status(200, 'author'),
+      { type: 'status', at: 300, stage: 'challenger', description: 'fail' },
+    ];
+    const view = render(StageRail, { props: { events: live, finished: false, now: 400 } });
+    expect(view.container.querySelector('.spark')).toBeNull();
+    await view.rerender({
+      events: [...live, { type: 'status', at: 400, stage: 'replan', description: '' }],
+      finished: false,
+      now: 500,
+    });
+    expect(view.container.querySelector('.spark')).toBeTruthy();
+
+    const opened = render(StageRail, {
+      props: {
+        events: [
+          ...live,
+          { type: 'status', at: 400, stage: 'replan', description: '' },
+          { type: 'done', at: 600 },
+        ],
+        finished: true,
+      },
+    });
+    expect(opened.container.querySelector('.spark')).toBeNull();
+  });
+});

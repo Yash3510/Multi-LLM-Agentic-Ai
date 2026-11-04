@@ -54,6 +54,8 @@
   let phase = $state<'rest' | 'closing' | 'travel'>('rest');
   let blooms = $state<Record<number, number>>({});
   let sweep = $state(false);
+  // Re-plans seen at first sight: only later ones send a spark along the arc (F22).
+  const seenReplans = untrack(() => deriveRun(events, finished, now ?? Date.now()).replans);
   const timers: ReturnType<typeof setTimeout>[] = [];
   onDestroy(() => timers.forEach(clearTimeout));
 
@@ -205,6 +207,11 @@
       <div class="arc" aria-hidden="true">
         <svg viewBox="0 0 100 22" preserveAspectRatio="none">
           <path d="M100 22 C86 1 14 1 0 22" />
+          {#if pacing && run.replans > seenReplans}
+            {#key run.replans}
+              <path class="spark" d="M100 22 C86 1 14 1 0 22" pathLength="100" />
+            {/key}
+          {/if}
         </svg>
         <span class="arc-label">CHALLENGER sent it back · {ORDINAL(run.replans + 1)} try</span>
       </div>
@@ -515,6 +522,37 @@
     stroke-width: 1.5;
     stroke-dasharray: 4 3;
     vector-effect: non-scaling-stroke;
+  }
+
+  /* The spark (look S3.4): a short bright dash rides the arc back once per re-plan. */
+  .arc path.spark {
+    stroke: var(--color-amber-500);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-dasharray: 10 90;
+    stroke-dashoffset: 10;
+    animation: spark 900ms cubic-bezier(0.45, 0, 0.3, 1) 380ms both;
+  }
+
+  @keyframes spark {
+    0%,
+    85% {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      stroke-dashoffset: -90;
+    }
+  }
+
+  :global([data-theme='dark']) .arc path.spark {
+    stroke: var(--color-yellow-300);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .arc path.spark {
+      display: none;
+    }
   }
 
   :global([data-theme='dark']) .arc path {
