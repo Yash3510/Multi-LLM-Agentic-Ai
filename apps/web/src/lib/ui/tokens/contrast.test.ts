@@ -91,6 +91,8 @@ const MEASURED: Record<Theme, Record<string, string>> = {
     'caution-mark': '#f0b100',
     stop: '#c10007',
     'stop-mark': '#fb2c36',
+    'intro-ink': '#0d1117',
+    'intro-ground': '#ffffff',
   },
   dark: {
     'surface-page': '#161616',
@@ -117,6 +119,8 @@ const MEASURED: Record<Theme, Record<string, string>> = {
     'caution-mark': '#f0b100',
     stop: '#ffc9c9',
     'stop-mark': '#fb2c36',
+    'intro-ink': '#ffffff',
+    'intro-ground': '#161616',
   },
 };
 

@@ -20,6 +20,8 @@
       --color-ink-2: var(--ref-gray-300);
       --color-ink-3: var(--ref-gray-400);
       --color-ink-disabled: var(--ref-gray-600);
+      --color-intro-ink: var(--ref-white);
+      --color-intro-ground: var(--ref-gray-900);
 
       --color-solid: var(--ref-white);
       --color-on-solid: var(--ref-black);
