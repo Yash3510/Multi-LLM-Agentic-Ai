@@ -41,7 +41,7 @@ Events arrive in order. `at` is the server's time in milliseconds.
 | `sign-off` | the checks for the person to review, each with a verdict | the sign-off panel |
 | `decision` | `released` or `withheld`, and who decided | the Sign-off node and the panel's result |
 | `receipt` | fingerprint, model, seconds, source count, who signed | the receipt strip under the answer |
-| `done`, `stopped`, `error` | (error: a message) | the end of the run |
+| `done`, `stopped`, `error` | error: the server's `message` and optional plain-language `advice` | the end of the run; an error shows the run error card, which reads the cause from those two fields |
 
 ## The six roles
 
