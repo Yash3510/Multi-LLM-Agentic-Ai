@@ -1,0 +1,45 @@
+/*
+ * Motion: named durations and easings only. No overshoot and no springs. motion.svelte.ts mirrors
+ * these values for Svelte transitions, and motion.test.ts checks that the two agree.
+ */
+@theme static {
+  --duration-instant: 100ms;
+  --duration-quick: 160ms;
+  --duration-base: 240ms;
+  --duration-calm: 360ms;
+  --duration-slow: 560ms;
+  --duration-deliberate: 900ms;
+  --duration-handover: 1900ms;
+  --duration-ambient: 3800ms;
+
+  --ease-*: initial;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Bare transition utilities use the measured default: 150 ms on the standard curve (ADR-0037). */
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* duration-calm and the rest. Setting --tw-duration keeps them working beside transition-*. */
+@utility duration-* {
+  --tw-duration: --value(--duration-*);
+  transition-duration: --value(--duration-*);
+}
+
+/*
+ * Reduced motion: one switch, data-motion on <html>, set from the system or the user's setting.
+ * Transitions shrink to a crossfade of 120 ms at most (instant is already below that). Handover and
+ * ambient keep their values because they also time dwells, such as the status line's; app.css stops
+ * every movement and loop that would use them.
+ */
+@layer theme {
+  [data-motion='reduce'] {
+    --duration-quick: 120ms;
+    --duration-base: 120ms;
+    --duration-calm: 120ms;
+    --duration-slow: 120ms;
+    --duration-deliberate: 120ms;
+  }
+}

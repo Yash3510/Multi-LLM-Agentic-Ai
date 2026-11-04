@@ -1,0 +1,52 @@
+/*
+ * Tier 1: primitives. The values measured from the running 4CE app (ADR-0037; data-and-logic look
+ * §3 and the area tables). Only the semantic roles in theme.css and dark.css reference them; the
+ * grey ramp is also exposed to Tailwind as gray-50 to gray-950, under the names the tables use.
+ * contrast.test.ts pins every value here.
+ */
+@layer theme {
+  :root {
+    --ref-white: #ffffff;
+    --ref-black: #000000;
+
+    /* The neutral ramp, achromatic. */
+    --ref-gray-50: #f8f8f8;
+    --ref-gray-100: #ebebeb;
+    --ref-gray-200: #e4e4e4;
+    --ref-gray-300: #cecece;
+    --ref-gray-400: #b4b4b4;
+    --ref-gray-500: #9b9b9b;
+    --ref-gray-600: #666666;
+    --ref-gray-700: #4d4d4d;
+    --ref-gray-800: #333333;
+    --ref-gray-850: #262626;
+    --ref-gray-900: #161616;
+    --ref-gray-950: #0d0d0d;
+
+    /* 4CE's violet for live agent work (own-4ce look S4, S16). */
+    --ref-violet-ink: #7c3aed;
+    --ref-violet-dot: #8b5cf6;
+    --ref-violet-dot-dark: #a78bfa;
+    --ref-violet-caret-dark: #c4b5fd;
+    --ref-violet-lit-dark: #ddd6fe;
+
+    /* The one blue: keyboard focus and checked boxes. */
+    --ref-blue-500: #2b7fff;
+    --ref-blue-600: #155dfc;
+
+    /* Verdict text and marks, from the status badge (common look F31). */
+    --ref-green-ok: #008236;
+    --ref-green-ok-dark: #b9f8cf;
+    --ref-green-mark: #00c950;
+    --ref-yellow-caution: #a65f00;
+    --ref-yellow-caution-dark: #fff085;
+    --ref-yellow-mark: #f0b100;
+    --ref-red-stop: #c10007;
+    --ref-red-stop-dark: #ffc9c9;
+    --ref-red-mark: #fb2c36;
+
+    /* The page body's own dark ground and ink, off the ramp (data-and-logic look §1). */
+    --body-dark-ground: #171717;
+    --body-dark-ink: #eeeeee;
+  }
+}

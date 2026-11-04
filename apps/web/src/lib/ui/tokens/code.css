@@ -1,0 +1,25 @@
+/*
+ * Code-block colours, measured from the running app on 2026-11-03 (ADR-0037). Its highlighting
+ * theme loads after the app's own token colours and wins wherever both name a token, so these are
+ * the painted values; the app's colours survive only for tokens the theme leaves alone (tag, link,
+ * params, builtin-name). Same in light and dark.
+ */
+@theme {
+  --color-code-ground: #0d1117;
+  --color-code-ink: #c9d1d9;
+  --color-code-keyword: #ff7b72;
+  --color-code-title: #d2a8ff;
+  --color-code-constant: #79c0ff;
+  --color-code-string: #a5d6ff;
+  --color-code-built-in: #ffa657;
+  --color-code-comment: #8b949e;
+  --color-code-name: #7ee787;
+  --color-code-section: #1f6feb;
+  --color-code-bullet: #f2cc60;
+  --color-code-tag: #f98181;
+  --color-code-params: #fbbc88;
+  --color-code-addition: #aff5b4;
+  --color-code-addition-ground: #033a16;
+  --color-code-deletion: #ffdcd7;
+  --color-code-deletion-ground: #67060c;
+}

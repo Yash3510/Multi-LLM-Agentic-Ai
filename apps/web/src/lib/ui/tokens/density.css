@@ -1,0 +1,30 @@
+/*
+ * Densities, set with data-density on any region: comfortable for chat and approval, default for
+ * lists, compact for rules, observations and ledger tables. Hit targets stay at least 24 x 24 px.
+ */
+@layer theme {
+  :root,
+  [data-density='default'] {
+    --row-height: 32px;
+  }
+  [data-density='comfortable'] {
+    --row-height: 40px;
+  }
+  [data-density='compact'] {
+    --row-height: 28px;
+  }
+}
+
+/* h-row and min-h-row. Inline, so a region's own density reaches the rows inside it. */
+@theme inline {
+  --height-row: var(--row-height);
+}
+
+@layer base {
+  /* Compact also drops to the small type step. Never on <html> itself, where it would change rem. */
+  :not(html)[data-density='compact'],
+  html[data-density='compact'] body {
+    font-size: var(--text-small);
+    line-height: var(--text-small--line-height);
+  }
+}
