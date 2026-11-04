@@ -39,6 +39,13 @@ The `AbortSignal` stops a stream. The person's Stop button and leaving the chat 
 
 **The fake source refuses production.** The fake replay accepts any email and drops the password unread. A production build that would run on it refuses to start (`src/lib/data/source.ts`, tested in `source.test.ts`), unless it was built as a demo with `VITE_4CE_DEMO=1`. The Playwright tests build that way.
 
+## Workspace
+
+| Call | Returns | Used by |
+| --- | --- | --- |
+| `workspaceCounts()` | how many models, knowledge bases, prompts, skills and tools the person can see | the workspace tabs |
+| `listModels()` | `WorkspaceModel[]`: id, name, base model, description, updated time, owner, and whether it is enabled, hidden and writable by the person | the workspace Models list |
+
 ## Messages
 
 A `Message` is a user message or a response. A response carries its run's `events` and `finished`. Everything the answer shows (the stage rail, the status line, tools, sources, sign-off and receipt) is derived from the events, so a reloaded chat looks the same as a live one. A direct reply (no agent chain) carries `direct`: its status line, the model and the time.

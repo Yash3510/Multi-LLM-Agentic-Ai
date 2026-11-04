@@ -374,6 +374,13 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       user = person(name, email, 'admin');
       return user;
     },
+    // The capture account's workspace: no custom models, 3 knowledge bases, 7 tools.
+    async workspaceCounts() {
+      return { models: 0, knowledge: 3, prompts: 0, skills: 0, tools: 7 };
+    },
+    async listModels() {
+      return [];
+    },
     async listChats(): Promise<ChatSummary[]> {
       return [...CHATS]
         .sort((a, b) => b.updated.getTime() - a.updated.getTime())

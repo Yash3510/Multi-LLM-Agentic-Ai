@@ -20,7 +20,7 @@
   // Planned routes (web-screens.md); the hash keeps them typed until they exist.
   const DESTINATIONS: Destination[] = [
     { href: '/#notes', label: 'Notes', icon: 'note' },
-    { href: '/#workspace', label: 'Workspace', icon: 'workspace' },
+    { href: '/workspace', label: 'Workspace', icon: 'workspace' },
   ];
 
   const rows = $derived(
@@ -34,7 +34,24 @@
     }),
   );
 
-  let open = $state(true);
+  // Closed until the person opens it, as a fresh browser shows the running app; the choice is
+  // remembered (a convenience only, so a blocked store just means closed).
+  const SIDEBAR_KEY = '4ce.sidebar';
+  const stored = () => {
+    try {
+      return localStorage.getItem(SIDEBAR_KEY) === 'open';
+    } catch {
+      return false;
+    }
+  };
+  let open = $state(stored());
+  $effect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_KEY, open ? 'open' : 'closed');
+    } catch {
+      // Storage blocked: the sidebar simply starts closed next time.
+    }
+  });
 
   // The run marker's screen-reader text (layout look §4.4).
   const OUTCOME = {
