@@ -183,6 +183,12 @@
     inline-size: var(--sidebar-width);
   }
 
+  /* The closed rail sits on the page ground with a near-invisible edge (layout look §3.5). */
+  .sidebar:not([data-open]) {
+    background-color: var(--color-surface-page);
+    box-shadow: inset -0.5px 0 0 color-mix(in srgb, var(--color-gray-50) 30%, transparent);
+  }
+
   /* The panel keeps its full width while the frame animates, so content is clipped, not
      reflowed. */
   .panel {

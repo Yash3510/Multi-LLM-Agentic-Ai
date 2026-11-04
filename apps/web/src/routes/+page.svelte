@@ -4,6 +4,7 @@
   // stand-ins until packs supply them.
   import { m } from '$lib/i18n/generated/messages.js';
   import Composer from '$lib/ui/components/Composer.svelte';
+  import EgressIndicator from '$lib/ui/components/EgressIndicator.svelte';
   import IconButton from '$lib/ui/components/IconButton.svelte';
   import Logomark from '$lib/ui/components/Logomark.svelte';
   import TopBar from '$lib/ui/components/TopBar.svelte';
@@ -23,6 +24,8 @@
 <TopBar>
   {#snippet end()}
     <IconButton icon="temporary-chat" label={m.shell_temporary_chat()} />
+    <!-- Shows once the egress API answers a poll (own-4ce look S2). -->
+    <EgressIndicator />
     <IconButton icon="controls" label={m.shell_controls()} />
   {/snippet}
 </TopBar>
@@ -57,26 +60,27 @@
     inline-size: 100%;
     max-inline-size: 928px;
     margin-inline: auto;
-    padding: 96px var(--spacing-1);
-    translate: 0 24px;
+    /* 96 px each way, with the 6 px the running app gains above (its folder-title slot). */
+    padding: 102px var(--spacing-1) 96px;
   }
 
+  /* Gaps measured on the running app at the same window size. */
   .welcome {
     display: grid;
     place-items: center;
-    margin-block-end: 28px;
+    margin-block-end: 40px;
   }
 
   .composer {
     inline-size: 100%;
     max-inline-size: 768px;
-    padding-block: var(--spacing-3);
+    padding: var(--spacing-3) var(--spacing-2);
   }
 
   .suggestions {
     inline-size: 100%;
     max-inline-size: 672px;
-    margin-block-start: var(--spacing-2);
+    margin-block-start: 22px;
     padding-inline: 20px;
   }
 

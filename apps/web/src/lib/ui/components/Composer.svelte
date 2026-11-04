@@ -145,7 +145,8 @@
     display: block;
     inline-size: 100%;
     max-block-size: 384px;
-    padding: var(--spacing-2) var(--spacing-1) 2px;
+    /* The 8 px top padding plus the editor's 4 px paragraph margins (chat-composer look §4.4). */
+    padding: 12px var(--spacing-1) 6px;
     border: 0;
     background: transparent;
     color: inherit;
