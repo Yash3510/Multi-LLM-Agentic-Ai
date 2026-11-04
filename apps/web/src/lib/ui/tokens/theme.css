@@ -37,6 +37,10 @@
   --color-ink-3: var(--ref-gray-500);
   --color-ink-disabled: var(--ref-gray-400);
 
+  /* The sign-in intro (entry look E4): its ink, and the splash ground it starts on. */
+  --color-intro-ink: var(--ref-night);
+  --color-intro-ground: var(--ref-white);
+
   /* The solid pill (Save, Create, Send): black on white, inverted in dark; and the 5% tint that
      icon and ghost buttons hover with. */
   --color-solid: var(--ref-black);
