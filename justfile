@@ -1,5 +1,5 @@
-# Every command the team runs. Recipes stay one-line calls to uv so they behave the
-# same on Windows, macOS and Linux; anything with logic lives in tools/.
+# Every command the team runs. Recipes stay one-line calls to uv (or npm, for apps/web) so they
+# behave the same on Windows, macOS and Linux; anything with logic lives in tools/.
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
@@ -7,10 +7,11 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 default:
     @just --list
 
-# Install Python through uv, sync every package, create .env, and install the git hooks
+# Install Python through uv, sync every package, install the web app, create .env, and install the git hooks
 setup:
     uv python install
     uv sync --all-packages --locked
+    npm --prefix apps/web ci
     uv run python tools/dev/env.py
     uv tool install pre-commit==4.6.2
     pre-commit install --install-hooks --allow-missing-config
@@ -106,5 +107,32 @@ down:
 secrets:
     pre-commit run gitleaks-history --hook-stage manual --all-files
 
+# The web app (Node 24): install from the lockfile, as setup does
+web-install:
+    npm --prefix apps/web ci
+
+# The web app: rewrite its files in prettier's format
+web-format:
+    npm --prefix apps/web run format
+
+# The web app: prettier and eslint, the design lint, then svelte-check for types
+web-lint:
+    npm --prefix apps/web run lint
+    npm --prefix apps/web run lint:design
+    npm --prefix apps/web run check
+
+# The web app's unit tests (vitest), plus the icon generator's and the design lint's
+web-test:
+    npm --prefix apps/web test
+    npm --prefix apps/web exec -- vitest run --root . --dir tools
+
+# The web app's browser tests (Playwright) against its production build; run npx playwright install once first
+web-e2e:
+    npm --prefix apps/web run e2e
+
+# Run the web app with live reload on http://localhost:5173
+web-dev:
+    npm --prefix apps/web run dev
+
 # Every CI check, locally, exactly as CI runs it
-check: lint imports repo-check neutrality docs licences secrets test
+check: lint imports repo-check neutrality docs licences secrets test web-lint web-test web-e2e
