@@ -87,8 +87,8 @@ Point the Vite proxy at `http://127.0.0.1:8000`. To test against PostgreSQL inst
 
 The first PR that adds `apps/web` also wires it into the repository's checks. In the same PR:
 
-- [ ] **Node 24 LTS** (ADR-0035 §1) in the README's setup and in CI.
-- [ ] **just recipes** for installing (`npm ci`), format, lint and types (prettier, eslint, svelte-check), unit tests (vitest) and browser tests (Playwright), all inside `just check`.
+- [ ] **Node 24 LTS** (ADR-0035 §1) in the README's setup and in CI. The README is done (2026-11-04). CI is not: `ci.yml` must add a Node 24 step and a Playwright browser install before `just check` passes there, and that change is for a human.
+- [x] **just recipes** for installing (`npm ci`), format, lint and types (prettier, eslint, svelte-check), unit tests (vitest) and browser tests (Playwright), all inside `just check`: `web-install`, `web-format`, `web-lint` (which also runs the design lint), `web-test` (which also runs the icon-generator and design-lint tests), `web-e2e` and `web-dev`. `just setup` runs `npm ci` (2026-11-04).
 - [x] **The repo check learns the frontend's naming:** PascalCase components and their `.test.ts` files, SvelteKit's route files, the web app's formatter config and message project, and colocated or `e2e/` tests are accepted by `tools/repo_check.py`, with tests (2026-11-04). Modules stay kebab-case, so there is no camelCase rule.
 - [ ] **The licence gate reads the npm SBOM:** generate it with `@cyclonedx/cyclonedx-npm` into `build/sbom/` and pass it to `tools/licence_gate.py`, which already checks any CycloneDX SBOM. ADR-0036 must be decided first.
 - [ ] **Dependabot** gains the npm ecosystem, targeting `4ce-core`.

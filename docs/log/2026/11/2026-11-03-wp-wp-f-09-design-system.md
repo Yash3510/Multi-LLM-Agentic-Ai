@@ -29,6 +29,11 @@ tags: [4ce, log, frontend]
   - Hairline depth instead of borders, and a soft blue focus glow instead of a ring.
   - A segmented control with a sliding thumb, and 16 px check boxes.
 - **design-lint retuned to the look:** blur, translucency, `dark:`, palette classes and scales up to 1.25 are now allowed. Hex colours outside the token files, arbitrary values and drop-shadows are still banned.
+- **Repository wiring, 2026-11-04:**
+  - 4ce-core is merged in, and the ADR is renumbered to 0041 (4ce-core uses 0037).
+  - `apps/web` is excluded from the uv workspace.
+  - The repo check accepts the web app's names (PascalCase components and their tests, SvelteKit route files, its formatter config and message project, colocated and `e2e/` tests).
+  - `just` gains `web-install`, `web-format`, `web-lint`, `web-test`, `web-e2e` and `web-dev`. The lint, test and e2e recipes are part of `just check`, and `just setup` runs `npm ci`.
 - **The contrast test pins every token to its measured value** and keeps three floors: body and verdict text at 4.5:1, and the focus ring at 3:1.
 
 ## Why
@@ -69,6 +74,16 @@ All run in `apps/web` on 2026-11-03:
 - ADR-0041 is new.
 - `web-screens.md` is new.
 
+Also run on 2026-11-04, after the merge:
+
+- `uv run pytest tools`: 116 passed.
+- `tools/repo_check.py`, `tools/neutrality_check.py` and `tools/docs_check.py --base origin/4ce-core`: clean.
+- **The new recipes' commands, run from the repository root** (`just` is not installed locally):
+  - `npm --prefix apps/web run lint`, `lint:design` and `check`: clean.
+  - `npm --prefix apps/web test`: 174 passed.
+  - `npm --prefix apps/web exec -- vitest run --root . --dir tools`: 10 passed.
+  - `npm --prefix apps/web run e2e`: 4 passed in 14.9 s.
+
 ## Known limits and follow-ups
 
 No issue numbers yet; each item needs one opened before the PR.
@@ -79,3 +94,7 @@ No issue numbers yet; each item needs one opened before the PR.
 - Surfaces (menu panels, cards, dialogs) have not had the premium pass.
 - The `/ui` explanation text still describes the old rules.
 - The pixel check against the running app is not automated yet.
+- CI (`ci.yml`) has no Node 24 or Playwright browser step, so `just check` will fail there until a human adds them.
+- The npm SBOM is not in the licence gate yet; that waits on ADR-0036.
+- Dependabot has no npm entry.
+- The server does not serve the built UI yet.
