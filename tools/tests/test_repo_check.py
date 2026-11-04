@@ -307,10 +307,19 @@ def test_svelte_components_are_pascal_case_and_routes_keep_sveltekit_names() -> 
 
 
 def test_the_web_app_may_keep_its_formatter_config_and_message_project() -> None:
-    allowed = [f"{WEB}/.prettierrc", f"{WEB}/.prettierignore", f"{WEB}/project.inlang/settings.json"]
+    allowed = [
+        f"{WEB}/.prettierrc",
+        f"{WEB}/.prettierignore",
+        f"{WEB}/project.inlang/settings.json",
+    ]
     assert repo_check.check_paths([*WEB_BASE, *allowed]) == []
     problems = repo_check.check_paths(
-        [*WEB_BASE, f"{WEB}/.cursorrules", "core/rules/.prettierrc", "core/rules/project.inlang/x.json"]
+        [
+            *WEB_BASE,
+            f"{WEB}/.cursorrules",
+            "core/rules/.prettierrc",
+            "core/rules/project.inlang/x.json",
+        ]
     )
     assert flagged(problems, f"{WEB}/.cursorrules")
     assert flagged(problems, "core/rules/.prettierrc")
