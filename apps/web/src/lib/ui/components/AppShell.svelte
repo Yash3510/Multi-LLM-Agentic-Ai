@@ -46,7 +46,11 @@
         {#if row.heading}
           <GroupHeading group={row.heading} first={index === 0} variant="sidebar" />
         {/if}
-        <ListRow href="/" variant="sidebar">
+        <ListRow
+          href={`/chat/${row.id}`}
+          variant="sidebar"
+          current={page.url.pathname === `/chat/${row.id}`}
+        >
           <span class="truncate">{row.title}</span>
           <time class="ago" datetime={row.updated.toISOString()}>
             {formatAgo(row.updated, { locale })}
