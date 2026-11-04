@@ -10,6 +10,9 @@ const DEFAULT_ROOT = resolve(HERE, '../../apps/web/src');
 const EXTENSIONS = new Set(['.svelte', '.ts', '.js', '.mjs', '.css', '.html']);
 // Only the token files may hold raw colour values.
 const TOKENS_DIR = 'lib/ui/tokens/';
+// The html shell paints its splash before any stylesheet loads, so it may name a token's exact
+// value (ADR-0041 amendment); any other hex there still fails.
+const SHELL = 'app.html';
 // Generator output is checked at its source: the generators reject what this lint rejects.
 const SKIPPED_DIRS = ['lib/i18n/generated', 'lib/ui/icons/generated'];
 
@@ -52,14 +55,16 @@ export const RULES = [
   },
 ];
 
-/** Every rule hit in one file's text. `inTokens` relaxes the colour rules for token files. */
-export function lintText(text, { inTokens = false } = {}) {
+/** Every rule hit in one file's text. `inTokens` relaxes the colour rules for token files;
+ * `tokenHexes` (lower case) are hex values the text may use as they are. */
+export function lintText(text, { inTokens = false, tokenHexes = new Set() } = {}) {
   const hits = [];
   text.split('\n').forEach((line, index) => {
     for (const rule of RULES) {
       if (inTokens && rule.allowInTokens) continue;
       for (const match of line.matchAll(rule.pattern)) {
         if (rule.accept && !rule.accept(match)) continue;
+        if (rule.allowInTokens && tokenHexes.has(match[0].toLowerCase())) continue;
         hits.push({ line: index + 1, column: match.index + 1, rule: rule.id, text: match[0] });
       }
     }
@@ -81,9 +86,19 @@ function* walk(root, dir = root) {
 /** Every rule hit under `root` (an apps/web/src-shaped tree). */
 export function lintDir(root) {
   const hits = [];
-  for (const path of walk(root)) {
-    const inTokens = relativeTo(root, path).startsWith(TOKENS_DIR);
-    for (const hit of lintText(readFileSync(path, 'utf8'), { inTokens })) {
+  const paths = [...walk(root)];
+  const hex = RULES.find((rule) => rule.id === 'hex-colour').pattern;
+  const tokenHexes = new Set(
+    paths
+      .filter((path) => relativeTo(root, path).startsWith(TOKENS_DIR))
+      .flatMap((path) => [...readFileSync(path, 'utf8').matchAll(hex)])
+      .map((match) => match[0].toLowerCase()),
+  );
+  for (const path of paths) {
+    const where = relativeTo(root, path);
+    const inTokens = where.startsWith(TOKENS_DIR);
+    const options = { inTokens, tokenHexes: where === SHELL ? tokenHexes : undefined };
+    for (const hit of lintText(readFileSync(path, 'utf8'), options)) {
       hits.push({ file: path, ...hit });
     }
   }

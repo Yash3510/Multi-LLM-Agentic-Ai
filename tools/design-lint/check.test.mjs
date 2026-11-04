@@ -9,6 +9,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const bad = join(here, 'fixtures/bad');
 const good = join(here, 'fixtures/good');
 const forbidden = join(bad, 'Forbidden.svelte');
+const shell = join(bad, 'app.html');
 const cli = (dir) =>
   spawnSync(process.execPath, [join(here, 'check.mjs'), dir], { encoding: 'utf8' });
 
@@ -30,7 +31,16 @@ describe('design lint', () => {
   });
 
   it('allows raw colours in the token files only', () => {
-    expect(hits.filter((hit) => hit.file !== forbidden)).toEqual([]);
+    expect(hits.filter((hit) => hit.file !== forbidden && hit.file !== shell)).toEqual([]);
+  });
+
+  // The splash in app.html paints before any stylesheet loads, so it may name a token's exact
+  // value (ADR-0041 amendment); a value no token holds still fails.
+  it('lets app.html use a hex colour only when a token file holds that exact value', () => {
+    expect(hits.filter((hit) => hit.file === shell).map((hit) => [hit.line, hit.text])).toEqual([
+      [2, '#171717'],
+    ]);
+    expect(lintDir(good)).toEqual([]);
   });
 
   it('passes code that uses tokens', () => {
