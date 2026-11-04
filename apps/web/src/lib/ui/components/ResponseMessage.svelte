@@ -10,6 +10,8 @@
   import Logomark from './Logomark.svelte';
   import StageRail from './StageRail.svelte';
   import StatusLine from './StatusLine.svelte';
+  import SourcesBar from './SourcesBar.svelte';
+  import ToolGroup from './ToolGroup.svelte';
   import type { StreamEvent } from '$lib/data';
   import './message.css';
 
@@ -42,7 +44,24 @@
     { name: 'fork', label: m.message_fork() },
   ] as const;
 
-  const html = $derived(renderMarkdown(text));
+  // Sources once each, by citation number; tool calls at their latest state.
+  const sources = $derived(
+    [
+      ...new Map(
+        (events ?? []).flatMap((event) =>
+          event.type === 'source' ? [[event.source.index, event.source] as const] : [],
+        ),
+      ).values(),
+    ].sort((a, b) => a.index - b.index),
+  );
+  const calls = $derived([
+    ...new Map(
+      (events ?? []).flatMap((event) =>
+        event.type === 'tool' ? [[event.call.id, event.call] as const] : [],
+      ),
+    ).values(),
+  ]);
+  const html = $derived(renderMarkdown(text, sources));
   const short = new Intl.DateTimeFormat(toIntlLocale(getLocale()), {
     month: 'short',
     day: 'numeric',
@@ -59,9 +78,11 @@
       {#if events}
         <StageRail {events} {finished} />
         <StatusLine {events} {finished} />
+        {#if calls.length}<ToolGroup {calls} />{/if}
       {/if}
       {#if status}<div class="status">{status}</div>{/if}
       <div class="body" {@attach safeHtml(html)}></div>
+      {#if sources.length}<SourcesBar {sources} />{/if}
       {#if direct}
         <p class="direct">
           {m.message_direct_reply()} · <code>{direct.model}</code> · {direct.seconds.toFixed(1)}s — {m.message_direct_reason()}
@@ -218,6 +239,41 @@
     background-color: var(--color-code-ground);
     color: var(--color-code-ink);
     font-size: var(--text-small);
+  }
+
+  /* Evidence chips for [n] (own-4ce look S14). */
+  .body :global(cite) {
+    display: inline-flex;
+    align-items: center;
+    max-inline-size: 16rem;
+    margin-inline: 1px;
+    padding: 1px 6px;
+    overflow: hidden;
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-pill);
+    background-color: var(--color-gray-50);
+    color: var(--color-gray-700);
+    font-size: 0.66rem;
+    font-style: normal;
+    font-weight: var(--font-weight-medium);
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: baseline;
+    translate: 0 1px;
+    cursor: pointer;
+  }
+
+  .body :global(cite:hover) {
+    border-color: var(--color-gray-300);
+    background-color: var(--color-gray-100);
+    color: var(--color-gray-900);
+  }
+
+  :global([data-theme='dark']) .body :global(cite) {
+    border-color: var(--color-gray-700);
+    background-color: var(--color-gray-850);
+    color: var(--color-gray-200);
   }
 
   .body :global(:not(pre) > code) {

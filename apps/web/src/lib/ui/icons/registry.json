@@ -81,6 +81,8 @@
   "read-aloud": { "phosphor": "speaker-high" },
   "continue": { "phosphor": "play-circle" },
   "fork": { "phosphor": "git-fork" },
+  "tools-done": { "phosphor": "check-circle", "weight": "bold" },
+  "tools-failed": { "phosphor": "x", "weight": "bold" },
   "sidebar-simple": { "phosphor": "sidebar-simple" },
   "command": { "phosphor": "command" },
   "keyboard": { "phosphor": "keyboard" },
