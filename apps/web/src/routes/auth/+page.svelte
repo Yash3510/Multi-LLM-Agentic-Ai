@@ -7,6 +7,7 @@
   import { m } from '$lib/i18n/generated/messages.js';
   import Logomark from '$lib/ui/components/Logomark.svelte';
   import SignInForm, { type SignInMode } from '$lib/ui/components/SignInForm.svelte';
+  import { playIntro } from '$lib/ui/intro';
 
   let mode = $state<SignInMode>('sign-in');
 
@@ -28,6 +29,8 @@
     if (mode === 'first-account') await data.createFirstAccount(name, email, password);
     else if (mode === 'sign-up') await data.signUp(name, email, password);
     else await data.signIn(email, password);
+    // The intro covers the switch into the app and lands on the sidebar logo (entry look E4).
+    playIntro();
     await goto(resolve('/'), { invalidateAll: true });
   }
 </script>
