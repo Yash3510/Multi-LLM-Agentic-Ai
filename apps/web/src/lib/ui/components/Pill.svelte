@@ -153,7 +153,7 @@
    * A 24 px round button that covers the pill's end cap, border included, so the hit target is a
    * full 24 x 24 inside a 24 px pill. The pill is already sunken, so hover takes the line-1 step
    * (the hover surface would barely show on it) and press one step darker, as the field buttons
-   * do. Focus is the global outline. An ancestor's data-preview shows each state still, for /ui.
+   * do. Focus is the soft glow (ADR-0041 amendment). An ancestor's data-preview shows each state still, for /ui.
    */
   .copy {
     display: inline-flex;
@@ -185,9 +185,10 @@
     transition-duration: var(--duration-instant);
   }
 
+  .copy:focus-visible,
   :global([data-preview='focus']) .copy {
-    outline: 2px solid var(--color-focus);
-    outline-offset: var(--focus-offset, 2px);
+    outline: none;
+    box-shadow: var(--shadow-focus);
   }
 
   .full {

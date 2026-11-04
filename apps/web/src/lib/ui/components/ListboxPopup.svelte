@@ -1,7 +1,7 @@
 <script lang="ts">
   // The option list that Select and Combobox open. bits-ui's combobox reuses its select content and
   // items, so one popup serves both roots. Highlight follows the input: a pointer gets the hover
-  // surface, the keyboard gets the focus outline (inset, as everywhere inside a scroll area).
+  // fill, the keyboard gets the tint with a soft blue inner edge (ADR-0041 amendment).
   import { Select } from 'bits-ui';
   import Icon from '../icons/Icon.svelte';
   import type { FieldOption } from './options';
@@ -82,13 +82,13 @@
 </Select.Portal>
 
 <style>
-  /* e2 depth: a popover. Radius card; 8 px inside, so the rows take the control radius. */
+  /* e2 depth, borderless like every float: a 12 px radius with 4 px inside, so the rows take 8 px
+     (ADR-0041 amendment; the same rows as menu.css). */
   .menu {
     min-width: var(--bits-floating-anchor-width);
     max-width: var(--bits-floating-available-width);
     max-height: min(var(--bits-floating-available-height), calc(var(--spacing-12) * 6));
-    border: 1px solid var(--color-line-1);
-    border-radius: var(--radius-card);
+    border-radius: var(--radius-inset);
     background-color: var(--color-surface-raised);
     box-shadow: var(--shadow-e2);
     color: var(--color-ink-1);
@@ -116,7 +116,7 @@
   }
 
   .viewport {
-    padding: var(--spacing-2);
+    padding: var(--spacing-1);
   }
 
   .option {
@@ -126,7 +126,7 @@
     gap: var(--spacing-2);
     min-height: var(--row-height);
     padding-inline: var(--spacing-3) var(--spacing-2);
-    border-radius: var(--radius-control);
+    border-radius: 8px;
     font-size: inherit;
     line-height: var(--field-line);
     cursor: pointer;
@@ -150,34 +150,28 @@
   }
 
   .option[data-highlighted] {
-    background-color: var(--color-surface-hover);
+    background-color: color-mix(in srgb, var(--color-gray-50) 60%, transparent);
   }
 
-  /* Selected: accent-soft fill, a 2 px accent edge and ink-1 text, plus the tick for non-colour. */
+  :global([data-theme='dark']) .option[data-highlighted] {
+    background-color: color-mix(in srgb, var(--color-gray-800) 60%, transparent);
+  }
+
+  /* Selected: ink-1 at medium weight with the tick, never a fill, as the menu marks its choice. */
   .option[data-selected] {
-    background-color: var(--color-accent-soft);
     color: var(--color-ink-1);
+    font-weight: var(--font-weight-medium);
   }
 
-  /* The edge is a bar, not a border, so it stays straight inside the rounded shape. */
-  .option[data-selected]::before {
-    content: '';
-    position: absolute;
-    inset-block: var(--spacing-1_5);
-    inset-inline-start: 0;
-    width: 2px;
-    border-radius: var(--radius-pill);
-    background-color: var(--color-accent);
-  }
-
-  /* Keyboard highlight is focus: the outline, turned inward inside the scroll area. */
+  /* The keyboard's highlight: the tint plus a soft blue inner edge, not a hard ring. */
   .menu[data-keyboard] .option[data-highlighted] {
-    outline: 2px solid var(--color-focus);
-    outline-offset: -2px;
+    outline: none;
+    background-color: var(--color-tint);
+    box-shadow: inset 0 0 0 1px var(--focus-edge);
   }
 
   .option[data-disabled] {
-    color: var(--color-ink-disabled);
+    opacity: 0.45;
     cursor: not-allowed;
   }
 
@@ -189,5 +183,12 @@
     padding-inline: var(--spacing-3);
     color: var(--color-ink-3);
     line-height: var(--field-line);
+  }
+
+  @media (forced-colors: active) {
+    .menu[data-keyboard] .option[data-highlighted] {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
   }
 </style>
