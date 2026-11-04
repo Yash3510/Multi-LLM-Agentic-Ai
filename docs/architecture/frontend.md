@@ -21,7 +21,7 @@ The web UI is not built yet; the backend contract below is. This page is the sta
 | --- | --- | --- |
 | [ADR-0035](../adr/0035-frontend-foundations.md) | Stack and exact versions, static serving from the server, live updates, the fake API until the backend lands, roles and labels, devices, languages, theme, accessibility, no glass, icons, quality gates, clean room | proposed; accepted by the frontend owner; R1 to accept §2 (serving) and §5 (roles) |
 | [ADR-0036](../adr/0036-mpl-build-tools-and-licence-mapping.md) | How the licence gate treats MPL-2.0 build and test tools (lightningcss, axe-core) and permissive licences Appendix A doesn't name | proposed; R4 to accept before `apps/web` lands on `4ce-core` |
-| [ADR-0041](../adr/0041-exact-match-look.md) | The look matches the running 4CE app, measured; its amendment sets premium base components (Lucide icons, hairline depth, soft focus glow). Supersedes ADR-0035's theme, colour values, no-glass rule and design-lint part | proposed; accepted by the frontend owner; R1 to accept |
+| [ADR-0041](../adr/0041-exact-match-look.md) | The look matches the running 4CE app, measured; its amendment sets premium base components (the running app's Phosphor icons, hairline depth, soft focus glow). Supersedes ADR-0035's theme, colour values, no-glass rule and design-lint part | proposed; accepted by the frontend owner; R1 to accept |
 | [Design system](design-system.md) | Tokens, type, spacing, depth, motion, states, numbers, keyboard, tables, print, icons | planned |
 
 Frontend work can proceed against these now. The parts R1 and R4 decide take effect when `apps/web` is merged into `4ce-core`.

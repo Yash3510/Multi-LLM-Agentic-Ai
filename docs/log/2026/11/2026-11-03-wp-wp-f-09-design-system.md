@@ -47,6 +47,13 @@ tags: [4ce, log, frontend]
   - A new `/ui` Lists section shows them. Its recency headings only appear while sorted by time.
   - The `ListboxPopup` float is borderless at a 12 px radius. The chosen option is marked by the tick at medium weight, not the accent fill. The keyboard highlight is the tint with a blue inner edge, with a forced-colours outline.
   - The `Pill` copy button's focus is the glow.
+- **Icons, menus and the shell, 2026-11-04:**
+  - Icons switched to `@phosphor-icons/core` 2.1.1 (MIT); `lucide-static` was removed. Each name maps to the glyph and weight the running app uses in that place. These were found by matching its rendered SVG paths against the package, not by reading its code; the bold places are the row dots, the carets, back, minus and send.
+  - Sizes are 16 px in rows and 18 px in the sidebar and top bar. Quiet icon buttons are gray-600 / gray-400 and turn ink on the tint.
+  - The generator writes the MIT notice as a legal comment on the path table, and `vite.config.ts` keeps legal comments in the minified build.
+  - Menus match common look F12 exactly.
+  - New `Sidebar` (open panel and 42 px rail), `TopBar`, `Logomark` and `sidebar-width.ts`, plus a `/ui` Shell section with the chat menu.
+  - Logomark files come from the owner's brand kit (`~/Downloads/4CE-brand-kit/`). They are byte-identical copies (SHA-256 checked), with only the file names lower-cased for the repo's naming rule. The repo has no asset register: the licence gate lists only review-required packages, and MIT is on the allow list.
 - **The contrast test pins every token to its measured value** and keeps three floors: body and verdict text at 4.5:1, and the focus ring at 3:1.
 
 ## Why
@@ -77,6 +84,7 @@ All run in `apps/web` on 2026-11-03:
 - `npm run build`: the static site was written.
 - 2026-11-04, after the surfaces pass: `npx vitest run` (174 passed), `lint:design` clean, `svelte-check` 0 errors, eslint and prettier clean, and `npm run build` succeeded. From the repo root, `repo_check.py`, `neutrality_check.py` and `docs_check.py --base origin/4ce-core` all exited 0.
 - 2026-11-04, after the list parts: `npx vitest run` (19 files, 192 tests), the tools tests (10), `lint:design`, `svelte-check`, `npm run lint` and `npm run build` all passed. From the repo root, `repo_check.py`, `neutrality_check.py` and `docs_check.py --base origin/4ce-core` exited 0.
+- 2026-11-04, after icons, menus and shell: `npx vitest run` (20 files, 200 tests), the tools tests (12), `lint:design`, `svelte-check`, eslint, prettier and `npm run build` all passed. The build chunk under `build/_app/immutable/chunks/` carries the full Phosphor MIT notice (checked with `grep -rl 'Copyright (c) 2023 Phosphor Icons' build`). `repo_check.py`, `neutrality_check.py` and `docs_check.py --base origin/4ce-core` exited 0.
 - **Visual:** `/ui` was compared side by side with the running app at :5173 (Settings › Account). The owner reviewed a preview of the premium pass and approved it.
 
 ## Decisions
@@ -108,6 +116,7 @@ No issue numbers yet; each item needs one opened before the PR.
 - The on/off setting is still a segmented control; the measured app uses a switch.
 - The recency bands match the measured app. The `avoid.md` lists flag them, but HANDOFF records that those lists no longer steer the look.
 - The pointer highlight in menus and the select list (gray-50 at 60 %) is barely visible on white. It is the measured value, kept for now.
+- Sidebar resizing (220 to 480 px) and the phone drawer are planned; `sidebarWidth` already clamps a stored width.
 - The `/ui` explanation text still describes the old rules.
 - The pixel check against the running app is not automated yet.
 - CI (`ci.yml`) has no Node 24 or Playwright browser step, so `just check` will fail there until a human adds them.

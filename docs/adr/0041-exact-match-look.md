@@ -62,7 +62,7 @@ Stack, serving, live updates, API contract, roles and labels, devices, languages
 
 ## Consequences
 
-- ADR-0035 §8 (theme mechanism), §9 (contrast tiers only; keyboard and screen-reader rules stay), §10 (values), §11 (no glass), §12 (icons: Lucide replaces the Phosphor set, see the amendment) and the design-lint part of §13 are superseded.
+- ADR-0035 §8 (theme mechanism), §9 (contrast tiers only; keyboard and screen-reader rules stay), §10 (values), §11 (no glass), §12 (icons: the running app's Phosphor glyphs and weights per place, see the amendment) and the design-lint part of §13 are superseded.
 - [design-system.md](../architecture/design-system.md) describes the superseded language and must be rewritten to point at the measured tables and these tokens.
 - Muted text below 4.5:1 returns. Accessibility mode, which the measured app has, raises it, and must be rebuilt.
 - The grey ramp's values match the upstream project's. They are measured colour values, not copied files, so the clean-room rule still holds. If R4 disagrees, they can say so before acceptance.
@@ -71,7 +71,10 @@ Stack, serving, live updates, API contract, roles and labels, devices, languages
 
 After reviewing the first restyle side by side, the frontend owner rejected three things: the icons, the outlines round the pills, and the full-pill curve. Following an approved preview, the base components (actions, fields, status and the `/ui` reference) now deviate from the exact match:
 
-- **Icons are Lucide** (ISC), from `lucide-static` 0.460.0 and drawn at a 1.75 stroke with round caps and joins. Lucide replaces Phosphor and the owned hexagon signature set. `tools/icons` maps our names to Lucide glyphs; verdicts are circle-check, triangle-alert, circle-x and circle-dashed.
+- **Icons are Phosphor, as the running app draws them** (2026-11-04, replacing the Lucide set chosen earlier in this amendment). Glyphs come from `@phosphor-icons/core` 2.1.1 (MIT), filled paths on the 256 grid. `tools/icons` maps each of our names to the glyph and weight the running app uses in that place. Glyphs were identified by matching the app's rendered paths against the package, not by copying its code. Most places are regular; the row "more" dots, select and picker carets, the back caret, minus and the send arrow are bold where the app draws them bold. 4CE concepts the app does not show use the closest regular glyph: verdicts are check-circle, warning, x-circle and circle-dashed. Sizes follow Takeoff's polish: 16 px in rows and menus, 18 px in the sidebar and top bar. Quiet icon buttons are muted grey (#666 light, #b4b4b4 dark, above 3:1) and darken to ink on the soft tint on hover.
+- **The licence notice ships with the glyphs.** `tools/icons` writes the package's MIT licence as a `/*! @license … */` comment on the generated path table, and `vite.config.ts` keeps legal comments through minification (Vite 8 drops them by default). There is no copied licence file in the source tree.
+- **Menus match the running app exactly** (common look F12), not the premium float: a 1 px line-1 border, 12 px radius, 2 px padding, the large soft drop shadow and ink text. Rows are 27 px, 12 px radius, 8 px sides and gap, 13 px text and 14 px icons. The hover is gray-50 at 60 % (gray-800 at 60 % dark), and dividers are gray-50 at 30 % with a 2 px by 4 px margin. A destructive row reads like the others, as the app's Delete does. The keyboard highlight keeps the soft blue inner edge, because the app shows no visible focus there.
+- **The logomark is the owner's brand-kit file**, used unchanged: `4ce-logomark-ink.svg` on light grounds and `4ce-logomark-white.svg` on dark, at 22 px in the sidebar header and rail.
 - **Shape:** buttons are 10 px soft rectangles, fields and menus 12 px, cards and dialogs 20 px. Full pills are kept for status chips only.
 - **Depth without borders:** a 0.5 px hairline ring plus soft contact and ambient shadows. The solid button gets a faint inner highlight, and a press settles it to 98%.
 - **Focus** is a soft blue glow outside the shape, never a hard ring. Forced-colours mode falls back to a system outline.
