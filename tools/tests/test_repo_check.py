@@ -306,6 +306,23 @@ def test_svelte_components_are_pascal_case_and_routes_keep_sveltekit_names() -> 
         assert flagged(problems, path), path
 
 
+def test_route_parameter_folders_are_allowed_only_under_web_routes() -> None:
+    good = [
+        f"{WEB}/src/routes/chat/[id]/+page.svelte",
+        f"{WEB}/src/routes/runs/[runId]/audit/+page.svelte",
+    ]
+    assert repo_check.check_paths([*WEB_BASE, *good]) == []
+    bad = [
+        f"{WEB}/src/lib/[id]/thing.ts",
+        f"{WEB}/src/routes/[run id]/+page.svelte",
+        f"{WEB}/src/routes/[...rest]/+page.svelte",
+        "docs/[id]/notes.md",
+    ]
+    problems = repo_check.check_paths([*WEB_BASE, *bad])
+    for path in bad:
+        assert flagged(problems, path), path
+
+
 def test_the_web_app_may_keep_its_formatter_config_and_message_project() -> None:
     allowed = [
         f"{WEB}/.prettierrc",

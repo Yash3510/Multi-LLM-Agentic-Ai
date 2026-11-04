@@ -83,6 +83,7 @@ import-linter enforces these as contracts in `pyproject.toml` (`just imports`). 
 | Python classes, functions | PascalCase, snake_case | `RulePack`, `evaluate_band()` |
 | Svelte components | PascalCase (a component's test beside it: `Name.test.ts`; a test harness: `Name.test.svelte`) | `SignOffPanel.svelte` |
 | SvelteKit route files | the framework's names | `+page.svelte`, `+layout.ts`, `+server.ts` |
+| SvelteKit route parameter folders, under `apps/web/src/routes/` only | one identifier in brackets | `chat/[id]/`, `runs/[runId]/` |
 | Web app config | `.prettierrc`, `.prettierignore` and `project.inlang/`, in `apps/web/` only | |
 | TypeScript modules | kebab-case (the repo check has never accepted camelCase) | `trust-view.ts`, `theme.svelte.ts` |
 | Pack ids and pack file names | kebab-case | `industrial-energy`, `sop-mec-014.json` |

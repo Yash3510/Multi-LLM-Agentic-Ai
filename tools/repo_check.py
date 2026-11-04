@@ -85,6 +85,10 @@ COMPONENT_TEST = re.compile(r"[A-Z][a-zA-Z0-9]*\.test\.ts")
 WEB_APP = "apps/web/"
 WEB_DOTFILES = {".prettierrc", ".prettierignore"}
 WEB_FOLDERS = {"project.inlang"}
+# A SvelteKit route parameter, e.g. routes/chat/[id]: one plain identifier in brackets, and only
+# under the web app's routes (owner OK, 2026-11-04). Rest and optional parameters are not needed yet.
+WEB_ROUTES = WEB_APP + "src/routes/"
+ROUTE_PARAMETER = re.compile(r"\[[A-Za-z][A-Za-z0-9]*\]")
 
 BANNED_WORDS = {"final", "new", "old", "backup", "copy", "temp", "tmp"}
 BANNED_TOKEN = re.compile(r"v\d+|test\d+|copy\d+")
@@ -161,6 +165,8 @@ def _path_problem(path: str) -> str:
         elif is_file:
             reasons += _file_name_problems(name, in_web)
         elif in_web and name in WEB_FOLDERS:
+            pass
+        elif path.startswith(WEB_ROUTES) and ROUTE_PARAMETER.fullmatch(name):
             pass
         elif not (KEBAB.fullmatch(name) or (in_src and SNAKE.fullmatch(name))):
             reasons.append(f"folder '{name}' is not kebab-case")
