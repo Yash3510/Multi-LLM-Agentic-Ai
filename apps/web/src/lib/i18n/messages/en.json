@@ -156,5 +156,10 @@
   "composer_voice_mode": "Voice mode",
   "composer_send": "Send",
   "composer_model": "Selected model: {model}",
-  "home_suggested": "Suggested"
+  "home_suggested": "Suggested",
+  "egress_stale_label": "Egress: not observed. Open the Sovereignty page.",
+  "egress_external": "external",
+  "egress_stale": "egress not observed",
+  "egress_label_one": "Egress: {count} external connection. Open the Sovereignty page.",
+  "egress_label_other": "Egress: {count} external connections. Open the Sovereignty page."
 }
