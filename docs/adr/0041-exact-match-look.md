@@ -62,7 +62,7 @@ Stack, serving, live updates, API contract, roles and labels, devices, languages
 
 ## Consequences
 
-- ADR-0035 §8 (theme mechanism), §9 (contrast tiers only; keyboard and screen-reader rules stay), §10 (values), §11 (no glass) and the design-lint part of §13 are superseded.
+- ADR-0035 §8 (theme mechanism), §9 (contrast tiers only; keyboard and screen-reader rules stay), §10 (values), §11 (no glass), §12 (icons: Lucide replaces the Phosphor set, see the amendment) and the design-lint part of §13 are superseded.
 - [design-system.md](../architecture/design-system.md) describes the superseded language and must be rewritten to point at the measured tables and these tokens.
 - Muted text below 4.5:1 returns. Accessibility mode, which the measured app has, raises it, and must be rebuilt.
 - The grey ramp's values match the upstream project's. They are measured colour values, not copied files, so the clean-room rule still holds. If R4 disagrees, they can say so before acceptance.

@@ -34,6 +34,13 @@ tags: [4ce, log, frontend]
   - `apps/web` is excluded from the uv workspace.
   - The repo check accepts the web app's names (PascalCase components and their tests, SvelteKit route files, its formatter config and message project, colocated and `e2e/` tests).
   - `just` gains `web-install`, `web-format`, `web-lint`, `web-test`, `web-e2e` and `web-dev`. The lint, test and e2e recipes are part of `just check`, and `just setup` runs `npm ci`.
+- **Surfaces premium pass, 2026-11-04:**
+  - Cards have a hairline edge and a 20 px radius. Hover lifts them to e1, a press scales them to 0.99, and a selected card sits sunken with a line-2 ring.
+  - Floats are borderless with a 12 px radius. Tooltips are a near-black chip.
+  - Menu rows are 28 px with an 8 px radius. The keyboard highlight is the tint with a thin focus edge.
+  - The current tab carries a 2 px ink edge instead of the accent fill.
+  - Tab and disclosure hovers use the tint, and focus is the soft glow instead of an outline.
+  - Accordion and separator rules are hairlines.
 - **The contrast test pins every token to its measured value** and keeps three floors: body and verdict text at 4.5:1, and the focus ring at 3:1.
 
 ## Why
@@ -62,6 +69,7 @@ All run in `apps/web` on 2026-11-03:
 - `npm run check`: 1040 files, 0 errors, 0 warnings.
 - `npm run lint`: eslint clean, and prettier reports every file formatted.
 - `npm run build`: the static site was written.
+- 2026-11-04, after the surfaces pass: `npx vitest run` (174 passed), `lint:design` clean, `svelte-check` 0 errors, eslint and prettier clean, and `npm run build` succeeded. From the repo root, `repo_check.py`, `neutrality_check.py` and `docs_check.py --base origin/4ce-core` all exited 0.
 - **Visual:** `/ui` was compared side by side with the running app at :5173 (Settings › Account). The owner reviewed a preview of the premium pass and approved it.
 
 ## Decisions
@@ -91,7 +99,7 @@ No issue numbers yet; each item needs one opened before the PR.
 - `design-system.md` still describes ADR-0035's language and needs rewriting to point at ADR-0041.
 - The OLED dark theme is planned, not built.
 - The on/off setting is still a segmented control; the measured app uses a switch.
-- Surfaces (menu panels, cards, dialogs) have not had the premium pass.
+- `Pill` and `ListboxPopup` still use the accent fill and outline focus; they are planned for the data and list pass.
 - The `/ui` explanation text still describes the old rules.
 - The pixel check against the running app is not automated yet.
 - CI (`ci.yml`) has no Node 24 or Playwright browser step, so `just check` will fail there until a human adds them.
