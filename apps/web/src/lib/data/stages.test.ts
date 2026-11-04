@@ -40,7 +40,7 @@ describe('deriveRun', () => {
         s(0, 'planner'),
         s(100, 'analyst'),
         s(200, 'author'),
-        s(300, 'challenger', 'Challenger: fail, a claim is unsupported'),
+        s(300, 'challenger', 'Challenger: fail, a figure is unsupported'),
         s(400, 'replan'),
         s(500, 'analyst'),
       ],
