@@ -3,7 +3,7 @@ title: Frontend
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-03
+updated: 2026-11-04
 covers:
   - apps/web/
 tags: [4ce, architecture, frontend]
@@ -89,7 +89,7 @@ The first PR that adds `apps/web` also wires it into the repository's checks. In
 
 - [ ] **Node 24 LTS** (ADR-0035 §1) in the README's setup and in CI.
 - [ ] **just recipes** for installing (`npm ci`), format, lint and types (prettier, eslint, svelte-check), unit tests (vitest) and browser tests (Playwright), all inside `just check`.
-- [ ] **The repo check learns the frontend's naming:** today it rejects upper-case file names, so `SignOffPanel.svelte`, camelCase `.ts` modules and SvelteKit's `+page.svelte` need rules in `tools/repo_check.py`, with tests.
+- [x] **The repo check learns the frontend's naming:** PascalCase components and their `.test.ts` files, SvelteKit's route files, the web app's formatter config and message project, and colocated or `e2e/` tests are accepted by `tools/repo_check.py`, with tests (2026-11-04). Modules stay kebab-case, so there is no camelCase rule.
 - [ ] **The licence gate reads the npm SBOM:** generate it with `@cyclonedx/cyclonedx-npm` into `build/sbom/` and pass it to `tools/licence_gate.py`, which already checks any CycloneDX SBOM. ADR-0036 must be decided first.
 - [ ] **Dependabot** gains the npm ecosystem, targeting `4ce-core`.
 - [ ] **`.gitignore`** gains `apps/web/src/lib/api/` (generated).

@@ -3,7 +3,7 @@ title: Repository layout and working rules
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-03
+updated: 2026-11-04
 covers:
   - justfile
   - pyproject.toml
@@ -81,8 +81,10 @@ import-linter enforces these as contracts in `pyproject.toml` (`just imports`). 
 | Folders | kebab-case (Python package folders inside `src/` are snake_case) | `finance-expenses/`, `third-party/` |
 | Python modules | snake_case | `fource/rules/engine.py` |
 | Python classes, functions | PascalCase, snake_case | `RulePack`, `evaluate_band()` |
-| Svelte components | PascalCase | `SignOffPanel.svelte` |
-| TypeScript modules | camelCase | `trustView.ts` |
+| Svelte components | PascalCase (a component's test beside it: `Name.test.ts`; a test harness: `Name.test.svelte`) | `SignOffPanel.svelte` |
+| SvelteKit route files | the framework's names | `+page.svelte`, `+layout.ts`, `+server.ts` |
+| Web app config | `.prettierrc`, `.prettierignore` and `project.inlang/`, in `apps/web/` only | |
+| TypeScript modules | kebab-case (the repo check has never accepted camelCase) | `trust-view.ts`, `theme.svelte.ts` |
 | Pack ids and pack file names | kebab-case | `industrial-energy`, `sop-mec-014.json` |
 | Ids inside packs | snake_case, namespaced by pack | `industrial-energy/seal_leak` |
 | ADRs | `NNNN-kebab-title.md` | `0018-sector-neutral-core.md` |
