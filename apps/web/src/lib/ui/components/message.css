@@ -2,7 +2,12 @@
  * The parts both message kinds share (chat-messages look §1, §2.4, §3.6): the centred row and the
  * small icon actions that appear on hover. Measured values; muted grey that turns ink on the
  * faint fill.
+ *
+ * The layer order is stated first: this file can load before the app stylesheet, and a layer
+ * named first would otherwise rank below Tailwind's base reset.
  */
+@layer theme, base, components, utilities;
+
 @layer components {
   [data-message-row] {
     display: flex;

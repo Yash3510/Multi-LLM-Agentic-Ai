@@ -92,7 +92,8 @@
   .body {
     color: var(--color-ink-1);
     font-size: var(--text-body);
-    line-height: 1.75;
+    /* The answer prose's relaxed line (24.4 px at 15 px), measured on the running app. */
+    line-height: 1.625;
     overflow-wrap: anywhere;
   }
 
