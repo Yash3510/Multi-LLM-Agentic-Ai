@@ -1,10 +1,8 @@
 <script lang="ts">
   // The signed-in frame (layout look §2.1, §3): the sidebar beside the main area, full viewport
-  // height. Chats are stand-ins until the chat API lands; pinned destinations point at planned
-  // routes.
+  // height. Chats come from the data source; pinned destinations point at planned routes.
   import { page } from '$app/state';
   import { m } from '$lib/i18n/generated/messages.js';
-  import { DEMO_CHATS } from '$lib/demo/chats';
   import GroupHeading from './GroupHeading.svelte';
   import ListRow from './ListRow.svelte';
   import NodeGlyph from './NodeGlyph.svelte';
@@ -13,8 +11,9 @@
   import { formatAgo, timeGroup, toIntlLocale } from '$lib/ui/format';
   import { getLocale } from '$lib/i18n/generated/runtime.js';
   import type { Snippet } from 'svelte';
+  import type { ChatSummary } from '$lib/data';
 
-  let { children }: { children: Snippet } = $props();
+  let { children, chats }: { children: Snippet; chats: ChatSummary[] } = $props();
 
   const locale = toIntlLocale(getLocale());
   // Planned routes (web-screens.md); the hash keeps them typed until they exist.
@@ -23,14 +22,16 @@
     { href: '/#workspace', label: 'Workspace', icon: 'workspace' },
   ];
 
-  const rows = DEMO_CHATS.map((chat, index) => {
-    const group = timeGroup(chat.updated);
-    const before = index > 0 ? timeGroup(DEMO_CHATS[index - 1].updated) : undefined;
-    return {
-      ...chat,
-      heading: JSON.stringify(group) === JSON.stringify(before) ? undefined : group,
-    };
-  });
+  const rows = $derived(
+    chats.map((chat, index) => {
+      const group = timeGroup(chat.updated);
+      const before = index > 0 ? timeGroup(chats[index - 1].updated) : undefined;
+      return {
+        ...chat,
+        heading: JSON.stringify(group) === JSON.stringify(before) ? undefined : group,
+      };
+    }),
+  );
 
   let open = $state(true);
 

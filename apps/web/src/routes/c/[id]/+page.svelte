@@ -1,10 +1,8 @@
 <script lang="ts">
   // A conversation at /c/[id], as the running app addresses it (chat-composer look §1.3, chat-messages look §1-3): the top bar with the title,
-  // the thread from 72 px down, and the composer at the bottom. The thread is a stand-in until
-  // the chat API lands (WP-RT-01).
-  import { page } from '$app/state';
+  // the thread from 72 px down, and the composer at the bottom. The chat comes from the data
+  // source (web-data-contract.md).
   import { m } from '$lib/i18n/generated/messages.js';
-  import { DEMO_CHATS } from '$lib/demo/chats';
   import Composer from '$lib/ui/components/Composer.svelte';
   import EgressIndicator from '$lib/ui/components/EgressIndicator.svelte';
   import IconButton from '$lib/ui/components/IconButton.svelte';
@@ -12,8 +10,12 @@
   import TopBar from '$lib/ui/components/TopBar.svelte';
   import UserMessage from '$lib/ui/components/UserMessage.svelte';
 
-  const chat = $derived(DEMO_CHATS.find((item) => item.id === page.params.id));
-  const messages = $derived(chat?.messages ?? []);
+  import type { PageProps } from './$types';
+
+  let { data }: PageProps = $props();
+
+  const chat = $derived(data.chat);
+  const messages = $derived(chat.messages);
   const lastResponse = $derived(messages.findLastIndex((message) => message.role === 'response'));
 </script>
 
@@ -34,7 +36,7 @@
       {:else}
         <ResponseMessage
           model="4CE / Planner"
-          status={message.status}
+          status={message.direct?.status}
           direct={message.direct}
           text={message.text}
           at={message.at}
