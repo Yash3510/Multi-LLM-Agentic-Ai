@@ -92,8 +92,25 @@ export type StreamEvent =
   | { type: 'stopped'; at: number }
   | { type: 'error'; at: number; message: string; advice?: string };
 
+/** The signed-in person. `pending` accounts wait for an admin to approve them. */
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'user' | 'pending';
+}
+
 /** Where screens get their data. The fake replay implements it now; the API client later. */
 export interface DataSource {
+  /** The person signed in on this device, or undefined. */
+  currentUser(): Promise<User | undefined>;
+  /** The password goes only to the backend: never logged, stored or put in a URL. */
+  signIn(email: string, password: string): Promise<User>;
+  signUp(name: string, email: string, password: string): Promise<User>;
+  signOut(): Promise<void>;
+  /** Whether the server has no account yet, so the first sign-up creates the admin. */
+  setupStatus(): Promise<{ firstAccount: boolean }>;
+  createFirstAccount(name: string, email: string, password: string): Promise<User>;
   listChats(): Promise<ChatSummary[]>;
   getChat(id: string): Promise<Chat | undefined>;
   /** Asks a question in a chat and yields the answer's events as they arrive. */

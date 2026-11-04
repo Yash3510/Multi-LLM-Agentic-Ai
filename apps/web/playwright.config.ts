@@ -18,7 +18,9 @@ export default defineConfig({
   ],
   // Tests run against the production build, the same files 4ce-server serves.
   webServer: {
-    command: `npm run build && npm run preview -- --port ${port} --strictPort`,
+    // A demo build: until the 4CE API client exists the app runs on the fake data source, which a
+    // plain production build refuses (src/lib/data/source.ts).
+    command: `VITE_4CE_DEMO=1 npm run build && npm run preview -- --port ${port} --strictPort`,
     port,
     reuseExistingServer: !process.env.CI,
   },

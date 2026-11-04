@@ -24,6 +24,21 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 
 The `AbortSignal` stops a stream. The person's Stop button and leaving the chat both abort.
 
+## Session
+
+| Call | Returns | Used by |
+| --- | --- | --- |
+| `currentUser()` | the signed-in `User` (id, name, email, role `admin`, `user` or `pending`), or `undefined` | every screen, to decide between the app and the sign-in page |
+| `signIn(email, password)` | the `User`; rejects with a plain message when the email or password is wrong | the sign-in page |
+| `signUp(name, email, password)` | the new `User`; `pending` when an admin must approve new accounts | the sign-up form |
+| `signOut()` | nothing; the session ends on the server too | the user menu |
+| `setupStatus()` | `{ firstAccount }`: true when the server has no account yet | the sign-in page, to show "get started" instead of sign in |
+| `createFirstAccount(name, email, password)` | the first `User`, always `admin` | the first-run form |
+
+**Passwords.** A password goes from the form straight to the backend call. The web app never logs it, stores it (memory, `localStorage`, `sessionStorage`, cookies), puts it in a URL or query string, or sends it anywhere else. The session itself is the backend's: an HTTP-only cookie is expected, so the web app never holds a token.
+
+**The fake source refuses production.** The fake replay accepts any email and drops the password unread. A production build that would run on it refuses to start (`src/lib/data/source.ts`, tested in `source.test.ts`), unless it was built as a demo with `VITE_4CE_DEMO=1`. The Playwright tests build that way.
+
 ## Messages
 
 A `Message` is a user message or a response. A response carries its run's `events` and `finished`. Everything the answer shows (the stage rail, the status line, tools, sources, sign-off and receipt) is derived from the events, so a reloaded chat looks the same as a live one. A direct reply (no agent chain) carries `direct`: its status line, the model and the time.

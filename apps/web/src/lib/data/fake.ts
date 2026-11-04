@@ -1,7 +1,7 @@
 // A fake data source for building the screens before the 4CE API exists: a few stored chats and
 // a scripted answer replayed with realistic pacing. Nothing leaves the browser. The content is
 // sector-neutral (rules R2 to R6, ids like CASE-0142).
-import type { Chat, ChatSummary, DataSource, StreamEvent } from './types';
+import type { Chat, ChatSummary, DataSource, StreamEvent, User } from './types';
 
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
 
@@ -334,7 +334,40 @@ async function* replay(steps: Step[], pace: number, signal?: AbortSignal) {
 
 /** `pace` scales every wait: 1 is real time, 0 replays at once (tests). */
 export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSource {
+  // The session lives in memory only. Passwords are accepted and dropped: nothing checks, keeps
+  // or forwards them.
+  let user: User | undefined;
+  let hasAccount = true;
+  const person = (name: string, email: string, role: User['role']): User => ({
+    id: `u-${email}`,
+    name,
+    email,
+    role,
+  });
+
   return {
+    async currentUser() {
+      return user;
+    },
+    async signIn(email) {
+      user = person(email.split('@')[0] || 'Asha Rao', email, 'admin');
+      return user;
+    },
+    async signUp(name, email) {
+      user = person(name, email, 'user');
+      return user;
+    },
+    async signOut() {
+      user = undefined;
+    },
+    async setupStatus() {
+      return { firstAccount: !hasAccount };
+    },
+    async createFirstAccount(name, email) {
+      hasAccount = true;
+      user = person(name, email, 'admin');
+      return user;
+    },
     async listChats(): Promise<ChatSummary[]> {
       return [...CHATS]
         .sort((a, b) => b.updated.getTime() - a.updated.getTime())
