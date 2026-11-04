@@ -8,6 +8,8 @@
   import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
   import { writeClipboard } from './clipboard';
   import Logomark from './Logomark.svelte';
+  import StageRail from './StageRail.svelte';
+  import type { StreamEvent } from '$lib/data';
   import './message.css';
 
   type Props = {
@@ -20,9 +22,12 @@
     status?: string;
     /** A direct reply's receipt line: the model that answered and how long it took. */
     direct?: { model: string; seconds: number };
+    /** The run's events, for the stage rail. */
+    events?: StreamEvent[];
+    finished?: boolean;
   };
 
-  let { model, text, at, last = false, status, direct }: Props = $props();
+  let { model, text, at, last = false, status, direct, events, finished = true }: Props = $props();
 
   const ACTIONS = [
     { name: 'rename', label: m.message_edit() },
@@ -50,6 +55,7 @@
     <div class="avatar"><Logomark size={30} /></div>
     <div class="column">
       <div class="name">{model}</div>
+      {#if events}<StageRail {events} {finished} />{/if}
       {#if status}<div class="status">{status}</div>{/if}
       <div class="body" {@attach safeHtml(html)}></div>
       {#if direct}

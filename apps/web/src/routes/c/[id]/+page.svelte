@@ -38,6 +38,8 @@
           model="4CE / Planner"
           status={message.direct?.status}
           direct={message.direct}
+          events={message.events}
+          finished={message.finished}
           text={message.text}
           at={message.at}
           last={index === lastResponse}
