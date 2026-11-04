@@ -4,6 +4,7 @@ import {
   formatBytes,
   formatDateTime,
   formatDuration,
+  formatAgo,
   formatHashFull,
   formatHashShort,
   formatIso,
@@ -14,6 +15,7 @@ import {
   formatQuantity,
   formatTime,
   formatTolerance,
+  timeGroup,
   toIntlLocale,
 } from './format';
 
@@ -298,5 +300,66 @@ describe('times', () => {
       expect(formatDateTime(value)).toBe(MISSING);
       expect(formatIso(value)).toBe('');
     }
+  });
+});
+
+// Local-time constructors, so the calendar-day tests hold in any time zone.
+const NOW = new Date(2026, 10, 4, 10, 30);
+
+describe('timeGroup', () => {
+  it('bands by calendar day, not by 24-hour spans', () => {
+    expect(timeGroup(new Date(2026, 10, 4, 0, 5), NOW)).toEqual({ band: 'today' });
+    expect(timeGroup(new Date(2026, 10, 3, 23, 59), NOW)).toEqual({ band: 'yesterday' });
+    expect(timeGroup(new Date(2026, 10, 2, 11), NOW)).toEqual({ band: 'week' });
+  });
+
+  it('keeps the 7 and 30 day cut-offs inclusive', () => {
+    expect(timeGroup(new Date(2026, 9, 28), NOW)).toEqual({ band: 'week' });
+    expect(timeGroup(new Date(2026, 9, 27), NOW)).toEqual({ band: 'month' });
+    expect(timeGroup(new Date(2026, 9, 5), NOW)).toEqual({ band: 'month' });
+  });
+
+  it('names the month in this year, then the year', () => {
+    expect(timeGroup(new Date(2026, 9, 4), NOW)).toEqual({ band: 'month-name', month: 9 });
+    expect(timeGroup(new Date(2026, 0, 1), NOW)).toEqual({ band: 'month-name', month: 0 });
+    expect(timeGroup(new Date(2025, 11, 31), NOW)).toEqual({ band: 'year', year: 2025 });
+  });
+
+  it('puts a time ahead of now (clock skew) in today', () => {
+    expect(timeGroup(new Date(2026, 10, 6), NOW)).toEqual({ band: 'today' });
+  });
+
+  it('has no band for a missing or broken time', () => {
+    expect(timeGroup(undefined, NOW)).toBeUndefined();
+    expect(timeGroup('not a date', NOW)).toBeUndefined();
+  });
+});
+
+describe('formatAgo', () => {
+  const ago = (ms: number) => formatAgo(NOW.getTime() - ms, { now: NOW });
+  const MIN = 60_000;
+
+  it('never shows less than one minute', () => {
+    expect(ago(0)).toBe('1m');
+    expect(ago(59_000)).toBe('1m');
+    expect(ago(-5 * MIN)).toBe('1m');
+  });
+
+  it('takes the largest whole unit', () => {
+    expect(ago(59 * MIN)).toBe('59m');
+    expect(ago(60 * MIN)).toBe('1h');
+    expect(ago(23 * 60 * MIN)).toBe('23h');
+    expect(ago(6 * 1440 * MIN)).toBe('6d');
+    expect(ago(7 * 1440 * MIN)).toBe('1w');
+    expect(ago(364 * 1440 * MIN)).toBe('52w');
+    expect(ago(730 * 1440 * MIN)).toBe('2y');
+  });
+
+  it('localises the unit', () => {
+    expect(formatAgo(NOW.getTime() - 3 * 60 * MIN, { now: NOW, locale: 'hi-IN' })).toBe('3 घं');
+  });
+
+  it('shows the missing mark for no time', () => {
+    expect(formatAgo(null, { now: NOW })).toBe(MISSING);
   });
 });

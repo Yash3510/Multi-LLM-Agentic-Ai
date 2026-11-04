@@ -265,3 +265,56 @@ export function formatDateTime(
 export function formatIso(when: When): string {
   return toDate(when)?.toISOString() ?? '';
 }
+
+/** A list's recency band. The month is 0-based, as in `Date`, so the caller names it with Intl. */
+export type TimeGroup =
+  | { band: 'today' | 'yesterday' | 'week' | 'month' }
+  | { band: 'month-name'; month: number }
+  | { band: 'year'; year: number };
+
+const DAY_MS = 86_400_000;
+
+// Counted on the viewer's calendar, so 23:59 yesterday is "yesterday" at 00:05 today. Dates are
+// moved to UTC midnight first so a daylight-saving change never shifts the count.
+const calendarDay = (date: Date) =>
+  Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS;
+
+/** The band a list row falls in (layout look §4.2): today, yesterday, the previous 7 and 30 days,
+ * then months of this year, then years. A time ahead of now counts as today. */
+export function timeGroup(when: When, now: Date = new Date()): TimeGroup | undefined {
+  const date = toDate(when);
+  if (!date) return undefined;
+  const days = calendarDay(now) - calendarDay(date);
+  if (days <= 0) return { band: 'today' };
+  if (days === 1) return { band: 'yesterday' };
+  if (days <= 7) return { band: 'week' };
+  if (days <= 30) return { band: 'month' };
+  if (date.getFullYear() === now.getFullYear())
+    return { band: 'month-name', month: date.getMonth() };
+  return { band: 'year', year: date.getFullYear() };
+}
+
+export interface AgoOptions {
+  locale?: string;
+  now?: Date;
+}
+
+const AGO_STEPS = [
+  ['year', 365 * DAY_MS],
+  ['week', 7 * DAY_MS],
+  ['day', DAY_MS],
+  ['hour', 3_600_000],
+] as const;
+
+/** How long ago, in the largest whole unit and never under a minute: `1m`, `5h`, `2w`, `1y`. */
+export function formatAgo(
+  when: When,
+  { locale = DEFAULT_LOCALE, now = new Date() }: AgoOptions = {},
+): string {
+  const date = toDate(when);
+  if (!date) return MISSING;
+  const elapsed = now.getTime() - date.getTime();
+  const [unit, size] = AGO_STEPS.find(([, step]) => elapsed >= step) ?? ['minute', 60_000];
+  const count = Math.max(1, Math.floor(elapsed / size));
+  return numberFormat(locale, { style: 'unit', unit, unitDisplay: 'narrow' }).format(count);
+}
