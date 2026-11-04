@@ -1,5 +1,5 @@
 import { render } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Role, StreamEvent } from '$lib/data';
 import StageRail from './StageRail.svelte';
 
@@ -50,5 +50,50 @@ describe('StageRail', () => {
       props: { events: [status(0, 'planner'), { type: 'done', at: 10 }], finished: true },
     });
     expect(container.querySelector('[role="list"]')).toBeNull();
+  });
+});
+
+describe('StageRail pacing', () => {
+  afterEach(() => vi.useRealTimers());
+  const stateOf = (container: HTMLElement, stage: string) =>
+    container.querySelector(`[data-stage="${stage}"]`)?.getAttribute('data-state');
+
+  it('starts at the frontier on first sight, without replaying', () => {
+    const { container } = render(StageRail, {
+      props: { events: finishedRun.slice(0, 3), finished: false, now: 5000, paced: true },
+    });
+    expect(stateOf(container, 'author')).toBe('active');
+  });
+
+  it('trails the run one hop at a time and says who it is passing to', async () => {
+    vi.useFakeTimers();
+    const onhandover = vi.fn();
+    const view = render(StageRail, {
+      props: {
+        events: finishedRun.slice(0, 2),
+        finished: false,
+        now: 2000,
+        paced: true,
+        onhandover,
+      },
+    });
+    expect(stateOf(view.container, 'analyst')).toBe('active');
+    await view.rerender({
+      events: finishedRun.slice(0, 3),
+      finished: false,
+      now: 5000,
+      paced: true,
+      onhandover,
+    });
+    // The Analyst closes, then the light travels; the Author still looks unreached.
+    expect(stateOf(view.container, 'author')).toBe('pending');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onhandover).toHaveBeenLastCalledWith('author');
+    expect(
+      view.container.querySelector('[data-stage="analyst"] [data-wire="travel"]'),
+    ).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(stateOf(view.container, 'author')).toBe('active');
+    expect(onhandover).toHaveBeenLastCalledWith(undefined);
   });
 });

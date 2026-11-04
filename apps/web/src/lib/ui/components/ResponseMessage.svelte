@@ -14,6 +14,7 @@
   import ToolGroup from './ToolGroup.svelte';
   import ReceiptStrip from './ReceiptStrip.svelte';
   import type { StreamEvent } from '$lib/data';
+  import type { RailStage } from '$lib/data/stages';
   import './message.css';
 
   type Props = {
@@ -63,6 +64,7 @@
     ).values(),
   ]);
   const html = $derived(renderMarkdown(text, sources));
+  let handover = $state<RailStage | undefined>();
   const receipt = $derived((events ?? []).findLast((event) => event.type === 'receipt'));
   const decision = $derived((events ?? []).findLast((event) => event.type === 'decision'));
   const checks = $derived(
@@ -86,8 +88,8 @@
     <div class="column">
       <div class="name">{model}</div>
       {#if events}
-        <StageRail {events} {finished} />
-        <StatusLine {events} {finished} />
+        <StageRail {events} {finished} onhandover={(role) => (handover = role)} />
+        <StatusLine {events} {finished} {handover} />
         {#if calls.length}<ToolGroup {calls} />{/if}
       {/if}
       {#if status}<div class="status">{status}</div>{/if}

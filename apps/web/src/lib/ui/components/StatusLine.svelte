@@ -3,12 +3,25 @@
   // rail. While the run is live it says what is happening now, rolling through the stage's lines
   // every 3.8 s; afterwards it becomes a quiet summary that opens the full history.
   import type { Role, StreamEvent } from '$lib/data';
-  import { deriveRun, formatStageTime } from '$lib/data/stages';
+  import { deriveRun, formatStageTime, type RailStage } from '$lib/data/stages';
   import Icon from '$lib/ui/icons/Icon.svelte';
 
-  type Props = { events: StreamEvent[]; finished: boolean };
+  type Props = {
+    events: StreamEvent[];
+    finished: boolean;
+    /** The rail's light is travelling to this role: the line says so until it lands. */
+    handover?: RailStage;
+  };
 
-  let { events, finished }: Props = $props();
+  let { events, finished, handover }: Props = $props();
+
+  const PASSING: Record<RailStage, string> = {
+    planner: 'Passing to Planner…',
+    analyst: 'Passing to Analyst…',
+    author: 'Passing to Author…',
+    challenger: 'Passing to Challenger…',
+    'sign-off': 'Passing to you for sign-off…',
+  };
 
   // What each role says while it works (look S5). Reader has no pool: its own words show.
   const VOICES: Partial<Record<Role | 'replan', string[]>> = {
@@ -104,8 +117,9 @@
           ><Icon name="caret-right" size={12} /></span
         >
       {:else}
-        {#key rolled ?? latest.description}
-          <span class="live">{rolled ?? plain(latest.description)}</span>
+        {@const line = handover ? PASSING[handover] : (rolled ?? plain(latest.description))}
+        {#key line}
+          <span class="live">{line}</span>
         {/key}
       {/if}
     </button>

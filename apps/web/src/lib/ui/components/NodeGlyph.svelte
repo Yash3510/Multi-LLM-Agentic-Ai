@@ -15,9 +15,15 @@
   // The node glyph (own-4ce look S4): a ring on a 14-unit grid. Waiting is six dashes, working is
   // six dots with a violet light running round them, and the finished looks close the ring with
   // their mark. Used on the stage rail (14 px) and as the sidebar run marker (12 px).
-  type Props = { state: NodeState; size?: number; label?: string };
+  type Props = {
+    state: NodeState;
+    size?: number;
+    label?: string;
+    /** Bumped on each landing: one soft ring grows and fades (look S4). */
+    bloom?: number;
+  };
 
-  let { state, size = 12, label }: Props = $props();
+  let { state, size = 12, label, bloom = 0 }: Props = $props();
 
   // Six positions on the ring, from the top, every 60 degrees clockwise.
   const DOTS = Array.from({ length: 6 }, (_, index) => {
@@ -40,6 +46,9 @@
   aria-label={label}
   aria-hidden={label ? undefined : true}
 >
+  {#if bloom > 0}
+    {#key bloom}<circle class="bloom" cx="7" cy="7" r="5.2" />{/key}
+  {/if}
   {#if state === 'waiting' || state === 'requeued' || state === 'skipped'}
     <circle
       class="dashes"
@@ -93,6 +102,26 @@
     --node-amber: var(--color-amber-400);
     --node-working: var(--color-violet-400);
     --node-lit: var(--color-violet-200);
+  }
+
+  .bloom {
+    fill: none;
+    stroke: var(--node-lit);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+    animation: bloom 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* The ring grows to 1.8 times its radius (5.2 to 9.36) by its radius, not a scale. */
+  @keyframes bloom {
+    from {
+      opacity: 0.45;
+      r: 5.2px;
+    }
+    to {
+      opacity: 0;
+      r: 9.36px;
+    }
   }
 
   .dashes {
@@ -175,6 +204,10 @@
     .light {
       animation: none;
       opacity: 0.7;
+    }
+
+    .bloom {
+      display: none;
     }
   }
 </style>

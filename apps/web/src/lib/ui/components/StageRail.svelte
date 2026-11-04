@@ -1,8 +1,9 @@
 <script lang="ts">
   // The stage rail (own-4ce look S3, features F19-F24): five nodes, Planner to the person's gate,
   // with each stage's time and note, the wires between them and the re-plan arc. Derived only
-  // from the run's events, so a reloaded chat draws it as it ended. Still planned: the light that
-  // travels between nodes on a live run, the release sweep and the arc's spark.
+  // from the run's events, so a reloaded chat draws it as it ended. On a live run the rail trails
+  // the run one hop at a time (F21): the finished node closes, a light travels the wire, the next
+  // node starts working with a landing bloom; a release sweeps light across the names (F23).
   import {
     deriveRun,
     formatStageTime,
@@ -11,6 +12,7 @@
     type StageState,
   } from '$lib/data/stages';
   import type { StreamEvent } from '$lib/data';
+  import { onDestroy, untrack } from 'svelte';
   import NodeGlyph, { type NodeState } from './NodeGlyph.svelte';
 
   type Props = {
@@ -18,9 +20,13 @@
     finished: boolean;
     /** The clock to measure a running stage against; ticks on its own while the run is live. */
     now?: number;
+    /** Trail a live run one hop at a time (F21). Opened chats and reduced motion never do. */
+    paced?: boolean;
+    /** Told the role the light is travelling to, and undefined when it lands. */
+    onhandover?: (role: RailStage | undefined) => void;
   };
 
-  let { events, finished, now }: Props = $props();
+  let { events, finished, now, paced = true, onhandover }: Props = $props();
 
   let clock = $state(Date.now());
   const run = $derived(deriveRun(events, finished, now ?? clock));
@@ -30,6 +36,73 @@
     if (!run.running || now !== undefined) return;
     const timer = setInterval(() => (clock = Date.now()), 100);
     return () => clearInterval(timer);
+  });
+
+  // Pacing: an opened (finished) chat and reduced motion draw the rail as it is.
+  const reduced =
+    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pacing = untrack(() => paced && !finished) && !reduced;
+
+  // The run's frontier: the working stage, else the furthest one reached.
+  const frontier = $derived.by(() => {
+    const active = RAIL.findIndex((stage) => run.stages[stage].state === 'active');
+    if (active >= 0) return active;
+    return RAIL.findLastIndex((stage) => reached(run.stages[stage].state));
+  });
+
+  let shown = $state(-1);
+  let phase = $state<'rest' | 'closing' | 'travel'>('rest');
+  let blooms = $state<Record<number, number>>({});
+  let sweep = $state(false);
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  onDestroy(() => timers.forEach(clearTimeout));
+
+  const land = (index: number) => (blooms[index] = (blooms[index] ?? 0) + 1);
+
+  // One hop: the finished node closes (950 ms), the light travels (1900 ms), the next node
+  // starts working with a bloom. Queued hops run back to back; a re-plan jumps straight back.
+  $effect(() => {
+    const target = frontier;
+    const resting = phase === 'rest';
+    if (!pacing) return;
+    untrack(() => {
+      if (shown < 0) shown = target;
+      else if (target < shown) {
+        shown = target;
+        phase = 'rest';
+        land(target);
+      } else if (target > shown && resting) {
+        phase = 'closing';
+        timers.push(
+          setTimeout(() => {
+            phase = 'travel';
+            onhandover?.(RAIL[shown + 1]);
+          }, 950),
+          setTimeout(() => {
+            shown += 1;
+            phase = 'rest';
+            land(shown);
+            onhandover?.(undefined);
+          }, 2850),
+        );
+      }
+    });
+  });
+
+  /** The state a node shows: beyond the light it still looks unreached. */
+  const shownState = (index: number): StageState => {
+    const actual = run.stages[RAIL[index]].state;
+    if (!pacing || index <= shown) return actual;
+    return 'pending';
+  };
+
+  // The release sweep plays once, when the gate turns released in front of the reader (F23).
+  $effect(() => {
+    if (!pacing || shownState(RAIL.length - 1) !== 'released') return;
+    untrack(() => {
+      sweep = true;
+      timers.push(setTimeout(() => (sweep = false), 5800));
+    });
   });
 
   const NAMES: Record<RailStage, string> = {
@@ -56,7 +129,9 @@
 
   /** The wire after a node: filled once the next node is reached; into the gate, ink once the
    * person decided, amber when the run was cut off before they did. */
-  function wire(index: number): 'future' | 'done' | 'released' | 'held' {
+  function wire(index: number): 'future' | 'travel' | 'done' | 'released' | 'held' {
+    if (pacing && index === shown && phase === 'travel') return 'travel';
+    if (pacing && index >= shown) return 'future';
     const next = run.stages[RAIL[index + 1]];
     if (RAIL[index + 1] === 'sign-off') {
       if (next.state === 'released' || next.state === 'withheld') return 'released';
@@ -65,11 +140,11 @@
     return reached(next.state) ? 'done' : 'future';
   }
 
-  function time(stage: RailStage): string {
+  function time(stage: RailStage, state: StageState): string {
     const view = run.stages[stage];
-    if (!reached(view.state) || view.ms <= 0) return '';
+    if (!reached(state) || view.ms <= 0) return '';
     const text = formatStageTime(view.ms);
-    return stage === 'sign-off' && (view.state === 'released' || view.state === 'withheld')
+    return stage === 'sign-off' && (state === 'released' || state === 'withheld')
       ? `waited ${text}`
       : text;
   }
@@ -82,26 +157,31 @@
 </script>
 
 {#if run.rail}
-  <div class="rail" data-replanned={run.replans > 0 ? '' : undefined}>
+  <div
+    class="rail"
+    data-replanned={run.replans > 0 ? '' : undefined}
+    data-sweep={sweep ? '' : undefined}
+  >
     <ol class="row" aria-label="Agent chain">
       {#each RAIL as stage, index (stage)}
         {@const view = run.stages[stage]}
-        {@const timeText = time(stage)}
-        <li class="column" data-stage={stage} data-state={view.state}>
+        {@const state = shownState(index)}
+        {@const timeText = time(stage, state)}
+        <li class="column" data-stage={stage} data-state={state} style:--index={index}>
           <button
             type="button"
             class="node"
-            disabled={run.running || view.state === 'skipped'}
+            disabled={run.running || state === 'skipped'}
             aria-label={[
               NAMES[stage],
               view.passes > 1 ? `ran ${view.passes} times` : '',
               timeText,
-              view.note ?? '',
+              reached(state) ? (view.note ?? '') : '',
             ]
               .filter(Boolean)
               .join(', ')}
           >
-            <NodeGlyph state={LOOK[view.state]} size={14} />
+            <NodeGlyph state={LOOK[state]} size={14} bloom={blooms[index] ?? 0} />
             <span class="name"
               >{NAMES[
                 stage
@@ -110,11 +190,12 @@
                 >{/if}</span
             >
             <span class="time">{timeText || ' '}</span>
-            <span class="note">{view.note ?? ' '}</span>
+            <span class="note">{(reached(state) && view.note) || ' '}</span>
           </button>
           {#if index < RAIL.length - 1}
             <span class="wire" data-wire={wire(index)} aria-hidden="true"
-              ><span class="fill"></span></span
+              ><span class="fill"></span>{#if wire(index) === 'travel'}<span class="light"
+                ></span>{/if}</span
             >
           {/if}
         </li>
@@ -147,6 +228,9 @@
     --held: var(--color-amber-400);
     --released-ink: var(--color-gray-900);
     --name-base: var(--color-gray-600);
+    --light-tail: var(--color-violet-400);
+    --light-head: var(--color-violet-600);
+    --light-glow: rgb(124 58 237 / 0.26);
   }
 
   :global([data-theme='dark']) .rail {
@@ -155,6 +239,9 @@
     --held: var(--color-amber-600);
     --released-ink: var(--color-white);
     --name-base: var(--color-gray-300);
+    --light-tail: var(--color-violet-500);
+    --light-head: var(--color-violet-200);
+    --light-glow: rgb(167 139 250 / 0.36);
   }
 
   .rail[data-replanned] {
@@ -283,7 +370,116 @@
     transition: background-color 800ms ease;
   }
 
-  .wire:not([data-wire='future']) .fill {
+  /* The travelling light (look S3.3): a 26 px streak with a round head, gliding to 24 px short
+     of the wire's end while the fill grows behind it, violet cooling to grey. */
+  .light {
+    position: absolute;
+    inset-block-start: -1.25px;
+    inset-inline-start: 0;
+    inline-size: 26px;
+    block-size: 1.5px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--light-tail) 55%, var(--light-head));
+    box-shadow: 0 0 4px var(--light-glow);
+    animation:
+      travel 1900ms cubic-bezier(0.45, 0, 0.2, 1) forwards,
+      fade 2450ms linear forwards;
+  }
+
+  .light::after {
+    content: '';
+    position: absolute;
+    inset-block-start: -1.5px;
+    inset-inline-end: -2px;
+    inline-size: 4.5px;
+    block-size: 4.5px;
+    border-radius: var(--radius-pill);
+    background-color: var(--light-head);
+    box-shadow: 0 0 3px var(--light-glow);
+  }
+
+  .wire[data-wire='travel'] .fill {
+    transform: scaleX(1);
+    background-color: var(--charged);
+    animation:
+      grow 1900ms cubic-bezier(0.45, 0, 0.2, 1) both,
+      cool 2450ms linear both;
+  }
+
+  /* The streak ends 24 px short of the wire's end: the wire is its container. */
+  .wire {
+    container-type: inline-size;
+  }
+
+  @keyframes travel {
+    to {
+      translate: calc(100cqi - 24px) 0;
+    }
+  }
+
+  @keyframes fade {
+    0% {
+      opacity: 0;
+    }
+    24%,
+    77.5% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes cool {
+    from {
+      background-color: color-mix(in srgb, var(--light-tail) 70%, var(--charged));
+    }
+    70%,
+    to {
+      background-color: var(--charged);
+    }
+  }
+
+  /* The release sweep: one violet band crosses each name in turn, once (F23). */
+  .rail[data-sweep] .name {
+    background: linear-gradient(
+        90deg,
+        currentColor 38%,
+        var(--light-tail) 45%,
+        var(--light-head) 50%,
+        var(--light-tail) 55%,
+        currentColor 62%
+      )
+      100% 0 / 300% 100%;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: sweep 2800ms cubic-bezier(0.37, 0, 0.63, 1) calc(1800ms + var(--index) * 220ms) both;
+  }
+
+  @keyframes sweep {
+    to {
+      background-position: 0 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .light,
+    .wire[data-wire='travel'] .fill,
+    .rail[data-sweep] .name {
+      animation: none;
+    }
+  }
+
+  .wire:is([data-wire='done'], [data-wire='released'], [data-wire='held']) .fill {
     transform: scaleX(1);
   }
 

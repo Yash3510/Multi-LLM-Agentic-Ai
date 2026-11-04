@@ -52,3 +52,21 @@ describe('StatusLine', () => {
     );
   });
 });
+
+describe('StatusLine hand-over', () => {
+  it('says who the run is passing to while the light travels', () => {
+    const view = render(StatusLine, {
+      props: { events: run, finished: false, handover: 'author' },
+    });
+    expect(view.getByRole('button', { name: 'Toggle status history' }).textContent).toContain(
+      'Passing to Author…',
+    );
+    view.unmount();
+    const gate = render(StatusLine, {
+      props: { events: run, finished: false, handover: 'sign-off' },
+    });
+    expect(gate.getByRole('button', { name: 'Toggle status history' }).textContent).toContain(
+      'Passing to you for sign-off…',
+    );
+  });
+});
