@@ -161,5 +161,13 @@
   "egress_external": "external",
   "egress_stale": "egress not observed",
   "egress_label_one": "Egress: {count} external connection. Open the Sovereignty page.",
-  "egress_label_other": "Egress: {count} external connections. Open the Sovereignty page."
+  "egress_label_other": "Egress: {count} external connections. Open the Sovereignty page.",
+  "message_edit": "Edit",
+  "message_copy": "Copy",
+  "message_copied": "Copied",
+  "message_delete": "Delete",
+  "message_read_aloud": "Read Aloud",
+  "message_good": "Good Response",
+  "message_bad": "Bad Response",
+  "message_regenerate": "Regenerate"
 }
