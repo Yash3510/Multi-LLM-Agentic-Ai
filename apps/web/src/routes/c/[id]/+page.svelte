@@ -89,6 +89,15 @@
     );
   }
 
+  // Try again: the stopped answer goes and its question runs again.
+  async function retry() {
+    const question = messages.findLast((message) => message.role === 'user')?.text;
+    if (!question || messages.at(-1)?.role !== 'response') return;
+    messages.pop();
+    messages.pop();
+    await ask(question);
+  }
+
   async function ask(question: string) {
     const now = new Date();
     following = true;
@@ -133,6 +142,7 @@
           text={message.text}
           at={message.at}
           last={index === lastResponse}
+          onretry={retry}
         />
       {/if}
     {/each}

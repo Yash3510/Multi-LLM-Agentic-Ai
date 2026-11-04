@@ -75,7 +75,7 @@ export type StreamEvent =
   | { type: 'receipt'; at: number; receipt: Receipt }
   | { type: 'done'; at: number }
   | { type: 'stopped'; at: number }
-  | { type: 'error'; at: number; message: string };
+  | { type: 'error'; at: number; message: string; advice?: string };
 
 /** Where screens get their data. The fake replay implements it now; the API client later. */
 export interface DataSource {

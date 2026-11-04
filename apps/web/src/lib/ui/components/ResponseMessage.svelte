@@ -13,6 +13,8 @@
   import SourcesBar from './SourcesBar.svelte';
   import ToolGroup from './ToolGroup.svelte';
   import ReceiptStrip from './ReceiptStrip.svelte';
+  import RunErrorCard from './RunErrorCard.svelte';
+  import { deriveRun, RAIL } from '$lib/data/stages';
   import type { StreamEvent } from '$lib/data';
   import type { RailStage } from '$lib/data/stages';
   import './message.css';
@@ -30,9 +32,21 @@
     /** The run's events, for the stage rail. */
     events?: StreamEvent[];
     finished?: boolean;
+    /** Offered on the last answer: run it again after it stopped with an error. */
+    onretry?: () => void;
   };
 
-  let { model, text, at, last = false, status, direct, events, finished = true }: Props = $props();
+  let {
+    model,
+    text,
+    at,
+    last = false,
+    status,
+    direct,
+    events,
+    finished = true,
+    onretry,
+  }: Props = $props();
 
   const ACTIONS = [
     { name: 'rename', label: m.message_edit() },
@@ -64,6 +78,15 @@
     ).values(),
   ]);
   const html = $derived(renderMarkdown(text, sources));
+  const failure = $derived((events ?? []).findLast((event) => event.type === 'error'));
+  // The role the run stopped at names the card; the gate and no rail fall back to 4CE.
+  const stoppedAt = $derived.by(() => {
+    if (!failure || !events) return undefined;
+    const run = deriveRun(events, true, Date.now());
+    const stage = RAIL.find((item) => run.stages[item].note === 'failed');
+    if (!stage || stage === 'sign-off') return undefined;
+    return stage.charAt(0).toUpperCase() + stage.slice(1);
+  });
   let handover = $state<RailStage | undefined>();
   const receipt = $derived((events ?? []).findLast((event) => event.type === 'receipt'));
   const decision = $derived((events ?? []).findLast((event) => event.type === 'decision'));
@@ -93,7 +116,16 @@
         {#if calls.length}<ToolGroup {calls} />{/if}
       {/if}
       {#if status}<div class="status">{status}</div>{/if}
-      <div class="body" data-typing={typing ? '' : undefined} {@attach safeHtml(html)}></div>
+      {#if failure}
+        <RunErrorCard
+          detail={failure.message}
+          advice={failure.advice}
+          role={stoppedAt}
+          onretry={last ? onretry : undefined}
+        />
+      {:else}
+        <div class="body" data-typing={typing ? '' : undefined} {@attach safeHtml(html)}></div>
+      {/if}
       {#if sources.length}<SourcesBar {sources} />{/if}
       {#if receipt && decision?.outcome === 'released'}
         <ReceiptStrip receipt={receipt.receipt} {checks} releasedAt={new Date(decision.at)} />

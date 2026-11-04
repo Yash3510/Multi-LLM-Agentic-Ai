@@ -127,6 +127,13 @@ function script(): Step[] {
   ];
 }
 
+function failing(): Step[] {
+  return [
+    ...script().slice(0, 7),
+    { after: 800, event: { type: 'error', message: 'All connection attempts failed' } },
+  ];
+}
+
 function closing(outcome: 'released' | 'withheld', by: string): Step[] {
   return [
     { after: 300, event: { type: 'decision', outcome, by } },
@@ -245,7 +252,10 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     async getChat(id) {
       return CHATS.find((chat) => chat.id === id);
     },
-    ask(_chatId, _question, signal) {
+    ask(_chatId, question, signal) {
+      // A question about the server being down replays a run that stops at the Analyst, so the
+      // run error card can be seen without a backend.
+      if (/server down/i.test(question)) return replay(failing(), pace, signal);
       return replay(script(), pace, signal);
     },
     decide(_chatId, outcome, by, signal) {
