@@ -3,7 +3,7 @@ title: Architecture decision records
 type: index
 status: active
 owner: R1
-updated: 2026-11-01
+updated: 2026-11-08
 covers:
   - docs/adr/
 tags: [4ce, adr]
@@ -33,3 +33,4 @@ Numbers 0009 to 0034 are reserved by the master plan (§15) for the decisions it
 | [0038](0038-signed-tokens-for-sign-in.md) | Signed tokens for sign-in | proposed |
 | [0039](0039-every-action-writes-a-ledger-entry.md) | Every action writes a ledger entry | proposed |
 | [0040](0040-job-queue-on-postgresql.md) | Job queue on PostgreSQL | proposed |
+| [0041](0041-file-storage-behind-one-interface.md) | File storage behind one interface | proposed |
