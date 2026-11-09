@@ -122,5 +122,6 @@
   "upload-bold": { "phosphor": "arrow-circle-up", "weight": "bold" },
   "folder-open-bold": { "phosphor": "folder-open", "weight": "bold" },
   "add-text-bold": { "phosphor": "sort-descending", "weight": "bold" },
-  "reset-bold": { "phosphor": "arrow-u-up-left", "weight": "bold" }
+  "reset-bold": { "phosphor": "arrow-u-up-left", "weight": "bold" },
+  "clipboard": { "phosphor": "clipboard" }
 }
