@@ -19,5 +19,11 @@ export const load: PageLoad = async ({ params }) => {
     if (!skill) redirect(307, '/workspace/skills');
     return { tab: 'skills' as const, skill };
   }
+  if (params.tab === 'tools') {
+    const tool = await data.getTool(params.id);
+    // A tool the person cannot change does not open (F109).
+    if (!tool?.writable) redirect(307, '/workspace/tools');
+    return { tab: 'tools' as const, tool };
+  }
   error(404, 'Not found');
 };

@@ -9,6 +9,8 @@
   import KnowledgeList from '$lib/ui/components/KnowledgeList.svelte';
   import PromptList from '$lib/ui/components/PromptList.svelte';
   import SkillList from '$lib/ui/components/SkillList.svelte';
+  import ToolList from '$lib/ui/components/ToolList.svelte';
+  import { saveToolFile } from '$lib/ui/tools';
   import { saveSkillFile } from '$lib/ui/skills';
   import { cloneDraft, savePromptFile, type PromptDraft } from '$lib/ui/prompts';
   import Menu from '$lib/ui/components/Menu.svelte';
@@ -180,6 +182,28 @@
     onexport={(skill) => saveSkillFile([skill], skill.id)}
     ondelete={async (id) => {
       await source.deleteSkill(id);
+      await invalidateAll();
+    }}
+  />
+{:else if data.tab === 'tools'}
+  <ToolList
+    tools={data.tools}
+    me={data.user?.email}
+    onopen={(id) => goto(resolve('/workspace/[tab]/[id]', { tab: 'tools', id }))}
+    onclone={(tool) =>
+      goto(resolve('/workspace/[tab]/create', { tab: 'tools' }), {
+        state: {
+          toolDraft: {
+            id: `${tool.id}_clone`,
+            name: `${tool.name} (Clone)`,
+            description: tool.description ?? '',
+            content: tool.content,
+          },
+        },
+      })}
+    onexport={(tool) => saveToolFile([tool], tool.id)}
+    ondelete={async (id) => {
+      await source.deleteTool(id);
       await invalidateAll();
     }}
   />

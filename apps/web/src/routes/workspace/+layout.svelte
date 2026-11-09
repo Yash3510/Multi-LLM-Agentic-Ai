@@ -6,10 +6,13 @@
   import { page } from '$app/state';
   import type { WorkspaceTab } from '$lib/data';
   import { data as source } from '$lib/data';
+  import ConfirmDialog from '$lib/ui/components/ConfirmDialog.svelte';
   import Menu from '$lib/ui/components/Menu.svelte';
+  import RiskNotice from '$lib/ui/components/RiskNotice.svelte';
   import WorkspaceTabs from '$lib/ui/components/WorkspaceTabs.svelte';
   import { readPromptFile, savePromptFile } from '$lib/ui/prompts';
   import { readSkillFile, saveSkillFile } from '$lib/ui/skills';
+  import { readToolFile, saveToolFile, type ToolDraft } from '$lib/ui/tools';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import type { LayoutProps } from './$types';
 
@@ -17,6 +20,8 @@
 
   let importInput = $state<HTMLInputElement>();
   let skillInput = $state<HTMLInputElement>();
+  let toolInput = $state<HTMLInputElement>();
+  let pendingTools = $state<ToolDraft[]>();
 
   const current = $derived((page.url.pathname.split('/')[2] ?? 'models') as WorkspaceTab);
   // The tab lists, and the Knowledge create page, which is the list with its dialog open.
@@ -140,6 +145,46 @@
               await invalidateAll();
             }}
           />
+        {:else if current === 'tools'}
+          <a class="create-main" href={resolve('/workspace/[tab]/create', { tab: 'tools' })}
+            >Create</a
+          >
+          <Menu
+            label="Open create menu"
+            backLabel="Back"
+            align="end"
+            items={[
+              {
+                id: 'import',
+                label: 'Import from JSON',
+                icon: 'upload-simple',
+                onSelect: () => toolInput?.click(),
+              },
+              {
+                id: 'export',
+                label: 'Export as JSON',
+                icon: 'download-simple',
+                onSelect: async () => saveToolFile(await source.listTools()),
+              },
+            ]}
+          >
+            {#snippet trigger({ props })}
+              <button {...props} class="create-more" aria-label="Open create menu"
+                ><Icon name="caret-down" size={10} /></button
+              >
+            {/snippet}
+          </Menu>
+          <input
+            bind:this={toolInput}
+            type="file"
+            accept=".json"
+            hidden
+            onchange={async (event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = '';
+              if (file) pendingTools = readToolFile(await file.text());
+            }}
+          />
         {:else}
           <button type="button" class="create-main">Create</button>
         {/if}
@@ -148,6 +193,21 @@
   </header>
   {@render children()}
 </div>
+
+<!-- Imported tools run code, so the person accepts the risk first (F112). -->
+<ConfirmDialog
+  open={pendingTools !== undefined}
+  message=""
+  oncancel={() => (pendingTools = undefined)}
+  onconfirm={async () => {
+    const drafts = pendingTools ?? [];
+    pendingTools = undefined;
+    for (const draft of drafts) await source.createTool(draft).catch(() => undefined);
+    await invalidateAll();
+  }}
+>
+  <RiskNotice />
+</ConfirmDialog>
 
 <style>
   .workspace {

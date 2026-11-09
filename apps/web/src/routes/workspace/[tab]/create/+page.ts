@@ -20,6 +20,7 @@ export const load: PageLoad = async ({ params }) => {
     return { tab: 'knowledge' as const, bases: await data.listKnowledge() };
   }
   if (params.tab === 'skills') return { tab: 'skills' as const };
+  if (params.tab === 'tools') return { tab: 'tools' as const };
   if (params.tab === 'prompts') {
     return { tab: 'prompts' as const, prompts: await data.listPrompts() };
   }
