@@ -65,3 +65,27 @@ describe('fake workspace', () => {
     expect(await source.listModels()).toEqual([]);
   });
 });
+
+describe('fake model editor data', () => {
+  it('offers the base models, knowledge, tools and skills the capture account has', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect((await source.listBaseModels()).map((model) => model.name)).toEqual([
+      '4CE / TONY (Orchestrator)',
+      'qwen/qwen3-vl-4b',
+      'qwen/qwen3-1.7b',
+    ]);
+    expect(await source.listKnowledge()).toHaveLength(3);
+    expect(await source.listTools()).toHaveLength(7);
+    expect(await source.listSkills()).toEqual([]);
+  });
+
+  it('saves a model into the list and its count', async () => {
+    const source = createFakeSource({ pace: 0 });
+    await source.saveModel({ id: 'ratio-helper', name: 'Ratio Helper', base: 'qwen/qwen3-1.7b' });
+    expect((await source.listModels()).map((model) => model.id)).toEqual(['ratio-helper']);
+    expect((await source.workspaceCounts()).models).toBe(1);
+    await expect(
+      source.saveModel({ id: 'ratio-helper', name: 'Again', base: 'qwen/qwen3-1.7b' }),
+    ).rejects.toThrow('ratio-helper');
+  });
+});

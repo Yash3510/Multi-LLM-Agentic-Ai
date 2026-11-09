@@ -121,6 +121,22 @@ export interface WorkspaceModel {
   avatar?: string;
 }
 
+/** A workspace item offered in a picker: a base model, knowledge base, tool or skill. */
+export interface WorkspaceItem {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+/** What the model editor saves (the API takes the full record; see web-data-contract.md). */
+export interface ModelRecord {
+  id: string;
+  name: string;
+  base: string;
+  params?: Record<string, unknown>;
+  meta?: Record<string, unknown>;
+}
+
 /** Where screens get their data. The fake replay implements it now; the API client later. */
 export interface DataSource {
   /** The person signed in on this device, or undefined. */
@@ -136,6 +152,13 @@ export interface DataSource {
   /** How many items each workspace tab holds. */
   workspaceCounts(): Promise<Record<WorkspaceTab, number>>;
   listModels(): Promise<WorkspaceModel[]>;
+  /** The models a custom model can build on. */
+  listBaseModels(): Promise<WorkspaceItem[]>;
+  listKnowledge(): Promise<WorkspaceItem[]>;
+  listTools(): Promise<WorkspaceItem[]>;
+  listSkills(): Promise<WorkspaceItem[]>;
+  /** Creates a custom model; rejects when the id is taken. */
+  saveModel(model: ModelRecord): Promise<WorkspaceModel>;
   getChat(id: string): Promise<Chat | undefined>;
   /** Asks a question in a chat and yields the answer's events as they arrive. */
   ask(chatId: string, question: string, signal?: AbortSignal): AsyncIterable<StreamEvent>;

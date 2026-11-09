@@ -1,7 +1,15 @@
 // A fake data source for building the screens before the 4CE API exists: a few stored chats and
 // a scripted answer replayed with realistic pacing. Nothing leaves the browser. The content is
 // sector-neutral (rules R2 to R6, ids like CASE-0142).
-import type { Chat, ChatSummary, DataSource, StreamEvent, User } from './types';
+import type {
+  Chat,
+  ChatSummary,
+  DataSource,
+  StreamEvent,
+  User,
+  WorkspaceItem,
+  WorkspaceModel,
+} from './types';
 
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
 
@@ -333,7 +341,29 @@ async function* replay(steps: Step[], pace: number, signal?: AbortSignal) {
 }
 
 /** `pace` scales every wait: 1 is real time, 0 replays at once (tests). */
+// Stand-ins sized like the capture account's workspace on the running app (3 base models, 3
+// knowledge bases, 7 tools), with neutral names.
+const BASE_MODELS: WorkspaceItem[] = [
+  { id: '4ce-tony', name: '4CE / TONY (Orchestrator)' },
+  { id: 'qwen/qwen3-vl-4b', name: 'qwen/qwen3-vl-4b' },
+  { id: 'qwen/qwen3-1.7b', name: 'qwen/qwen3-1.7b' },
+];
+const KNOWLEDGE: WorkspaceItem[] = ['procedures-a', 'procedures-b', 'procedures-c'].map((id) => ({
+  id,
+  name: 'Procedures',
+}));
+const TOOLS: WorkspaceItem[] = [
+  'Sovereignty Check',
+  'Threshold Check',
+  'Engineering Calculations',
+  'Workspace Files',
+  'Spreadsheets',
+  'Sovereign Sandbox',
+  'Deliverables',
+].map((name) => ({ id: name.toLowerCase().replace(/ /g, '-'), name: `4CE ${name}` }));
+
 export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSource {
+  const models: WorkspaceModel[] = [];
   // The session lives in memory only. Passwords are accepted and dropped: nothing checks, keeps
   // or forwards them.
   // A demo person is signed in from the start, so local work opens straight into the app.
@@ -376,10 +406,45 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     },
     // The capture account's workspace: no custom models, 3 knowledge bases, 7 tools.
     async workspaceCounts() {
-      return { models: 0, knowledge: 3, prompts: 0, skills: 0, tools: 7 };
+      return {
+        models: models.length,
+        knowledge: KNOWLEDGE.length,
+        prompts: 0,
+        skills: 0,
+        tools: TOOLS.length,
+      };
     },
     async listModels() {
+      return [...models];
+    },
+    async listBaseModels() {
+      return BASE_MODELS;
+    },
+    async listKnowledge() {
+      return KNOWLEDGE;
+    },
+    async listTools() {
+      return TOOLS;
+    },
+    async listSkills() {
       return [];
+    },
+    async saveModel(record) {
+      if ([...models, ...BASE_MODELS].some((model) => model.id === record.id)) {
+        throw new Error(`The model id "${record.id}" is already in use. Choose another.`);
+      }
+      const saved = {
+        id: record.id,
+        name: record.name,
+        base: record.base,
+        updated: new Date(),
+        owner: user && { name: user.name, email: user.email },
+        enabled: true,
+        hidden: false,
+        writable: true,
+      };
+      models.unshift(saved);
+      return saved;
     },
     async listChats(): Promise<ChatSummary[]> {
       return [...CHATS]

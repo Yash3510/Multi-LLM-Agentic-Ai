@@ -45,6 +45,11 @@ The `AbortSignal` stops a stream. The person's Stop button and leaving the chat 
 | --- | --- | --- |
 | `workspaceCounts()` | how many models, knowledge bases, prompts, skills and tools the person can see | the workspace tabs |
 | `listModels()` | `WorkspaceModel[]`: id, name, base model, description, updated time, owner, and whether it is enabled, hidden and writable by the person | the workspace Models list |
+| `listBaseModels()` | `WorkspaceItem[]` (id, name): the models a custom model can build on | the model editor's Base Model picker |
+| `listKnowledge()` | `WorkspaceItem[]`: the knowledge bases the person can attach | the model editor's Knowledge picker |
+| `listTools()` | `WorkspaceItem[]`: the tools the person can see | the model editor's Tools picker |
+| `listSkills()` | `WorkspaceItem[]`: the active skills | the model editor's Skills picker |
+| `saveModel(record)` | creates a custom model from `ModelRecord` (id, name, base, params, meta; empty values left out) and returns it as a `WorkspaceModel`; rejects with a message naming the id when it is taken | the model editor's Save & Create |
 
 ## Messages
 
