@@ -2,7 +2,8 @@
   // A workspace tab's screen (workspace look §2): Models is built; the other tabs follow one at a
   // time. The tab row and Create sit in the workspace layout.
   import { m } from '$lib/i18n/generated/messages.js';
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { data as source } from '$lib/data';
   import KnowledgeList from '$lib/ui/components/KnowledgeList.svelte';
   import Menu from '$lib/ui/components/Menu.svelte';
@@ -114,6 +115,7 @@
     bases={data.bases}
     me={data.user?.email}
     admin={data.user?.role === 'admin'}
+    onopen={(id) => goto(resolve('/workspace/[tab]/[id]', { tab: 'knowledge', id }))}
     ondelete={async (id) => {
       await source.deleteKnowledge(id);
       await invalidateAll();

@@ -29,13 +29,18 @@
     }}
   />
 {:else}
-  <KnowledgeList bases={data.bases} me={data.user?.email} admin={data.user?.role === 'admin'} />
+  <KnowledgeList
+    bases={data.bases}
+    me={data.user?.email}
+    admin={data.user?.role === 'admin'}
+    onopen={(id) => goto(resolve('/workspace/[tab]/[id]', { tab: 'knowledge', id }))}
+  />
   <CreateKnowledgeDialog
     open
     onclose={() => back('knowledge')}
     oncreate={async (name, description) => {
-      await source.createKnowledge(name, description);
-      await back('knowledge');
+      const made = await source.createKnowledge(name, description);
+      await goto(resolve('/workspace/[tab]/[id]', { tab: 'knowledge', id: made.id }));
     }}
   />
 {/if}
