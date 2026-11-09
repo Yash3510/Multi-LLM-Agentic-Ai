@@ -2,7 +2,7 @@
   // One row of a list (layout look §4.4, §9.2), as the running app draws it: gray-100 on hover in
   // the side list (gray-50 at 70 % in list dialogs) and a 3.5 % black fill on the open item. A link when it opens something; otherwise a
   // plain row, so actions inside it stay their own buttons.
-  import { resolve } from '$app/paths';
+  import { appHref } from '$lib/ui/app-href';
   import type { PathnameWithSearchOrHash } from '$app/types';
   import type { Snippet } from 'svelte';
 
@@ -23,7 +23,7 @@
 
 {#if href}
   <a
-    href={resolve(href)}
+    href={appHref(href)}
     data-list-row
     data-variant={variant}
     data-current={current ? '' : undefined}

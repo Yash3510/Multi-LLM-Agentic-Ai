@@ -3,7 +3,7 @@
   // In-app paths are typed against the routes and get the base path here, so callers never build
   // hrefs by hand. `external` marks a link that leaves the app: rel="external" (no client routing)
   // and an arrow; where it opens is the caller's call. aria-current draws the current state.
-  import { resolve } from '$app/paths';
+  import { appHref } from '$lib/ui/app-href';
   import type { PathnameWithSearchOrHash } from '$app/types';
   import type { Snippet } from 'svelte';
   import type { HTMLAnchorAttributes } from 'svelte/elements';
@@ -33,6 +33,6 @@
   >
 {:else}
   <!-- The union above guarantees an in-app path on this branch. -->
-  <a href={resolve(href as PathnameWithSearchOrHash)} data-link="" {...rest}>{@render children()}</a
+  <a href={appHref(href as PathnameWithSearchOrHash)} data-link="" {...rest}>{@render children()}</a
   >
 {/if}

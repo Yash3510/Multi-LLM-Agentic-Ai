@@ -10,7 +10,7 @@
   //   reason shows under the content, as its description.
   // - loading: aria-busy and no presses; the caller puts skeletons inside.
   // - invalid: a stop edge; the message itself goes inside, in place (InlineAlert).
-  import { resolve } from '$app/paths';
+  import { appHref } from '$lib/ui/app-href';
   import type { PathnameWithSearchOrHash } from '$app/types';
   import type { Snippet } from 'svelte';
   import type { HTMLAttributes } from 'svelte/elements';
@@ -74,7 +74,7 @@
   <!-- A disabled link has no href, so it goes nowhere; with a reason it stays in the tab order. -->
   <a
     {...rest}
-    href={disabled || href === undefined ? undefined : resolve(href)}
+    href={disabled || href === undefined ? undefined : appHref(href)}
     role={disabled ? 'link' : undefined}
     tabindex={disabled ? (explained ? 0 : -1) : undefined}
     class={className}

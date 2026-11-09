@@ -3,7 +3,7 @@
   // external connections, linking to the Sovereignty page. It renders nothing until a poll has
   // answered; the caller polls (every 3 s) once the egress API exists.
   import type { PathnameWithSearchOrHash } from '$app/types';
-  import { resolve } from '$app/paths';
+  import { appHref } from '$lib/ui/app-href';
   import { m } from '$lib/i18n/generated/messages.js';
   import { getLocale } from '$lib/i18n/generated/runtime.js';
   import { formatNumber, toIntlLocale } from '$lib/ui/format';
@@ -31,7 +31,7 @@
 </script>
 
 {#if external !== undefined}
-  <a class="pill" href={resolve(href)} data-state={state} aria-label={label} title={label}>
+  <a class="pill" href={appHref(href)} data-state={state} aria-label={label} title={label}>
     <span class="dot" aria-hidden="true"></span>
     {#if stale}
       <span>{m.egress_stale()}</span>

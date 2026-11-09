@@ -16,6 +16,7 @@
   // the row ink, a gray-100 hover and a 3.5 % black fill on the current row. Resizing and the
   // phone drawer are planned.
   import { resolve } from '$app/paths';
+  import { appHref } from '$lib/ui/app-href';
   import type { Snippet } from 'svelte';
   import { m } from '$lib/i18n/generated/messages.js';
   import Icon from '$lib/ui/icons/Icon.svelte';
@@ -103,7 +104,7 @@
           {#each destinations as destination (destination.href)}
             <a
               class="row"
-              href={resolve(destination.href)}
+              href={appHref(destination.href)}
               data-current={isCurrent(destination.href) ? '' : undefined}
               aria-current={isCurrent(destination.href) ? 'page' : undefined}
             >
@@ -162,7 +163,7 @@
         {#each destinations as destination (destination.href)}
           <a
             class="rail-link"
-            href={resolve(destination.href)}
+            href={appHref(destination.href)}
             aria-label={destination.label}
             title={destination.label}
             data-current={isCurrent(destination.href) ? '' : undefined}

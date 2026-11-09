@@ -19,14 +19,28 @@ export default defineConfig(
   ts.configs.recommended,
   svelte.configs.recommended,
   {
-    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+      // Type information lets rules such as svelte/no-navigation-without-resolve recognise a
+      // value typed ResolvedPathname (lib/ui/app-href.ts) as already resolved.
+      parserOptions: {
+        projectService: { allowDefaultProject: ['eslint.config.js', 'svelte.config.js'] },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
     // TypeScript already reports undefined names, with type information ESLint lacks.
     rules: { 'no-undef': 'off' },
   },
   {
     files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
     languageOptions: {
-      parserOptions: { parser: ts.parser, extraFileExtensions: ['.svelte'], svelteConfig },
+      parserOptions: {
+        parser: ts.parser,
+        extraFileExtensions: ['.svelte'],
+        svelteConfig,
+        projectService: { allowDefaultProject: ['eslint.config.js', 'svelte.config.js'] },
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
   },
 );
