@@ -1,20 +1,26 @@
 <script lang="ts">
   // The workspace frame (workspace look §1): the tab row on every workspace screen, and the Create
   // control on the tab lists. The current tab is the first part of the path.
+  import { invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import type { WorkspaceTab } from '$lib/data';
+  import { data as source } from '$lib/data';
+  import Menu from '$lib/ui/components/Menu.svelte';
   import WorkspaceTabs from '$lib/ui/components/WorkspaceTabs.svelte';
+  import { readPromptFile, savePromptFile } from '$lib/ui/prompts';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import type { LayoutProps } from './$types';
 
   let { children, data }: LayoutProps = $props();
 
+  let importInput = $state<HTMLInputElement>();
+
   const current = $derived((page.url.pathname.split('/')[2] ?? 'models') as WorkspaceTab);
   // The tab lists, and the Knowledge create page, which is the list with its dialog open.
   const list = $derived(
     page.route.id === '/workspace/[tab]' ||
-      (page.route.id === '/workspace/[tab]/create' && current === 'knowledge'),
+      (page.route.id === '/workspace/[tab]/create' && current !== 'models'),
   );
 </script>
 
@@ -35,6 +41,51 @@
           <a class="create-main" href={resolve('/workspace/[tab]/create', { tab: 'knowledge' })}
             >Create</a
           >
+        {:else if current === 'prompts'}
+          <a class="create-main" href={resolve('/workspace/[tab]/create', { tab: 'prompts' })}
+            >Create</a
+          >
+          <Menu
+            label="Open create menu"
+            backLabel="Back"
+            align="end"
+            items={[
+              {
+                id: 'import',
+                label: 'Import from JSON',
+                icon: 'upload-simple',
+                onSelect: () => importInput?.click(),
+              },
+              {
+                id: 'export',
+                label: 'Export as JSON',
+                icon: 'download-simple',
+                onSelect: async () => savePromptFile(await source.listPrompts()),
+              },
+            ]}
+          >
+            {#snippet trigger({ props })}
+              <button {...props} class="create-more" aria-label="Open create menu"
+                ><Icon name="caret-down" size={10} /></button
+              >
+            {/snippet}
+          </Menu>
+          <input
+            bind:this={importInput}
+            type="file"
+            accept=".json"
+            hidden
+            onchange={async (event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = '';
+              if (!file) return;
+              // Each entry is created on its own; one failing does not stop the rest (F92).
+              for (const draft of readPromptFile(await file.text())) {
+                await source.createPrompt(draft).catch(() => undefined);
+              }
+              await invalidateAll();
+            }}
+          />
         {:else}
           <button type="button" class="create-main">Create</button>
         {/if}

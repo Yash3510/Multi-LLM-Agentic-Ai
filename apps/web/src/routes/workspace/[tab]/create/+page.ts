@@ -17,5 +17,8 @@ export const load: PageLoad = async ({ params }) => {
   if (params.tab === 'knowledge') {
     return { tab: 'knowledge' as const, bases: await data.listKnowledge() };
   }
+  if (params.tab === 'prompts') {
+    return { tab: 'prompts' as const, prompts: await data.listPrompts() };
+  }
   error(404, 'Not found');
 };

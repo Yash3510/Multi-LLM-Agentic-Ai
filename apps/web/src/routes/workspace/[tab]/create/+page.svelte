@@ -6,18 +6,22 @@
   import { data as source } from '$lib/data';
   import { m } from '$lib/i18n/generated/messages.js';
   import CreateKnowledgeDialog from '$lib/ui/components/CreateKnowledgeDialog.svelte';
+  import CreatePromptDialog from '$lib/ui/components/CreatePromptDialog.svelte';
   import KnowledgeList from '$lib/ui/components/KnowledgeList.svelte';
   import ModelEditor from '$lib/ui/components/ModelEditor.svelte';
+  import PromptList from '$lib/ui/components/PromptList.svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
 
-  const back = (tab: 'models' | 'knowledge') =>
+  const back = (tab: 'models' | 'knowledge' | 'prompts') =>
     goto(resolve(`/workspace/${tab}`), { invalidateAll: true });
 </script>
 
 <svelte:head
-  ><title>{data.tab === 'models' ? 'Models' : 'Knowledge'} / {m.app_name()}</title></svelte:head
+  ><title
+    >{{ models: 'Models', knowledge: 'Knowledge', prompts: 'Prompts' }[data.tab]} / {m.app_name()}</title
+  ></svelte:head
 >
 
 {#if data.tab === 'models'}
@@ -26,6 +30,16 @@
     onsave={async (record) => {
       await source.saveModel(record);
       await back('models');
+    }}
+  />
+{:else if data.tab === 'prompts'}
+  <PromptList prompts={data.prompts} me={data.user?.email} />
+  <CreatePromptDialog
+    open
+    onclose={() => back('prompts')}
+    oncreate={async (draft) => {
+      await source.createPrompt(draft);
+      await back('prompts');
     }}
   />
 {:else}

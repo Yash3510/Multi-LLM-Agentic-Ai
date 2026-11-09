@@ -5,13 +5,19 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { data as source } from '$lib/data';
+  import CreatePromptDialog from '$lib/ui/components/CreatePromptDialog.svelte';
   import KnowledgeList from '$lib/ui/components/KnowledgeList.svelte';
+  import PromptList from '$lib/ui/components/PromptList.svelte';
+  import { cloneDraft, savePromptFile, type PromptDraft } from '$lib/ui/prompts';
   import Menu from '$lib/ui/components/Menu.svelte';
   import ModelRow from '$lib/ui/components/ModelRow.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
+
+  // A clone opens the create dialog with the copy filled in (F92).
+  let cloning = $state<PromptDraft>();
 
   let query = $state('');
   let view = $state<'all' | 'mine' | 'shared'>('all');
@@ -121,6 +127,33 @@
       await invalidateAll();
     }}
   />
+{:else if data.tab === 'prompts'}
+  <PromptList
+    prompts={data.prompts}
+    me={data.user?.email}
+    ontoggle={async (id, active) => {
+      await source.setPromptActive(id, active);
+      await invalidateAll();
+    }}
+    onclone={(prompt) => (cloning = cloneDraft(prompt))}
+    onexport={(prompt) => savePromptFile([prompt])}
+    ondelete={async (id) => {
+      await source.deletePrompt(id);
+      await invalidateAll();
+    }}
+  />
+  {#if cloning}
+    <CreatePromptDialog
+      open
+      prefill={cloning}
+      onclose={() => (cloning = undefined)}
+      oncreate={async (draft) => {
+        await source.createPrompt(draft);
+        cloning = undefined;
+        await invalidateAll();
+      }}
+    />
+  {/if}
 {/if}
 
 <style>
