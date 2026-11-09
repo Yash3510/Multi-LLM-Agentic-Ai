@@ -580,6 +580,7 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       const first: PromptVersion = {
         id: crypto.randomUUID(),
         content,
+        message: 'Initial version',
         author: author(),
         created: new Date(),
       };

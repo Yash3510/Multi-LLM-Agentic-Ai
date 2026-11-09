@@ -54,3 +54,14 @@ export function savePromptFile(prompts: object[]) {
   link.click();
   URL.revokeObjectURL(url);
 }
+
+const time = new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' });
+const date = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' });
+
+/** A version's date: "Today at 11:42 PM", "Yesterday at 9:05 AM", else "Oct 1, 2026 at 2:00 PM". */
+export function versionDate(when: Date, now = new Date()): string {
+  const day = (of: Date) => new Date(of.getFullYear(), of.getMonth(), of.getDate()).getTime();
+  const days = Math.round((day(now) - day(when)) / 86_400_000);
+  const label = days === 0 ? 'Today' : days === 1 ? 'Yesterday' : date.format(when);
+  return `${label} at ${time.format(when)}`;
+}

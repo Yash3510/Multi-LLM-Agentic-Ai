@@ -192,7 +192,11 @@ describe('fake prompts', () => {
     expect(made).toMatchObject({ command: 'summarise', active: true, writable: true });
     expect((await source.workspaceCounts()).prompts).toBe(1);
     const [first] = await source.listVersions(made.id);
-    expect(first).toMatchObject({ content: 'Summarise {{topic}}.', id: made.liveVersion });
+    expect(first).toMatchObject({
+      content: 'Summarise {{topic}}.',
+      id: made.liveVersion,
+      message: 'Initial version',
+    });
   });
 
   it('adds versions, moves the live one, and keeps the live one from deletion', async () => {
