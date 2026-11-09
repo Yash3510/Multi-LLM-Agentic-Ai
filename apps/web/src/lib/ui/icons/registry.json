@@ -115,5 +115,7 @@
   "magnifying-glass-bold": { "phosphor": "magnifying-glass", "weight": "bold" },
   "database": { "phosphor": "database" },
   "visibility-private": { "phosphor": "lock" },
-  "visibility-public": { "phosphor": "globe" }
+  "visibility-public": { "phosphor": "globe" },
+  "sliders-bold": { "phosphor": "sliders-horizontal", "weight": "bold" },
+  "folder": { "phosphor": "folder-simple" }
 }
