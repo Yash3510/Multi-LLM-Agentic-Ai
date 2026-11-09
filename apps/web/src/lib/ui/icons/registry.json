@@ -117,5 +117,10 @@
   "visibility-private": { "phosphor": "lock" },
   "visibility-public": { "phosphor": "globe" },
   "sliders-bold": { "phosphor": "sliders-horizontal", "weight": "bold" },
-  "folder": { "phosphor": "folder-simple" }
+  "folder": { "phosphor": "folder-simple" },
+  "folder-plus": { "phosphor": "folder-simple-plus" },
+  "upload-bold": { "phosphor": "arrow-circle-up", "weight": "bold" },
+  "folder-open-bold": { "phosphor": "folder-open", "weight": "bold" },
+  "add-text-bold": { "phosphor": "sort-descending", "weight": "bold" },
+  "reset-bold": { "phosphor": "arrow-u-up-left", "weight": "bold" }
 }
