@@ -131,6 +131,7 @@
   <PromptList
     prompts={data.prompts}
     me={data.user?.email}
+    onopen={(id) => goto(resolve('/workspace/[tab]/[id]', { tab: 'prompts', id }))}
     ontoggle={async (id, active) => {
       await source.setPromptActive(id, active);
       await invalidateAll();

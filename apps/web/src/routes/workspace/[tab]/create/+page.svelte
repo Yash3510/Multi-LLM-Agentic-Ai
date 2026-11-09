@@ -33,7 +33,11 @@
     }}
   />
 {:else if data.tab === 'prompts'}
-  <PromptList prompts={data.prompts} me={data.user?.email} />
+  <PromptList
+    prompts={data.prompts}
+    me={data.user?.email}
+    onopen={(id) => goto(resolve('/workspace/[tab]/[id]', { tab: 'prompts', id }))}
+  />
   <CreatePromptDialog
     open
     onclose={() => back('prompts')}
