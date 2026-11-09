@@ -4,6 +4,7 @@
   import { Dialog } from 'bits-ui';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import AccessPanel from './AccessPanel.svelte';
+  import './modal.css';
 
   type Props = {
     open: boolean;
@@ -42,7 +43,11 @@
     <Dialog.Content class="modal-frame">
       <div class="modal-card">
         <div class="title-row">
-          <Dialog.Title level={3} class="modal-title">Create a knowledge base</Dialog.Title>
+          <Dialog.Title>
+            {#snippet child({ props })}<h3 {...props} class="modal-title">
+                Create a knowledge base
+              </h3>{/snippet}
+          </Dialog.Title>
           <Dialog.Close class="modal-close" aria-label="Close"
             ><Icon name="x" size={20} /></Dialog.Close
           >
@@ -80,28 +85,6 @@
 </Dialog.Root>
 
 <style>
-  :global(.modal-backdrop) {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    background-color: rgb(0 0 0 / 0.45);
-  }
-
-  :global([data-theme='dark'] .modal-backdrop) {
-    background-color: rgb(0 0 0 / 0.6);
-  }
-
-  /* The modal (look §0.7) centres its card in a scrolling frame whose 7.2 px scrollbar gutter
-     sets the card half a gutter left of the window's centre; the right padding keeps that room. */
-  :global(.modal-frame) {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    padding: 12px calc(12px + 0.45rem) 12px 12px;
-    overflow-y: auto;
-  }
-
   .modal-card {
     inline-size: 672px;
     max-inline-size: 100%;

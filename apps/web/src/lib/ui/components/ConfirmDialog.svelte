@@ -2,6 +2,7 @@
   // The confirm dialog (workspace look §0.7): a question, a sentence, Cancel and Confirm. It sits
   // above everything, dialogs included.
   import { AlertDialog } from 'bits-ui';
+  import type { Snippet } from 'svelte';
 
   type Props = {
     open: boolean;
@@ -9,6 +10,8 @@
     message?: string;
     onconfirm: () => void;
     oncancel: () => void;
+    /** Anything more the question needs, such as an option, under the sentence. */
+    children?: Snippet;
   };
 
   let {
@@ -17,6 +20,7 @@
     message = 'This action cannot be undone. Do you wish to continue?',
     onconfirm,
     oncancel,
+    children,
   }: Props = $props();
 </script>
 
@@ -26,6 +30,7 @@
     <AlertDialog.Content class="confirm-card">
       <AlertDialog.Title class="confirm-title">{title}</AlertDialog.Title>
       <AlertDialog.Description class="confirm-body">{message}</AlertDialog.Description>
+      {@render children?.()}
       <div class="buttons">
         <AlertDialog.Cancel class="confirm-cancel">Cancel</AlertDialog.Cancel>
         <AlertDialog.Action class="confirm-ok" onclick={onconfirm}>Confirm</AlertDialog.Action>

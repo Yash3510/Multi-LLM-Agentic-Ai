@@ -1,0 +1,22 @@
+/* The modal (workspace look §0.7): a dimmed backdrop and a scrolling frame that centres its card.
+   The frame's 7.2 px scrollbar gutter sets the card half a gutter left of the window's centre, as
+   in the running app; the right padding keeps that room. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background-color: rgb(0 0 0 / 0.45);
+}
+
+[data-theme='dark'] .modal-backdrop {
+  background-color: rgb(0 0 0 / 0.6);
+}
+
+.modal-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  padding: 12px calc(12px + 0.45rem) 12px 12px;
+  overflow-y: auto;
+}
