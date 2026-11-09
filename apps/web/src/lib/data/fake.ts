@@ -8,6 +8,8 @@ import type {
   KnowledgeBase,
   KnowledgeDocument,
   KnowledgeFolder,
+  Prompt,
+  PromptVersion,
   StreamEvent,
   User,
   WorkspaceItem,
@@ -395,6 +397,10 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
   const bases = knowledge();
   const docs = documents();
   const folders: StoredFolder[] = [];
+  const prompts: Prompt[] = [];
+  const versions = new Map<string, PromptVersion[]>();
+  const author = () => ({ name: user?.name ?? 'Deleted User' });
+  const prompt = (id: string) => prompts.find((one) => one.id === id);
   const count = (base: string) => docs.filter((doc) => doc.base === base).length;
   // What the screens see: the stored record without its base and text.
   const strip = (doc: StoredDocument): KnowledgeDocument => ({
@@ -456,7 +462,7 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       return {
         models: models.length,
         knowledge: bases.length,
-        prompts: 0,
+        prompts: prompts.length,
         skills: 0,
         tools: TOOLS.length,
       };
@@ -562,6 +568,74 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
         for (const folder of folders) if (folder.parent === id) folder.parent = target.parent;
         folders.splice(folders.indexOf(target), 1);
       }
+    },
+    async listPrompts() {
+      return prompts.map((one) => ({ ...one }));
+    },
+    async getPrompt(id) {
+      const found = prompt(id);
+      return found && { ...found };
+    },
+    async createPrompt({ name, command, content, tags }) {
+      const first: PromptVersion = {
+        id: crypto.randomUUID(),
+        content,
+        author: author(),
+        created: new Date(),
+      };
+      const made: Prompt = {
+        id: crypto.randomUUID(),
+        name,
+        command,
+        content,
+        tags,
+        active: true,
+        updated: new Date(),
+        owner: user && { name: user.name, email: user.email },
+        writable: true,
+        liveVersion: first.id,
+      };
+      prompts.unshift(made);
+      versions.set(made.id, [first]);
+      return { ...made };
+    },
+    async updatePrompt(id, change) {
+      Object.assign(prompt(id) ?? {}, change, { updated: new Date() });
+    },
+    async setPromptActive(id, active) {
+      Object.assign(prompt(id) ?? {}, { active });
+    },
+    async deletePrompt(id) {
+      const at = prompts.findIndex((one) => one.id === id);
+      if (at >= 0) prompts.splice(at, 1);
+      versions.delete(id);
+    },
+    async listVersions(id) {
+      return [...(versions.get(id) ?? [])];
+    },
+    async addVersion(id, { content, message, live }) {
+      const made: PromptVersion = {
+        id: crypto.randomUUID(),
+        content,
+        message,
+        author: author(),
+        created: new Date(),
+      };
+      versions.get(id)?.unshift(made);
+      if (live)
+        Object.assign(prompt(id) ?? {}, { content, liveVersion: made.id, updated: new Date() });
+    },
+    async setLiveVersion(id, version) {
+      const chosen = versions.get(id)?.find((one) => one.id === version);
+      if (chosen)
+        Object.assign(prompt(id) ?? {}, { content: chosen.content, liveVersion: chosen.id });
+    },
+    async deleteVersion(id, version) {
+      if (prompt(id)?.liveVersion === version)
+        throw new Error('Cannot delete the production version');
+      const list = versions.get(id) ?? [];
+      const at = list.findIndex((one) => one.id === version);
+      if (at >= 0) list.splice(at, 1);
     },
     async resetKnowledge(base) {
       for (let i = docs.length - 1; i >= 0; i--) if (docs[i].base === base) docs.splice(i, 1);

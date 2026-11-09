@@ -172,6 +172,31 @@ export interface ContentQuery {
   direction?: 'asc' | 'desc';
 }
 
+/** A saved prompt, used in chat as a slash command (workspace F88 to F99). */
+export interface Prompt {
+  id: string;
+  name: string;
+  /** Without the slash. */
+  command: string;
+  /** The live version's text. */
+  content: string;
+  tags: string[];
+  active: boolean;
+  updated: Date;
+  owner?: { name: string; email?: string };
+  writable: boolean;
+  liveVersion: string;
+}
+
+/** One saved version of a prompt's text (F96). */
+export interface PromptVersion {
+  id: string;
+  content: string;
+  message?: string;
+  author: { name: string };
+  created: Date;
+}
+
 /** What the model editor saves (the API takes the full record; see web-data-contract.md). */
 export interface ModelRecord {
   id: string;
@@ -224,6 +249,30 @@ export interface DataSource {
   deleteFolder(base: string, id: string, options: { contents: boolean }): Promise<void>;
   /** Removes every document and folder from the base. */
   resetKnowledge(base: string): Promise<void>;
+  listPrompts(): Promise<Prompt[]>;
+  getPrompt(id: string): Promise<Prompt | undefined>;
+  /** Creates a prompt; its first version is live. */
+  createPrompt(draft: {
+    name: string;
+    command: string;
+    content: string;
+    tags: string[];
+  }): Promise<Prompt>;
+  updatePrompt(
+    id: string,
+    change: { name: string; command: string; tags: string[] },
+  ): Promise<void>;
+  setPromptActive(id: string, active: boolean): Promise<void>;
+  deletePrompt(id: string): Promise<void>;
+  /** Newest first. */
+  listVersions(id: string): Promise<PromptVersion[]>;
+  addVersion(
+    id: string,
+    version: { content: string; message?: string; live: boolean },
+  ): Promise<void>;
+  setLiveVersion(id: string, version: string): Promise<void>;
+  /** Rejects for the live version. */
+  deleteVersion(id: string, version: string): Promise<void>;
   listTools(): Promise<WorkspaceItem[]>;
   listSkills(): Promise<WorkspaceItem[]>;
   /** Creates a custom model; rejects when the id is taken. */

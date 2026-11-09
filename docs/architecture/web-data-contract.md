@@ -56,6 +56,11 @@ The `AbortSignal` stops a stream. The person's Stop button and leaving the chat 
 | `removeDocument(base, id)` | removes a document from this base only; the stored file stays | a document's Delete |
 | `createFolder(base, name, parent?)`, `renameItem(base, id, name)`, `deleteFolder(base, id, {contents})` | folders: create inside the open folder, rename a folder or document, delete a folder with its contents or move them up to its parent | the knowledge detail |
 | `resetKnowledge(base)` | removes every document and folder from the base | Reset |
+| `listPrompts()` / `getPrompt(id)` | `Prompt`: id, name, command (no slash), live text, tags, on/off, updated time, owner, whether the person may change it, and the live version's id | the Prompts list and prompt page |
+| `createPrompt({name, command, content, tags})` | creates a prompt whose first version is live | the create-prompt dialog, clone and JSON import |
+| `updatePrompt(id, {name, command, tags})`, `setPromptActive(id, active)`, `deletePrompt(id)` | rename, switch on or off, delete | the prompt page and list |
+| `listVersions(id)` | `PromptVersion[]` newest first: id, text, commit message, author, time | the prompt page's history |
+| `addVersion(id, {content, message?, live})`, `setLiveVersion(id, version)`, `deleteVersion(id, version)` | add a version (live or not), choose the live one, delete one; deleting the live version is refused | the prompt page |
 | `listTools()` | `WorkspaceItem[]`: the tools the person can see | the model editor's Tools picker |
 | `listSkills()` | `WorkspaceItem[]`: the active skills | the model editor's Skills picker |
 | `saveModel(record)` | creates a custom model from `ModelRecord` (id, name, base, params, meta; empty values left out) and returns it as a `WorkspaceModel`; rejects with a message naming the id when it is taken | the model editor's Save & Create |

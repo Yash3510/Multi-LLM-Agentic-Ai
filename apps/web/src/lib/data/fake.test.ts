@@ -176,3 +176,46 @@ describe('fake knowledge record', () => {
     expect(await source.getKnowledge('plant-notes-1')).toMatchObject({ name: 'Unit notes' });
   });
 });
+
+describe('fake prompts', () => {
+  const draft = {
+    name: 'Summarise',
+    command: 'summarise',
+    content: 'Summarise {{topic}}.',
+    tags: [],
+  };
+
+  it('creates a prompt with a live first version, and counts it', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect(await source.listPrompts()).toEqual([]);
+    const made = await source.createPrompt(draft);
+    expect(made).toMatchObject({ command: 'summarise', active: true, writable: true });
+    expect((await source.workspaceCounts()).prompts).toBe(1);
+    const [first] = await source.listVersions(made.id);
+    expect(first).toMatchObject({ content: 'Summarise {{topic}}.', id: made.liveVersion });
+  });
+
+  it('adds versions, moves the live one, and keeps the live one from deletion', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const made = await source.createPrompt(draft);
+    await source.addVersion(made.id, { content: 'Shorter.', message: 'Trim', live: false });
+    const [newest, oldest] = await source.listVersions(made.id);
+    expect(newest.message).toBe('Trim');
+    expect((await source.getPrompt(made.id))?.content).toBe('Summarise {{topic}}.');
+    await source.setLiveVersion(made.id, newest.id);
+    expect((await source.getPrompt(made.id))?.content).toBe('Shorter.');
+    await expect(source.deleteVersion(made.id, newest.id)).rejects.toThrow();
+    await source.deleteVersion(made.id, oldest.id);
+    expect(await source.listVersions(made.id)).toHaveLength(1);
+  });
+
+  it('switches a prompt off, renames it and deletes it', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const made = await source.createPrompt(draft);
+    await source.setPromptActive(made.id, false);
+    await source.updatePrompt(made.id, { name: 'Brief', command: 'brief', tags: ['ops'] });
+    expect(await source.getPrompt(made.id)).toMatchObject({ active: false, command: 'brief' });
+    await source.deletePrompt(made.id);
+    expect(await source.listPrompts()).toEqual([]);
+  });
+});
