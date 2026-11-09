@@ -93,7 +93,9 @@
       ]}
     >
       {#snippet trigger({ props })}
-        <button {...props} class="more"><Icon name="dots-three" size={14} /></button>
+        <button {...props} class="more" aria-label="More"
+          ><Icon name="dots-three" size={14} /></button
+        >
       {/snippet}
     </Menu>
   {/if}

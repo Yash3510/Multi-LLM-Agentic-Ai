@@ -13,8 +13,11 @@
     KnowledgeFolder,
   } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import ConfirmDialog from './ConfirmDialog.svelte';
   import ContentRow from './ContentRow.svelte';
   import Menu from './Menu.svelte';
+  import NewDirectoryDialog from './NewDirectoryDialog.svelte';
+  import TextComposer from './TextComposer.svelte';
 
   type Props = {
     base: KnowledgeBase;
@@ -46,6 +49,16 @@
   let open = $state<KnowledgeDocument>();
   let text = $state('');
   let saving = $state(false);
+
+  let making = $state(false);
+  let writing = $state(false);
+  let resetting = $state(false);
+  let removing = $state<KnowledgeFolder>();
+  // Kept between uses (F76).
+  let removeContents = $state(true);
+  let dragging = $state(false);
+  let filesInput = $state<HTMLInputElement>();
+  let folderInput = $state<HTMLInputElement>();
 
   const VIEWS = { all: 'All', mine: 'Created by you', shared: 'Shared with you' } as const;
   const SORTS = { name: 'Name', created: 'Created', updated: 'Updated' } as const;
@@ -106,6 +119,72 @@
       saving = false;
     }
   }
+
+  // Files go in one after another; an empty one is refused and skipped (F78). Text files keep
+  // their text; for other types the server extracts it, which the API will do.
+  async function upload(files: File[], into = folder) {
+    for (const file of files) {
+      if (file.size === 0) {
+        problem = 'Cannot upload an empty file.';
+        continue;
+      }
+      const text = file.type.startsWith('text/') || /\.(txt|md|csv)$/i.test(file.name);
+      await source.addDocument(base.id, {
+        name: file.name,
+        text: text ? await file.text() : '',
+        size: file.size,
+        folder: into,
+      });
+    }
+    await load();
+  }
+
+  // A picked folder is mirrored into the open folder: its folders made parents-first, hidden
+  // files and folders skipped, nothing removed (F79).
+  async function uploadFolder(files: File[]) {
+    // Each folder path made so far, and its id; '' is the open folder.
+    const made: Record<string, string | undefined> = { '': folder };
+    for (const file of files) {
+      const parts = file.webkitRelativePath.split('/');
+      if (parts.some((part) => part.startsWith('.'))) continue;
+      for (let depth = 1; depth < parts.length; depth++) {
+        const key = parts.slice(0, depth).join('/');
+        if (key in made) continue;
+        const parent = made[parts.slice(0, depth - 1).join('/')];
+        made[key] = (await source.createFolder(base.id, parts[depth - 1], parent)).id;
+      }
+      await upload([file], made[parts.slice(0, -1).join('/')]);
+    }
+    await load();
+  }
+
+  // Files dropped anywhere on the page are uploaded (F84).
+  $effect(() => {
+    if (!base.writable) return;
+    const carriesFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files');
+    const over = (event: DragEvent) => {
+      if (!carriesFiles(event)) return;
+      event.preventDefault();
+      dragging = true;
+    };
+    const leave = (event: DragEvent) => {
+      if (!event.relatedTarget) dragging = false;
+    };
+    const drop = (event: DragEvent) => {
+      if (!carriesFiles(event)) return;
+      event.preventDefault();
+      dragging = false;
+      void upload([...(event.dataTransfer?.files ?? [])]);
+    };
+    window.addEventListener('dragover', over);
+    window.addEventListener('dragleave', leave);
+    window.addEventListener('drop', drop);
+    return () => {
+      window.removeEventListener('dragover', over);
+      window.removeEventListener('dragleave', leave);
+      window.removeEventListener('drop', drop);
+    };
+  });
 
   function download(doc: KnowledgeDocument) {
     void source.getDocumentText(doc.id).then((body) => {
@@ -181,9 +260,66 @@
         </Popover.Portal>
       </Popover.Root>
       {#if base.writable}
-        <button type="button" class="add" aria-label="Add Content" title="Add Content">
-          <Icon name="plus" size={16} />
-        </button>
+        <Menu
+          label="Add Content"
+          backLabel="Back"
+          align="end"
+          items={[
+            {
+              id: 'directory',
+              label: 'New directory',
+              icon: 'folder-plus',
+              onSelect: () => (making = true),
+            },
+            { type: 'separator' },
+            {
+              id: 'files',
+              label: 'Upload files',
+              icon: 'upload-bold',
+              onSelect: () => filesInput?.click(),
+            },
+            {
+              id: 'folder',
+              label: 'Upload directory',
+              icon: 'folder-open-bold',
+              onSelect: () => folderInput?.click(),
+            },
+            {
+              id: 'text',
+              label: 'Add text content',
+              icon: 'add-text-bold',
+              onSelect: () => (writing = true),
+            },
+            { type: 'separator' },
+            { id: 'reset', label: 'Reset', icon: 'reset-bold', onSelect: () => (resetting = true) },
+          ]}
+        >
+          {#snippet trigger({ props })}
+            <button {...props} class="add" aria-label="Add Content" title="Add Content"
+              ><Icon name="plus" size={16} /></button
+            >
+          {/snippet}
+        </Menu>
+        <input
+          bind:this={filesInput}
+          type="file"
+          multiple
+          hidden
+          onchange={(event) => {
+            void upload([...(event.currentTarget.files ?? [])]);
+            event.currentTarget.value = '';
+          }}
+        />
+        <input
+          bind:this={folderInput}
+          type="file"
+          webkitdirectory
+          hidden
+          onchange={(event) => {
+            void uploadFolder([...(event.currentTarget.files ?? [])]);
+            event.currentTarget.value = '';
+          }}
+        />
       {/if}
     </div>
 
@@ -299,7 +435,7 @@
               await source.renameItem(base.id, item.id, next);
               await load();
             }}
-            ondelete={() => {}}
+            ondelete={() => (removing = item)}
           />
         {/each}
         {#each documents as item (item.id)}
@@ -326,6 +462,66 @@
     </div>
   </div>
 </div>
+
+<NewDirectoryDialog
+  open={making}
+  onclose={() => (making = false)}
+  oncreate={async (folderName) => {
+    await source.createFolder(base.id, folderName, folder);
+    making = false;
+    await load();
+  }}
+/>
+
+<TextComposer
+  open={writing}
+  onclose={() => (writing = false)}
+  onsave={async (title, body) => {
+    await source.addDocument(base.id, { name: `${title}.txt`, text: body, folder });
+    writing = false;
+    await load();
+  }}
+/>
+
+<ConfirmDialog
+  open={resetting}
+  title="Reset knowledge base?"
+  message="This will remove all files and folders from this knowledge base. This action cannot be undone."
+  oncancel={() => (resetting = false)}
+  onconfirm={async () => {
+    resetting = false;
+    await source.resetKnowledge(base.id);
+    await load();
+  }}
+/>
+
+<ConfirmDialog
+  open={removing !== undefined}
+  title="Delete directory?"
+  message="Are you sure you want to delete this directory?"
+  oncancel={() => (removing = undefined)}
+  onconfirm={async () => {
+    const target = removing;
+    removing = undefined;
+    if (!target) return;
+    await source.deleteFolder(base.id, target.id, { contents: removeContents });
+    await load();
+  }}
+>
+  <label class="remove-contents">
+    <input type="checkbox" bind:checked={removeContents} />
+    Delete all contents inside this directory
+  </label>
+</ConfirmDialog>
+
+{#if dragging}
+  <div class="dropzone" role="region" aria-label="Drag and Drop Container">
+    <div class="dropzone-inner">
+      <h2>Add Files</h2>
+      <p>Drop any files here to upload</p>
+    </div>
+  </div>
+{/if}
 
 <Dialog.Root open={open !== undefined} onOpenChange={(next) => !next && (open = undefined)}>
   <Dialog.Portal>
@@ -797,6 +993,59 @@
   :is(.back, .access, .id, .add, .drop, .crumb):focus-visible {
     outline: 2px solid var(--color-blue-500);
     outline-offset: -2px;
+  }
+
+  .remove-contents {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-block-start: 8px;
+    color: var(--color-gray-500);
+    font-size: var(--text-caption);
+    line-height: 16px;
+  }
+
+  .dropzone {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    background-color: color-mix(in srgb, var(--color-gray-100) 50%, transparent);
+    backdrop-filter: blur(4px);
+    pointer-events: none;
+  }
+
+  :global([data-theme='dark']) .dropzone {
+    background-color: color-mix(in srgb, var(--color-gray-900) 80%, transparent);
+  }
+
+  .dropzone-inner {
+    max-inline-size: 448px;
+    margin: auto;
+    text-align: center;
+  }
+
+  .dropzone h2 {
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 32px;
+  }
+
+  .dropzone p {
+    margin-block-start: 8px;
+    padding-inline: 8px;
+    color: var(--color-gray-700);
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  :global([data-theme='dark']) .dropzone h2 {
+    color: var(--color-white);
+  }
+
+  :global([data-theme='dark']) .dropzone p {
+    color: var(--color-gray-200);
   }
 
   @media (prefers-reduced-motion: reduce) {
