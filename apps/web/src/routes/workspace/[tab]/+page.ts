@@ -8,6 +8,5 @@ const isTab = (value: string): value is WorkspaceTab => TABS.some((tab) => tab =
 
 export const load: PageLoad = async ({ params }) => {
   if (!isTab(params.tab)) error(404, 'Not found');
-  const [counts, models] = await Promise.all([data.workspaceCounts(), data.listModels()]);
-  return { tab: params.tab, counts, models };
+  return { tab: params.tab, models: await data.listModels() };
 };
