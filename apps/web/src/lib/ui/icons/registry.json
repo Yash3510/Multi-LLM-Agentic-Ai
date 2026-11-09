@@ -105,5 +105,13 @@
   "user": { "phosphor": "user" },
   "sign-out": { "phosphor": "sign-out" },
   "bell": { "phosphor": "bell" },
-  "translate": { "phosphor": "translate" }
+  "translate": { "phosphor": "translate" },
+  "lock": { "phosphor": "lock", "weight": "bold" },
+  "image": { "phosphor": "image" },
+  "check-bold": { "phosphor": "check", "weight": "bold" },
+  "x-bold": { "phosphor": "x", "weight": "bold" },
+  "plus-bold": { "phosphor": "plus", "weight": "bold" },
+  "caret-down-bold": { "phosphor": "caret-down", "weight": "bold" },
+  "magnifying-glass-bold": { "phosphor": "magnifying-glass", "weight": "bold" },
+  "database": { "phosphor": "database" }
 }
