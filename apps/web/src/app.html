@@ -20,6 +20,10 @@
         } catch (e) {
           // Storage can be blocked; fall back to the system settings.
         }
+        if (theme === 'oled-dark') {
+          root.setAttribute('data-oled', '');
+          theme = 'dark';
+        }
         if (theme !== 'light' && theme !== 'dark') {
           theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
@@ -47,6 +51,9 @@
       }
       [data-theme='dark'] #splash {
         background-color: #161616;
+      }
+      [data-oled] #splash {
+        background-color: #000000;
       }
       #splash img {
         position: absolute;

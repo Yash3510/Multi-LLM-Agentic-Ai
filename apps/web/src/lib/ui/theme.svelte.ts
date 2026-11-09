@@ -1,11 +1,12 @@
 // The theme: the user's choice and the theme it resolves to on <html data-theme>.
 // app.html sets the same attributes before first paint; this module keeps them in step afterwards.
 
-export type ThemeChoice = 'system' | 'light' | 'dark';
+/** OLED Dark is dark with its darkest greys set to black (general settings, chat-composer §9.3). */
+export type ThemeChoice = 'system' | 'light' | 'dark' | 'oled-dark';
 export type ResolvedTheme = 'light' | 'dark';
 
 const KEY = '4ce.theme';
-const CHOICES: readonly string[] = ['system', 'light', 'dark'];
+const CHOICES: readonly string[] = ['system', 'light', 'dark', 'oled-dark'];
 
 function stored(): ThemeChoice {
   try {
@@ -23,12 +24,13 @@ let choice = $state(stored());
 let systemDark = $state(systemQuery?.matches ?? false);
 
 const resolve = (): ResolvedTheme =>
-  choice === 'system' ? (systemDark ? 'dark' : 'light') : choice;
+  choice === 'system' ? (systemDark ? 'dark' : 'light') : choice === 'oled-dark' ? 'dark' : choice;
 
 function apply() {
   const resolved = resolve();
   document.documentElement.dataset.theme = resolved;
   document.documentElement.style.colorScheme = resolved;
+  document.documentElement.toggleAttribute('data-oled', choice === 'oled-dark');
 }
 
 systemQuery?.addEventListener('change', (event) => {

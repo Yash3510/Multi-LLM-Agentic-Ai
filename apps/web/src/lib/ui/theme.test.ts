@@ -64,6 +64,17 @@ describe('theme', () => {
     expect(root.dataset.theme).toBe('dark');
   });
 
+  it('offers OLED Dark: dark, with pure black greys marked on <html>', async () => {
+    system({ [DARK]: false });
+    const theme = await load();
+    theme.choice = 'oled-dark';
+    expect(theme.resolved).toBe('dark');
+    expect(root.dataset.theme).toBe('dark');
+    expect(root.dataset.oled).toBe('');
+    theme.choice = 'light';
+    expect(root.hasAttribute('data-oled')).toBe(false);
+  });
+
   it('ignores stored and assigned values outside the contract', async () => {
     system({ [DARK]: false });
     localStorage.setItem('4ce.theme', 'sepia');

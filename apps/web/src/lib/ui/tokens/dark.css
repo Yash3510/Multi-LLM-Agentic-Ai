@@ -57,5 +57,14 @@
 
       --color-scrim: color-mix(in srgb, var(--ref-black) 60%, transparent);
     }
+
+    /* OLED Dark (chat-composer look §9.3, entry look 0.4): the darkest greys go to near black
+       at their source, so every role built on them follows. */
+    [data-theme='dark'][data-oled] {
+      --ref-gray-800: #101010;
+      --ref-gray-850: #050505;
+      --ref-gray-900: #000000;
+      --ref-gray-950: #000000;
+    }
   }
 }
