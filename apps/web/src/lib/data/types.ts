@@ -206,6 +206,17 @@ export interface Skill extends WorkspaceItem {
   writable: boolean;
 }
 
+/** A tool: Python code a model can call (workspace F107 to F116). */
+export interface Tool extends WorkspaceItem {
+  /** The Python source. */
+  content: string;
+  /** From the code's header, when it names one. */
+  version?: string;
+  updated: Date;
+  owner?: { name: string; email?: string };
+  writable: boolean;
+}
+
 /** What the model editor saves (the API takes the full record; see web-data-contract.md). */
 export interface ModelRecord {
   id: string;
@@ -282,7 +293,20 @@ export interface DataSource {
   setLiveVersion(id: string, version: string): Promise<void>;
   /** Rejects for the live version. */
   deleteVersion(id: string, version: string): Promise<void>;
-  listTools(): Promise<WorkspaceItem[]>;
+  listTools(): Promise<Tool[]>;
+  getTool(id: string): Promise<Tool | undefined>;
+  /** Creates a tool; rejects when the id is taken. */
+  createTool(draft: {
+    id: string;
+    name: string;
+    description: string;
+    content: string;
+  }): Promise<Tool>;
+  updateTool(
+    id: string,
+    change: { name: string; description: string; content: string },
+  ): Promise<void>;
+  deleteTool(id: string): Promise<void>;
   /** Every skill the person can see, switched off ones too. */
   listSkills(): Promise<Skill[]>;
   getSkill(id: string): Promise<Skill | undefined>;

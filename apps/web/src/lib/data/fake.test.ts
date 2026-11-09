@@ -254,3 +254,32 @@ describe('fake skills', () => {
     expect(await source.listSkills()).toEqual([]);
   });
 });
+
+describe('fake tools', () => {
+  it('lists the stand-in tools with version, description and owner', async () => {
+    const [first] = await createFakeSource({ pace: 0 }).listTools();
+    expect(first).toMatchObject({
+      name: '4CE Sovereignty Check',
+      version: '0.1.0',
+      owner: { name: '4CE Administrator' },
+      writable: true,
+    });
+  });
+
+  it('creates, edits and deletes a tool, and refuses a taken id', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const draft = {
+      id: 'unit_convert',
+      name: 'Unit Convert',
+      description: 'Converts',
+      content: 'class Tools: pass',
+    };
+    await source.createTool(draft);
+    expect((await source.workspaceCounts()).tools).toBe(8);
+    await expect(source.createTool(draft)).rejects.toThrow('unit_convert');
+    await source.updateTool('unit_convert', { name: 'Units', description: 'D', content: 'x' });
+    expect(await source.getTool('unit_convert')).toMatchObject({ name: 'Units', content: 'x' });
+    await source.deleteTool('unit_convert');
+    expect(await source.getTool('unit_convert')).toBeUndefined();
+  });
+});

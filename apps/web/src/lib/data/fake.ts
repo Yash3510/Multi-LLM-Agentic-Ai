@@ -11,6 +11,7 @@ import type {
   Prompt,
   PromptVersion,
   Skill,
+  Tool,
   StreamEvent,
   User,
   WorkspaceItem,
@@ -365,15 +366,38 @@ const knowledge = (): KnowledgeBase[] =>
     writable: true,
     source: 'local',
   }));
-const TOOLS: WorkspaceItem[] = [
-  'Sovereignty Check',
-  'Threshold Check',
-  'Engineering Calculations',
-  'Workspace Files',
-  'Spreadsheets',
-  'Sovereign Sandbox',
-  'Deliverables',
-].map((name) => ({ id: name.toLowerCase().replace(/ /g, '-'), name: `4CE ${name}` }));
+// The capture account's seven tools, a month old, with neutral descriptions.
+const tools = (): Tool[] =>
+  [
+    [
+      'Sovereignty Check',
+      'Audits live configuration for anything that could send data off-premise.',
+    ],
+    [
+      'Threshold Check',
+      'Assesses readings against set thresholds and cites the clause that decided each.',
+    ],
+    ['Engineering Calculations', 'Works rates, intervals and margins in code, every step shown.'],
+    [
+      'Workspace Files',
+      'Reads and writes files in one workspace folder, keeping earlier versions; every access audited.',
+    ],
+    [
+      'Spreadsheets',
+      'Reads workbooks with their formulas and writes changes to a copy as live formulas; never the source.',
+    ],
+    ['Sovereign Sandbox', 'Runs Python in a disposable, network-disabled container.'],
+    ['Deliverables', 'Produces formatted .docx deliverables from agent output.'],
+  ].map(([name, description], index) => ({
+    id: name.toLowerCase().replace(/ /g, '_'),
+    name: `4CE ${name}`,
+    description,
+    version: '0.1.0',
+    content: `"""\ntitle: 4CE ${name}\nversion: 0.1.0\n"""\n\nclass Tools:\n    pass\n`,
+    updated: new Date(Date.now() - (35 + index) * 86_400_000),
+    owner: { name: '4CE Administrator', email: 'admin@example.test' },
+    writable: true,
+  }));
 
 type StoredDocument = KnowledgeDocument & { base: string; text: string };
 type StoredFolder = KnowledgeFolder & { base: string };
@@ -400,6 +424,8 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
   const folders: StoredFolder[] = [];
   const prompts: Prompt[] = [];
   const skills: Skill[] = [];
+  const toolList = tools();
+  const tool = (id: string) => toolList.find((one) => one.id === id);
   const skill = (id: string) => skills.find((one) => one.id === id);
   const versions = new Map<string, PromptVersion[]>();
   const author = () => ({ name: user?.name ?? 'Deleted User' });
@@ -467,7 +493,7 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
         knowledge: bases.length,
         prompts: prompts.length,
         skills: skills.length,
-        tools: TOOLS.length,
+        tools: toolList.length,
       };
     },
     async listModels() {
@@ -667,7 +693,32 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       );
     },
     async listTools() {
-      return TOOLS;
+      return toolList.map((one) => ({ ...one }));
+    },
+    async getTool(id) {
+      const found = tool(id);
+      return found && { ...found };
+    },
+    async createTool({ id, name, description, content }) {
+      if (tool(id)) throw new Error(`A tool with the id "${id}" already exists.`);
+      const made: Tool = {
+        id,
+        name,
+        description,
+        content,
+        updated: new Date(),
+        owner: user && { name: user.name, email: user.email },
+        writable: true,
+      };
+      toolList.unshift(made);
+      return { ...made };
+    },
+    async updateTool(id, change) {
+      Object.assign(tool(id) ?? {}, change, { updated: new Date() });
+    },
+    async deleteTool(id) {
+      const at = toolList.findIndex((one) => one.id === id);
+      if (at >= 0) toolList.splice(at, 1);
     },
     async listSkills() {
       return skills.map((one) => ({ ...one }));
