@@ -128,6 +128,22 @@ export interface WorkspaceItem {
   description?: string;
 }
 
+/** A knowledge base: documents models and chats can retrieve from (workspace F60). */
+export interface KnowledgeBase extends WorkspaceItem {
+  updated: Date;
+  owner?: { name: string; email?: string };
+  /** How many files it holds, when the server says. */
+  files?: number;
+  /** The person may change it. */
+  writable: boolean;
+  /** Local, or read from an outside source. */
+  source: 'local' | 'connected';
+  provider?: string;
+  sourceName?: string;
+  auth?: string;
+  meta?: Record<string, string>;
+}
+
 /** What the model editor saves (the API takes the full record; see web-data-contract.md). */
 export interface ModelRecord {
   id: string;
@@ -154,7 +170,10 @@ export interface DataSource {
   listModels(): Promise<WorkspaceModel[]>;
   /** The models a custom model can build on. */
   listBaseModels(): Promise<WorkspaceItem[]>;
-  listKnowledge(): Promise<WorkspaceItem[]>;
+  listKnowledge(): Promise<KnowledgeBase[]>;
+  /** Creates a private knowledge base. */
+  createKnowledge(name: string, description: string): Promise<KnowledgeBase>;
+  deleteKnowledge(id: string): Promise<void>;
   listTools(): Promise<WorkspaceItem[]>;
   listSkills(): Promise<WorkspaceItem[]>;
   /** Creates a custom model; rejects when the id is taken. */

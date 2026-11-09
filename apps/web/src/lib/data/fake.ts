@@ -5,6 +5,7 @@ import type {
   Chat,
   ChatSummary,
   DataSource,
+  KnowledgeBase,
   StreamEvent,
   User,
   WorkspaceItem,
@@ -348,10 +349,18 @@ const BASE_MODELS: WorkspaceItem[] = [
   { id: 'qwen/qwen3-vl-4b', name: 'qwen/qwen3-vl-4b' },
   { id: 'qwen/qwen3-1.7b', name: 'qwen/qwen3-1.7b' },
 ];
-const KNOWLEDGE: WorkspaceItem[] = ['procedures-a', 'procedures-b', 'procedures-c'].map((id) => ({
-  id,
-  name: 'Procedures',
-}));
+// Two months old, as on the running app, so the rows read "2 months ago".
+const knowledge = (): KnowledgeBase[] =>
+  [2, 0, 0].map((files, index) => ({
+    id: `plant-notes-${index + 1}`,
+    name: 'Plant Notes',
+    description: 'Standard operating procedures and reference readings for rotating equipment.',
+    updated: new Date(Date.now() - 60 * 86_400_000),
+    owner: { name: '4CE Administrator', email: 'admin@example.test' },
+    files,
+    writable: true,
+    source: 'local',
+  }));
 const TOOLS: WorkspaceItem[] = [
   'Sovereignty Check',
   'Threshold Check',
@@ -364,6 +373,7 @@ const TOOLS: WorkspaceItem[] = [
 
 export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSource {
   const models: WorkspaceModel[] = [];
+  const bases = knowledge();
   // The session lives in memory only. Passwords are accepted and dropped: nothing checks, keeps
   // or forwards them.
   // A demo person is signed in from the start, so local work opens straight into the app.
@@ -408,7 +418,7 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     async workspaceCounts() {
       return {
         models: models.length,
-        knowledge: KNOWLEDGE.length,
+        knowledge: bases.length,
         prompts: 0,
         skills: 0,
         tools: TOOLS.length,
@@ -421,7 +431,27 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       return BASE_MODELS;
     },
     async listKnowledge() {
-      return KNOWLEDGE;
+      return [...bases];
+    },
+    async createKnowledge(name, description) {
+      const made: KnowledgeBase = {
+        id: crypto.randomUUID(),
+        name,
+        description,
+        updated: new Date(),
+        owner: user && { name: user.name, email: user.email },
+        files: 0,
+        writable: true,
+        source: 'local',
+      };
+      bases.unshift(made);
+      return made;
+    },
+    async deleteKnowledge(id) {
+      bases.splice(
+        bases.findIndex((base) => base.id === id),
+        1,
+      );
     },
     async listTools() {
       return TOOLS;

@@ -89,3 +89,25 @@ describe('fake model editor data', () => {
     ).rejects.toThrow('ratio-helper');
   });
 });
+
+describe('fake knowledge', () => {
+  it('lists the stand-in bases with their owner, files and description', async () => {
+    const [first] = await createFakeSource({ pace: 0 }).listKnowledge();
+    expect(first).toMatchObject({
+      name: 'Plant Notes',
+      files: 2,
+      owner: { name: '4CE Administrator' },
+      source: 'local',
+      writable: true,
+    });
+  });
+
+  it('creates a private base at the top and deletes it', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const made = await source.createKnowledge('Ratio notes', 'Ratios to check.');
+    expect((await source.listKnowledge())[0]).toMatchObject({ id: made.id, files: 0 });
+    expect((await source.workspaceCounts()).knowledge).toBe(4);
+    await source.deleteKnowledge(made.id);
+    expect((await source.workspaceCounts()).knowledge).toBe(3);
+  });
+});
