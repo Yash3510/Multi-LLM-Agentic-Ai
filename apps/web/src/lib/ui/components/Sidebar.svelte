@@ -64,7 +64,11 @@
       .map((part) => part.charAt(0).toUpperCase())
       .join(''),
   );
-  const isCurrent = (href: string) => current !== undefined && href === current;
+  // A destination stays current on the pages under it (the workspace's tabs and editors), as the
+  // running app's rail does.
+  const isCurrent = (href: string) =>
+    current !== undefined &&
+    (href === current || (href !== '/' && !href.includes('#') && current.startsWith(`${href}/`)));
 </script>
 
 <nav

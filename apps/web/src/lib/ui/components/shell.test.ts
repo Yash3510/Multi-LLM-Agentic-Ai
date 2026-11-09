@@ -41,6 +41,11 @@ describe('Sidebar', () => {
     expect(getByRole('link', { name: 'Workspace' }).hasAttribute('aria-current')).toBe(false);
   });
 
+  it('keeps a destination current on the pages under it, as the running app does', () => {
+    const { getByRole } = render(Sidebar, { ...props(false), current: '/ui/lists/create' });
+    expect(getByRole('link', { name: 'Notes' }).getAttribute('aria-current')).toBe('page');
+  });
+
   it('closes to the rail, which keeps every action reachable by name', async () => {
     const { getByRole, component } = render(Sidebar, props(true));
     await fireEvent.click(getByRole('button', { name: 'Close Sidebar' }));
