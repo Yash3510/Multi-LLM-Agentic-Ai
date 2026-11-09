@@ -2,6 +2,9 @@
   // A workspace tab's screen (workspace look §2): Models is built; the other tabs follow one at a
   // time. The tab row and Create sit in the workspace layout.
   import { m } from '$lib/i18n/generated/messages.js';
+  import { invalidateAll } from '$app/navigation';
+  import { data as source } from '$lib/data';
+  import KnowledgeList from '$lib/ui/components/KnowledgeList.svelte';
   import Menu from '$lib/ui/components/Menu.svelte';
   import ModelRow from '$lib/ui/components/ModelRow.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
@@ -106,6 +109,16 @@
       </div>
     {/if}
   </div>
+{:else if data.tab === 'knowledge'}
+  <KnowledgeList
+    bases={data.bases}
+    me={data.user?.email}
+    admin={data.user?.role === 'admin'}
+    ondelete={async (id) => {
+      await source.deleteKnowledge(id);
+      await invalidateAll();
+    }}
+  />
 {/if}
 
 <style>

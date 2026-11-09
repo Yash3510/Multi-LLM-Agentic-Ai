@@ -11,7 +11,11 @@
   let { children, data }: LayoutProps = $props();
 
   const current = $derived((page.url.pathname.split('/')[2] ?? 'models') as WorkspaceTab);
-  const list = $derived(page.route.id === '/workspace/[tab]');
+  // The tab lists, and the Knowledge create page, which is the list with its dialog open.
+  const list = $derived(
+    page.route.id === '/workspace/[tab]' ||
+      (page.route.id === '/workspace/[tab]/create' && current === 'knowledge'),
+  );
 </script>
 
 <div class="workspace">
@@ -20,13 +24,20 @@
     {#if list}
       <span class="create">
         {#if current === 'models'}
-          <a class="create-main" href={resolve('/workspace/models/create')}>Create</a>
+          <a class="create-main" href={resolve('/workspace/[tab]/create', { tab: 'models' })}
+            >Create</a
+          >
+          <button type="button" class="create-more" aria-label="Open create menu">
+            <Icon name="caret-down" size={10} />
+          </button>
+        {:else if current === 'knowledge'}
+          <!-- Knowledge has one way to create (look §4.1), so no menu. -->
+          <a class="create-main" href={resolve('/workspace/[tab]/create', { tab: 'knowledge' })}
+            >Create</a
+          >
         {:else}
           <button type="button" class="create-main">Create</button>
         {/if}
-        <button type="button" class="create-more" aria-label="Open create menu">
-          <Icon name="caret-down" size={10} />
-        </button>
       </span>
     {/if}
   </header>
