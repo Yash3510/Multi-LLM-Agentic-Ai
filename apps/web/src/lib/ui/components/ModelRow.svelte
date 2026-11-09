@@ -3,25 +3,12 @@
   // first line, the description under it, the owner, then the more button and the switch. No
   // fill and no hover fill; a hidden model is at half strength.
   import type { WorkspaceModel } from '$lib/data';
+  import { ago, longDate as long } from '$lib/ui/ago';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import Logomark from './Logomark.svelte';
 
   let { model }: { model: WorkspaceModel } = $props();
 
-  const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-  const STEPS: [Intl.RelativeTimeFormatUnit, number][] = [
-    ['year', 31_536_000],
-    ['month', 2_592_000],
-    ['day', 86_400],
-    ['hour', 3600],
-    ['minute', 60],
-  ];
-  const ago = (when: Date) => {
-    const seconds = (when.getTime() - Date.now()) / 1000;
-    const [unit, size] = STEPS.find(([, step]) => Math.abs(seconds) >= step) ?? ['second', 1];
-    return relative.format(Math.round(seconds / size), unit);
-  };
-  const long = new Intl.DateTimeFormat('en', { dateStyle: 'full', timeStyle: 'short' });
   const description = $derived(model.description || model.base || 'No description');
 </script>
 
