@@ -111,3 +111,68 @@ describe('fake knowledge', () => {
     expect((await source.workspaceCounts()).knowledge).toBe(3);
   });
 });
+
+describe('fake knowledge contents', () => {
+  const base = 'plant-notes-1';
+
+  it('lists folders first, then documents, with the total', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const folder = await source.createFolder(base, 'Readings');
+    const contents = await source.listContents(base, {});
+    expect(contents.folders.map((one) => one.id)).toEqual([folder.id]);
+    expect(contents.documents.map((one) => one.name)).toEqual([
+      'MEC-014_readings_unit-101B.txt',
+      'MEC-014_notes.txt',
+    ]);
+    expect(contents.total).toBe(3);
+  });
+
+  it('searches names, and the text too when asked', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect((await source.listContents(base, { query: 'notes' })).documents).toHaveLength(1);
+    expect((await source.listContents(base, { query: 'bearing' })).documents).toHaveLength(0);
+    expect(
+      (await source.listContents(base, { query: 'bearing', content: true })).documents,
+    ).toHaveLength(1);
+  });
+
+  it('keeps documents inside the folder they were added to', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const folder = await source.createFolder(base, 'Readings');
+    await source.addDocument(base, { name: 'week-1.txt', text: 'Week one.', folder: folder.id });
+    expect((await source.listContents(base, { folder: folder.id })).documents).toHaveLength(1);
+    expect((await source.listContents(base, {})).documents).toHaveLength(2);
+  });
+
+  it('edits, renames and removes documents, and resets the base', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const [doc] = (await source.listContents(base, {})).documents;
+    await source.saveDocumentText(doc.id, 'New text.');
+    expect(await source.getDocumentText(doc.id)).toBe('New text.');
+    await source.renameItem(base, doc.id, 'renamed.txt');
+    expect((await source.listContents(base, {})).documents[0].name).toBe('renamed.txt');
+    await source.removeDocument(base, doc.id);
+    expect((await source.listContents(base, {})).total).toBe(1);
+    await source.resetKnowledge(base);
+    expect((await source.listContents(base, {})).total).toBe(0);
+  });
+
+  it('deletes a folder with its contents, or moves them up', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const folder = await source.createFolder(base, 'Old');
+    await source.addDocument(base, { name: 'a.txt', text: 'A', folder: folder.id });
+    await source.deleteFolder(base, folder.id, { contents: false });
+    expect((await source.listContents(base, {})).documents.map((one) => one.name)).toContain(
+      'a.txt',
+    );
+  });
+});
+
+describe('fake knowledge record', () => {
+  it('opens one base and saves its name and description', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect(await source.getKnowledge('missing')).toBeUndefined();
+    await source.updateKnowledge('plant-notes-1', { name: 'Unit notes', description: 'Notes.' });
+    expect(await source.getKnowledge('plant-notes-1')).toMatchObject({ name: 'Unit notes' });
+  });
+});

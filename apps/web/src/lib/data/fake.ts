@@ -6,6 +6,8 @@ import type {
   ChatSummary,
   DataSource,
   KnowledgeBase,
+  KnowledgeDocument,
+  KnowledgeFolder,
   StreamEvent,
   User,
   WorkspaceItem,
@@ -351,13 +353,12 @@ const BASE_MODELS: WorkspaceItem[] = [
 ];
 // Two months old, as on the running app, so the rows read "2 months ago".
 const knowledge = (): KnowledgeBase[] =>
-  [2, 0, 0].map((files, index) => ({
+  [0, 1, 2].map((index) => ({
     id: `plant-notes-${index + 1}`,
     name: 'Plant Notes',
     description: 'Standard operating procedures and reference readings for rotating equipment.',
     updated: new Date(Date.now() - 60 * 86_400_000),
     owner: { name: '4CE Administrator', email: 'admin@example.test' },
-    files,
     writable: true,
     source: 'local',
   }));
@@ -371,9 +372,45 @@ const TOOLS: WorkspaceItem[] = [
   'Deliverables',
 ].map((name) => ({ id: name.toLowerCase().replace(/ /g, '-'), name: `4CE ${name}` }));
 
+type StoredDocument = KnowledgeDocument & { base: string; text: string };
+type StoredFolder = KnowledgeFolder & { base: string };
+
+// The first base's two documents, as on the running app (sizes 2.0 KB and 1.3 KB).
+const documents = (): StoredDocument[] =>
+  [
+    ['MEC-014_readings_unit-101B.txt', 2048, 'Bearing temperature readings for unit 101B.'],
+    ['MEC-014_notes.txt', 1331, 'Notes on the unit 101B readings.'],
+  ].map(([name, size, text], index) => ({
+    id: `doc-${index + 1}`,
+    base: 'plant-notes-1',
+    name: String(name),
+    size: Number(size),
+    text: String(text),
+    updated: new Date(Date.now() - 60 * 86_400_000),
+    owner: { name: '4CE Administrator', email: 'admin@example.test' },
+  }));
+
 export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSource {
   const models: WorkspaceModel[] = [];
   const bases = knowledge();
+  const docs = documents();
+  const folders: StoredFolder[] = [];
+  const count = (base: string) => docs.filter((doc) => doc.base === base).length;
+  // What the screens see: the stored record without its base and text.
+  const strip = (doc: StoredDocument): KnowledgeDocument => ({
+    id: doc.id,
+    name: doc.name,
+    size: doc.size,
+    updated: doc.updated,
+    owner: doc.owner,
+    folder: doc.folder,
+  });
+  const shownFolder = (folder: StoredFolder): KnowledgeFolder => ({
+    id: folder.id,
+    name: folder.name,
+    updated: folder.updated,
+    parent: folder.parent,
+  });
   // The session lives in memory only. Passwords are accepted and dropped: nothing checks, keeps
   // or forwards them.
   // A demo person is signed in from the start, so local work opens straight into the app.
@@ -431,7 +468,105 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       return BASE_MODELS;
     },
     async listKnowledge() {
-      return [...bases];
+      return bases.map((base) => ({ ...base, files: count(base.id) }));
+    },
+    async getKnowledge(id) {
+      const base = bases.find((one) => one.id === id);
+      return base && { ...base, files: count(id) };
+    },
+    async updateKnowledge(id, change) {
+      Object.assign(bases.find((one) => one.id === id) ?? {}, change, { updated: new Date() });
+    },
+    async listContents(base, { folder, query = '', content = false, sort, direction = 'desc' }) {
+      const q = query.trim().toLowerCase();
+      const hit = (name: string, text = '') =>
+        name.toLowerCase().includes(q) || (content && text.toLowerCase().includes(q));
+      const inFolder = (item: { base: string; folder?: string; parent?: string }) =>
+        item.base === base && (item.folder ?? item.parent) === folder;
+      const order = <T extends { name: string; updated: Date }>(list: T[]) => {
+        if (!sort) return list;
+        const sign = direction === 'asc' ? 1 : -1;
+        return [...list].sort((a, b) =>
+          sort === 'name'
+            ? sign * a.name.localeCompare(b.name)
+            : sign * (a.updated.getTime() - b.updated.getTime()),
+        );
+      };
+      const shownFolders = order(folders.filter((one) => inFolder(one) && hit(one.name)));
+      const shownDocs = order(docs.filter((one) => inFolder(one) && hit(one.name, one.text)));
+      return {
+        folders: shownFolders.map(shownFolder),
+        documents: shownDocs.map(strip),
+        total: shownFolders.length + shownDocs.length,
+      };
+    },
+    async getDocumentText(id) {
+      return docs.find((doc) => doc.id === id)?.text ?? '';
+    },
+    async saveDocumentText(id, text) {
+      Object.assign(docs.find((doc) => doc.id === id) ?? {}, { text, updated: new Date() });
+    },
+    async addDocument(base, { name, text, size, folder }) {
+      const doc: StoredDocument = {
+        id: crypto.randomUUID(),
+        base,
+        name,
+        text,
+        size: size ?? new Blob([text]).size,
+        folder,
+        updated: new Date(),
+        owner: user && { name: user.name, email: user.email },
+      };
+      docs.unshift(doc);
+      return strip(doc);
+    },
+    async removeDocument(base, id) {
+      const at = docs.findIndex((doc) => doc.base === base && doc.id === id);
+      if (at >= 0) docs.splice(at, 1);
+    },
+    async createFolder(base, name, parent) {
+      const folder: StoredFolder = {
+        id: crypto.randomUUID(),
+        base,
+        name,
+        parent,
+        updated: new Date(),
+      };
+      folders.push(folder);
+      return shownFolder(folder);
+    },
+    async renameItem(base, id, name) {
+      const item = [...docs, ...folders].find((one) => one.base === base && one.id === id);
+      if (item) item.name = name;
+    },
+    async deleteFolder(base, id, { contents }) {
+      const target = folders.find((one) => one.base === base && one.id === id);
+      if (!target) return;
+      // Everything below the folder, at any depth.
+      const below = new Set([id]);
+      for (let grew = true; grew;) {
+        grew = false;
+        for (const folder of folders)
+          if (folder.parent && below.has(folder.parent) && !below.has(folder.id)) {
+            below.add(folder.id);
+            grew = true;
+          }
+      }
+      if (contents) {
+        for (let i = docs.length - 1; i >= 0; i--)
+          if (below.has(docs[i].folder ?? '')) docs.splice(i, 1);
+        for (let i = folders.length - 1; i >= 0; i--)
+          if (below.has(folders[i].id)) folders.splice(i, 1);
+      } else {
+        for (const doc of docs) if (doc.folder === id) doc.folder = target.parent;
+        for (const folder of folders) if (folder.parent === id) folder.parent = target.parent;
+        folders.splice(folders.indexOf(target), 1);
+      }
+    },
+    async resetKnowledge(base) {
+      for (let i = docs.length - 1; i >= 0; i--) if (docs[i].base === base) docs.splice(i, 1);
+      for (let i = folders.length - 1; i >= 0; i--)
+        if (folders[i].base === base) folders.splice(i, 1);
     },
     async createKnowledge(name, description) {
       const made: KnowledgeBase = {

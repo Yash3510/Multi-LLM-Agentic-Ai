@@ -144,6 +144,34 @@ export interface KnowledgeBase extends WorkspaceItem {
   meta?: Record<string, string>;
 }
 
+/** A document in a knowledge base (workspace F75). */
+export interface KnowledgeDocument {
+  id: string;
+  name: string;
+  /** In bytes, when known. */
+  size?: number;
+  updated: Date;
+  owner?: { name: string; email?: string };
+  folder?: string;
+}
+
+/** A folder inside a knowledge base (F76). */
+export interface KnowledgeFolder {
+  id: string;
+  name: string;
+  updated: Date;
+  parent?: string;
+}
+
+/** Which documents to show: one folder's, matching a search in names (and text, when asked). */
+export interface ContentQuery {
+  folder?: string;
+  query?: string;
+  content?: boolean;
+  sort?: 'name' | 'created' | 'updated';
+  direction?: 'asc' | 'desc';
+}
+
 /** What the model editor saves (the API takes the full record; see web-data-contract.md). */
 export interface ModelRecord {
   id: string;
@@ -174,6 +202,28 @@ export interface DataSource {
   /** Creates a private knowledge base. */
   createKnowledge(name: string, description: string): Promise<KnowledgeBase>;
   deleteKnowledge(id: string): Promise<void>;
+  getKnowledge(id: string): Promise<KnowledgeBase | undefined>;
+  updateKnowledge(id: string, change: { name: string; description: string }): Promise<void>;
+  /** One folder's subfolders and documents, folders first. */
+  listContents(
+    base: string,
+    query: ContentQuery,
+  ): Promise<{ folders: KnowledgeFolder[]; documents: KnowledgeDocument[]; total: number }>;
+  getDocumentText(id: string): Promise<string>;
+  saveDocumentText(id: string, text: string): Promise<void>;
+  /** Adds a document from text or an uploaded file's extracted text. */
+  addDocument(
+    base: string,
+    file: { name: string; text: string; size?: number; folder?: string },
+  ): Promise<KnowledgeDocument>;
+  /** Removes a document from this base; the stored file stays. */
+  removeDocument(base: string, id: string): Promise<void>;
+  createFolder(base: string, name: string, parent?: string): Promise<KnowledgeFolder>;
+  renameItem(base: string, id: string, name: string): Promise<void>;
+  /** Deletes a folder with everything in it, or moves its contents up to its parent. */
+  deleteFolder(base: string, id: string, options: { contents: boolean }): Promise<void>;
+  /** Removes every document and folder from the base. */
+  resetKnowledge(base: string): Promise<void>;
   listTools(): Promise<WorkspaceItem[]>;
   listSkills(): Promise<WorkspaceItem[]>;
   /** Creates a custom model; rejects when the id is taken. */
