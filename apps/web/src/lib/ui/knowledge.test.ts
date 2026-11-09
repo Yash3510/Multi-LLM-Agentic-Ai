@@ -46,10 +46,20 @@ describe('knowledge row text (workspace F60)', () => {
 
 describe('relative time', () => {
   const now = new Date('2026-11-09T12:00:00Z');
-  it('says how long ago, in the largest whole unit', () => {
-    expect(ago(new Date('2026-09-09T12:00:00Z'), now)).toBe('2 months ago');
-    expect(ago(new Date('2026-11-09T09:00:00Z'), now)).toBe('3 hours ago');
-    expect(ago(new Date('2026-11-09T11:59:30Z'), now)).toBe('30 seconds ago');
+  const before = (seconds: number) => ago(new Date(now.getTime() - seconds * 1000), now);
+
+  it('words ages as the running app does', () => {
+    expect(before(30)).toBe('a few seconds ago');
+    expect(before(60)).toBe('a minute ago');
+    expect(before(10 * 60)).toBe('10 minutes ago');
+    expect(before(60 * 60)).toBe('an hour ago');
+    expect(before(3 * 3600)).toBe('3 hours ago');
+    expect(before(24 * 3600)).toBe('a day ago');
+    expect(before(3 * 86_400)).toBe('3 days ago');
+    expect(before(30 * 86_400)).toBe('a month ago');
+    expect(before(61 * 86_400)).toBe('2 months ago');
+    expect(before(400 * 86_400)).toBe('a year ago');
+    expect(before(800 * 86_400)).toBe('2 years ago');
   });
 });
 

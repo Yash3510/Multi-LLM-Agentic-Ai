@@ -1,17 +1,28 @@
-// How long ago, as the workspace lists show it ("2 months ago"): the largest whole unit.
-const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-const STEPS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ['year', 31_536_000],
-  ['month', 2_592_000],
-  ['day', 86_400],
-  ['hour', 3600],
-  ['minute', 60],
+// How long ago, worded as the running app words it ("a few seconds ago", "a day ago",
+// "2 months ago"): its thresholds round to the nearest whole unit and say "a"/"an" for one.
+const MINUTE = 60;
+const HOUR = 3600;
+const DAY = 86_400;
+
+/** [upper bound in seconds, words] in order; a function gets the elapsed seconds. */
+const STEPS: [number, (seconds: number) => string][] = [
+  [45, () => 'a few seconds'],
+  [90, () => 'a minute'],
+  [45 * MINUTE, (s) => `${Math.round(s / MINUTE)} minutes`],
+  [90 * MINUTE, () => 'an hour'],
+  [22 * HOUR, (s) => `${Math.round(s / HOUR)} hours`],
+  [36 * HOUR, () => 'a day'],
+  [26 * DAY, (s) => `${Math.round(s / DAY)} days`],
+  [46 * DAY, () => 'a month'],
+  [320 * DAY, (s) => `${Math.round(s / (30.4 * DAY))} months`],
+  [548 * DAY, () => 'a year'],
+  [Infinity, (s) => `${Math.round(s / (365 * DAY))} years`],
 ];
 
 export function ago(when: Date, now = new Date()) {
-  const seconds = (when.getTime() - now.getTime()) / 1000;
-  const [unit, size] = STEPS.find(([, step]) => Math.abs(seconds) >= step) ?? ['second', 1];
-  return relative.format(Math.round(seconds / size), unit);
+  const seconds = Math.max(0, (now.getTime() - when.getTime()) / 1000);
+  const [, words] = STEPS.find(([limit]) => seconds < limit) ?? STEPS[STEPS.length - 1];
+  return `${words(seconds)} ago`;
 }
 
 /** The full date, for the tooltip on a relative time. */
