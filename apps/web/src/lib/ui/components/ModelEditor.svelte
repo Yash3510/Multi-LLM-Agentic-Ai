@@ -19,6 +19,7 @@
     validate,
     type Feature,
   } from '$lib/ui/model-editor';
+  import TagInput from './TagInput.svelte';
   import Typeahead from './Typeahead.svelte';
 
   type Props = {
@@ -36,7 +37,6 @@
     'Write your model system prompt content here\n e.g.) You are a plant maintenance assistant. Answer from the manuals.';
 
   const draft = $state(blankDraft());
-  let tag = $state('');
   let advanced = $state(false);
   let json = $state(false);
   let saving = $state(false);
@@ -53,14 +53,6 @@
   function rename(event: Event) {
     draft.name = (event.currentTarget as HTMLInputElement).value;
     draft.id = modelId(draft.name);
-  }
-
-  function addTag(event: KeyboardEvent) {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    const name = tag.trim();
-    if (name && !draft.tags.includes(name)) draft.tags.push(name);
-    tag = '';
   }
 
   function toggleFeature(id: Feature) {
@@ -224,23 +216,7 @@
           {/if}
         </div>
 
-        <div class="tags">
-          {#each draft.tags as name (name)}
-            <button
-              type="button"
-              class="tag"
-              onclick={() => (draft.tags = draft.tags.filter((one) => one !== name))}
-              ><span class="truncate">{name}</span><Icon name="x-bold" size={12} /></button
-            >
-          {/each}
-          <input
-            class="tag-input"
-            bind:value={tag}
-            onkeydown={addTag}
-            placeholder="Add a tag..."
-            aria-label="Add a tag"
-          />
-        </div>
+        <div class="tags"><TagInput bind:tags={draft.tags} /></div>
       </div>
 
       <section class="params">
@@ -850,48 +826,7 @@
   }
 
   .tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
     padding-block-start: 12px;
-  }
-
-  .tag {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 1px 6px;
-    border: 1px solid var(--color-gray-100);
-    border-radius: var(--radius-pill);
-    background-color: color-mix(in srgb, var(--color-gray-100) 50%, transparent);
-    color: var(--color-gray-600);
-    font-size: var(--text-caption);
-    line-height: 16px;
-  }
-
-  .tag:hover {
-    background-color: var(--color-gray-100);
-  }
-
-  :global([data-theme='dark']) .tag {
-    border-color: var(--color-gray-800);
-    background-color: color-mix(in srgb, var(--color-gray-800) 50%, transparent);
-    color: var(--color-gray-300);
-  }
-
-  .tag-input {
-    flex: 1;
-    min-inline-size: 96px;
-    font-size: var(--text-caption);
-    line-height: 16px;
-  }
-
-  .tag-input::placeholder {
-    color: var(--color-gray-400);
-  }
-
-  :global([data-theme='dark']) .tag-input::placeholder {
-    color: var(--color-gray-500);
   }
 
   .params {
