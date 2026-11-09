@@ -14,5 +14,10 @@ export const load: PageLoad = async ({ params }) => {
     if (!prompt) redirect(307, '/workspace/prompts');
     return { tab: 'prompts' as const, prompt };
   }
+  if (params.tab === 'skills') {
+    const skill = await data.getSkill(params.id);
+    if (!skill) redirect(307, '/workspace/skills');
+    return { tab: 'skills' as const, skill };
+  }
   error(404, 'Not found');
 };

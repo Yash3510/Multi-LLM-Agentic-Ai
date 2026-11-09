@@ -8,6 +8,8 @@
   import CreatePromptDialog from '$lib/ui/components/CreatePromptDialog.svelte';
   import KnowledgeList from '$lib/ui/components/KnowledgeList.svelte';
   import PromptList from '$lib/ui/components/PromptList.svelte';
+  import SkillList from '$lib/ui/components/SkillList.svelte';
+  import { saveSkillFile } from '$lib/ui/skills';
   import { cloneDraft, savePromptFile, type PromptDraft } from '$lib/ui/prompts';
   import Menu from '$lib/ui/components/Menu.svelte';
   import ModelRow from '$lib/ui/components/ModelRow.svelte';
@@ -155,6 +157,32 @@
       }}
     />
   {/if}
+{:else if data.tab === 'skills'}
+  <SkillList
+    skills={data.skills}
+    me={data.user?.email}
+    onopen={(id) => goto(resolve('/workspace/[tab]/[id]', { tab: 'skills', id }))}
+    ontoggle={async (id, active) => {
+      await source.setSkillActive(id, active);
+      await invalidateAll();
+    }}
+    onclone={(skill) =>
+      goto(resolve('/workspace/[tab]/create', { tab: 'skills' }), {
+        state: {
+          skillDraft: {
+            id: `${skill.id}_clone`,
+            name: `${skill.name} (Clone)`,
+            description: skill.description ?? '',
+            instructions: skill.instructions,
+          },
+        },
+      })}
+    onexport={(skill) => saveSkillFile([skill], skill.id)}
+    ondelete={async (id) => {
+      await source.deleteSkill(id);
+      await invalidateAll();
+    }}
+  />
 {/if}
 
 <style>

@@ -12,11 +12,14 @@ export const load: PageLoad = async ({ params }) => {
       data.listTools(),
       data.listSkills(),
     ]);
-    return { tab: 'models' as const, editor: { baseModels, knowledge, tools, skills } };
+    // Switched-off skills are not offered in the editor's picker (F44).
+    const active = skills.filter((skill) => skill.active);
+    return { tab: 'models' as const, editor: { baseModels, knowledge, tools, skills: active } };
   }
   if (params.tab === 'knowledge') {
     return { tab: 'knowledge' as const, bases: await data.listKnowledge() };
   }
+  if (params.tab === 'skills') return { tab: 'skills' as const };
   if (params.tab === 'prompts') {
     return { tab: 'prompts' as const, prompts: await data.listPrompts() };
   }
