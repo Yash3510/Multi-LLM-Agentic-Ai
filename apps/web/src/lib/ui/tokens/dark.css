@@ -23,6 +23,7 @@
       --color-intro-ink: var(--ref-white);
       --color-intro-ground: var(--ref-gray-900);
       --color-mark-tile: var(--ref-night);
+      --color-select-chevron: var(--ref-slate);
 
       --color-solid: var(--ref-white);
       --color-on-solid: var(--ref-black);

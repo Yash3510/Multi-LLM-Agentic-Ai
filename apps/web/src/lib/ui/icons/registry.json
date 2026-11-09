@@ -113,5 +113,7 @@
   "plus-bold": { "phosphor": "plus", "weight": "bold" },
   "caret-down-bold": { "phosphor": "caret-down", "weight": "bold" },
   "magnifying-glass-bold": { "phosphor": "magnifying-glass", "weight": "bold" },
-  "database": { "phosphor": "database" }
+  "database": { "phosphor": "database" },
+  "visibility-private": { "phosphor": "lock" },
+  "visibility-public": { "phosphor": "globe" }
 }

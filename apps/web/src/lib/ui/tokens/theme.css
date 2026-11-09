@@ -43,6 +43,7 @@
 
   /* The default model picture's tile (workspace look §3.2): the same in both themes. */
   --color-mark-tile: var(--ref-night);
+  --color-select-chevron: var(--ref-slate);
 
   /* The solid pill (Save, Create, Send): black on white, inverted in dark; and the 5% tint that
      icon and ghost buttons hover with. */

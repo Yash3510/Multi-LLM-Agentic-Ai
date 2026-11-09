@@ -10,6 +10,8 @@
     --ref-black: #000000;
     /* The intro's light-theme ink (entry look E4). */
     --ref-night: #0d1117;
+    /* The native select's chevron (workspace look §0.5). */
+    --ref-slate: #6b7280;
 
     /* The neutral ramp, achromatic. */
     --ref-gray-50: #f8f8f8;
