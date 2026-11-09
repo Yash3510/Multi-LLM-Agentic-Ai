@@ -62,7 +62,8 @@ The `AbortSignal` stops a stream. The person's Stop button and leaving the chat 
 | `listVersions(id)` | `PromptVersion[]` newest first: id, text, commit message, author, time | the prompt page's history |
 | `addVersion(id, {content, message?, live})`, `setLiveVersion(id, version)`, `deleteVersion(id, version)` | add a version (live or not), choose the live one, delete one; deleting the live version is refused | the prompt page |
 | `listTools()` | `WorkspaceItem[]`: the tools the person can see | the model editor's Tools picker |
-| `listSkills()` | `WorkspaceItem[]`: the active skills | the model editor's Skills picker |
+| `listSkills()` | `Skill[]`: id, name, description, instructions, on/off, updated time, owner, whether the person may change it; the model editor's picker shows only the switched-on ones | the Skills list and the model editor's Skills picker |
+| `getSkill(id)`, `createSkill({id, name, description, instructions})`, `updateSkill(id, {name, description, instructions})`, `setSkillActive(id, active)`, `deleteSkill(id)` | one skill; create (switched on; rejects a taken id); change its text without touching on/off; switch it; delete it | the skill editor and Skills list |
 | `saveModel(record)` | creates a custom model from `ModelRecord` (id, name, base, params, meta; empty values left out) and returns it as a `WorkspaceModel`; rejects with a message naming the id when it is taken | the model editor's Save & Create |
 
 ## Messages

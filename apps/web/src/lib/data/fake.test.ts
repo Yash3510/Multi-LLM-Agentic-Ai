@@ -223,3 +223,34 @@ describe('fake prompts', () => {
     expect(await source.listPrompts()).toEqual([]);
   });
 });
+
+describe('fake skills', () => {
+  const draft = {
+    id: 'ratio-check',
+    name: 'Ratio Check',
+    description: 'Checks ratios.',
+    instructions: '# Ratio check',
+  };
+
+  it('creates, lists and counts skills, and refuses a taken id', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const made = await source.createSkill(draft);
+    expect(made).toMatchObject({ id: 'ratio-check', active: true, writable: true });
+    expect((await source.workspaceCounts()).skills).toBe(1);
+    await expect(source.createSkill(draft)).rejects.toThrow('ratio-check');
+  });
+
+  it('edits, switches off and deletes a skill', async () => {
+    const source = createFakeSource({ pace: 0 });
+    await source.createSkill(draft);
+    await source.setSkillActive('ratio-check', false);
+    await source.updateSkill('ratio-check', {
+      name: 'Ratios',
+      description: 'D',
+      instructions: 'I',
+    });
+    expect(await source.getSkill('ratio-check')).toMatchObject({ name: 'Ratios', active: false });
+    await source.deleteSkill('ratio-check');
+    expect(await source.listSkills()).toEqual([]);
+  });
+});

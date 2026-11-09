@@ -197,6 +197,15 @@ export interface PromptVersion {
   created: Date;
 }
 
+/** A skill: named markdown instructions a model or chat can switch on (workspace F100 to F106). */
+export interface Skill extends WorkspaceItem {
+  instructions: string;
+  active: boolean;
+  updated: Date;
+  owner?: { name: string; email?: string };
+  writable: boolean;
+}
+
 /** What the model editor saves (the API takes the full record; see web-data-contract.md). */
 export interface ModelRecord {
   id: string;
@@ -274,7 +283,22 @@ export interface DataSource {
   /** Rejects for the live version. */
   deleteVersion(id: string, version: string): Promise<void>;
   listTools(): Promise<WorkspaceItem[]>;
-  listSkills(): Promise<WorkspaceItem[]>;
+  /** Every skill the person can see, switched off ones too. */
+  listSkills(): Promise<Skill[]>;
+  getSkill(id: string): Promise<Skill | undefined>;
+  /** Creates a skill, switched on; rejects when the id is taken. */
+  createSkill(draft: {
+    id: string;
+    name: string;
+    description: string;
+    instructions: string;
+  }): Promise<Skill>;
+  updateSkill(
+    id: string,
+    change: { name: string; description: string; instructions: string },
+  ): Promise<void>;
+  setSkillActive(id: string, active: boolean): Promise<void>;
+  deleteSkill(id: string): Promise<void>;
   /** Creates a custom model; rejects when the id is taken. */
   saveModel(model: ModelRecord): Promise<WorkspaceModel>;
   getChat(id: string): Promise<Chat | undefined>;

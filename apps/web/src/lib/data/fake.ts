@@ -10,6 +10,7 @@ import type {
   KnowledgeFolder,
   Prompt,
   PromptVersion,
+  Skill,
   StreamEvent,
   User,
   WorkspaceItem,
@@ -398,6 +399,8 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
   const docs = documents();
   const folders: StoredFolder[] = [];
   const prompts: Prompt[] = [];
+  const skills: Skill[] = [];
+  const skill = (id: string) => skills.find((one) => one.id === id);
   const versions = new Map<string, PromptVersion[]>();
   const author = () => ({ name: user?.name ?? 'Deleted User' });
   const prompt = (id: string) => prompts.find((one) => one.id === id);
@@ -463,7 +466,7 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
         models: models.length,
         knowledge: bases.length,
         prompts: prompts.length,
-        skills: 0,
+        skills: skills.length,
         tools: TOOLS.length,
       };
     },
@@ -667,7 +670,36 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       return TOOLS;
     },
     async listSkills() {
-      return [];
+      return skills.map((one) => ({ ...one }));
+    },
+    async getSkill(id) {
+      const found = skill(id);
+      return found && { ...found };
+    },
+    async createSkill({ id, name, description, instructions }) {
+      if (skill(id)) throw new Error(`A skill with the id "${id}" already exists.`);
+      const made: Skill = {
+        id,
+        name,
+        description,
+        instructions,
+        active: true,
+        updated: new Date(),
+        owner: user && { name: user.name, email: user.email },
+        writable: true,
+      };
+      skills.unshift(made);
+      return { ...made };
+    },
+    async updateSkill(id, change) {
+      Object.assign(skill(id) ?? {}, change, { updated: new Date() });
+    },
+    async setSkillActive(id, active) {
+      Object.assign(skill(id) ?? {}, { active });
+    },
+    async deleteSkill(id) {
+      const at = skills.findIndex((one) => one.id === id);
+      if (at >= 0) skills.splice(at, 1);
     },
     async saveModel(record) {
       if ([...models, ...BASE_MODELS].some((model) => model.id === record.id)) {
