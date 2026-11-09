@@ -6,6 +6,7 @@
   import { ago, longDate } from '$lib/ui/ago';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import Menu from './Menu.svelte';
+  import Switch from './Switch.svelte';
 
   type Props = {
     prompt: Prompt;
@@ -99,16 +100,7 @@
             >
           {/snippet}
         </Menu>
-        <button
-          type="button"
-          class="switch"
-          role="switch"
-          aria-checked={prompt.active}
-          aria-label={prompt.active ? 'Enabled' : 'Disabled'}
-          title={prompt.active ? 'Enabled' : 'Disabled'}
-          data-on={prompt.active ? '' : undefined}
-          onclick={() => ontoggle?.(prompt.id, !prompt.active)}><span class="thumb"></span></button
-        >
+        <Switch on={prompt.active} onchange={(on) => ontoggle?.(prompt.id, on)} />
       </span>
     {/if}
   </span>
@@ -243,36 +235,6 @@
     transition: color 150ms;
   }
 
-  /* The switch (workspace look §0.7): a 28 by 16 track with a 12 px thumb. */
-  .switch {
-    position: relative;
-    inline-size: 28px;
-    block-size: 16px;
-    margin-inline: 1px;
-    border-radius: var(--radius-pill);
-    background-color: var(--color-gray-300);
-    transition: background-color 150ms;
-  }
-
-  .switch[data-on] {
-    background-color: var(--color-gray-900);
-  }
-
-  .thumb {
-    position: absolute;
-    inset-block-start: 2px;
-    inset-inline-start: 2px;
-    inline-size: 12px;
-    block-size: 12px;
-    border-radius: var(--radius-pill);
-    background-color: var(--color-white);
-    transition: inset-inline-start 150ms;
-  }
-
-  .switch[data-on] .thumb {
-    inset-inline-start: 14px;
-  }
-
   :global([data-theme='dark']) .name {
     color: var(--color-gray-200);
   }
@@ -285,23 +247,7 @@
     color: var(--color-gray-500);
   }
 
-  :global([data-theme='dark']) .switch {
-    background-color: var(--color-gray-700);
-  }
-
-  :global([data-theme='dark']) .switch .thumb {
-    background-color: var(--color-gray-500);
-  }
-
-  :global([data-theme='dark']) .switch[data-on] {
-    background-color: var(--color-white);
-  }
-
-  :global([data-theme='dark']) .switch[data-on] .thumb {
-    background-color: var(--color-black);
-  }
-
-  :is(.icon, .switch):focus-visible {
+  .icon:focus-visible {
     outline: 2px solid var(--color-blue-500);
     outline-offset: -2px;
   }
