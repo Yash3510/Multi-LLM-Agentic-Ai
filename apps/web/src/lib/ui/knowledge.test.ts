@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ago } from './ago';
-import { badges, summary } from './knowledge';
+import { badges, fileSize, summary } from './knowledge';
 
 const base = {
   id: 'a',
@@ -50,5 +50,15 @@ describe('relative time', () => {
     expect(ago(new Date('2026-09-09T12:00:00Z'), now)).toBe('2 months ago');
     expect(ago(new Date('2026-11-09T09:00:00Z'), now)).toBe('3 hours ago');
     expect(ago(new Date('2026-11-09T11:59:30Z'), now)).toBe('30 seconds ago');
+  });
+});
+
+describe('file size (workspace F75)', () => {
+  it('steps by 1024 with one decimal, as the running app writes it', () => {
+    expect(fileSize(0)).toBe('0 B');
+    expect(fileSize(512)).toBe('512.0 B');
+    expect(fileSize(2048)).toBe('2.0 KB');
+    expect(fileSize(1331)).toBe('1.3 KB');
+    expect(fileSize(5 * 1024 * 1024)).toBe('5.0 MB');
   });
 });
