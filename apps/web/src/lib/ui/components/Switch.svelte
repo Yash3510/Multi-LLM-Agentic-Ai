@@ -1,9 +1,14 @@
 <script lang="ts">
   // The workspace switch (workspace look §0.7): a 28 by 16 track with a 12 px thumb, named for its
   // state ("Enabled" or "Disabled").
-  type Props = { on: boolean; onchange: (on: boolean) => void };
+  type Props = {
+    on: boolean;
+    onchange: (on: boolean) => void;
+    /** The switch's name when a visible label sits beside it; otherwise it is named by state. */
+    label?: string;
+  };
 
-  let { on, onchange }: Props = $props();
+  let { on, onchange, label }: Props = $props();
 </script>
 
 <button
@@ -11,7 +16,7 @@
   class="switch"
   role="switch"
   aria-checked={on}
-  aria-label={on ? 'Enabled' : 'Disabled'}
+  aria-label={label ?? (on ? 'Enabled' : 'Disabled')}
   title={on ? 'Enabled' : 'Disabled'}
   data-on={on ? '' : undefined}
   onclick={() => onchange(!on)}><span class="thumb"></span></button

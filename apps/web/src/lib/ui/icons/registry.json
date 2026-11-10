@@ -140,5 +140,7 @@
   "camera": { "phosphor": "camera" },
   "chats-circle": { "phosphor": "chats-circle" },
   "pencil-line": { "phosphor": "pencil-simple-line" },
-  "trash-simple": { "phosphor": "trash-simple" }
+  "trash-simple": { "phosphor": "trash-simple" },
+  "wrench-bold": { "phosphor": "wrench", "weight": "bold" },
+  "user-plus-bold": { "phosphor": "user-plus", "weight": "bold" }
 }

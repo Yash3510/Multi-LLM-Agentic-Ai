@@ -3,7 +3,8 @@
   // You cannot change your own role. A new password goes straight to the data source and is never
   // logged or kept here.
   import { Dialog } from 'bits-ui';
-  import type { AdminUser, DataSource, User } from '$lib/data';
+  import { resolve } from '$app/paths';
+  import type { AdminUser, DataSource, Group, User } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import SecretInput from './SecretInput.svelte';
   import './admin-dialog.css';
@@ -26,6 +27,7 @@
   let email = $state('');
   let password = $state('');
   let problem = $state('');
+  let groups = $state<Group[]>([]);
 
   // Each opening copies the person into the form and blanks the password.
   $effect(() => {
@@ -35,6 +37,8 @@
     email = person.email;
     password = '';
     problem = '';
+    groups = [];
+    void source.userGroups(person.id).then((loaded) => (groups = loaded));
   });
 
   const joined = new Intl.DateTimeFormat('en-US', {
@@ -75,6 +79,20 @@
                 <p class="name">{person.name}</p>
                 <p class="created">Created at {joined.format(person.created)}</p>
                 <div class="stack">
+                  {#if groups.length}
+                    <div>
+                      <span class="label">User Groups</span>
+                      <div class="chips">
+                        {#each groups as group (group.id)}
+                          <a
+                            class="chip"
+                            href="{resolve('/admin/users/[tab]', { tab: 'groups' })}?id={group.id}"
+                            >{group.name}</a
+                          >
+                        {/each}
+                      </div>
+                    </div>
+                  {/if}
                   <label>
                     <span class="label">Role</span>
                     <span class="select">
@@ -197,5 +215,23 @@
 
   label {
     display: block;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 2px -4px;
+  }
+
+  .chip {
+    padding: 2px 6px;
+    border-radius: 12px;
+    background-color: var(--color-gray-100);
+    font-size: var(--text-caption);
+  }
+
+  :global([data-theme='dark']) .chip {
+    background-color: var(--color-gray-850);
   }
 </style>

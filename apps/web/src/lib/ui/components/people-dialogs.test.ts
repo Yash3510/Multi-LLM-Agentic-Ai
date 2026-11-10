@@ -108,3 +108,22 @@ describe('access preview dialog (admin F50 to F53)', () => {
     expect(getByText('Tools')).toBeTruthy();
   });
 });
+
+describe('edit user group chips (admin F39)', () => {
+  it("links to each of the person's groups", async () => {
+    const source = createFakeSource({ pace: 0 });
+    const [, other] = await source.listUsers();
+    const group = await source.createGroup({
+      name: 'Line 3',
+      description: '',
+      share: 'members',
+      permissions: {},
+    });
+    await source.setGroupMember(group.id, other.id, true);
+    const { findByRole } = render(EditUserDialog, {
+      props: { open: true, source, person: other, selfId: 'x', onsaved: vi.fn(), onclose: vi.fn() },
+    });
+    const chip = await findByRole('link', { name: 'Line 3' });
+    expect(chip.getAttribute('href')).toContain(`/admin/users/groups?id=${group.id}`);
+  });
+});
