@@ -664,3 +664,26 @@ describe('fake channels', () => {
     expect((await source.channelTyping(general.id)).length).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe('fake playground', () => {
+  it('streams a chat reply and a completion', async () => {
+    const source = createFakeSource({ pace: 0 });
+    let reply = '';
+    for await (const piece of source.playgroundStream({
+      kind: 'chat',
+      system: '',
+      messages: [{ role: 'user', content: 'Hi' }],
+      model: '4ce-tony',
+    }))
+      reply += piece;
+    expect(reply.length).toBeGreaterThan(0);
+    let more = '';
+    for await (const piece of source.playgroundStream({
+      kind: 'completion',
+      prompt: 'Once upon',
+      model: '4ce-tony',
+    }))
+      more += piece;
+    expect(more.length).toBeGreaterThan(0);
+  });
+});

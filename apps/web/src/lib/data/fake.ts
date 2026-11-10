@@ -1336,6 +1336,19 @@ export function createFakeSource({
     async channelTyping() {
       return Math.floor(Date.now() / 7000) % 3 === 0 ? ['4CE Administrator'] : [];
     },
+    // Stand-in model output for the playground, sent a few words at a time.
+    async *playgroundStream(input, signal) {
+      const last = input.kind === 'chat' ? (input.messages.at(-1)?.content ?? '') : input.prompt;
+      const text =
+        input.kind === 'chat'
+          ? `This is a sample reply from ${input.model || 'the model'} to: "${last.slice(0, 80)}".`
+          : ' and the text carries on from where the prompt stopped, one phrase at a time.';
+      for (const word of text.split(/(?<= )/)) {
+        if (signal?.aborted) return;
+        if (pace) await new Promise((done) => setTimeout(done, 30 * pace));
+        yield word;
+      }
+    },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));
     },

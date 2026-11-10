@@ -549,6 +549,18 @@ export interface DataSource {
   reactChannelMessage(id: string, emoji: string): Promise<void>;
   /** Who else is typing in a channel right now (names). */
   channelTyping(channelId: string): Promise<string[]>;
+  /** The playground's raw model call, streamed in pieces: a chat turn or a text completion. */
+  playgroundStream(
+    input:
+      | {
+          kind: 'chat';
+          system: string;
+          messages: { role: 'user' | 'assistant'; content: string }[];
+          model: string;
+        }
+      | { kind: 'completion'; prompt: string; model: string },
+    signal?: AbortSignal,
+  ): AsyncIterable<string>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;
