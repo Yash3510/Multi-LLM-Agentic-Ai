@@ -13,6 +13,8 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  Usage,
+  UsageDay,
   Memory,
   StreamEvent,
   User,
@@ -419,6 +421,81 @@ const documents = (): StoredDocument[] =>
     owner: { name: '4CE Administrator', email: 'admin@example.test' },
   }));
 
+/** A year and a half of usage ending today, with a few active days near the end: 12 messages
+ * over 6 chats, all with the orchestrator, peaking at 27.3k tokens; the longest streak is 2. */
+function usage(today = new Date()): Usage {
+  const active: Record<number, [messages: number, chats: number, tokens: number]> = {
+    40: [2, 1, 27_300],
+    33: [4, 2, 8_000],
+    26: [2, 1, 6_000],
+    25: [2, 1, 5_000],
+    19: [2, 1, 3_900],
+  };
+  const start = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const daily: UsageDay[] = Array.from({ length: 548 }, (_, index) => {
+    const ago = 547 - index;
+    const [messages, chats, tokens] = active[ago] ?? [0, 0, 0];
+    const models: Record<string, number> = messages ? { '4ce-tony': messages } : {};
+    return {
+      date: new Date(start - ago * 86_400_000).toISOString().slice(0, 10),
+      messages,
+      chats,
+      tokens,
+      models,
+    };
+  });
+  const add = (a: UsageDay, b: UsageDay): UsageDay => ({
+    date: a.date,
+    messages: a.messages + b.messages,
+    chats: a.chats + b.chats,
+    tokens: a.tokens + b.tokens,
+    models: Object.fromEntries(
+      [...new Set([...Object.keys(a.models), ...Object.keys(b.models)])].map((id) => [
+        id,
+        (a.models[id] ?? 0) + (b.models[id] ?? 0),
+      ]),
+    ),
+  });
+  const weeks = new Map<string, UsageDay>();
+  for (const day of daily) {
+    const date = new Date(`${day.date}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+    const monday = date.toISOString().slice(0, 10);
+    const week = weeks.get(monday);
+    weeks.set(monday, week ? add(week, day) : { ...day, date: monday });
+  }
+  const cumulative: UsageDay[] = [];
+  for (const day of daily) {
+    const before = cumulative.at(-1);
+    cumulative.push(before ? { ...add(before, day), date: day.date } : day);
+  }
+  return {
+    totals: {
+      lifetimeTokens: 50_200,
+      peakDailyTokens: 27_300,
+      longestChatSeconds: 0,
+      currentStreak: 0,
+      longestStreak: 2,
+      totalChats: 6,
+      modelsUsed: 1,
+      messages: 12,
+      userMessages: 6,
+      assistantMessages: 6,
+    },
+    daily,
+    weekly: [...weeks.values()],
+    cumulative,
+    insights: {
+      averageTokensPerChat: 8_367,
+      averageMessagesPerActiveDay: 2.4,
+      userMessageShare: 50,
+      assistantMessageShare: 50,
+    },
+    topModels: [{ id: '4ce-tony', messages: 6, tokens: 50_200 }],
+    topTools: [],
+  };
+}
+
 export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSource {
   const models: WorkspaceModel[] = [];
   const bases = knowledge();
@@ -823,6 +900,9 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     },
     async getChat(id) {
       return chats.find((chat) => chat.id === id);
+    },
+    async getUsage() {
+      return usage();
     },
     async exportChats() {
       return structuredClone(chats);

@@ -350,3 +350,16 @@ describe('fake chat data controls', () => {
     expect(await source.exportChats()).toEqual([]);
   });
 });
+
+describe('fake usage', () => {
+  it('reports totals, a year and a half of days, weekly and running totals', async () => {
+    const usage = await createFakeSource({ pace: 0 }).getUsage();
+    expect(usage.totals).toMatchObject({ lifetimeTokens: 50_200, userMessages: 6, totalChats: 6 });
+    expect(usage.daily.length).toBeGreaterThanOrEqual(540);
+    const messages = usage.daily.reduce((sum, day) => sum + day.messages, 0);
+    expect(messages).toBe(usage.totals.messages);
+    expect(new Date(`${usage.weekly[0].date}T00:00:00Z`).getUTCDay()).toBe(1);
+    expect(usage.cumulative.at(-1)?.messages).toBe(messages);
+    expect(usage.topModels[0]).toMatchObject({ id: '4ce-tony', messages: 6 });
+  });
+});

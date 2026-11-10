@@ -241,6 +241,47 @@ export interface Memory {
 
 export type MemoryDraft = Pick<Memory, 'content' | 'type' | 'path'>;
 
+/** One day (or the week or running total it stands for) in the usage heat map. */
+export interface UsageDay {
+  /** YYYY-MM-DD. */
+  date: string;
+  messages: number;
+  chats: number;
+  tokens: number;
+  /** Messages per model id. */
+  models: Record<string, number>;
+}
+
+/** The person's own usage (chat-composer F101); token counts are estimates. */
+export interface Usage {
+  totals: {
+    lifetimeTokens: number;
+    peakDailyTokens: number;
+    longestChatSeconds: number;
+    currentStreak: number;
+    longestStreak: number;
+    totalChats: number;
+    modelsUsed: number;
+    messages: number;
+    userMessages: number;
+    assistantMessages: number;
+  };
+  /** Oldest first, one entry per day. */
+  daily: UsageDay[];
+  /** One entry per week, dated by its Monday. */
+  weekly: UsageDay[];
+  /** One running total per day. */
+  cumulative: UsageDay[];
+  insights: {
+    averageTokensPerChat: number;
+    averageMessagesPerActiveDay: number;
+    userMessageShare: number;
+    assistantMessageShare: number;
+  };
+  topModels: { id: string; messages: number; tokens: number }[];
+  topTools: { name: string; count: number }[];
+}
+
 /** What the model editor saves (the API takes the full record; see web-data-contract.md). */
 export interface ModelRecord {
   id: string;
@@ -269,6 +310,7 @@ export interface DataSource {
   setStatus(status: { emoji?: string; message?: string } | undefined): Promise<void>;
   /** How many people are signed in now. */
   activeUsers(): Promise<number>;
+  getUsage(): Promise<Usage>;
   /** Every chat with its messages, archived ones included, for a JSON export. */
   exportChats(): Promise<Chat[]>;
   /** Adds chats from an export; returns how many were added. */
