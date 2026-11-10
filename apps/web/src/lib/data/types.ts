@@ -231,6 +231,8 @@ export interface ChannelMessage {
   reactions: Record<string, string[]>;
   /** The message this one replies to. */
   replyTo?: string;
+  /** The message whose thread this one belongs to. */
+  threadId?: string;
 }
 
 /** A calendar (calendar F1 to F40); colour is a palette name such as "blue". */
@@ -584,7 +586,7 @@ export interface DataSource {
   listChannelMessages(channelId: string): Promise<ChannelMessage[]>;
   sendChannelMessage(
     channelId: string,
-    draft: { content: string; replyTo?: string },
+    draft: { content: string; replyTo?: string; threadId?: string },
   ): Promise<ChannelMessage>;
   editChannelMessage(id: string, content: string): Promise<void>;
   deleteChannelMessage(id: string): Promise<void>;

@@ -1302,7 +1302,7 @@ export function createFakeSource({
     async listChannelMessages(channelId) {
       return structuredClone(channelMessages.filter((one) => one.channelId === channelId));
     },
-    async sendChannelMessage(channelId, { content, replyTo }) {
+    async sendChannelMessage(channelId, { content, replyTo, threadId }) {
       const message: ChannelMessage = {
         id: crypto.randomUUID(),
         channelId,
@@ -1314,6 +1314,7 @@ export function createFakeSource({
         edited: false,
         reactions: {},
         replyTo,
+        threadId,
       };
       channelMessages = [...channelMessages, message];
       return structuredClone(message);
