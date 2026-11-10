@@ -13,6 +13,7 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  Profile,
   Usage,
   UsageDay,
   Memory,
@@ -504,6 +505,7 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
   const prompts: Prompt[] = [];
   let settings: UserSettings = {};
   let memories: Memory[] = [];
+  let profile: Omit<Profile, 'name'> = { avatar: { kind: 'default' }, variables: {} };
   // This source's own copy, so bulk changes stay with it.
   let chats: Chat[] = [...CHATS];
   const archived = new Set<string>();
@@ -900,6 +902,18 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     },
     async getChat(id) {
       return chats.find((chat) => chat.id === id);
+    },
+    async getProfile() {
+      return structuredClone({ ...profile, name: user?.name ?? '' });
+    },
+    async saveProfile({ name, ...rest }) {
+      profile = structuredClone(rest);
+      if (user) user = { ...user, name };
+    },
+    // The fake cannot check the current password; it only refuses a missing one. Neither
+    // password is kept.
+    async changePassword(current, next) {
+      if (!current || !next) throw new Error('Enter your current and new password.');
     },
     async getUsage() {
       return usage();

@@ -282,6 +282,20 @@ export interface Usage {
   topTools: { name: string; count: number }[];
 }
 
+/** The person's profile (chat-composer F103). */
+export interface Profile {
+  name: string;
+  bio?: string;
+  /** Empty for "Prefer not to say", "male", "female", or the person's own words. */
+  gender?: string;
+  /** YYYY-MM-DD. */
+  birthDate?: string;
+  /** The default picture, initials drawn from the name, or an uploaded photo (a data URL). */
+  avatar: { kind: 'default' } | { kind: 'initials' } | { kind: 'photo'; src: string };
+  /** Values model system prompts can use as {{user.variables.key}}; keys are snake case. */
+  variables: Record<string, string>;
+}
+
 /** What the model editor saves (the API takes the full record; see web-data-contract.md). */
 export interface ModelRecord {
   id: string;
@@ -310,6 +324,11 @@ export interface DataSource {
   setStatus(status: { emoji?: string; message?: string } | undefined): Promise<void>;
   /** How many people are signed in now. */
   activeUsers(): Promise<number>;
+  getProfile(): Promise<Profile>;
+  /** Saves the profile; the name also renames the signed-in person. */
+  saveProfile(profile: Profile): Promise<void>;
+  /** Both passwords go only to the backend: never logged, stored or put in a URL. */
+  changePassword(current: string, next: string): Promise<void>;
   getUsage(): Promise<Usage>;
   /** Every chat with its messages, archived ones included, for a JSON export. */
   exportChats(): Promise<Chat[]>;

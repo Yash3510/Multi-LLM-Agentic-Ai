@@ -381,3 +381,30 @@ describe('fake archived chats', () => {
     expect(await source.listChats()).toHaveLength(before.length - 1);
   });
 });
+
+describe('fake profile and password', () => {
+  it("starts from the person's name, saves the profile and renames them", async () => {
+    const source = createFakeSource({ pace: 0 });
+    const user = await source.currentUser();
+    const profile = await source.getProfile();
+    expect(profile).toMatchObject({ name: user?.name, avatar: { kind: 'default' }, variables: {} });
+    await source.saveProfile({
+      ...profile,
+      name: 'Asha Rao',
+      gender: 'custom:non-binary',
+      variables: { plant_code: 'P3' },
+    });
+    expect(await source.getProfile()).toMatchObject({
+      name: 'Asha Rao',
+      gender: 'custom:non-binary',
+      variables: { plant_code: 'P3' },
+    });
+    expect((await source.currentUser())?.name).toBe('Asha Rao');
+  });
+
+  it('changes the password only with the current one given', async () => {
+    const source = createFakeSource({ pace: 0 });
+    await expect(source.changePassword('', 'new-secret')).rejects.toThrow();
+    await expect(source.changePassword('old-secret', 'new-secret')).resolves.toBeUndefined();
+  });
+});
