@@ -157,7 +157,7 @@
 <div class="notes">
   <div class="heading">
     <span class="title">Notes <span class="count">{shown.length}</span></span>
-    <a class="create" href={resolve('/notes/new')}>Create</a>
+    <a class="create" href={resolve('/notes/create')}>Create</a>
   </div>
   <div class="toolbar">
     <label class="search">

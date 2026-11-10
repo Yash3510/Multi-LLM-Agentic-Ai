@@ -36,10 +36,18 @@
 
   const locale = toIntlLocale(getLocale());
   // Planned routes (web-screens.md); the hash keeps them typed until they exist.
-  const DESTINATIONS: Destination[] = [
+  // Channels join the pinned destinations when the admin switches them on (admin General).
+  let channelsOn = $state(false);
+  void source
+    .getAdminSettings('general')
+    .then((values) => (channelsOn = values.ENABLE_CHANNELS === true));
+  const DESTINATIONS: Destination[] = $derived([
     { href: '/notes', label: 'Notes', icon: 'note' },
+    ...(channelsOn
+      ? [{ href: '/channels', label: 'Channels', icon: 'chats-circle' } as Destination]
+      : []),
     { href: '/workspace', label: 'Workspace', icon: 'workspace' },
-  ];
+  ]);
 
   const rows = $derived(
     chats.map((chat, index) => {
