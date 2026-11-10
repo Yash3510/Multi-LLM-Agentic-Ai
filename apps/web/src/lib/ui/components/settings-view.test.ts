@@ -295,3 +295,20 @@ describe('data controls (F100)', () => {
     await waitFor(async () => expect(await source.exportChats()).toEqual([]));
   });
 });
+
+describe('usage (F101)', () => {
+  it('shows the overview, switches the heat map mode and lists top models', async () => {
+    const { getByRole, findByText, getByText } = setup();
+    const nav = getByRole('navigation', { name: 'Settings' });
+    await fireEvent.click(within(nav).getByRole('button', { name: 'Usage' }));
+    expect((await findByText('Lifetime tokens')).previousElementSibling?.textContent).toBe('50.2k');
+    const weekly = getByRole('button', { name: 'Weekly' });
+    expect(getByRole('button', { name: 'Daily' }).getAttribute('aria-pressed')).toBe('true');
+    await fireEvent.click(weekly);
+    expect(weekly.getAttribute('aria-pressed')).toBe('true');
+    expect(getByText('6 messages · 50.2k')).toBeTruthy();
+    expect(
+      getByText('Token counts are estimates and may not reflect actual API usage'),
+    ).toBeTruthy();
+  });
+});
