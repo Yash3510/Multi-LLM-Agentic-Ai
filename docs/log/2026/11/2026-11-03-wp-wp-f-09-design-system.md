@@ -62,15 +62,15 @@ The owner compared mocks of ADR-0035's new language with the current app, and ch
 
 ## Files
 
-| Path | Change |
-| --- | --- |
-| `apps/web/` | New: the app, tokens, components, `/ui` route and tests |
-| `tools/design-lint/` | New: the lint, retuned to ADR-0041, with fixtures |
-| `tools/icons/` | New: the Lucide icon generator and its tests |
-| `docs/adr/0041-exact-match-look.md` | New ADR and amendment |
-| `docs/architecture/web-screens.md` | New: the screen inventory |
+| Path                                 | Change                                                                                  |
+| ------------------------------------ | --------------------------------------------------------------------------------------- |
+| `apps/web/`                          | New: the app, tokens, components, `/ui` route and tests                                 |
+| `tools/design-lint/`                 | New: the lint, retuned to ADR-0041, with fixtures                                       |
+| `tools/icons/`                       | New: the Lucide icon generator and its tests                                            |
+| `docs/adr/0041-exact-match-look.md`  | New ADR and amendment                                                                   |
+| `docs/architecture/web-screens.md`   | New: the screen inventory                                                               |
 | `docs/architecture/design-system.md` | Edited in an earlier session; it still describes ADR-0035's language (see Known limits) |
-| `.gitignore` | Ignores the web build, test output and generated icon and message files |
+| `.gitignore`                         | Ignores the web build, test output and generated icon and message files                 |
 
 ## How it was verified
 
@@ -196,3 +196,59 @@ Not built yet: channel threads and the emoji picker, calendar week and day views
 ### How it was verified
 
 The project check passed (vitest, design-lint, svelte-check, eslint, prettier, build, tools tests, repo, neutrality and docs checks). The note editor scores 99.57 % (light) and 99.54 % (dark) against :5173, using one empty test note created on the local :5173 and deleted straight after.
+
+## 2026-11-11 Final parity pass
+
+### What changed
+
+- Below 768 px the icon rail gives way to one sidebar button in the corner (above the sticky top bar), the open sidebar lies over the page, and each page's top bar starts after the button, as in the running app.
+- In Settings, Back and the tabs share one row on narrow screens, scrolled to the open tab.
+
+### How it was verified
+
+The project check passed (516 unit tests, 16 e2e, design-lint, svelte-check, eslint, prettier, build, repo, neutrality and docs checks). Every screen was captured against :5173 in light, dark and at 390 × 844, and compared at tolerance 24 (`.parity/pixel/compare.py`). The runner scores only captures newer than the run, after a stale image hid a failed capture once.
+
+| Screen             | Light | Dark  | Phone |
+| ------------------ | ----- | ----- | ----- |
+| home               | 99.02 | 99.07 | 97.12 |
+| ws-models          | 99.95 | 99.94 | 99.90 |
+| ws-knowledge       | 99.56 | 99.55 | 99.28 |
+| ws-prompts         | 99.97 | 99.96 | 99.96 |
+| ws-skills          | 99.97 | 99.96 | 99.96 |
+| ws-tools           | 99.55 | 99.55 | 99.06 |
+| us-general         | 98.87 | 98.81 | 99.23 |
+| us-interface       | 98.13 | 98.07 | 96.68 |
+| us-notifications   | 98.99 | 98.93 | 99.24 |
+| us-keyboard        | 97.83 | 97.70 | 97.70 |
+| us-personalization | 98.97 | 98.91 | 99.56 |
+| us-audio           | 98.77 | 98.70 | 98.91 |
+| us-data            | 98.97 | 98.90 | 99.54 |
+| us-usage           | 98.62 | 98.22 | 97.31 |
+| us-archived        | 98.97 | 98.89 | 99.19 |
+| us-account         | 98.77 | 98.66 | 98.57 |
+| ad-users           | 99.41 | 99.34 | 98.60 |
+| ad-groups          | 99.95 | 99.92 | 99.90 |
+| ad-evals           | 99.63 | 99.60 | 97.77 |
+| ad-feedback        | 99.74 | 99.70 | 98.84 |
+| ad-functions       | 99.90 | 99.85 | 98.65 |
+| ad-fncreate        | 96.30 | 96.19 | 89.66 |
+| as-general         | 96.25 | 96.21 | 90.90 |
+| as-auth            | 98.56 | 98.52 | 98.31 |
+| as-connections     | 98.10 | 98.04 | 96.85 |
+| as-models          | 98.27 | 98.19 | 97.07 |
+| as-subagents       | 98.98 | 98.92 | 99.25 |
+| as-interface       | 97.52 | 97.46 | 95.41 |
+| as-audio           | 97.64 | 97.60 | 95.12 |
+| as-images          | 97.45 | 97.41 | 95.03 |
+| as-evaluations     | 99.12 | 99.06 | 99.58 |
+| as-analytics       | 97.21 | 97.04 | 94.63 |
+| as-documents       | 99.08 | 99.02 | 99.19 |
+| as-code            | 99.14 | 99.08 | 99.52 |
+| as-pipelines       | 99.15 | 99.09 | 99.30 |
+| as-database        | 99.13 | 99.06 | 99.46 |
+| notes              | 99.53 | 99.48 | 98.59 |
+| playground         | 99.62 | 99.53 | 97.86 |
+| completions        | 99.82 | 99.77 | 99.26 |
+| calendar           | 98.60 | 98.37 | 98.00 |
+
+Known gaps: the function editor starts from 4CE's own example; licence, community sharing and Web Search are left out by the owner's rules; :5173 shows a sign-in toast on the calendar.
