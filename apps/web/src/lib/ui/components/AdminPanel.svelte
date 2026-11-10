@@ -11,6 +11,8 @@
     shownItems,
   } from '$lib/ui/admin-panels';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import type { ParamValue } from '$lib/ui/params';
+  import AdvancedParams from './AdvancedParams.svelte';
   import SettingsSelect from './SettingsSelect.svelte';
   import Switch from './Switch.svelte';
   import './settings-page.css';
@@ -28,6 +30,7 @@
 
   let values = $state<Values>();
   let shown = $state<Record<string, boolean>>({});
+  let opened = $state<Record<string, boolean>>({});
   let notice = $state('');
 
   $effect(() => {
@@ -64,10 +67,35 @@
               {#if item.kind === 'info'}
                 <div class="info">
                   <span class="label">{item.label}</span>
-                  <span class="value">{item.value}</span>
+                  {#if item.value}<span class="value">{item.value}</span>{/if}
+                  {#if item.note}<p class="note info-note">{item.note}</p>{/if}
+                </div>
+              {:else if item.kind === 'params'}
+                <div>
+                  <div class="row params-row">
+                    <span>{item.label}</span>
+                    <button
+                      type="button"
+                      class="quiet small"
+                      onclick={() =>
+                        (opened = { ...opened, [item.key ?? '']: !opened[item.key ?? ''] })}
+                      >{opened[item.key ?? ''] ? 'Close' : 'Configure'}</button
+                    >
+                  </div>
+                  {#if opened[item.key ?? '']}
+                    <div class="params-box">
+                      <AdvancedParams
+                        bind:params={
+                          () => (values?.[item.key ?? ''] ?? {}) as Record<string, ParamValue>,
+                          (next) => set(item.key, next)
+                        }
+                        admin
+                      />
+                    </div>
+                  {/if}
                 </div>
               {:else if item.field}
-                <div>
+                <div class:half={item.half}>
                   <label class="field-label" for="admin-{item.key}">{item.label}</label>
                   <div class="field-control">
                     {#if item.kind === 'textarea'}
@@ -180,6 +208,53 @@
 </form>
 
 <style>
+  /* Items fill the row; half items sit two to a row from 640 px (admin look G2). */
+  .admin-panel .rows {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 12px;
+  }
+
+  @media (min-width: 40rem) {
+    .admin-panel .rows {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-panel .rows > :global(*) {
+      grid-column: 1 / -1;
+    }
+
+    .admin-panel .rows > :global(.half) {
+      grid-column: auto;
+    }
+  }
+
+  .small {
+    font-size: 11px;
+  }
+
+  .params-box {
+    padding-block-start: 8px;
+  }
+
+  .info .label {
+    line-height: 16px;
+  }
+
+  .admin-panel .info-note {
+    margin-block-start: 6px;
+  }
+
+  /* As the running app measures: the parameters row is 20 px tall, and an inline text area
+     leaves a line's descender space under it. */
+  .params-row {
+    min-block-size: 20px;
+  }
+
+  .area {
+    margin-block-end: 5px;
+  }
+
   .admin-panel section + section {
     margin-block-start: 20px;
   }

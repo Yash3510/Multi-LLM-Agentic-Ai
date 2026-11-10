@@ -43,3 +43,23 @@ describe('admin settings panels (admin look §18 to §32)', () => {
     expect(locked.map((item) => item.label)).toEqual(['LDAP', 'OAuth / OIDC']);
   });
 });
+
+describe('admin panels kept local (owner rule)', () => {
+  it('offers only local or self-hosted engines', () => {
+    const options = (panel: keyof typeof PANELS, key: string) =>
+      PANELS[panel].sections
+        .flatMap((section) => section.items)
+        .find((item) => item.key === key)
+        ?.options?.map(([value]) => value);
+    expect(options('audio', 'STT_ENGINE')).toEqual(['']);
+    expect(options('audio', 'TTS_ENGINE')).toEqual(['', 'transformers']);
+    expect(options('images', 'IMAGE_GENERATION_ENGINE')).toEqual(['comfyui', 'automatic1111']);
+    expect(options('documents', 'RAG_EMBEDDING_ENGINE')).toEqual(['', 'ollama']);
+    expect(options('documents', 'CONTENT_EXTRACTION_ENGINE')).toEqual([
+      '',
+      'tika',
+      'docling',
+      'mineru',
+    ]);
+  });
+});

@@ -12,8 +12,16 @@
   let { source, panel }: Props = $props();
 
   type Action =
-    'import-config' | 'export-config' | 'export-database' | 'export-chats' | 'export-users';
+    | 'import-config'
+    | 'export-config'
+    | 'export-database'
+    | 'export-chats'
+    | 'export-users'
+    | 'reset-uploads'
+    | 'reset-vectors'
+    | 'reindex';
   let groups = $state<[string, string][]>([]);
+  let models = $state<[string, string][]>([]);
   let pending = $state<Action>();
   let typed = $state('');
   let notice = $state('');
@@ -22,9 +30,19 @@
 
   $effect(() => {
     void source.listGroups().then((all) => (groups = all.map((one) => [one.id, one.name])));
+    void source.listBaseModels().then((all) => (models = all.map((one) => [one.id, one.name])));
   });
 
-  const WORD = $derived(pending === 'import-config' ? 'IMPORT' : 'EXPORT');
+  const resets = (action?: Action) => action === 'reset-uploads' || action === 'reset-vectors';
+  const WORD = $derived(
+    pending === 'import-config'
+      ? 'IMPORT'
+      : resets(pending)
+        ? 'RESET'
+        : pending === 'reindex'
+          ? 'REINDEX'
+          : 'EXPORT',
+  );
 
   function download(text: string, name: string, type: string) {
     const link = document.createElement('a');
@@ -41,6 +59,11 @@
     notice = '';
     if (action === 'import-config') {
       picker?.click();
+      return;
+    }
+    if (action === 'reset-uploads' || action === 'reset-vectors' || action === 'reindex') {
+      await source.adminMaintenance(action);
+      notice = action === 'reindex' ? 'Reindexing has started.' : 'Done. This cannot be undone.';
       return;
     }
     const kind = action?.replace('export-', '') as 'config' | 'chats' | 'users' | 'database';
@@ -79,7 +102,12 @@
   <AdminPanel
     {source}
     panel={PANELS[panel]}
-    choices={{ DEFAULT_GROUP_ID: groups }}
+    choices={{
+      DEFAULT_GROUP_ID: groups,
+      TASK_MODEL: models,
+      TASK_MODEL_EXTERNAL: models,
+      CONTEXT_COMPACTION_MODEL: models,
+    }}
     onaction={(key) => (pending = key as Action)}
   />
 {/key}
@@ -109,11 +137,27 @@
 
 <ConfirmDialog
   open={pending !== undefined}
-  title={pending === 'import-config' ? 'Import config?' : 'Export data?'}
+  title={pending === 'import-config'
+    ? 'Import config?'
+    : resets(pending)
+      ? 'Reset?'
+      : pending === 'reindex'
+        ? 'Reindex?'
+        : 'Export data?'}
   message={pending === 'import-config'
     ? `This replaces every admin setting. Type ${WORD} to confirm.`
-    : `This downloads sensitive data. Type ${WORD} to confirm.`}
-  confirmLabel={pending === 'import-config' ? 'Import' : 'Export'}
+    : resets(pending)
+      ? `This permanently deletes the data and cannot be undone. Type ${WORD} to confirm.`
+      : pending === 'reindex'
+        ? `This rebuilds every vector and may take a while. Type ${WORD} to confirm.`
+        : `This downloads sensitive data. Type ${WORD} to confirm.`}
+  confirmLabel={pending === 'import-config'
+    ? 'Import'
+    : resets(pending)
+      ? 'Reset'
+      : pending === 'reindex'
+        ? 'Reindex'
+        : 'Export'}
   confirmDisabled={typed.trim() !== WORD}
   onconfirm={run}
   oncancel={() => {
