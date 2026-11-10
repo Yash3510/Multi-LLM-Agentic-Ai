@@ -257,11 +257,13 @@ export interface CalendarEvent {
 
 /** When an automation runs. */
 export interface Schedule {
-  kind: 'once' | 'hourly' | 'daily' | 'weekly' | 'weekdays' | 'monthly';
+  kind: 'once' | 'hourly' | 'daily' | 'weekly' | 'weekdays' | 'monthly' | 'custom';
   /** HH:MM; for hourly only the minutes count. */
   time: string;
   /** 0 Sunday to 6 Saturday, for weekly. */
   weekday?: number;
+  /** Minutes between runs, for custom. */
+  every?: number;
 }
 
 /** A prompt run on a schedule (automations F1 to F40). */

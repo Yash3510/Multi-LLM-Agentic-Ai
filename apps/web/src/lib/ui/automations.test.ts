@@ -22,3 +22,14 @@ describe('automation schedules (automations look §2)', () => {
     expect(nextRun({ kind: 'hourly', time: '00:15' }, now)).toEqual(new Date(2026, 10, 10, 10, 15));
   });
 });
+
+describe('custom schedule', () => {
+  it('runs every N minutes', () => {
+    const now = new Date(2026, 10, 10, 10, 7);
+    expect(scheduleLabel({ kind: 'custom', time: '00:00', every: 30 })).toBe('Every 30 minutes');
+    expect(scheduleLabel({ kind: 'custom', time: '00:00', every: 1 })).toBe('Every minute');
+    expect(nextRun({ kind: 'custom', time: '00:00', every: 30 }, now)).toEqual(
+      new Date(2026, 10, 10, 10, 30),
+    );
+  });
+});

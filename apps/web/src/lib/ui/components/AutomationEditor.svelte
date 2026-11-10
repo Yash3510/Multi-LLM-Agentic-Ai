@@ -76,12 +76,23 @@
         <option value="once">Once</option><option value="hourly">Hourly</option><option
           value="daily">Daily</option
         ><option value="weekly">Weekly</option><option value="weekdays">Monday – Friday</option
-        ><option value="monthly">Monthly</option>
+        ><option value="monthly">Monthly</option><option value="custom">Custom</option>
       </select></label
     >
-    <label class="field"
-      ><span>Time</span><input type="time" bind:value={draft.schedule.time} /></label
-    >
+    {#if draft.schedule.kind === 'custom'}
+      <label class="field"
+        ><span>Every (minutes)</span><input
+          type="number"
+          min="1"
+          value={draft.schedule.every ?? 60}
+          oninput={(e) => (draft.schedule.every = Number(e.currentTarget.value))}
+        /></label
+      >
+    {:else}
+      <label class="field"
+        ><span>Time</span><input type="time" bind:value={draft.schedule.time} /></label
+      >
+    {/if}
     <label class="field"
       ><span>Destination</span>
       <select bind:value={draft.destination}

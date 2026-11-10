@@ -29,3 +29,12 @@ describe('playground (playground look §3)', () => {
     await waitFor(() => expect(box.value.length).toBeGreaterThan('Once upon'.length));
   });
 });
+
+describe('playground parameters', () => {
+  it('opens the parameters panel', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const { getByRole, findByText } = render(PlaygroundChat, { props: { source } });
+    await fireEvent.click(getByRole('button', { name: 'Parameters' }));
+    expect(await findByText('Temperature')).toBeTruthy();
+  });
+});

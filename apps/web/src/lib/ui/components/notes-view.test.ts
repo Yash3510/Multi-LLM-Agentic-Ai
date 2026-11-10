@@ -57,3 +57,19 @@ describe('note editor (notes look §2)', () => {
     );
   });
 });
+
+describe('notes import (notes look §1)', () => {
+  it('imports a text file as a note from the Create menu', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const { getByRole, findByRole, findByText, container } = render(NoteList, {
+      props: { source },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Open create menu' }));
+    expect(await findByRole('menuitem', { name: 'Import txt/md' })).toBeTruthy();
+    const input = container.ownerDocument.querySelector(
+      'input[accept=".txt,.md"]',
+    ) as HTMLInputElement;
+    await fireEvent.change(input, { target: { files: [new File(['Line one'], 'agenda.md')] } });
+    expect(await findByText('agenda')).toBeTruthy();
+  });
+});

@@ -3,7 +3,9 @@
   // assistant messages, and the composer with role, model, Add and Run. Run streams the model's
   // reply from the data source.
   import type { DataSource } from '$lib/data';
+  import type { ParamValue } from '$lib/ui/params';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import AdvancedParams from './AdvancedParams.svelte';
 
   type Props = { source: DataSource };
 
@@ -18,6 +20,8 @@
   let models = $state<{ id: string; name: string }[]>([]);
   let model = $state('');
   let running = $state<AbortController>();
+  let showParams = $state(false);
+  let params = $state<Record<string, ParamValue>>({});
 
   async function loadModels() {
     models = await source.listBaseModels();
@@ -98,6 +102,9 @@
       </div>
     {/each}
   </div>
+  {#if showParams}
+    <div class="params"><AdvancedParams bind:params /></div>
+  {/if}
   <div class="composer">
     <textarea
       bind:value={draft}
@@ -115,6 +122,13 @@
       <select class="model" bind:value={model} aria-label="Model">
         {#each models as one (one.id)}<option value={one.id}>{one.name}</option>{/each}
       </select>
+      <button
+        type="button"
+        class="icon"
+        aria-label="Parameters"
+        aria-pressed={showParams}
+        onclick={() => (showParams = !showParams)}><Icon name="sliders-bold" size={14} /></button
+      >
       <button type="button" class="soft" onclick={add}>Add</button>
       <button type="button" class="run" onclick={run}>{running ? 'Stop' : 'Run'}</button>
     </div>
@@ -122,6 +136,13 @@
 </div>
 
 <style>
+  .params {
+    max-block-size: 40%;
+    padding: 8px 12px;
+    overflow-y: auto;
+    border: 1px solid var(--color-gray-100);
+    border-radius: 12px;
+  }
   .playground {
     display: flex;
     flex-direction: column;

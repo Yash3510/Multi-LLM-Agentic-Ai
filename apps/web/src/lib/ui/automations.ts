@@ -27,6 +27,8 @@ export function scheduleLabel(schedule: Schedule): string {
       return `Monday – Friday at ${clock(schedule.time)}`;
     case 'monthly':
       return `Monthly at ${clock(schedule.time)}`;
+    case 'custom':
+      return schedule.every === 1 ? 'Every minute' : `Every ${schedule.every ?? 60} minutes`;
   }
 }
 
@@ -34,6 +36,12 @@ export function scheduleLabel(schedule: Schedule): string {
 export function nextRun(schedule: Schedule, now = new Date()): Date | undefined {
   const [hours, minutes] = schedule.time.split(':').map(Number);
   if (schedule.kind === 'once') return undefined;
+  if (schedule.kind === 'custom') {
+    const every = Math.max(1, schedule.every ?? 60);
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const elapsed = Math.floor((now.getTime() - midnight) / 60_000);
+    return new Date(midnight + (Math.floor(elapsed / every) + 1) * every * 60_000);
+  }
   if (schedule.kind === 'hourly') {
     const at = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), minutes);
     if (at <= now) at.setHours(at.getHours() + 1);

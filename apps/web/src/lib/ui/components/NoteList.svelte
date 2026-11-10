@@ -27,6 +27,19 @@
   let layout = $state<'list' | 'grid'>('list');
   let deleting = $state<Note>();
   let undo = $state<Note>();
+  let picker = $state<HTMLInputElement>();
+
+  async function importFiles(event: Event & { currentTarget: HTMLInputElement }) {
+    const input = event.currentTarget;
+    for (const file of input.files ?? []) {
+      await source.createNote({
+        title: file.name.replace(/\.(txt|md)$/i, ''),
+        content: await file.text(),
+      });
+    }
+    input.value = '';
+    await load();
+  }
 
   async function load() {
     notes = await source.listNotes();
@@ -157,7 +170,43 @@
 <div class="notes">
   <div class="heading">
     <span class="title">Notes <span class="count">{shown.length}</span></span>
-    <a class="create" href={resolve('/notes/create')}>Create</a>
+    <span class="split">
+      <a class="create-main" href={resolve('/notes/create')}>Create</a>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger class="create-more" aria-label="Open create menu"
+          ><Icon name="caret-down-bold" size={10} /></DropdownMenu.Trigger
+        >
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            class="note-menu"
+            data-menu
+            data-surface="float"
+            align="end"
+            sideOffset={6}
+          >
+            <DropdownMenu.Item data-menu-row>
+              {#snippet child({ props })}
+                <a {...props} href={resolve('/notes/create')}
+                  ><span data-menu-lead><Icon name="rename" size={14} /></span>Create</a
+                >
+              {/snippet}
+            </DropdownMenu.Item>
+            <DropdownMenu.Item data-menu-row onSelect={() => picker?.click()}>
+              <span data-menu-lead><Icon name="file-arrow-up" size={14} /></span>Import txt/md
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    </span>
+    <input
+      bind:this={picker}
+      type="file"
+      accept=".txt,.md"
+      multiple
+      hidden
+      aria-label="Note files"
+      onchange={importFiles}
+    />
   </div>
   <div class="toolbar">
     <label class="search">
@@ -286,8 +335,9 @@
     color: var(--color-gray-500);
   }
 
-  .create {
-    padding: 4px 10px;
+  .split {
+    display: flex;
+    overflow: hidden;
     border-radius: 8px;
     background-color: var(--color-gray-50);
     box-shadow: 0 0 0 1px var(--color-gray-200);
@@ -296,11 +346,23 @@
     line-height: 16px;
   }
 
-  .create:hover {
+  .create-main {
+    padding: 4px 10px;
+  }
+
+  .create-main:hover,
+  :global(.create-more:hover) {
     background-color: var(--color-gray-100);
   }
 
-  :global([data-theme='dark']) .create {
+  :global(.create-more) {
+    display: grid;
+    place-items: center;
+    padding: 4px 6px;
+    border-inline-start: 1px solid var(--color-gray-200);
+  }
+
+  :global([data-theme='dark']) .split {
     background-color: var(--color-gray-850);
     box-shadow: 0 0 0 1px var(--color-gray-800);
     color: var(--color-gray-100);
@@ -595,7 +657,7 @@
     line-height: 16px;
   }
 
-  :is(.create, .clear, .main, .undo button):focus-visible {
+  :is(.create-main, .clear, .main, .undo button):focus-visible {
     outline: 2px solid var(--color-blue-500);
     outline-offset: -2px;
   }
