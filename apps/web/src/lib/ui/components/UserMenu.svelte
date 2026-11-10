@@ -1,7 +1,6 @@
 <script lang="ts">
   // The user menu (layout look §7.1, F125 to F132): the person with the active count, their
-  // status, the destinations, then Admin Panel (admins), Settings and Sign Out. Notes and
-  // Playground join as their areas are built. It opens upward from the
+  // status, the destinations, then Playground, Admin Panel (admins), Settings and Sign Out. It opens upward from the
   // avatar that was pressed and uses the shared menu card (common look F12).
   import { DropdownMenu } from 'bits-ui';
   import { resolve } from '$app/paths';
@@ -71,6 +70,13 @@
         {/snippet}
       </DropdownMenu.Item>
       <DropdownMenu.Separator data-menu-separator />
+      <DropdownMenu.Item data-menu-row>
+        {#snippet child({ props })}
+          <a {...props} href={resolve('/playground')}
+            ><span data-menu-lead><Icon name="code" size={14} /></span>Playground</a
+          >
+        {/snippet}
+      </DropdownMenu.Item>
       {#if user.role === 'admin'}
         <DropdownMenu.Item data-menu-row>
           {#snippet child({ props })}

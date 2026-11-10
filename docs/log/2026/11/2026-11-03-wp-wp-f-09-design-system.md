@@ -159,3 +159,24 @@ The new app has to match the running 4CE app area by area (ADR-0041), and the ow
 
 - Calls are fake: saving functions, pulling models, maintenance and exports run against the fake source only.
 - Not built yet: the people pager, per-person chats, avatar editing in the admin editor, group member CSV import, ComfyUI workflows, banners and default interface settings in admin General.
+
+## 2026-11-10 (later): notes, channels, calendar, automations and playground
+
+### What changed
+
+- Notes list and editor (autosave, word and character counts, Enhance streamed from the fake source, delete with Undo).
+- Channels: list (admins create; delete needs the name typed and is logged) and the channel view with reactions, replies, pins, edits, confirmed deletes and a simulated typing indicator.
+- Calendar month view with events, playground (chat, completions, images notice), automations list and editor.
+- Sidebar entries for Channels, Calendar and Automations follow the admin General switches; the user menu gains Playground.
+
+### How it was verified
+
+The project check (vitest 504 passed, design-lint, svelte-check, eslint, prettier, build, tools tests, repo, neutrality and docs checks) passed. Scores against :5173: notes list 99.53 %, playground 99.63 %, calendar 98.61 %; channels and automations are off on :5173 and were built from the old code.
+
+### Decisions
+
+Owner rules for this round: fake data only; webhooks, outside share links, outside calendar sync and web search left out; presence and typing simulated; AI features use the fake stream; deletes need a typed confirmation or offer Undo.
+
+### Known limits
+
+Not built yet: channel threads and the emoji picker, calendar week and day views, recurring events, note recording and chat, the playground's parameters panel.
