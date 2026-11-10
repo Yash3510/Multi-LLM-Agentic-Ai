@@ -180,3 +180,19 @@ Owner rules for this round: fake data only; webhooks, outside share links, outsi
 ### Known limits
 
 Not built yet: channel threads and the emoji picker, calendar week and day views, recurring events, note recording and chat, the playground's parameters panel.
+
+## 2026-11-10 (later): gaps closed and a rich-text note editor
+
+### What changed
+
+- Channel threads and an emoji picker; calendar week and day views with repeating events; note import, playground parameters and a custom automation schedule; the admin leftovers (people pager and chats, avatar choice, group member CSV import, banners, default interface settings, ComfyUI workflow upload, arena models).
+- The note editor is now rich text (Tiptap), reading and writing Markdown so stored notes stay plain text.
+
+### Packages added (owner approved)
+
+- `@tiptap/core`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/extension-placeholder`, `@tiptap/markdown` 3.32.0, all MIT; the 47 packages in their tree are MIT.
+- Earlier on this branch: CodeMirror 6 (`codemirror`, `@codemirror/lang-python`, `@codemirror/theme-one-dark`), MIT, for the tool and function editors.
+
+### How it was verified
+
+The project check passed (vitest, design-lint, svelte-check, eslint, prettier, build, tools tests, repo, neutrality and docs checks). The note editor scores 99.57 % (light) and 99.54 % (dark) against :5173, using one empty test note created on the local :5173 and deleted straight after.

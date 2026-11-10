@@ -1,4 +1,5 @@
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import type { Editor } from '@tiptap/core';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeSource } from '$lib/data/fake';
 import NoteList from './NoteList.svelte';
@@ -32,28 +33,27 @@ describe('notes list (notes look §1)', () => {
 });
 
 describe('note editor (notes look §2)', () => {
-  it('saves the text, counts words, and streams an enhanced version', async () => {
+  it('saves rich text as Markdown, counts words, and streams an enhanced version', async () => {
     const source = createFakeSource({ pace: 0 });
     const note = await source.createNote({ title: '', content: '' });
+    let editor: Editor | undefined;
     const { getByPlaceholderText, findByText, getByRole } = render(NoteEditor, {
-      props: { source, note, ondeleted: vi.fn() },
+      props: { source, note, ondeleted: vi.fn(), oneditor: (made: Editor) => (editor = made) },
     });
     await fireEvent.input(getByPlaceholderText('Title'), { target: { value: 'Weekly review' } });
-    await fireEvent.input(getByPlaceholderText('Write something...'), {
-      target: { value: 'item 3 needs review' },
-    });
+    editor?.commands.insertContent('item 3 needs review');
     expect(await findByText('4 words')).toBeTruthy();
     await waitFor(
-      async () => expect((await source.getNote(note.id))?.title).toBe('Weekly review'),
+      async () => expect((await source.getNote(note.id))?.content).toBe('item 3 needs review'),
       {
         timeout: 2000,
       },
     );
+    editor?.commands.setContent('# Plan', { contentType: 'markdown' });
+    await waitFor(() => expect(editor?.getMarkdown().trimEnd()).toBe('# Plan'));
     await fireEvent.click(getByRole('button', { name: 'Enhance' }));
     await waitFor(() =>
-      expect((getByPlaceholderText('Write something...') as HTMLTextAreaElement).value).toBe(
-        'Item 3 needs review.',
-      ),
+      expect(getByRole('textbox', { name: 'Note' }).textContent).toContain('Plan.'),
     );
   });
 });

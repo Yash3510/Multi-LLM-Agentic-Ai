@@ -6,11 +6,19 @@
   import { untrack } from 'svelte';
   import type { DataSource, Note } from '$lib/data';
   import { calendarDay } from '$lib/ui/ago';
+  import type { Editor } from '@tiptap/core';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import RichTextEditor from './RichTextEditor.svelte';
 
-  type Props = { source: DataSource; note: Note; ondeleted: () => void };
+  type Props = {
+    source: DataSource;
+    note: Note;
+    ondeleted: () => void;
+    /** Hands the text editor to the caller (tests). */
+    oneditor?: (editor: Editor) => void;
+  };
 
-  let { source, note, ondeleted }: Props = $props();
+  let { source, note, ondeleted, oneditor }: Props = $props();
 
   const start = untrack(() => note);
   let title = $state(start.title);
@@ -89,13 +97,19 @@
     <span>{words} words</span>
     <span>{content.length} characters</span>
   </div>
-  <textarea
-    class="body"
-    bind:value={content}
-    oninput={queueSave}
-    placeholder="Write something..."
-    aria-label="Note"
-    disabled={start.readOnly || enhancing !== undefined}></textarea>
+  <div class="body">
+    <RichTextEditor
+      value={content}
+      onchange={(next) => {
+        content = next;
+        queueSave();
+      }}
+      placeholder="Write something..."
+      label="Note"
+      readonly={start.readOnly || enhancing !== undefined}
+      {oneditor}
+    />
+  </div>
   {#if !start.readOnly}
     <button
       type="button"
@@ -131,13 +145,11 @@
     font-size: var(--text-ui);
   }
 
-  .title:focus,
-  .body:focus {
+  .title:focus {
     outline: none;
   }
 
-  .title::placeholder,
-  .body::placeholder {
+  .title::placeholder {
     color: var(--color-gray-400);
   }
 
@@ -181,11 +193,7 @@
   .body {
     flex: 1;
     padding: 4px 12px 64px;
-    background: transparent;
-    color: inherit;
-    font-size: var(--text-ui);
-    line-height: 1.6;
-    resize: none;
+    overflow-y: auto;
   }
 
   .ai {
