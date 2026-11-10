@@ -137,5 +137,8 @@
   "settings-archived": { "phosphor": "archive", "weight": "bold" },
   "settings-account": { "phosphor": "user-circle", "weight": "bold" },
   "unarchive": { "phosphor": "arrow-u-up-left" },
-  "camera": { "phosphor": "camera" }
+  "camera": { "phosphor": "camera" },
+  "chats-circle": { "phosphor": "chats-circle" },
+  "pencil-line": { "phosphor": "pencil-simple-line" },
+  "trash-simple": { "phosphor": "trash-simple" }
 }

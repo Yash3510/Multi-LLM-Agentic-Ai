@@ -10,6 +10,8 @@
     message?: string;
     /** The confirm button's words. */
     confirmLabel?: string;
+    /** Holds Confirm back, such as until a typed confirmation matches. */
+    confirmDisabled?: boolean;
     onconfirm: () => void;
     oncancel: () => void;
     /** Anything more the question needs, such as an option, under the sentence. */
@@ -21,6 +23,7 @@
     title = 'Are you sure?',
     message = 'This action cannot be undone. Do you wish to continue?',
     confirmLabel = 'Confirm',
+    confirmDisabled = false,
     onconfirm,
     oncancel,
     children,
@@ -36,7 +39,7 @@
       {@render children?.()}
       <div class="buttons">
         <AlertDialog.Cancel class="confirm-cancel">Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action class="confirm-ok" onclick={onconfirm}
+        <AlertDialog.Action class="confirm-ok" disabled={confirmDisabled} onclick={onconfirm}
           >{confirmLabel}</AlertDialog.Action
         >
       </div>
@@ -117,6 +120,11 @@
 
   :global(.confirm-ok:hover) {
     background-color: color-mix(in srgb, var(--color-gray-900) 90%, transparent);
+  }
+
+  :global(.confirm-ok:disabled) {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   :global([data-theme='dark'] .confirm-cancel) {

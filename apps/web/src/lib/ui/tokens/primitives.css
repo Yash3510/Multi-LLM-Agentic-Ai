@@ -49,6 +49,12 @@
     --ref-red-stop-dark: #ffc9c9;
     --ref-red-mark: #fb2c36;
 
+    /* People's role words in the admin user list (admin look §5). */
+    --ref-role-admin: #4f6f93;
+    --ref-role-admin-dark: #8ba6c6;
+    --ref-role-user: #4f7a5a;
+    --ref-role-user-dark: #8db395;
+
     /* The page body's own dark ground and ink, off the ramp (data-and-logic look §1). */
     --body-dark-ground: #171717;
     --body-dark-ink: #eeeeee;

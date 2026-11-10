@@ -79,6 +79,10 @@
   --color-stop-mark: var(--ref-red-mark);
   --color-stop-soft: color-mix(in srgb, var(--ref-red-mark) 20%, transparent);
 
+  /* Role words in the admin user list (admin look §5). */
+  --color-role-admin: var(--ref-role-admin);
+  --color-role-user: var(--ref-role-user);
+
   /* The dialog backdrop (common look F1): black at 45%, 60% in dark. */
   --color-scrim: color-mix(in srgb, var(--ref-black) 45%, transparent);
 
