@@ -8,6 +8,8 @@
   import Icon from '$lib/ui/icons/Icon.svelte';
   import SettingsGeneral from './SettingsGeneral.svelte';
   import SettingsInterface from './SettingsInterface.svelte';
+  import SettingsKeyboard from './SettingsKeyboard.svelte';
+  import SettingsNotifications from './SettingsNotifications.svelte';
   import './modal.css';
 
   type Props = {
@@ -112,6 +114,10 @@
             <SettingsGeneral {source} {settings} {admin} />
           {:else if settings && tab === 'interface'}
             <SettingsInterface {source} {settings} />
+          {:else if settings && tab === 'notifications'}
+            <SettingsNotifications {source} {settings} />
+          {:else if settings && tab === 'keyboard'}
+            <SettingsKeyboard {source} {settings} />
           {:else if current}
             <!-- The other pages land one at a time. -->
             <h2 class="page-title">{current.label}</h2>

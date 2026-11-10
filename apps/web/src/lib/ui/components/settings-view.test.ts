@@ -103,3 +103,47 @@ describe('interface settings (F93, common F68)', () => {
     );
   });
 });
+
+describe('notifications settings (F94)', () => {
+  it('saves Notification Sound at once', async () => {
+    const { getByRole, findByText, source } = setup();
+    const nav = getByRole('navigation', { name: 'Settings' });
+    await fireEvent.click(within(nav).getByRole('button', { name: 'Notifications' }));
+    const row = (await findByText('Notification Sound')).closest('.block') as HTMLElement;
+    await fireEvent.click(within(row).getByRole('switch'));
+    await waitFor(async () =>
+      expect((await source.getUserSettings()).ui).toMatchObject({ notificationSound: false }),
+    );
+  });
+});
+
+describe('keyboard settings (F95)', () => {
+  it('rebinds a shortcut, refuses a taken chord, and resets', async () => {
+    const { getByRole, findByText, source } = setup();
+    const nav = getByRole('navigation', { name: 'Settings' });
+    await fireEvent.click(within(nav).getByRole('button', { name: 'Keyboard' }));
+    const row = (await findByText('Navigate to Next Chat')).closest('.shortcut') as HTMLElement;
+    await fireEvent.click(within(row).getByRole('button', { name: /Unassigned/ }));
+    expect(within(row).getByText('Press keys...')).toBeTruthy();
+    await fireEvent.keyDown(window, { key: 'j', ctrlKey: true, metaKey: true });
+    await waitFor(async () =>
+      expect(
+        ((await source.getUserSettings()).ui as Record<string, unknown>)?.shortcuts,
+      ).toMatchObject({
+        nextChat: { key: 'j' },
+      }),
+    );
+    const search = (await findByText('Previous Chat', { exact: false })).closest(
+      '.shortcut',
+    ) as HTMLElement;
+    await fireEvent.click(within(search).getByRole('button', { name: /Unassigned/ }));
+    await fireEvent.keyDown(window, { key: 'j', ctrlKey: true, metaKey: true });
+    expect(await findByText('Already bound to Navigate to Next Chat')).toBeTruthy();
+    await fireEvent.click(getByRole('button', { name: 'Reset Defaults' }));
+    await waitFor(async () =>
+      expect(((await source.getUserSettings()).ui as Record<string, unknown>)?.shortcuts).toEqual(
+        {},
+      ),
+    );
+  });
+});
