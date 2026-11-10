@@ -145,5 +145,18 @@
   "user-plus-bold": { "phosphor": "user-plus", "weight": "bold" },
   "file-arrow-up": { "phosphor": "file-arrow-up" },
   "file-arrow-down": { "phosphor": "file-arrow-down" },
-  "trash-bold": { "phosphor": "trash", "weight": "bold" }
+  "trash-bold": { "phosphor": "trash", "weight": "bold" },
+  "admin-auth": { "phosphor": "lock-simple", "weight": "bold" },
+  "admin-connections": { "phosphor": "link", "weight": "bold" },
+  "admin-models": { "phosphor": "database" },
+  "admin-subagents": { "phosphor": "user-circle", "weight": "bold" },
+  "admin-interface": { "phosphor": "desktop", "weight": "bold" },
+  "admin-audio": { "phosphor": "speaker-high", "weight": "bold" },
+  "admin-images": { "phosphor": "image", "weight": "bold" },
+  "admin-evaluations": { "phosphor": "chart-bar" },
+  "admin-analytics": { "phosphor": "sort-descending", "weight": "bold" },
+  "admin-documents": { "phosphor": "file", "weight": "bold" },
+  "admin-code": { "phosphor": "code", "weight": "bold" },
+  "admin-pipelines": { "phosphor": "queue", "weight": "bold" },
+  "admin-database": { "phosphor": "database", "weight": "bold" }
 }

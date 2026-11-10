@@ -6,6 +6,8 @@
   import type { DataSource, UserSettings } from '$lib/data';
   import type { IconName } from '$lib/ui/icons/generated/icons';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import { ADMIN_GROUPS, PANELS, type PanelId } from '$lib/ui/admin-panels';
+  import AdminSettings from './AdminSettings.svelte';
   import SettingsAccount from './SettingsAccount.svelte';
   import SettingsArchived from './SettingsArchived.svelte';
   import SettingsAudio from './SettingsAudio.svelte';
@@ -60,15 +62,26 @@
   let query = $state('');
   let settings = $state<UserSettings>();
 
-  const shown = $derived(
-    GROUPS.map((group) => ({
-      ...group,
-      tabs: group.tabs.filter((one) =>
-        one.label.toLowerCase().includes(query.trim().toLowerCase()),
-      ),
-    })).filter((group) => group.tabs.length),
+  const matching = (groups: typeof GROUPS) =>
+    groups
+      .map((group) => ({
+        ...group,
+        tabs: group.tabs.filter((one) =>
+          one.label.toLowerCase().includes(query.trim().toLowerCase()),
+        ),
+      }))
+      .filter((group) => group.tabs.length);
+  const shown = $derived(matching(GROUPS));
+  // Admins see the admin tabs under their own captions (admin look §18).
+  const shownAdmin = $derived(admin ? matching(ADMIN_GROUPS) : []);
+  const current = $derived(
+    [...GROUPS, ...ADMIN_GROUPS].flatMap((group) => group.tabs).find((one) => one.id === tab),
   );
-  const current = $derived(GROUPS.flatMap((group) => group.tabs).find((one) => one.id === tab));
+  /** The schema panel behind an admin tab, when it is built that way. */
+  const adminPanel = $derived.by(() => {
+    const id = tab.replace(/^admin-/, '');
+    return tab.startsWith('admin-') && id in PANELS ? (id as PanelId) : undefined;
+  });
 
   // Each opening starts on General with fresh settings.
   $effect(() => {
@@ -110,7 +123,25 @@
                   </button>
                 {/each}
               {/each}
-            {:else}
+            {/if}
+            {#if shownAdmin.length}
+              <div class="admin-rule"></div>
+              <span class="caption admin-caption">Admin</span>
+              {#each shownAdmin as group, index (group.caption)}
+                <span class="caption" class:lead={index === 0}>{group.caption}</span>
+                {#each group.tabs as one (one.id)}
+                  <button
+                    type="button"
+                    class="tab"
+                    aria-current={one.id === tab ? 'page' : undefined}
+                    onclick={() => (tab = one.id)}
+                  >
+                    <Icon name={one.icon} size={14} /><span>{one.label}</span>
+                  </button>
+                {/each}
+              {/each}
+            {/if}
+            {#if !shown.length && !shownAdmin.length}
               <p class="none">No matches</p>
             {/if}
           </div>
@@ -136,6 +167,8 @@
             <SettingsArchived {source} />
           {:else if tab === 'account'}
             <SettingsAccount {source} />
+          {:else if adminPanel}
+            <AdminSettings {source} panel={adminPanel} />
           {:else if current}
             <!-- The other pages land one at a time. -->
             <h2 class="page-title">{current.label}</h2>
@@ -319,6 +352,28 @@
   /* As the running app measures: "Personal" 6 px down, its first group 2 px under it. */
   .caption.first {
     margin-block-start: 6px;
+  }
+
+  /* The admin block (admin look §18): a rule, then "Admin" 2 px above its first group. */
+  .admin-rule {
+    display: none;
+    block-size: 1px;
+    margin: 8px 4px;
+    background-color: color-mix(in srgb, var(--color-gray-100) 40%, transparent);
+  }
+
+  :global([data-theme='dark']) .admin-rule {
+    background-color: rgb(255 255 255 / 0.025);
+  }
+
+  @media (min-width: 48rem) {
+    .admin-rule {
+      display: block;
+    }
+  }
+
+  .caption.admin-caption {
+    margin-block-start: 0;
   }
 
   .caption.lead {
