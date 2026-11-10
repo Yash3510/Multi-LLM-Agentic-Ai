@@ -9,8 +9,9 @@
  */
 @layer components {
   /* e2: popovers and menus (ADR-0041 amendment). A 12 px radius and hairline depth, no border.
-     Opens and closes as the running app's menus do: 200 ms on a cubic ease-out, 8 px of travel
-     from its trigger and a scale from 0.95, the same both ways (common look, Motion). */
+     Opens and closes as the running app's menus do: 200 ms on a cubic ease-out, dropping 8 px
+     from above (whichever side it opens on) and scaling from 0.95, the same both ways (common
+     look, Motion). */
   [data-surface='float'] {
     z-index: 60;
     border: 0;
@@ -18,7 +19,6 @@
     background-color: var(--color-surface-raised);
     box-shadow: var(--shadow-e2);
     color: var(--color-ink-1);
-    transform-origin: var(--bits-floating-transform-origin, top);
     transition-property: opacity, translate, scale;
     transition-duration: var(--duration-menu);
     transition-timing-function: var(--ease-cubic-out);
@@ -28,18 +28,6 @@
     opacity: 0;
     translate: 0 -8px;
     scale: 0.95;
-  }
-
-  [data-surface='float'][data-side='top']:is([data-starting-style], [data-ending-style]) {
-    translate: 0 8px;
-  }
-
-  [data-surface='float'][data-side='left']:is([data-starting-style], [data-ending-style]) {
-    translate: 8px 0;
-  }
-
-  [data-surface='float'][data-side='right']:is([data-starting-style], [data-ending-style]) {
-    translate: -8px 0;
   }
 
   /* Reduced motion: a crossfade only. */
