@@ -312,3 +312,41 @@ describe('usage (F101)', () => {
     ).toBeTruthy();
   });
 });
+
+describe('archived chats (F102)', () => {
+  it('lists archived chats, searches, unarchives, deletes and unarchives all', async () => {
+    const { getByRole, findByRole, findByText, queryByText, source } = setup();
+    const chats = await source.listChats();
+    await source.archiveAllChats();
+    const nav = getByRole('navigation', { name: 'Settings' });
+    await fireEvent.click(within(nav).getByRole('button', { name: 'Archived Chats' }));
+    const heading = await findByRole('heading', { name: /Archived Chats/, level: 2 });
+    expect(heading.textContent).toContain(String(chats.length));
+    expect(await findByText(chats[0].title)).toBeTruthy();
+
+    await fireEvent.input(getByRole('textbox', { name: 'Search archived chats' }), {
+      target: { value: 'zzz' },
+    });
+    expect(await findByText('You have no archived conversations.')).toBeTruthy();
+    await fireEvent.click(getByRole('button', { name: 'Clear search' }));
+
+    const first = (await findByText(chats[0].title)).closest('li') as HTMLElement;
+    await fireEvent.click(within(first).getByRole('button', { name: 'Unarchive Chat' }));
+    await waitFor(() => expect(queryByText(chats[0].title)).toBeNull());
+
+    const second = (await findByText(chats[1].title)).closest('li') as HTMLElement;
+    await fireEvent.click(within(second).getByRole('button', { name: 'Delete Chat' }));
+    await fireEvent.click(
+      within(await findByRole('alertdialog')).getByRole('button', { name: 'Confirm' }),
+    );
+    await waitFor(async () => expect(await source.getChat(chats[1].id)).toBeUndefined());
+
+    await fireEvent.click(getByRole('button', { name: 'Actions' }));
+    await fireEvent.click(await findByRole('menuitem', { name: 'Unarchive All' }));
+    await fireEvent.click(
+      within(await findByRole('alertdialog')).getByRole('button', { name: 'Unarchive All' }),
+    );
+    await waitFor(async () => expect(await source.listArchivedChats()).toEqual([]));
+    expect(await findByText('You have no archived conversations.')).toBeTruthy();
+  });
+});

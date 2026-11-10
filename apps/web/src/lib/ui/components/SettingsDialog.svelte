@@ -6,6 +6,7 @@
   import type { DataSource, UserSettings } from '$lib/data';
   import type { IconName } from '$lib/ui/icons/generated/icons';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import SettingsArchived from './SettingsArchived.svelte';
   import SettingsAudio from './SettingsAudio.svelte';
   import SettingsData from './SettingsData.svelte';
   import SettingsGeneral from './SettingsGeneral.svelte';
@@ -130,6 +131,8 @@
             <SettingsData {source} />
           {:else if tab === 'usage'}
             <SettingsUsage {source} />
+          {:else if tab === 'archived'}
+            <SettingsArchived {source} />
           {:else if current}
             <!-- The other pages land one at a time. -->
             <h2 class="page-title">{current.label}</h2>
