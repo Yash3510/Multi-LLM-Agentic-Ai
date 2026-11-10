@@ -3,6 +3,7 @@
   // switch, search, and the Actions menu (Export, Enable All, Disable All, Show All, Hide All,
   // Reset). Reset needs RESET typed and can be undone; changes save with Save and are logged.
   // Import and Manage (pulling models onto a server) wait for the 4CE server.
+  import { toast } from '$lib/ui/toast.svelte';
   import { DropdownMenu } from 'bits-ui';
   import type { DataSource } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
@@ -77,7 +78,7 @@
   async function save() {
     await source.saveAdminSettings('models', $state.snapshot(prefs));
     saved = $state.snapshot(prefs);
-    notice = 'Settings saved successfully!';
+    toast('Settings saved successfully!');
   }
 
   async function reset() {

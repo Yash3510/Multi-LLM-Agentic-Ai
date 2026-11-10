@@ -3,6 +3,7 @@
   // The two switches save at once; the rest saves with Save. Only engines and voices that run on
   // this machine are offered: the in-browser model (downloaded from outside) and the browser's
   // network voices (which send the text to the browser vendor) are left out, as the owner chose.
+  import { toast } from '$lib/ui/toast.svelte';
   import { untrack } from 'svelte';
   import type { DataSource, UserSettings } from '$lib/data';
   import SettingsSelect from './SettingsSelect.svelte';
@@ -58,7 +59,7 @@
       voice: voice || undefined,
     };
     await source.saveUserSettings({ ui: { audio } });
-    notice = 'Settings saved successfully!';
+    toast('Settings saved successfully!');
   }
 </script>
 

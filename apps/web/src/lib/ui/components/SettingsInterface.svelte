@@ -1,6 +1,7 @@
 <script lang="ts">
   // Interface settings (chat-composer look §9.4, common look F68): the preference rows, saved with
   // Save. Floating Quick Actions and Image Compression each open a small Manage dialog.
+  import { toast } from '$lib/ui/toast.svelte';
   import { untrack } from 'svelte';
   import type { DataSource, UserSettings } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
@@ -51,7 +52,7 @@
 
   async function save() {
     await source.saveUserSettings({ ui: $state.snapshot(prefs) });
-    notice = 'Settings saved successfully!';
+    toast('Settings saved successfully!');
   }
 </script>
 

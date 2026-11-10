@@ -2,6 +2,7 @@
   // One admin settings panel drawn from its schema (admin look §19, P1 to P4): sections of rows
   // and fields with switches, selects, inputs, text areas, secret fields and text actions. Values
   // start from the schema's defaults overlaid with the stored ones; Save stores them all.
+  import { toast } from '$lib/ui/toast.svelte';
   import type { DataSource } from '$lib/data';
   import {
     type Item,
@@ -77,7 +78,7 @@
     event.preventDefault();
     if (!values) return;
     await source.saveAdminSettings(panel.id, $state.snapshot(values));
-    notice = 'Settings saved successfully!';
+    toast('Settings saved successfully!');
   }
 </script>
 

@@ -11,11 +11,14 @@
   --duration-deliberate: 900ms;
   --duration-handover: 1900ms;
   --duration-ambient: 3800ms;
+  /* Menus, selects and dialogs arrive in 200 ms on a cubic ease-out, as in the running app. */
+  --duration-menu: 200ms;
 
   --ease-*: initial;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-cubic-out: cubic-bezier(0.33, 1, 0.68, 1);
 
   /* Bare transition utilities use the measured default: 150 ms on the standard curve (ADR-0041). */
   --default-transition-duration: 150ms;
@@ -41,5 +44,6 @@
     --duration-calm: 120ms;
     --duration-slow: 120ms;
     --duration-deliberate: 120ms;
+    --duration-menu: 120ms;
   }
 }

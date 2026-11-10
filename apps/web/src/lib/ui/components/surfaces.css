@@ -8,8 +8,9 @@
  * floating layer over all of them (60), so a menu or a tooltip opened inside a dialog shows on top.
  */
 @layer components {
-  /* e2: popovers and menus (ADR-0041 amendment). A 12 px radius and hairline depth, no border;
-     arrives at calm with 4 px of travel from its trigger. */
+  /* e2: popovers and menus (ADR-0041 amendment). A 12 px radius and hairline depth, no border.
+     Opens and closes as the running app's menus do: 200 ms on a cubic ease-out, 8 px of travel
+     from its trigger and a scale from 0.95, the same both ways (common look, Motion). */
   [data-surface='float'] {
     z-index: 60;
     border: 0;
@@ -17,26 +18,34 @@
     background-color: var(--color-surface-raised);
     box-shadow: var(--shadow-e2);
     color: var(--color-ink-1);
-    transition-property: opacity, translate;
-    transition-duration: var(--duration-calm);
-    transition-timing-function: var(--ease-out);
+    transform-origin: var(--bits-floating-transform-origin, top);
+    transition-property: opacity, translate, scale;
+    transition-duration: var(--duration-menu);
+    transition-timing-function: var(--ease-cubic-out);
   }
 
   [data-surface='float']:is([data-starting-style], [data-ending-style]) {
     opacity: 0;
-    translate: 0 calc(var(--spacing-1) * -1);
+    translate: 0 -8px;
+    scale: 0.95;
   }
 
   [data-surface='float'][data-side='top']:is([data-starting-style], [data-ending-style]) {
-    translate: 0 var(--spacing-1);
+    translate: 0 8px;
   }
 
   [data-surface='float'][data-side='left']:is([data-starting-style], [data-ending-style]) {
-    translate: var(--spacing-1) 0;
+    translate: 8px 0;
   }
 
   [data-surface='float'][data-side='right']:is([data-starting-style], [data-ending-style]) {
-    translate: calc(var(--spacing-1) * -1) 0;
+    translate: -8px 0;
+  }
+
+  /* Reduced motion: a crossfade only. */
+  [data-motion='reduce'] [data-surface='float']:is([data-starting-style], [data-ending-style]) {
+    translate: none;
+    scale: none;
   }
 
   /* While its menu or popover is open, the trigger keeps its hover look: it reads as the anchor. */
@@ -66,13 +75,9 @@
     opacity: 0;
   }
 
-  /* Exits take two thirds of the entrance's time and ease away. */
-  :is([data-surface='float'], [data-surface='tip'])[data-ending-style] {
-    transition-duration: calc(var(--duration-calm) * 2 / 3);
-    transition-timing-function: var(--ease-exit);
-  }
-
+  /* The tooltip's exit takes two thirds of its entrance and eases away. */
   [data-surface='tip'][data-ending-style] {
+    transition-timing-function: var(--ease-exit);
     transition-duration: calc(var(--duration-base) * 2 / 3);
   }
 
@@ -84,21 +89,18 @@
     z-index: 60;
   }
 
-  /* The scrim is a flat colour, never glass. It fades at slow. */
+  /* The scrim is a flat colour, never glass. Like the running app's backdrop it appears almost at
+     once (10 ms) and goes with its dialog. */
   [data-surface='scrim'] {
     position: fixed;
     inset: 0;
     z-index: 40;
     background-color: var(--color-scrim);
-    transition: opacity var(--duration-slow) var(--ease-out);
+    transition: opacity 10ms linear;
   }
 
-  [data-surface='scrim']:is([data-starting-style], [data-ending-style]) {
+  [data-surface='scrim'][data-starting-style] {
     opacity: 0;
-  }
-
-  [data-surface='scrim'][data-ending-style] {
-    transition-duration: calc(var(--duration-slow) * 2 / 3);
   }
 
   /*
@@ -165,23 +167,24 @@
     border-end-end-radius: 0;
   }
 
+  /* Dialogs and sheets arrive like the running app's modals: 200 ms on a cubic ease-out, 8 px of
+     travel and a scale from 0.95. They leave at once, as there. */
   :is([data-placement='center'], [data-placement='bottom']) {
-    transition-property: opacity, translate;
-    transition-duration: var(--duration-slow);
-    transition-timing-function: var(--ease-out);
+    transition-property: opacity, translate, scale;
+    transition-duration: var(--duration-menu);
+    transition-timing-function: var(--ease-cubic-out);
   }
 
-  :is([data-placement='center'], [data-placement='bottom']):is(
-    [data-starting-style],
-    [data-ending-style]
-  ) {
+  :is([data-placement='center'], [data-placement='bottom'])[data-starting-style] {
     opacity: 0;
-    translate: 0 var(--spacing-2);
+    translate: 0 -8px;
+    scale: 0.95;
   }
 
-  :is([data-placement='center'], [data-placement='bottom'])[data-ending-style] {
-    transition-duration: calc(var(--duration-slow) * 2 / 3);
-    transition-timing-function: var(--ease-exit);
+  [data-motion='reduce']
+    :is([data-placement='center'], [data-placement='bottom'])[data-starting-style] {
+    translate: none;
+    scale: none;
   }
 
   /*

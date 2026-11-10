@@ -20,3 +20,27 @@
   padding: 12px calc(12px + 0.45rem) 12px 12px;
   overflow-y: auto;
 }
+
+/* The card arrives like the running app's modal panel: 200 ms on a cubic ease-out, from 8 px up
+   and a scale of 0.95. It leaves at once, as there. */
+@keyframes modal-card-in {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+    scale: 0.95;
+  }
+}
+
+@keyframes modal-card-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.modal-frame[data-state='open'] > :not([data-dialog-title]) {
+  animation: modal-card-in var(--duration-menu) var(--ease-cubic-out);
+}
+
+[data-motion='reduce'] .modal-frame[data-state='open'] > :not([data-dialog-title]) {
+  animation-name: modal-card-fade;
+}

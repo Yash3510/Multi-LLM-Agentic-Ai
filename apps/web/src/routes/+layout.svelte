@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Toaster from '$lib/ui/components/Toaster.svelte';
   import '../app.css';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
@@ -25,3 +26,5 @@
     >{@render children()}</AppShell
   >
 {/if}
+
+<Toaster />

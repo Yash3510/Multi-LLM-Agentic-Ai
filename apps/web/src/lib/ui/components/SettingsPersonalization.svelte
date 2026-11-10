@@ -1,6 +1,7 @@
 <script lang="ts">
   // Personalization (chat-composer look §9.9, F98): the memory switch, saved at once, and the
   // person's memories: search, the Actions menu (Add Memory, Clear memory), Edit and Remove.
+  import { toast } from '$lib/ui/toast.svelte';
   import { DropdownMenu } from 'bits-ui';
   import { untrack } from 'svelte';
   import type { DataSource, Memory, MemoryDraft, UserSettings } from '$lib/data';
@@ -148,7 +149,7 @@
   </div>
   <p class="sr-only" role="status">{notice}</p>
   <div class="footer">
-    <button type="button" class="save" onclick={() => (notice = 'Settings saved successfully!')}
+    <button type="button" class="save" onclick={() => toast('Settings saved successfully!')}
       >Save</button
     >
   </div>

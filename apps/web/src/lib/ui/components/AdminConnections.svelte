@@ -3,6 +3,7 @@
   // each a list of addresses with an enabled switch and a settings dialog; and the cached base
   // model list. Only local or self-hosted addresses are accepted, as the owner chose; Direct
   // Connections (people's own endpoints) are left out.
+  import { toast } from '$lib/ui/toast.svelte';
   import type { DataSource } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import ConnectionDialog, { type Connection } from './ConnectionDialog.svelte';
@@ -73,7 +74,7 @@
     event.preventDefault();
     if (!config) return;
     await source.saveAdminSettings('connections', $state.snapshot(config));
-    notice = 'Settings saved successfully!';
+    toast('Settings saved successfully!');
   }
 </script>
 

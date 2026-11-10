@@ -42,6 +42,8 @@ describe('motion tokens', () => {
     expect(motionCss).toContain(`--ease-out: ${EASE.out};`);
     expect(motionCss).toContain(`--ease-in-out: ${EASE.inOut};`);
     expect(motionCss).toContain(`--ease-exit: ${EASE.exit};`);
+    expect(motionCss).toContain(`--ease-cubic-out: ${EASE.cubicOut};`);
+    expect(DURATION.menu).toBe(200);
   });
 });
 

@@ -2,6 +2,7 @@
   // Account (chat-composer look §9.14, F103): the picture (upload, initials or the default), name,
   // bio, gender, birth date and user variables, saved with Save; and the password change. The API
   // keys section is not built: it is switched off on the running app and shows session secrets.
+  import { toast } from '$lib/ui/toast.svelte';
   import { untrack } from 'svelte';
   import type { DataSource, Profile } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
@@ -99,7 +100,7 @@
       gender: gender === 'custom' ? customGender.trim() : gender,
       variables: Object.fromEntries(variables.map((one) => [one.key, one.value])),
     });
-    notice = 'Settings saved successfully!';
+    toast('Settings saved successfully!');
   }
 
   async function changePassword() {

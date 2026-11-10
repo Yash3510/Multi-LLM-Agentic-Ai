@@ -12,6 +12,7 @@ export const DURATION = {
   deliberate: 900,
   handover: 1900,
   ambient: 3800,
+  menu: 200,
 } as const;
 
 /** CSS easing strings, by token name (--ease-out, --ease-in-out, --ease-exit). Linear is for loops only. */
@@ -19,6 +20,7 @@ export const EASE = {
   out: 'cubic-bezier(0.22, 1, 0.36, 1)',
   inOut: 'cubic-bezier(0.45, 0, 0.25, 1)',
   exit: 'cubic-bezier(0.4, 0, 1, 1)',
+  cubicOut: 'cubic-bezier(0.33, 1, 0.68, 1)',
   linear: 'linear',
 } as const;
 

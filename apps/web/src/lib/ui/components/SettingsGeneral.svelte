@@ -1,6 +1,7 @@
 <script lang="ts">
   // General settings (chat-composer look §9.3, F92): theme and language apply at once; the system
   // prompt and the advanced parameters save with Save.
+  import { toast } from '$lib/ui/toast.svelte';
   import { untrack } from 'svelte';
   import type { DataSource, UserSettings } from '$lib/data';
   import { getLocale, locales, setLocale } from '$lib/i18n/generated/runtime.js';
@@ -32,7 +33,7 @@
       system: system.trim() ? system : undefined,
       params: $state.snapshot(params),
     });
-    notice = 'Settings saved successfully!';
+    toast('Settings saved successfully!');
   }
 </script>
 
