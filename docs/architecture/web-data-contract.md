@@ -30,6 +30,7 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `getAdminSettings(panel)` / `saveAdminSettings(panel, values)` | an admin settings panel's stored values by key, merged on save (unset keys use the panel's defaults in `lib/ui/admin-panels.ts`); logged | the admin settings tabs |
 | `exportAdminData(kind)` / `importAdminConfig(config)` | admin exports (config and chats as JSON, users as CSV; the database file only where supported) and a config import that returns the previous config for undo; each logged | the admin Database tab |
 | `adminMaintenance(task)` | Documents' Danger Zone: reset uploads, reset vectors (both permanent) or reindex; logged | the admin Documents tab |
+| `getAnalytics(days)` | everyone's usage for the admin dashboard (`Analytics`: totals, daily assistant messages, messages by model and by person); 0 days = all time | the admin Analytics tab |
 | `adminLedger()` | every admin change, newest first (`LedgerEntry`: when, by whom, action, target; never a password) | the admin pages' change trail |
 | `getProfile()` / `saveProfile(profile)` | the person's profile (`Profile`: name, bio, gender, birth date, avatar kind, user variables); saving the name renames the signed-in person | the Account page |
 | `changePassword(current, next)` | changes the password; both go only to the backend, never logged, stored or put in a URL | the Account page |

@@ -188,6 +188,15 @@ export interface ServerFunction {
   owner: { name: string; email: string };
 }
 
+/** Usage across everyone for the admin dashboard (admin F257 to F267); assistant messages only. */
+export interface Analytics {
+  totals: { messages: number; tokens: number; chats: number; users: number };
+  /** Oldest first, one entry per day (YYYY-MM-DD). */
+  daily: { date: string; messages: number }[];
+  models: { id: string; name: string; messages: number; users: number; chats: number }[];
+  users: { id: string; name: string; messages: number; tokens: number }[];
+}
+
 /** The workspace tabs, in the running app's order. */
 export type WorkspaceTab = 'models' | 'knowledge' | 'prompts' | 'skills' | 'tools';
 
@@ -474,6 +483,8 @@ export interface DataSource {
   ): Promise<Record<string, Record<string, unknown>>>;
   /** Upload and index maintenance (Documents' Danger Zone); resets cannot be undone. Logged. */
   adminMaintenance(task: 'reset-uploads' | 'reset-vectors' | 'reindex'): Promise<void>;
+  /** Everyone's usage over the last `days` days (0 for all time). */
+  getAnalytics(days: number): Promise<Analytics>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

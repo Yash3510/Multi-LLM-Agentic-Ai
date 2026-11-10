@@ -1157,6 +1157,30 @@ export function createFakeSource({
     async adminMaintenance(task) {
       record(`maintenance.${task}`, task);
     },
+    // A small fixed week: three answers from the orchestrator to the administrator.
+    async getAnalytics(days) {
+      const span = (days || 7) + 1;
+      const active: Record<number, number> = { 6: 1, 3: 2 };
+      const today = Date.UTC(
+        new Date().getUTCFullYear(),
+        new Date().getUTCMonth(),
+        new Date().getUTCDate(),
+      );
+      return {
+        totals: { messages: 3, tokens: 4400, chats: 2, users: 1 },
+        daily: Array.from({ length: span }, (_, index) => {
+          const ago = span - 1 - index;
+          return {
+            date: new Date(today - ago * 86_400_000).toISOString().slice(0, 10),
+            messages: active[ago] ?? 0,
+          };
+        }),
+        models: [
+          { id: '4ce-tony', name: '4CE / TONY (Orchestrator)', messages: 3, users: 1, chats: 2 },
+        ],
+        users: [{ id: 'u-admin', name: '4CE Administrator', messages: 3, tokens: 4400 }],
+      };
+    },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));
     },

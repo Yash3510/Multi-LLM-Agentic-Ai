@@ -594,3 +594,18 @@ describe('fake admin maintenance', () => {
     expect((await source.adminLedger())[0].action).toBe('maintenance.reset-vectors');
   });
 });
+
+describe('fake analytics', () => {
+  it('summarises messages, tokens, chats and people per day, by model and by person', async () => {
+    const analytics = await createFakeSource({ pace: 0 }).getAnalytics(7);
+    expect(analytics.totals).toEqual({ messages: 3, tokens: 4400, chats: 2, users: 1 });
+    expect(analytics.daily).toHaveLength(8);
+    expect(analytics.daily.reduce((sum, day) => sum + day.messages, 0)).toBe(3);
+    expect(analytics.models[0]).toMatchObject({ id: '4ce-tony', messages: 3, users: 1, chats: 2 });
+    expect(analytics.users[0]).toMatchObject({
+      name: '4CE Administrator',
+      messages: 3,
+      tokens: 4400,
+    });
+  });
+});
