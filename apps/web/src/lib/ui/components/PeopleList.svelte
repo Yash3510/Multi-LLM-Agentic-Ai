@@ -13,11 +13,13 @@
     onadd?: () => void;
     /** Opens the edit dialog for a person. */
     onedit?: (person: AdminUser) => void;
+    /** Opens the access preview for a person. */
+    onpreview?: (person: AdminUser) => void;
     /** Bumped by the page to reload after a dialog saves. */
     version?: number;
   };
 
-  let { source, onadd, onedit, version = 0 }: Props = $props();
+  let { source, onadd, onedit, onpreview, version = 0 }: Props = $props();
 
   type Column = 'name' | 'role' | 'email' | 'lastActive' | 'created';
   const COLUMNS: [Column, string][] = [
@@ -169,8 +171,11 @@
               <td class="actions">
                 <span class="buttons">
                   {#if person.role !== 'admin'}
-                    <button type="button" aria-label="Preview Access" title="Preview Access"
-                      ><Icon name="eye" size={14} /></button
+                    <button
+                      type="button"
+                      aria-label="Preview Access"
+                      title="Preview Access"
+                      onclick={() => onpreview?.(person)}><Icon name="eye" size={14} /></button
                     >
                   {/if}
                   <button

@@ -2,6 +2,10 @@
   // People (admin look §4): the Overview and Groups tabs with their counts, beside the content.
   import { resolve } from '$app/paths';
   import { data as source } from '$lib/data';
+  import type { AdminUser } from '$lib/data';
+  import AccessPreviewDialog from '$lib/ui/components/AccessPreviewDialog.svelte';
+  import AddUserDialog from '$lib/ui/components/AddUserDialog.svelte';
+  import EditUserDialog from '$lib/ui/components/EditUserDialog.svelte';
   import PeopleList from '$lib/ui/components/PeopleList.svelte';
   import type { PageProps } from './$types';
 
@@ -9,6 +13,14 @@
 
   let counts = $state<{ people: number; groups: number }>();
   let version = $state(0);
+  let adding = $state(false);
+  let editing = $state<AdminUser>();
+  let previewing = $state<AdminUser>();
+  const saved = () => {
+    adding = false;
+    editing = undefined;
+    version += 1;
+  };
 
   $effect(() => {
     void version;
@@ -33,10 +45,32 @@
   </nav>
   <div class="pane">
     {#if data.tab === 'overview'}
-      <PeopleList {source} {version} />
+      <PeopleList
+        {source}
+        {version}
+        onadd={() => (adding = true)}
+        onedit={(person) => (editing = person)}
+        onpreview={(person) => (previewing = person)}
+      />
     {/if}
   </div>
 </div>
+
+<AddUserDialog open={adding} {source} onsaved={saved} onclose={() => (adding = false)} />
+<EditUserDialog
+  open={editing !== undefined}
+  {source}
+  person={editing}
+  selfId={data.user?.id ?? ''}
+  onsaved={saved}
+  onclose={() => (editing = undefined)}
+/>
+<AccessPreviewDialog
+  open={previewing !== undefined}
+  {source}
+  person={previewing}
+  onclose={() => (previewing = undefined)}
+/>
 
 <style>
   .people-shell {
