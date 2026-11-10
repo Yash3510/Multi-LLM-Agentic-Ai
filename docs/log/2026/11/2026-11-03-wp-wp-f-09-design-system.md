@@ -252,3 +252,23 @@ The project check passed (516 unit tests, 16 e2e, design-lint, svelte-check, esl
 | calendar           | 98.60 | 98.37 | 98.00 |
 
 Known gaps: the function editor starts from 4CE's own example; licence, community sharing and Web Search are left out by the owner's rules; :5173 shows a sign-in toast on the calendar.
+
+## 2026-11-11 Motion parity
+
+### What changed
+
+- Menus, selects and popovers open and close in 200 ms on a cubic ease-out, dropping 8 px from above and scaling from 0.95; dialogs arrive the same way and leave at once; the scrim appears in 10 ms; tooltips fade 300 ms in and 250 ms out. New tokens `--duration-menu` and `--ease-cubic-out`.
+- Save confirmations show as toasts at the top right (our own small toaster, no package); before, they only reached screen readers.
+- The composer's send button is one button with voice, send and stop faces that crossfade; the arrow leaves upward on send and the voice bars breathe on hover.
+- Hover states for the calendar and playground controls; the home logo and suggestions fade in.
+- The cascade layer order is declared in `app.html` before any stylesheet loads: the dev server injected a component stylesheet ahead of `app.css`, ranking the components layer below Tailwind's base reset, so shared button, menu and surface hovers never showed in development.
+- A browser test checks that every icon sits inside its button and icon-only ones are centred.
+
+### How it was verified
+
+The project check passed (518 unit tests, design-lint, svelte-check, eslint, prettier, build, tools tests, repo, neutrality and docs checks); `npx playwright test e2e/icons.spec.ts` passed 4 of 4. A hover audit (`.parity/pixel/hover-audit.mjs`) found no control without a hover state on the home, workspace, notes, calendar and playground screens; the admin table headers and role chips have none in the running app either. Five screens re-scored after the layer fix: home 99.06, models 99.95, Settings General 99.63, users 99.41, notes 99.53 (light). Side-by-side clips of opening a menu, opening settings and sending a message were recorded with Playwright.
+
+### Known limits
+
+- The pill overflow could not be reproduced after the layer fix; the new browser test guards it.
+- Sending from the home page does not start a chat yet: the data contract has no create-chat call. The send clip uses an existing chat on ours and only types on :5173, whose backend could reach an outside model.
