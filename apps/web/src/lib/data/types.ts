@@ -251,7 +251,7 @@ export interface DataSource {
   createFirstAccount(name: string, email: string, password: string): Promise<User>;
   listChats(): Promise<ChatSummary[]>;
   getUserSettings(): Promise<UserSettings>;
-  /** Merges the given parts into the saved settings. */
+  /** Merges the given parts into the saved settings; interface choices merge by key. */
   saveUserSettings(change: UserSettings): Promise<void>;
   /** Sets or, with undefined, clears the person's status. */
   setStatus(status: { emoji?: string; message?: string } | undefined): Promise<void>;

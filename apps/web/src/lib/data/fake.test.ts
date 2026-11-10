@@ -296,6 +296,13 @@ describe('fake user settings', () => {
     });
   });
 
+  it('merges interface choices by key', async () => {
+    const source = createFakeSource({ pace: 0 });
+    await source.saveUserSettings({ ui: { a: 1 } });
+    await source.saveUserSettings({ ui: { b: 2 } });
+    expect((await source.getUserSettings()).ui).toEqual({ a: 1, b: 2 });
+  });
+
   it('sets and clears the status, and counts active people', async () => {
     const source = createFakeSource({ pace: 0 });
     await source.setStatus({ emoji: '🛠️', message: 'On site' });

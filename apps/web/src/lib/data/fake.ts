@@ -604,7 +604,9 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       return structuredClone(settings);
     },
     async saveUserSettings(change) {
-      settings = { ...settings, ...structuredClone(change) };
+      const copy = structuredClone(change);
+      const ui = copy.ui || settings.ui ? { ui: { ...settings.ui, ...copy.ui } } : {};
+      settings = { ...settings, ...copy, ...ui };
     },
     async setStatus(status) {
       if (user) user = { ...user, status };
