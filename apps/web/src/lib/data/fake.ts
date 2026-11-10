@@ -13,6 +13,8 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  Calendar,
+  CalendarEvent,
   Channel,
   ChannelMessage,
   Note,
@@ -629,6 +631,9 @@ export function createFakeSource({
   const deletedFeedback = new Map<string, Feedback>();
   const adminSettings = new Map<string, Record<string, unknown>>();
   let notes: Note[] = [];
+  let calendars: Calendar[] = [{ id: 'personal', name: 'Personal', color: 'blue' }];
+  let events: CalendarEvent[] = [];
+  const deletedEvents = new Map<string, CalendarEvent>();
   // One seeded channel with a short exchange, so the channel screen has something to show.
   let channels: Channel[] = [
     { id: 'general', name: 'general', description: 'Everyone', members: ['u-admin', 'u-asha'] },
@@ -1348,6 +1353,37 @@ export function createFakeSource({
         if (pace) await new Promise((done) => setTimeout(done, 30 * pace));
         yield word;
       }
+    },
+    async listCalendars() {
+      return structuredClone(calendars);
+    },
+    async createCalendar({ name, color }) {
+      const calendar = { id: crypto.randomUUID(), name, color };
+      calendars = [...calendars, calendar];
+      return { ...calendar };
+    },
+    async listEvents() {
+      return structuredClone(events);
+    },
+    async saveEvent(event) {
+      const saved: CalendarEvent = {
+        ...structuredClone(event),
+        id: event.id ?? crypto.randomUUID(),
+      };
+      events = [...events.filter((one) => one.id !== saved.id), saved];
+      return structuredClone(saved);
+    },
+    async deleteEvent(id) {
+      const found = events.find((one) => one.id === id);
+      if (!found) return;
+      deletedEvents.set(id, found);
+      events = events.filter((one) => one.id !== id);
+    },
+    async restoreEvent(id) {
+      const found = deletedEvents.get(id);
+      if (!found) return;
+      deletedEvents.delete(id);
+      events = [...events, found];
     },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));

@@ -233,6 +233,26 @@ export interface ChannelMessage {
   replyTo?: string;
 }
 
+/** A calendar (calendar F1 to F40); colour is a palette name such as "blue". */
+export interface Calendar {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  calendarId: string;
+  title: string;
+  start: Date;
+  end: Date;
+  allDay: boolean;
+  repeat: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  reminder: 'none' | '0' | '5' | '10' | '15' | '30' | '60';
+  location: string;
+  description: string;
+}
+
 /** The workspace tabs, in the running app's order. */
 export type WorkspaceTab = 'models' | 'knowledge' | 'prompts' | 'skills' | 'tools';
 
@@ -561,6 +581,14 @@ export interface DataSource {
       | { kind: 'completion'; prompt: string; model: string },
     signal?: AbortSignal,
   ): AsyncIterable<string>;
+  listCalendars(): Promise<Calendar[]>;
+  createCalendar(draft: { name: string; color: string }): Promise<Calendar>;
+  listEvents(): Promise<CalendarEvent[]>;
+  /** Adds an event, or replaces the one with the same id. */
+  saveEvent(event: Omit<CalendarEvent, 'id'> & { id?: string }): Promise<CalendarEvent>;
+  deleteEvent(id: string): Promise<void>;
+  /** Brings back an event deleted in this session (the Undo after a delete). */
+  restoreEvent(id: string): Promise<void>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

@@ -687,3 +687,33 @@ describe('fake playground', () => {
     expect(more.length).toBeGreaterThan(0);
   });
 });
+
+describe('fake calendar', () => {
+  it('keeps calendars and events, and deletes and restores events', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const [mine] = await source.listCalendars();
+    expect(mine.name).toBe('Personal');
+    const extra = await source.createCalendar({ name: 'Team', color: 'green' });
+    const start = new Date(2026, 10, 12, 9);
+    const event = await source.saveEvent({
+      calendarId: extra.id,
+      title: 'Review',
+      start,
+      end: new Date(2026, 10, 12, 10),
+      allDay: false,
+      repeat: 'none',
+      reminder: 'none',
+      location: '',
+      description: '',
+    });
+    expect((await source.listEvents()).map((one) => one.title)).toContain('Review');
+    await source.saveEvent({ ...event, title: 'Weekly review' });
+    expect((await source.listEvents()).find((one) => one.id === event.id)?.title).toBe(
+      'Weekly review',
+    );
+    await source.deleteEvent(event.id);
+    expect(await source.listEvents()).toEqual([]);
+    await source.restoreEvent(event.id);
+    expect(await source.listEvents()).toHaveLength(1);
+  });
+});
