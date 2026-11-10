@@ -1,0 +1,162 @@
+/* The settings page pattern (chat-composer look §9.2): title, scrolling body of sections and
+   rows, and the Save footer. Every page sits in a .settings-page element. */
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  block-size: 100%;
+  font-size: var(--text-ui);
+}
+
+.settings-page h2 {
+  margin-block-end: 16px;
+  color: var(--color-gray-900);
+  font-size: var(--text-ui);
+  font-weight: var(--font-weight-medium);
+  line-height: 20px;
+}
+
+[data-theme='dark'] .settings-page h2 {
+  color: var(--color-white);
+}
+
+.settings-page .body {
+  flex: 1;
+  min-block-size: 0;
+  padding-inline-end: 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.settings-page section + section {
+  margin-block-start: 16px;
+}
+
+.settings-page h3 {
+  margin-block-end: 8px;
+  color: var(--color-gray-600);
+  font-size: var(--text-caption);
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.settings-page .rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-page .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--color-gray-600);
+  font-size: var(--text-caption);
+  line-height: 16px;
+}
+
+[data-theme='dark'] .settings-page :is(h3, .row) {
+  color: var(--color-gray-400);
+}
+
+.settings-page .note {
+  margin-block-start: 6px;
+  color: var(--color-gray-400);
+  font-size: var(--text-micro);
+  line-height: calc(20 / 14);
+}
+
+.settings-page .field-note {
+  margin-block-start: 7px;
+}
+
+[data-theme='dark'] .settings-page .note {
+  color: var(--color-gray-600);
+}
+
+.settings-page .area {
+  display: block;
+  inline-size: 100%;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--color-gray-100) 50%, transparent);
+  border-radius: 8px;
+  background-color: color-mix(in srgb, var(--color-gray-50) 40%, transparent);
+  color: var(--color-gray-700);
+  font-size: var(--text-caption);
+  line-height: 14px;
+  resize: none;
+  transition: border-color 150ms;
+}
+
+.settings-page .area::placeholder {
+  color: var(--color-gray-300);
+}
+
+.settings-page .area:focus {
+  border-color: var(--color-blue-400);
+  outline: none;
+}
+
+[data-theme='dark'] .settings-page .area {
+  border-color: rgb(255 255 255 / 0.04);
+  background-color: rgb(255 255 255 / 0.03);
+  color: var(--color-gray-300);
+}
+
+[data-theme='dark'] .settings-page .area::placeholder {
+  color: var(--color-gray-700);
+}
+
+.settings-page .quiet {
+  color: var(--color-gray-500);
+  font-size: var(--text-caption);
+  line-height: 16px;
+  transition: color 150ms;
+}
+
+.settings-page .quiet:hover {
+  color: var(--color-gray-900);
+}
+
+[data-theme='dark'] .settings-page .quiet:hover {
+  color: var(--color-white);
+}
+
+.settings-page .row.tall {
+  min-block-size: 20px;
+}
+
+.settings-page .params {
+  margin-block-start: 8px;
+}
+
+.settings-page .footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-block-start: 12px;
+}
+
+.settings-page .save {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-black);
+  color: var(--color-white);
+  font-size: var(--text-ui);
+  line-height: 20px;
+  transition: background-color 150ms;
+}
+
+.settings-page .save:hover {
+  background-color: var(--color-gray-900);
+}
+
+[data-theme='dark'] .settings-page .save {
+  background-color: var(--color-white);
+  color: var(--color-black);
+}
+
+.settings-page :is(.quiet, .save):focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: -2px;
+}
