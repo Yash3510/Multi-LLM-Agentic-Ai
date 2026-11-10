@@ -98,12 +98,12 @@
           <span class="search"></span>
         {/if}
         <DropdownMenu.Root>
-          <DropdownMenu.Trigger class="memory-actions">
+          <DropdownMenu.Trigger class="settings-actions">
             <span>Actions</span><Icon name="caret-down-bold" size={12} />
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content
-              class="memory-menu"
+              class="settings-menu"
               data-menu
               data-surface="float"
               align="end"
@@ -222,100 +222,6 @@
     color: var(--color-gray-600);
   }
 
-  .tools {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-block-end: 8px;
-  }
-
-  .search {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    gap: 8px;
-    min-inline-size: 0;
-    color: var(--color-gray-400);
-  }
-
-  :global([data-theme='dark']) .search {
-    color: var(--color-gray-600);
-  }
-
-  .search input {
-    flex: 1;
-    min-inline-size: 0;
-    padding-block: 2px;
-    background: transparent;
-    color: var(--color-gray-700);
-    font-size: var(--text-caption);
-  }
-
-  .search input:focus {
-    outline: none;
-  }
-
-  .search input::placeholder {
-    color: var(--color-gray-300);
-  }
-
-  :global([data-theme='dark']) .search input {
-    color: var(--color-gray-300);
-  }
-
-  :global([data-theme='dark']) .search input::placeholder {
-    color: var(--color-gray-700);
-  }
-
-  .clear {
-    display: grid;
-    padding: 2px;
-    border-radius: 8px;
-    transition: color 150ms;
-  }
-
-  .clear:hover {
-    color: var(--color-gray-700);
-  }
-
-  :global(.memory-actions) {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    gap: 6px;
-    block-size: 28px;
-    padding-inline: 6px;
-    border-radius: 8px;
-    color: var(--color-gray-500);
-    font-size: var(--text-caption);
-    line-height: 16px;
-    transition: color 150ms;
-  }
-
-  :global(.memory-actions:hover) {
-    color: var(--color-gray-900);
-  }
-
-  :global([data-theme='dark'] .memory-actions:hover) {
-    color: var(--color-white);
-  }
-
-  :global(.memory-menu) {
-    z-index: 9999;
-    inline-size: 170px;
-    min-inline-size: 170px;
-  }
-
-  :global(.memory-menu [data-menu-row]) {
-    font-size: var(--text-caption);
-  }
-
-  :global(.memory-menu [data-menu-row][data-disabled]) {
-    opacity: 0.3;
-    cursor: default;
-  }
-
   .list {
     display: flex;
     flex-direction: column;
@@ -380,10 +286,5 @@
     border-color: rgb(255 255 255 / 0.04);
     background-color: rgb(255 255 255 / 0.03);
     color: var(--color-gray-400);
-  }
-
-  :is(.clear):focus-visible {
-    outline: 2px solid var(--color-blue-500);
-    outline-offset: -2px;
   }
 </style>

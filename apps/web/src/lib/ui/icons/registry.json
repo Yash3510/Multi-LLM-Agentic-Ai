@@ -135,5 +135,7 @@
   "settings-data": { "phosphor": "database", "weight": "bold" },
   "settings-usage": { "phosphor": "chart-line", "weight": "bold" },
   "settings-archived": { "phosphor": "archive", "weight": "bold" },
-  "settings-account": { "phosphor": "user-circle", "weight": "bold" }
+  "settings-account": { "phosphor": "user-circle", "weight": "bold" },
+  "unarchive": { "phosphor": "arrow-u-up-left" },
+  "camera": { "phosphor": "camera" }
 }

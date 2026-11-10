@@ -160,3 +160,104 @@
   outline: 2px solid var(--color-blue-500);
   outline-offset: -2px;
 }
+
+/* The search field and Actions menu of the list pages (chat-composer look §9.9, §9.13). The
+   trigger and menu are portalled or library-rendered, so they are plain classes. */
+.settings-page .tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block-end: 8px;
+}
+
+.settings-page .search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+  color: var(--color-gray-400);
+}
+
+[data-theme='dark'] .settings-page .search {
+  color: var(--color-gray-600);
+}
+
+.settings-page .search input {
+  flex: 1;
+  min-inline-size: 0;
+  padding-block: 2px;
+  background: transparent;
+  color: var(--color-gray-700);
+  font-size: var(--text-caption);
+}
+
+.settings-page .search input:focus {
+  outline: none;
+}
+
+.settings-page .search input::placeholder {
+  color: var(--color-gray-300);
+}
+
+[data-theme='dark'] .settings-page .search input {
+  color: var(--color-gray-300);
+}
+
+[data-theme='dark'] .settings-page .search input::placeholder {
+  color: var(--color-gray-700);
+}
+
+.settings-page .clear {
+  display: grid;
+  padding: 2px;
+  border-radius: 8px;
+  transition: color 150ms;
+}
+
+.settings-page .clear:hover {
+  color: var(--color-gray-700);
+}
+
+.settings-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  block-size: 28px;
+  padding-inline: 6px;
+  border-radius: 8px;
+  color: var(--color-gray-500);
+  font-size: var(--text-caption);
+  line-height: 16px;
+  transition: color 150ms;
+}
+
+.settings-actions:hover {
+  color: var(--color-gray-900);
+}
+
+[data-theme='dark'] .settings-actions:hover {
+  color: var(--color-white);
+}
+
+.settings-menu {
+  z-index: 9999;
+  inline-size: 170px;
+  min-inline-size: 170px;
+}
+
+.settings-menu [data-menu-row] {
+  font-size: var(--text-caption);
+}
+
+.settings-menu [data-menu-row][data-disabled] {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.settings-page .clear:focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: -2px;
+}

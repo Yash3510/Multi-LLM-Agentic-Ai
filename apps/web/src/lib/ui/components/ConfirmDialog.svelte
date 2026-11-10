@@ -8,6 +8,8 @@
     open: boolean;
     title?: string;
     message?: string;
+    /** The confirm button's words. */
+    confirmLabel?: string;
     onconfirm: () => void;
     oncancel: () => void;
     /** Anything more the question needs, such as an option, under the sentence. */
@@ -18,6 +20,7 @@
     open,
     title = 'Are you sure?',
     message = 'This action cannot be undone. Do you wish to continue?',
+    confirmLabel = 'Confirm',
     onconfirm,
     oncancel,
     children,
@@ -33,7 +36,9 @@
       {@render children?.()}
       <div class="buttons">
         <AlertDialog.Cancel class="confirm-cancel">Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action class="confirm-ok" onclick={onconfirm}>Confirm</AlertDialog.Action>
+        <AlertDialog.Action class="confirm-ok" onclick={onconfirm}
+          >{confirmLabel}</AlertDialog.Action
+        >
       </div>
     </AlertDialog.Content>
   </AlertDialog.Portal>
