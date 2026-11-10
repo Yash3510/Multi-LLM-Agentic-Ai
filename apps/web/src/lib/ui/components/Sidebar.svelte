@@ -33,7 +33,8 @@
     width?: number;
     onnewchat?: () => void;
     onsearch?: () => void;
-    onusermenu?: () => void;
+    /** Opens the user menu from the pressed avatar. */
+    onusermenu?: (event: MouseEvent) => void;
     /** The sections and lists below the primary rows. */
     children?: Snippet;
   };

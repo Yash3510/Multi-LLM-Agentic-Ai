@@ -11,10 +11,26 @@
   import { formatAgo, timeGroup, toIntlLocale } from '$lib/ui/format';
   import { getLocale } from '$lib/i18n/generated/runtime.js';
   import type { Snippet } from 'svelte';
-  import type { ChatSummary } from '$lib/data';
+  import { goto, invalidateAll } from '$app/navigation';
+  import { resolve } from '$app/paths';
+  import { data as source, type ChatSummary, type User } from '$lib/data';
+  import SettingsDialog from './SettingsDialog.svelte';
+  import StatusDialog from './StatusDialog.svelte';
+  import UserMenu from './UserMenu.svelte';
 
-  let { children, chats, userName }: { children: Snippet; chats: ChatSummary[]; userName: string } =
-    $props();
+  let {
+    children,
+    chats,
+    userName,
+    user,
+  }: { children: Snippet; chats: ChatSummary[]; userName: string; user?: User } = $props();
+
+  // The user menu hangs from the avatar that was pressed (layout look §7.1).
+  let menuOpen = $state(false);
+  let menuAnchor = $state<HTMLElement>();
+  let settingsOpen = $state(false);
+  let statusOpen = $state(false);
+  let active = $state(1);
 
   const locale = toIntlLocale(getLocale());
   // Planned routes (web-screens.md); the hash keeps them typed until they exist.
@@ -69,6 +85,11 @@
     {userName}
     destinations={DESTINATIONS}
     current={page.url.pathname + page.url.hash}
+    onusermenu={async (event) => {
+      menuAnchor = event.currentTarget as HTMLElement;
+      active = await source.activeUsers();
+      menuOpen = true;
+    }}
   >
     <div class="section">
       <span class="section-label">Folders</span>
@@ -121,6 +142,37 @@
     {@render children()}
   </main>
 </div>
+
+{#if user}
+  <UserMenu
+    bind:open={menuOpen}
+    {user}
+    {active}
+    anchor={menuAnchor}
+    onsettings={() => (settingsOpen = true)}
+    onstatus={() => (statusOpen = true)}
+    onsignout={async () => {
+      await source.signOut();
+      await goto(resolve('/auth'), { invalidateAll: true });
+    }}
+  />
+  <SettingsDialog
+    open={settingsOpen}
+    {source}
+    admin={user.role === 'admin'}
+    onclose={() => (settingsOpen = false)}
+  />
+  <StatusDialog
+    open={statusOpen}
+    message={user.status?.message}
+    onclose={() => (statusOpen = false)}
+    onsave={async (message) => {
+      await source.setStatus(message ? { message } : undefined);
+      statusOpen = false;
+      await invalidateAll();
+    }}
+  />
+{/if}
 
 <style>
   .frame {

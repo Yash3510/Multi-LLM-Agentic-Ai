@@ -21,5 +21,7 @@
 {#if bare}
   {@render children()}
 {:else}
-  <AppShell chats={data.chats} userName={data.user?.name ?? ''}>{@render children()}</AppShell>
+  <AppShell chats={data.chats} userName={data.user?.name ?? ''} user={data.user}
+    >{@render children()}</AppShell
+  >
 {/if}
