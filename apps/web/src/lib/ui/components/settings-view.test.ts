@@ -221,3 +221,39 @@ describe('personalization settings (F98)', () => {
     expect(await findByText('Saved Memories').catch(() => null)).toBeNull();
   });
 });
+
+describe('audio settings (F99)', () => {
+  it('saves the switches at once and the rest with Save, with local engines only', async () => {
+    const { getByRole, findByText, findByRole, queryByText, source } = setup();
+    const nav = getByRole('navigation', { name: 'Settings' });
+    await fireEvent.click(within(nav).getByRole('button', { name: 'Audio' }));
+    const tts = await findByRole('combobox', { name: 'Text-to-Speech Engine' });
+    expect(
+      within(tts)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Default']);
+    expect(queryByText('Allow non-local voices')).toBeNull();
+
+    const send = (await findByText('Instant Auto-Send After Voice Transcription')).closest(
+      '.block',
+    ) as HTMLElement;
+    await fireEvent.click(within(send).getByRole('switch'));
+    await waitFor(async () =>
+      expect((await source.getUserSettings()).ui).toMatchObject({ speechAutoSend: true }),
+    );
+
+    await fireEvent.input(getByRole('textbox', { name: 'Speech-to-Text Language' }), {
+      target: { value: 'hi' },
+    });
+    await fireEvent.input(getByRole('spinbutton', { name: 'Speech Playback Speed' }), {
+      target: { value: '1.5' },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Save' }));
+    await waitFor(async () =>
+      expect((await source.getUserSettings()).ui).toMatchObject({
+        audio: { sttLanguage: 'hi', playbackRate: 1.5 },
+      }),
+    );
+  });
+});

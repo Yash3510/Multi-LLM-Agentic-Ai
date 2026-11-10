@@ -6,6 +6,7 @@
   import type { DataSource, UserSettings } from '$lib/data';
   import type { IconName } from '$lib/ui/icons/generated/icons';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import SettingsAudio from './SettingsAudio.svelte';
   import SettingsGeneral from './SettingsGeneral.svelte';
   import SettingsInterface from './SettingsInterface.svelte';
   import SettingsKeyboard from './SettingsKeyboard.svelte';
@@ -121,6 +122,8 @@
             <SettingsKeyboard {source} {settings} />
           {:else if settings && tab === 'personalization'}
             <SettingsPersonalization {source} {settings} />
+          {:else if settings && tab === 'audio'}
+            <SettingsAudio {source} {settings} />
           {:else if current}
             <!-- The other pages land one at a time. -->
             <h2 class="page-title">{current.label}</h2>

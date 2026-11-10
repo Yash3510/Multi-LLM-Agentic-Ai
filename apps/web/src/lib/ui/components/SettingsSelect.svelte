@@ -8,12 +8,14 @@
     value: string;
     options: { value: string; label: string }[];
     onchange: (value: string) => void;
+    /** Fill the row instead of fitting the text. */
+    wide?: boolean;
   };
 
-  let { label, value, options, onchange }: Props = $props();
+  let { label, value, options, onchange, wide = false }: Props = $props();
 </script>
 
-<span class="wrap">
+<span class="wrap" class:wide>
   <select aria-label={label} {value} onchange={(event) => onchange(event.currentTarget.value)}>
     {#each options as option (option.value)}
       <option value={option.value}>{option.label}</option>
@@ -27,6 +29,11 @@
     position: relative;
     display: inline-flex;
     max-inline-size: 100%;
+  }
+
+  .wide,
+  .wide select {
+    inline-size: 100%;
   }
 
   select {
