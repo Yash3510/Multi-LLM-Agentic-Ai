@@ -3,7 +3,7 @@ title: State
 type: state
 status: active
 owner: R1
-updated: 2026-11-03
+updated: 2026-11-10
 tags: [4ce, state]
 ---
 
@@ -40,7 +40,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 **Known limits:** PostgreSQL from a Windows host isn't exercised in CI (production runs on Linux). Intel Macs build `cryptography` and `argon2-cffi-bindings` from source, because the lock has macOS arm64 wheels only. The ledger's limits (the table owner between checkpoints, no key rotation, SQLite's `INSERT OR REPLACE`) are on the [ledger page](architecture/ledger.md#known-limits).
 
-**The frontend is on hold in this stream.** Pranay, the frontend owner, develops `apps/web` separately; the [frontend page](architecture/frontend.md) has everything needed to do that independently. The backend's API is the contract between the two: the frontend codes against its OpenAPI document (ADR-0035 §4). On `wp/WP-F-09-design-system`, `apps/web` now has its tokens, base components and `/ui` reference, built to match the current app's look ([ADR-0041](adr/0041-exact-match-look.md), proposed; [log](log/2026/11/2026-11-03-wp-wp-f-09-design-system.md)).
+**The frontend is on hold in this stream.** Pranay, the frontend owner, develops `apps/web` separately; the [frontend page](architecture/frontend.md) has everything needed to do that independently. The backend's API is the contract between the two: the frontend codes against its OpenAPI document (ADR-0035 §4). On `wp/WP-F-09-design-system`, `apps/web` matches the current app's look ([ADR-0041](adr/0041-exact-match-look.md), proposed) for the entry, workspace, user settings and admin areas, all on the fake data source ([log](log/2026/11/2026-11-10-wp-wp-f-09-design-system.md)); channels and notes, then calendar, automations and playground, come next.
 
 ## Open questions
 
