@@ -1153,6 +1153,10 @@ export function createFakeSource({
       record('config.import', Object.keys(config).join(', '));
       return previous;
     },
+    // The fake keeps no uploads or vectors; it only records the request.
+    async adminMaintenance(task) {
+      record(`maintenance.${task}`, task);
+    },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));
     },

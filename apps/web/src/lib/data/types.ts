@@ -472,6 +472,8 @@ export interface DataSource {
   importAdminConfig(
     config: Record<string, Record<string, unknown>>,
   ): Promise<Record<string, Record<string, unknown>>>;
+  /** Upload and index maintenance (Documents' Danger Zone); resets cannot be undone. Logged. */
+  adminMaintenance(task: 'reset-uploads' | 'reset-vectors' | 'reindex'): Promise<void>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

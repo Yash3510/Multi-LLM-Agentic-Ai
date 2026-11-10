@@ -586,3 +586,11 @@ describe('fake admin data export and config import', () => {
     ]);
   });
 });
+
+describe('fake admin maintenance', () => {
+  it('logs each maintenance task', async () => {
+    const source = createFakeSource({ pace: 0 });
+    await source.adminMaintenance('reset-vectors');
+    expect((await source.adminLedger())[0].action).toBe('maintenance.reset-vectors');
+  });
+});
