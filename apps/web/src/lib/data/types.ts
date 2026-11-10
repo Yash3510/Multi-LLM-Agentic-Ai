@@ -141,6 +141,37 @@ export interface Group {
 
 export type GroupDraft = Pick<Group, 'name' | 'description' | 'share' | 'permissions'>;
 
+/** A rating someone gave a model's answer (admin F114 to F132). */
+export interface Feedback {
+  id: string;
+  userId: string;
+  userName: string;
+  chatId?: string;
+  modelId: string;
+  /** The other models in a side-by-side comparison. */
+  siblings: string[];
+  /** Won 1, draw 0, lost -1. */
+  result: 1 | 0 | -1;
+  /** The detailed rating, when given. */
+  rating?: number;
+  reason?: string;
+  comment?: string;
+  tags: string[];
+  prompt?: string;
+  response?: string;
+  created: Date;
+  updated: Date;
+}
+
+/** A model's standing from feedback (an Elo rating). */
+export interface LeaderboardEntry {
+  modelId: string;
+  rating: number;
+  won: number;
+  lost: number;
+  tags: { tag: string; count: number }[];
+}
+
 /** The workspace tabs, in the running app's order. */
 export type WorkspaceTab = 'models' | 'knowledge' | 'prompts' | 'skills' | 'tools';
 
@@ -399,6 +430,18 @@ export interface DataSource {
   /** The permissions everyone with the user role has, as stored. */
   getDefaultPermissions(): Promise<StoredPermissions>;
   saveDefaultPermissions(permissions: StoredPermissions): Promise<void>;
+  /** Each rated model's standing. */
+  leaderboard(): Promise<LeaderboardEntry[]>;
+  /** Feedback, newest first. */
+  listFeedback(): Promise<Feedback[]>;
+  deleteFeedback(id: string): Promise<void>;
+  /** Brings back feedback deleted in this session (the Undo after a delete). */
+  restoreFeedback(id: string): Promise<void>;
+  /** A model's wins and losses per day over the last `days` (0 for all time), oldest first. */
+  modelActivity(
+    modelId: string,
+    days: number,
+  ): Promise<{ date: string; won: number; lost: number }[]>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

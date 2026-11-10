@@ -497,3 +497,37 @@ describe('fake groups', () => {
     ]);
   });
 });
+
+describe('fake evaluations', () => {
+  it('starts with no feedback, ranks models from seeded feedback, and deletes and restores', async () => {
+    expect(await createFakeSource({ pace: 0 }).listFeedback()).toEqual([]);
+    const source = createFakeSource({
+      pace: 0,
+      feedback: [
+        {
+          id: 'f1',
+          userId: 'u-asha',
+          userName: 'Asha Rao',
+          modelId: '4ce-tony',
+          siblings: ['qwen/qwen3-1.7b'],
+          result: 1,
+          tags: ['clear'],
+          created: new Date(),
+          updated: new Date(),
+        },
+      ],
+    });
+    const board = await source.leaderboard();
+    const winner = board.find((entry) => entry.modelId === '4ce-tony');
+    const loser = board.find((entry) => entry.modelId === 'qwen/qwen3-1.7b');
+    expect(winner).toMatchObject({ won: 1, lost: 0, tags: [{ tag: 'clear', count: 1 }] });
+    expect(loser).toMatchObject({ won: 0, lost: 1 });
+    expect((winner?.rating ?? 0) > (loser?.rating ?? 0)).toBe(true);
+    expect((await source.modelActivity('4ce-tony', 30)).reduce((n, day) => n + day.won, 0)).toBe(1);
+    await source.deleteFeedback('f1');
+    expect(await source.listFeedback()).toEqual([]);
+    await source.restoreFeedback('f1');
+    expect(await source.listFeedback()).toHaveLength(1);
+    expect((await source.adminLedger())[0].action).toBe('feedback.restore');
+  });
+});

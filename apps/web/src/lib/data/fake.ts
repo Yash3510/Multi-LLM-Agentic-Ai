@@ -13,6 +13,8 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  Feedback,
+  LeaderboardEntry,
   Group,
   StoredPermissions,
   AdminUser,
@@ -501,7 +503,45 @@ function usage(today = new Date()): Usage {
   };
 }
 
-export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSource {
+/** Elo ratings from feedback, as a pairwise comparison per record (K 32, starting at 1000). */
+function standings(feedback: Feedback[]): LeaderboardEntry[] {
+  const board = new Map<string, LeaderboardEntry & { counts: Map<string, number> }>();
+  const entry = (modelId: string) => {
+    const found = board.get(modelId) ?? {
+      modelId,
+      rating: 1000,
+      won: 0,
+      lost: 0,
+      tags: [],
+      counts: new Map<string, number>(),
+    };
+    board.set(modelId, found);
+    return found;
+  };
+  for (const one of [...feedback].sort((a, b) => a.created.getTime() - b.created.getTime())) {
+    const model = entry(one.modelId);
+    for (const tag of one.tags) model.counts.set(tag, (model.counts.get(tag) ?? 0) + 1);
+    if (one.result === 0) continue;
+    for (const other of one.siblings.map(entry)) {
+      const [winner, loser] = one.result === 1 ? [model, other] : [other, model];
+      const expected = 1 / (1 + 10 ** ((loser.rating - winner.rating) / 400));
+      winner.rating += 32 * (1 - expected);
+      loser.rating -= 32 * (1 - expected);
+      winner.won += 1;
+      loser.lost += 1;
+    }
+  }
+  return [...board.values()].map(({ counts, ...rest }) => ({
+    ...rest,
+    rating: Math.round(rest.rating),
+    tags: [...counts].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count),
+  }));
+}
+
+export function createFakeSource({
+  pace = 1,
+  feedback: seeded = [],
+}: { pace?: number; feedback?: Feedback[] } = {}): DataSource {
   const models: WorkspaceModel[] = [];
   const bases = knowledge();
   const docs = documents();
@@ -566,6 +606,8 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
   let groups: Group[] = [];
   const deletedGroups = new Map<string, Group>();
   let defaultPermissions: StoredPermissions = {};
+  let feedback: Feedback[] = structuredClone(seeded);
+  const deletedFeedback = new Map<string, Feedback>();
   const ledger: LedgerEntry[] = [];
   const record = (action: string, target: string) =>
     ledger.unshift({ at: new Date(), by: user?.email ?? '', action, target });
@@ -1021,6 +1063,43 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     async saveDefaultPermissions(permissions) {
       defaultPermissions = structuredClone(permissions);
       record('permissions.defaults', 'user role');
+    },
+    async leaderboard() {
+      return standings(feedback);
+    },
+    async listFeedback() {
+      return structuredClone(feedback).sort((a, b) => b.updated.getTime() - a.updated.getTime());
+    },
+    async deleteFeedback(id) {
+      const found = feedback.find((one) => one.id === id);
+      if (!found) return;
+      deletedFeedback.set(id, found);
+      feedback = feedback.filter((one) => one.id !== id);
+      record('feedback.delete', `${found.modelId}: ${id}`);
+    },
+    async restoreFeedback(id) {
+      const found = deletedFeedback.get(id);
+      if (!found) return;
+      deletedFeedback.delete(id);
+      feedback = [...feedback, found];
+      record('feedback.restore', `${found.modelId}: ${id}`);
+    },
+    async modelActivity(modelId, days) {
+      const mine = feedback.filter(
+        (one) => one.modelId === modelId || one.siblings.includes(modelId),
+      );
+      const first = mine.reduce((min, one) => Math.min(min, one.created.getTime()), Date.now());
+      const count = days || Math.max(1, Math.ceil((Date.now() - first) / 86_400_000) + 1);
+      return Array.from({ length: count }, (_, index) => {
+        const day = new Date(Date.now() - (count - 1 - index) * 86_400_000)
+          .toISOString()
+          .slice(0, 10);
+        const that = mine.filter((one) => one.created.toISOString().slice(0, 10) === day);
+        const won = that.filter(
+          (one) => (one.modelId === modelId) === (one.result === 1) && one.result !== 0,
+        ).length;
+        return { date: day, won, lost: that.filter((one) => one.result !== 0).length - won };
+      });
     },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));
