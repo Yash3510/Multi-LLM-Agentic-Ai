@@ -229,6 +229,18 @@ export interface UserSettings {
   ui?: Record<string, unknown>;
 }
 
+/** Something the assistant remembers about the person (chat-composer F98). */
+export interface Memory {
+  id: string;
+  content: string;
+  /** A fact about the person, or lasting context for later chats. */
+  type: 'user' | 'context';
+  path?: string;
+  updated: Date;
+}
+
+export type MemoryDraft = Pick<Memory, 'content' | 'type' | 'path'>;
+
 /** What the model editor saves (the API takes the full record; see web-data-contract.md). */
 export interface ModelRecord {
   id: string;
@@ -257,6 +269,12 @@ export interface DataSource {
   setStatus(status: { emoji?: string; message?: string } | undefined): Promise<void>;
   /** How many people are signed in now. */
   activeUsers(): Promise<number>;
+  /** The person's memories, most recently changed first. */
+  listMemories(): Promise<Memory[]>;
+  addMemory(draft: MemoryDraft): Promise<Memory>;
+  updateMemory(id: string, draft: MemoryDraft): Promise<void>;
+  deleteMemory(id: string): Promise<void>;
+  clearMemories(): Promise<void>;
   /** How many items each workspace tab holds. */
   workspaceCounts(): Promise<Record<WorkspaceTab, number>>;
   listModels(): Promise<WorkspaceModel[]>;

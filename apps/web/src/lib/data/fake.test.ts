@@ -312,3 +312,24 @@ describe('fake user settings', () => {
     expect(await source.activeUsers()).toBe(1);
   });
 });
+
+describe('fake memories', () => {
+  it('adds, updates, lists newest first, deletes and clears', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect(await source.listMemories()).toEqual([]);
+    const first = await source.addMemory({ content: 'Prefers metric units', type: 'user' });
+    const second = await source.addMemory({
+      content: 'Works on line 3',
+      type: 'context',
+      path: 'plant/line-3',
+    });
+    expect((await source.listMemories()).map((one) => one.id)).toEqual([second.id, first.id]);
+    await source.updateMemory(first.id, { content: 'Prefers SI units', type: 'user' });
+    const listed = await source.listMemories();
+    expect(listed[0]).toMatchObject({ id: first.id, content: 'Prefers SI units' });
+    await source.deleteMemory(second.id);
+    expect(await source.listMemories()).toHaveLength(1);
+    await source.clearMemories();
+    expect(await source.listMemories()).toEqual([]);
+  });
+});

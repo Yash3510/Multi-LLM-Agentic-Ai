@@ -13,6 +13,7 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  Memory,
   StreamEvent,
   User,
   WorkspaceItem,
@@ -425,6 +426,10 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
   const folders: StoredFolder[] = [];
   const prompts: Prompt[] = [];
   let settings: UserSettings = {};
+  let memories: Memory[] = [];
+  // Each change is a tick later than the last, so newest-first order holds within one millisecond.
+  let clock = 0;
+  const stamp = () => new Date((clock = Math.max(clock + 1, Date.now())));
   const skills: Skill[] = [];
   const toolList = tools();
   const tool = (id: string) => toolList.find((one) => one.id === id);
@@ -614,6 +619,27 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     },
     async activeUsers() {
       return user ? 1 : 0;
+    },
+    async listMemories() {
+      return memories
+        .map((one) => ({ ...one }))
+        .sort((a, b) => b.updated.getTime() - a.updated.getTime());
+    },
+    async addMemory(draft) {
+      const memory = { ...draft, id: crypto.randomUUID(), updated: stamp() };
+      memories.push(memory);
+      return { ...memory };
+    },
+    async updateMemory(id, draft) {
+      memories = memories.map((one) =>
+        one.id === id ? { ...one, ...draft, updated: stamp() } : one,
+      );
+    },
+    async deleteMemory(id) {
+      memories = memories.filter((one) => one.id !== id);
+    },
+    async clearMemories() {
+      memories = [];
     },
     async listPrompts() {
       return prompts.map((one) => ({ ...one }));
