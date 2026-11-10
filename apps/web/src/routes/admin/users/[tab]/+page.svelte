@@ -1,6 +1,5 @@
 <script lang="ts">
   // People (admin look §4): the Overview and Groups tabs with their counts, beside the content.
-  import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { data as source } from '$lib/data';
   import type { AdminUser, Group, StoredPermissions } from '$lib/data';
@@ -9,6 +8,7 @@
   import AccessPreviewDialog from '$lib/ui/components/AccessPreviewDialog.svelte';
   import AddUserDialog from '$lib/ui/components/AddUserDialog.svelte';
   import EditUserDialog from '$lib/ui/components/EditUserDialog.svelte';
+  import AdminSection from '$lib/ui/components/AdminSection.svelte';
   import PeopleList from '$lib/ui/components/PeopleList.svelte';
   import type { PageProps } from './$types';
 
@@ -52,54 +52,54 @@
   });
 </script>
 
-<div class="people-shell">
-  <nav class="tabs" aria-label="People">
-    <a
-      href={resolve('/admin/users/[tab]', { tab: 'overview' })}
-      aria-current={data.tab === 'overview' ? 'page' : undefined}
-      draggable="false"
-      >Overview{#if counts}<span class="count">{counts.people.toLocaleString()}</span>{/if}</a
-    >
-    <a
-      href={resolve('/admin/users/[tab]', { tab: 'groups' })}
-      aria-current={data.tab === 'groups' ? 'page' : undefined}
-      draggable="false"
-      >Groups{#if counts}<span class="count">{counts.groups.toLocaleString()}</span>{/if}</a
-    >
-  </nav>
-  <div class="pane">
-    {#if data.tab === 'overview'}
-      <PeopleList
-        {source}
-        {version}
-        onadd={() => (adding = true)}
-        onedit={(person) => (editing = person)}
-        onpreview={(person) => (previewing = person)}
-      />
-    {:else}
-      {#if removed}
-        <p class="undo" role="status">
-          Deleted {removed.name}.
-          <button
-            type="button"
-            onclick={async () => {
-              if (removed) await source.restoreGroup(removed.id);
-              removed = undefined;
-              version += 1;
-            }}>Undo</button
-          >
-        </p>
-      {/if}
-      <GroupList
-        {source}
-        {version}
-        onnew={() => openGroup('create')}
-        onedit={(chosen) => openGroup('edit', chosen)}
-        ondefaults={() => openGroup('defaults')}
-      />
+<AdminSection
+  label="People"
+  items={[
+    {
+      href: '/admin/users/overview',
+      label: 'Overview',
+      count: counts?.people,
+      current: data.tab === 'overview',
+    },
+    {
+      href: '/admin/users/groups',
+      label: 'Groups',
+      count: counts?.groups,
+      current: data.tab === 'groups',
+    },
+  ]}
+>
+  {#if data.tab === 'overview'}
+    <PeopleList
+      {source}
+      {version}
+      onadd={() => (adding = true)}
+      onedit={(person) => (editing = person)}
+      onpreview={(person) => (previewing = person)}
+    />
+  {:else}
+    {#if removed}
+      <p class="undo" role="status">
+        Deleted {removed.name}.
+        <button
+          type="button"
+          onclick={async () => {
+            if (removed) await source.restoreGroup(removed.id);
+            removed = undefined;
+            version += 1;
+          }}>Undo</button
+        >
+      </p>
     {/if}
-  </div>
-</div>
+    <GroupList
+      {source}
+      {version}
+      onnew={() => openGroup('create')}
+      onedit={(chosen) => openGroup('edit', chosen)}
+      ondefaults={() => openGroup('defaults')}
+    />
+  {/if}
+</AdminSection>
 
 {#if groupMode}
   <GroupEditor
@@ -134,93 +134,6 @@
 />
 
 <style>
-  .people-shell {
-    display: flex;
-    flex-direction: column;
-    inline-size: 100%;
-    block-size: 100%;
-    padding-block-end: 8px;
-  }
-
-  @media (min-width: 64rem) {
-    .people-shell {
-      flex-direction: row;
-    }
-  }
-
-  .tabs {
-    display: flex;
-    gap: 10px;
-    margin-inline: 8px;
-    padding-inline: 8px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    font-size: var(--text-ui);
-    line-height: 20px;
-  }
-
-  @media (min-width: 40rem) {
-    .tabs {
-      margin-inline: 10px;
-    }
-  }
-
-  @media (min-width: 64rem) {
-    .tabs {
-      flex: none;
-      flex-direction: column;
-      gap: 0;
-      inline-size: 200px;
-      margin: 0;
-      padding-inline: 10px;
-    }
-  }
-
-  :global([data-theme='dark']) .tabs {
-    color: var(--color-gray-200);
-  }
-
-  .tabs a {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 2px;
-    border-radius: 8px;
-    color: var(--color-gray-300);
-    user-select: none;
-    transition: color 150ms;
-  }
-
-  .tabs a:hover {
-    color: var(--color-gray-700);
-  }
-
-  .tabs a[aria-current] {
-    color: inherit;
-  }
-
-  :global([data-theme='dark']) .tabs a {
-    color: var(--color-gray-600);
-  }
-
-  :global([data-theme='dark']) .tabs a:hover {
-    color: var(--color-white);
-  }
-
-  :global([data-theme='dark']) .tabs a[aria-current] {
-    color: inherit;
-  }
-
-  .count {
-    opacity: 0.6;
-  }
-
-  .tabs a:focus-visible {
-    outline: 2px solid var(--color-blue-500);
-    outline-offset: -2px;
-  }
-
   .undo {
     display: flex;
     gap: 8px;
@@ -232,17 +145,5 @@
   .undo button {
     color: inherit;
     text-decoration: underline;
-  }
-
-  .pane {
-    flex: 1;
-    padding-inline: 14px;
-    overflow-y: scroll;
-  }
-
-  @media (min-width: 64rem) {
-    .pane {
-      padding-inline: 0 16px;
-    }
   }
 </style>

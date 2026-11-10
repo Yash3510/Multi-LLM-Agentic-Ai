@@ -55,6 +55,8 @@
       --color-stop-mark: var(--ref-red-mark);
       --color-role-admin: var(--ref-role-admin-dark);
       --color-role-user: var(--ref-role-user-dark);
+      --color-chart-won: var(--ref-chart-won);
+      --color-chart-lost: var(--ref-chart-lost);
       --color-stop-soft: color-mix(in srgb, var(--ref-red-mark) 20%, transparent);
 
       --color-scrim: color-mix(in srgb, var(--ref-black) 60%, transparent);

@@ -83,6 +83,10 @@
   --color-role-admin: var(--ref-role-admin);
   --color-role-user: var(--ref-role-user);
 
+  /* Model activity bars: wins and losses (admin look §13c). */
+  --color-chart-won: var(--ref-chart-won);
+  --color-chart-lost: var(--ref-chart-lost);
+
   /* The dialog backdrop (common look F1): black at 45%, 60% in dark. */
   --color-scrim: color-mix(in srgb, var(--ref-black) 45%, transparent);
 

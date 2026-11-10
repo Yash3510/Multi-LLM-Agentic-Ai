@@ -55,6 +55,10 @@
     --ref-role-user: #4f7a5a;
     --ref-role-user-dark: #8db395;
 
+    /* The model activity chart's bars, same in both themes (admin look §13c). */
+    --ref-chart-won: #5ba3c8;
+    --ref-chart-lost: #d97c5a;
+
     /* The page body's own dark ground and ink, off the ramp (data-and-logic look §1). */
     --body-dark-ground: #171717;
     --body-dark-ink: #eeeeee;
