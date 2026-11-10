@@ -427,6 +427,9 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
   const prompts: Prompt[] = [];
   let settings: UserSettings = {};
   let memories: Memory[] = [];
+  // This source's own copy, so bulk changes stay with it.
+  let chats: Chat[] = [...CHATS];
+  const archived = new Set<string>();
   // Each change is a tick later than the last, so newest-first order holds within one millisecond.
   let clock = 0;
   const stamp = () => new Date((clock = Math.max(clock + 1, Date.now())));
@@ -813,12 +816,33 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       return saved;
     },
     async listChats(): Promise<ChatSummary[]> {
-      return [...CHATS]
+      return chats
+        .filter((chat) => !archived.has(chat.id))
         .sort((a, b) => b.updated.getTime() - a.updated.getTime())
         .map(({ id, title, updated, outcome }) => ({ id, title, updated, outcome }));
     },
     async getChat(id) {
-      return CHATS.find((chat) => chat.id === id);
+      return chats.find((chat) => chat.id === id);
+    },
+    async exportChats() {
+      return structuredClone(chats);
+    },
+    async importChats(list) {
+      const added = list.map((one) => ({
+        id: crypto.randomUUID(),
+        title: one.title,
+        messages: structuredClone(one.messages),
+        updated: new Date(),
+      }));
+      chats = [...added, ...chats];
+      return added.length;
+    },
+    async archiveAllChats() {
+      for (const chat of chats) archived.add(chat.id);
+    },
+    async deleteAllChats() {
+      chats = [];
+      archived.clear();
     },
     ask(_chatId, question, signal) {
       // A question about the server being down replays a run that stops at the Analyst, so the

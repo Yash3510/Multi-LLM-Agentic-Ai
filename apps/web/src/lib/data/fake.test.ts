@@ -333,3 +333,20 @@ describe('fake memories', () => {
     expect(await source.listMemories()).toEqual([]);
   });
 });
+
+describe('fake chat data controls', () => {
+  it('exports, imports, archives all and deletes all chats', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const before = (await source.listChats()).length;
+    const exported = await source.exportChats();
+    expect(exported).toHaveLength(before);
+    expect(exported[0].messages).toBeDefined();
+    expect(await source.importChats([{ title: 'Imported run', messages: [] }])).toBe(1);
+    expect((await source.listChats()).map((one) => one.title)).toContain('Imported run');
+    await source.archiveAllChats();
+    expect(await source.listChats()).toEqual([]);
+    expect(await source.exportChats()).toHaveLength(before + 1);
+    await source.deleteAllChats();
+    expect(await source.exportChats()).toEqual([]);
+  });
+});

@@ -21,6 +21,7 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `getUserSettings()` / `saveUserSettings(change)` | the person's own settings (`UserSettings`: system prompt, advanced parameters left at Default are absent, interface choices by key); saving merges the given parts, and interface choices merge by key | the settings dialog's pages |
 | `setStatus(status \| undefined)` | sets or clears the short status shown in the user menu (on `User.status`) | the user menu's status dialog |
 | `activeUsers()` | how many people are signed in now | the user menu's active count |
+| `exportChats()` / `importChats(chats)` / `archiveAllChats()` / `deleteAllChats()` | every chat with its messages (archived included) for a JSON export; importing adds chats and returns how many; archiving hides them from `listChats()` | the Data Controls page |
 | `listMemories()` / `addMemory(draft)` / `updateMemory(id, draft)` / `deleteMemory(id)` / `clearMemories()` | the person's memories (`Memory`: content, type `user` or `context`, optional path, updated time), most recently changed first | the Personalization page |
 | `getChat(id)` | `Chat` with its `messages`, or `undefined` | the conversation screen (`/c/[id]`) |
 | `ask(chatId, question, signal?)` | an async stream of `StreamEvent`s, ending at the sign-off request (or `done`, `stopped`, `error`) | the composer and the live answer |

@@ -269,6 +269,13 @@ export interface DataSource {
   setStatus(status: { emoji?: string; message?: string } | undefined): Promise<void>;
   /** How many people are signed in now. */
   activeUsers(): Promise<number>;
+  /** Every chat with its messages, archived ones included, for a JSON export. */
+  exportChats(): Promise<Chat[]>;
+  /** Adds chats from an export; returns how many were added. */
+  importChats(chats: Pick<Chat, 'title' | 'messages'>[]): Promise<number>;
+  /** Moves every chat into the archive. */
+  archiveAllChats(): Promise<void>;
+  deleteAllChats(): Promise<void>;
   /** The person's memories, most recently changed first. */
   listMemories(): Promise<Memory[]>;
   addMemory(draft: MemoryDraft): Promise<Memory>;
