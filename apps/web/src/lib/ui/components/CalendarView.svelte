@@ -4,6 +4,7 @@
   // sync is left out, as the owner chose.
   import { untrack } from 'svelte';
   import type { Calendar, CalendarEvent, DataSource } from '$lib/data';
+  import { occurrences } from '$lib/ui/calendar';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import EventDialog from './EventDialog.svelte';
 
@@ -20,6 +21,11 @@
   let hiddenCalendars = $state<string[]>([]);
   let events = $state<CalendarEvent[]>([]);
   let editing = $state<Draft>();
+  let view = $state<'month' | 'week' | 'day'>('month');
+  // The day the week and day views centre on.
+  let focus = $state(
+    untrack(() => new Date(today.getFullYear(), today.getMonth(), today.getDate())),
+  );
   let undo = $state<CalendarEvent>();
 
   async function load() {
@@ -40,10 +46,71 @@
   };
   const step = (month: Date, by: number) => new Date(month.getFullYear(), month.getMonth() + by, 1);
   const colour = (id: string) => calendars.find((one) => one.id === id)?.color ?? 'blue';
-  const dayEvents = (day: Date) =>
-    events
-      .filter((one) => sameDay(one.start, day) && !hiddenCalendars.includes(one.calendarId))
-      .sort((a, b) => a.start.getTime() - b.start.getTime());
+  const range = $derived.by(() => {
+    if (view === 'month') {
+      const all = cells(shown);
+      return [all[0], new Date(all[41].getFullYear(), all[41].getMonth(), all[41].getDate() + 1)];
+    }
+    const start =
+      view === 'week'
+        ? new Date(focus.getFullYear(), focus.getMonth(), focus.getDate() - focus.getDay())
+        : focus;
+    return [
+      start,
+      new Date(start.getFullYear(), start.getMonth(), start.getDate() + (view === 'week' ? 7 : 1)),
+    ];
+  });
+  const visible = $derived(
+    occurrences(events, range[0], range[1]).filter(
+      (one) => !hiddenCalendars.includes(one.calendarId),
+    ),
+  );
+  const dayEvents = (day: Date) => visible.filter((one) => sameDay(one.start, day));
+  const days = $derived(
+    Array.from(
+      { length: view === 'week' ? 7 : 1 },
+      (_, index) =>
+        new Date(range[0].getFullYear(), range[0].getMonth(), range[0].getDate() + index),
+    ),
+  );
+  const heading = $derived.by(() => {
+    if (view === 'month') return title(shown);
+    if (view === 'day')
+      return focus.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    const [start] = days;
+    const end = days[6];
+    const month = (date: Date) => date.toLocaleDateString('en-US', { month: 'short' });
+    return start.getMonth() === end.getMonth()
+      ? `${month(start)} ${start.getDate()} – ${end.getDate()}, ${end.getFullYear()}`
+      : `${month(start)} ${start.getDate()} – ${month(end)} ${end.getDate()}, ${end.getFullYear()}`;
+  });
+  const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+  const hourLabel = (hour: number) =>
+    new Date(2000, 0, 1, hour).toLocaleTimeString('en-US', { hour: 'numeric' });
+
+  function move(by: number) {
+    if (view === 'month') shown = step(shown, by);
+    else
+      focus = new Date(
+        focus.getFullYear(),
+        focus.getMonth(),
+        focus.getDate() + by * (view === 'week' ? 7 : 1),
+      );
+  }
+
+  function goToday() {
+    shown = new Date(today.getFullYear(), today.getMonth(), 1);
+    focus = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  }
+
+  /** Opens the stored event behind an occurrence. */
+  const open = (occurrence: CalendarEvent) =>
+    (editing = events.find((one) => one.id === occurrence.id) ?? occurrence);
 
   function create(day = today) {
     const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9);
@@ -93,29 +160,23 @@
 
 <div class="calendar">
   <header class="top">
-    <h1>{title(shown)}</h1>
-    <button
-      type="button"
-      class="caret"
-      aria-label="Previous month"
-      onclick={() => (shown = step(shown, -1))}><Icon name="caret-left" size={14} /></button
+    <h1>{heading}</h1>
+    <button type="button" class="caret" aria-label="Previous month" onclick={() => move(-1)}
+      ><Icon name="caret-left" size={14} /></button
     >
-    <button
-      type="button"
-      class="caret"
-      aria-label="Next month"
-      onclick={() => (shown = step(shown, 1))}><Icon name="caret-right" size={14} /></button
+    <button type="button" class="caret" aria-label="Next month" onclick={() => move(1)}
+      ><Icon name="caret-right" size={14} /></button
     >
     <span class="grow"></span>
     {#if undo}<span class="undo" role="status"
         >Deleted {undo.title}. <button type="button" onclick={restore}>Undo</button></span
       >{/if}
-    <button
-      type="button"
-      class="text"
-      onclick={() => (shown = new Date(today.getFullYear(), today.getMonth(), 1))}>Today</button
-    >
-    <span class="text">Month</span>
+    <button type="button" class="text" onclick={goToday}>Today</button>
+    <select class="text view" bind:value={view} aria-label="View">
+      <option value="month">Month</option><option value="week">Week</option><option value="day"
+        >Day</option
+      >
+    </select>
     <button type="button" class="create" onclick={() => create()}>Create</button>
   </header>
   <div class="layout">
@@ -171,44 +232,91 @@
         </label>
       {/each}
     </aside>
-    <div class="month">
-      <div class="weekdays">
-        {#each ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as name (name)}<span>{name}</span
-          >{/each}
-      </div>
-      <div class="grid">
-        {#each cells(shown) as day (day.toISOString())}
-          <div
-            class="cell"
-            role="button"
-            tabindex="0"
-            aria-label={day.toDateString()}
-            ondblclick={() => create(day)}
-            onkeydown={(e) => e.key === 'Enter' && create(day)}
-          >
-            <span
-              class="number"
-              class:other={day.getMonth() !== shown.getMonth()}
-              class:today={sameDay(day, today)}>{day.getDate()}</span
-            >
-            {#each dayEvents(day).slice(0, 3) as event (event.id)}
-              <button
-                type="button"
-                class="chip"
-                style:--hue="var(--color-{colour(event.calendarId)}-500)"
-                onclick={(e) => {
-                  e.stopPropagation();
-                  editing = event;
-                }}>{event.title}</button
-              >
-            {/each}
-            {#if dayEvents(day).length > 3}<span class="more"
-                >+{dayEvents(day).length - 3} more</span
-              >{/if}
+    {#if view !== 'month'}
+      <div class="hours">
+        <div class="hours-head">
+          <span class="gutter-head"></span>
+          {#each days as day (day.toISOString())}
+            <span class="hours-day" class:today={sameDay(day, today)}>
+              {day.toLocaleDateString('en-US', { weekday: 'short' })}
+              {day.getDate()}
+            </span>
+          {/each}
+        </div>
+        <div class="hours-body">
+          <div class="hour-labels">
+            {#each HOURS as hour (hour)}<span>{hourLabel(hour)}</span>{/each}
           </div>
-        {/each}
+          {#each days as day (day.toISOString())}
+            <div
+              class="hour-column"
+              role="button"
+              tabindex="0"
+              aria-label={day.toDateString()}
+              ondblclick={() => create(day)}
+              onkeydown={(e) => e.key === 'Enter' && create(day)}
+            >
+              {#each HOURS as hour (hour)}<span class="hour-line"></span>{/each}
+              {#each dayEvents(day) as event (event.id + event.start.toISOString())}
+                <button
+                  type="button"
+                  class="block"
+                  style:--hue="var(--color-{colour(event.calendarId)}-500)"
+                  style:top="{(event.start.getHours() + event.start.getMinutes() / 60) * 48}px"
+                  style:height="{Math.max(
+                    20,
+                    ((event.end.getTime() - event.start.getTime()) / 3_600_000) * 48,
+                  )}px"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    open(event);
+                  }}>{event.title}</button
+                >
+              {/each}
+            </div>
+          {/each}
+        </div>
       </div>
-    </div>
+    {:else}
+      <div class="month">
+        <div class="weekdays">
+          {#each ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as name (name)}<span>{name}</span
+            >{/each}
+        </div>
+        <div class="grid">
+          {#each cells(shown) as day (day.toISOString())}
+            <div
+              class="cell"
+              role="button"
+              tabindex="0"
+              aria-label={day.toDateString()}
+              ondblclick={() => create(day)}
+              onkeydown={(e) => e.key === 'Enter' && create(day)}
+            >
+              <span
+                class="number"
+                class:other={day.getMonth() !== shown.getMonth()}
+                class:today={sameDay(day, today)}>{day.getDate()}</span
+              >
+              {#each dayEvents(day).slice(0, 3) as event (event.id + event.start.toISOString())}
+                <button
+                  type="button"
+                  class="chip"
+                  style:--hue="var(--color-{colour(event.calendarId)}-500)"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    open(event);
+                  }}>{event.title}</button
+                >
+              {/each}
+              {#if dayEvents(day).length > 3}<span class="more"
+                  >+{dayEvents(day).length - 3} more</span
+                >{/if}
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -399,6 +507,77 @@
     text-align: start;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .view {
+    appearance: none;
+    background: transparent;
+  }
+  .hours {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-inline-size: 0;
+    overflow: hidden;
+    border: 1px solid var(--color-gray-50);
+    border-radius: 12px;
+  }
+  :global([data-theme='dark']) .hours,
+  :global([data-theme='dark']) .hour-line,
+  :global([data-theme='dark']) .hour-column {
+    border-color: var(--color-gray-850);
+  }
+  .hours-head {
+    display: flex;
+    padding-block: 8px;
+    color: var(--color-gray-500);
+    font-size: var(--text-caption);
+  }
+  .gutter-head,
+  .hour-labels {
+    flex: none;
+    inline-size: 56px;
+  }
+  .hours-day {
+    flex: 1;
+    text-align: center;
+  }
+  .hours-day.today {
+    color: var(--color-blue-500);
+  }
+  .hours-body {
+    display: flex;
+    flex: 1;
+    overflow-y: auto;
+  }
+  .hour-labels span {
+    display: block;
+    block-size: 48px;
+    padding-inline-end: 8px;
+    color: var(--color-gray-400);
+    font-size: 10px;
+    text-align: end;
+    transform: translateY(-6px);
+  }
+  .hour-column {
+    position: relative;
+    flex: 1;
+    border-inline-start: 1px solid var(--color-gray-50);
+  }
+  .hour-line {
+    display: block;
+    block-size: 48px;
+    border-block-start: 1px solid var(--color-gray-50);
+  }
+  .block {
+    position: absolute;
+    inset-inline: 2px;
+    overflow: hidden;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background-color: color-mix(in srgb, var(--hue) 15%, transparent);
+    color: var(--hue);
+    font-size: 11px;
+    text-align: start;
   }
   .more {
     color: var(--color-gray-500);

@@ -35,3 +35,30 @@ describe('calendar (calendar look §1)', () => {
     expect(getByText('December 2026', { selector: 'h1' })).toBeTruthy();
   });
 });
+
+describe('calendar week and day views', () => {
+  it('shows a weekly event in the week and day views', async () => {
+    const source = createFakeSource({ pace: 0 });
+    await source.saveEvent({
+      calendarId: 'personal',
+      title: 'Standup',
+      start: new Date(2026, 10, 3, 9),
+      end: new Date(2026, 10, 3, 9, 30),
+      allDay: false,
+      repeat: 'weekly',
+      reminder: 'none',
+      location: '',
+      description: '',
+    });
+    const { getByRole, findAllByText, getByText } = render(CalendarView, {
+      props: { source, today: new Date(2026, 10, 10) },
+    });
+    expect((await findAllByText('Standup')).length).toBeGreaterThanOrEqual(4);
+    await fireEvent.change(getByRole('combobox', { name: 'View' }), { target: { value: 'week' } });
+    expect(getByText('Nov 8 – 14, 2026', { selector: 'h1' })).toBeTruthy();
+    expect(await findAllByText('Standup')).toHaveLength(1);
+    await fireEvent.change(getByRole('combobox', { name: 'View' }), { target: { value: 'day' } });
+    expect(getByText('Tuesday, November 10, 2026', { selector: 'h1' })).toBeTruthy();
+    expect(await findAllByText('Standup')).toHaveLength(1);
+  });
+});
