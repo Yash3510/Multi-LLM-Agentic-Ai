@@ -50,6 +50,7 @@
       side="top"
       align="start"
       sideOffset={4}
+      alignOffset={11}
       customAnchor={anchor}
     >
       <DropdownMenu.Item class="identity" data-menu-row>
