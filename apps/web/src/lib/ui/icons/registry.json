@@ -142,5 +142,8 @@
   "pencil-line": { "phosphor": "pencil-simple-line" },
   "trash-simple": { "phosphor": "trash-simple" },
   "wrench-bold": { "phosphor": "wrench", "weight": "bold" },
-  "user-plus-bold": { "phosphor": "user-plus", "weight": "bold" }
+  "user-plus-bold": { "phosphor": "user-plus", "weight": "bold" },
+  "file-arrow-up": { "phosphor": "file-arrow-up" },
+  "file-arrow-down": { "phosphor": "file-arrow-down" },
+  "trash-bold": { "phosphor": "trash", "weight": "bold" }
 }
