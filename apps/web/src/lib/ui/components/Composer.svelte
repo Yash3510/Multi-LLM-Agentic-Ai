@@ -31,10 +31,22 @@
   }: Props = $props();
   const ready = $derived(value.trim().length > 0);
 
+  // One button wears three faces (voice, send, stop) and crossfades between them; on send the
+  // arrow leaves upward as the box clears (common look, Motion: composer).
+  const mode = $derived(busy ? 'stop' : ready ? 'send' : 'voice');
+  let launching = $state(false);
+
   function send() {
     if (!ready || busy) return;
     onsend(value.trim());
     value = '';
+    launching = true;
+    setTimeout(() => (launching = false), 320);
+  }
+
+  function primary() {
+    if (mode === 'stop') onstop?.();
+    else if (mode === 'send') send();
   }
 
   function keydown(event: KeyboardEvent) {
@@ -84,19 +96,22 @@
       >
         <Icon name="microphone" size={18} />
       </button>
-      {#if busy}
-        <button type="button" class="action" aria-label={m.composer_stop()} onclick={onstop}>
-          <Icon name="stop-square" size={16} />
-        </button>
-      {:else if ready}
-        <button type="button" class="action" aria-label={m.composer_send()} onclick={send}>
-          <Icon name="send" size={18} />
-        </button>
-      {:else}
-        <button type="button" class="action" aria-label={m.composer_voice_mode()}>
-          <Icon name="voice-mode" size={18} />
-        </button>
-      {/if}
+      <button
+        type="button"
+        class="action"
+        data-mode={mode}
+        class:launching
+        aria-label={mode === 'stop'
+          ? m.composer_stop()
+          : mode === 'send'
+            ? m.composer_send()
+            : m.composer_voice_mode()}
+        onclick={primary}
+      >
+        <span class="face bars"><Icon name="voice-mode" size={18} /></span>
+        <span class="face arrow"><Icon name="send" size={18} /></span>
+        <span class="face square"><Icon name="stop-square" size={16} /></span>
+      </button>
     </div>
   </div>
 </div>
@@ -260,8 +275,79 @@
   }
 
   .action {
+    position: relative;
     background-color: var(--color-solid);
     color: var(--color-on-solid);
+    transition:
+      background-color 200ms ease,
+      color 200ms ease;
+  }
+
+  .action:hover {
+    background-color: var(--color-gray-800);
+  }
+
+  :global([data-theme='dark']) .action:hover {
+    background-color: var(--color-gray-100);
+  }
+
+  .face {
+    position: absolute;
+    display: flex;
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+      opacity 200ms ease,
+      transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .face.arrow {
+    transform: translateY(5px);
+  }
+
+  [data-mode='voice'] .bars,
+  [data-mode='send'] .arrow,
+  [data-mode='stop'] .square {
+    opacity: 1;
+    transform: none;
+  }
+
+  .launching .arrow {
+    opacity: 0;
+    transform: translateY(-9px);
+  }
+
+  /* The voice bars breathe while hovered, one after another. */
+  [data-mode='voice']:hover .bars :global(path) {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: breathe 1.6s ease-in-out infinite;
+  }
+
+  [data-mode='voice']:hover .bars :global(path:nth-child(2)) {
+    animation-delay: 120ms;
+  }
+
+  [data-mode='voice']:hover .bars :global(path:nth-child(3)) {
+    animation-delay: 240ms;
+  }
+
+  [data-mode='voice']:hover .bars :global(path:nth-child(4)) {
+    animation-delay: 360ms;
+  }
+
+  @keyframes breathe {
+    50% {
+      transform: scaleY(0.55);
+    }
+  }
+
+  :global([data-motion='reduce']) .face {
+    transform: none;
+  }
+
+  :global([data-motion='reduce']) .bars :global(path) {
+    animation: none;
   }
 
   :is(.round, .chip, .model, .action):focus-visible {

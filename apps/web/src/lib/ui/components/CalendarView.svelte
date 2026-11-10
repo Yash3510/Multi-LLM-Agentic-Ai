@@ -583,6 +583,69 @@
     color: var(--color-gray-500);
     font-size: 11px;
   }
+  /* Hover states (common look, Motion: calendar): 150 ms on the standard curve. */
+  :is(.caret, .text, .create, .mini-day, .chip, .cell, .block, .calendar-row) {
+    transition-property: background-color, color;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .caret {
+    padding: 2px;
+    border-radius: 4px;
+  }
+
+  .text {
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  :is(.caret, .mini-day:not(.today)):hover {
+    background-color: var(--color-gray-100);
+  }
+
+  .text:hover {
+    background-color: var(--color-gray-50);
+    color: var(--color-gray-700);
+  }
+
+  .create:hover {
+    background-color: var(--color-gray-100);
+  }
+
+  .cell:hover {
+    background-color: color-mix(in srgb, var(--color-gray-50) 50%, transparent);
+  }
+
+  :is(.chip, .block):hover {
+    background-color: color-mix(in srgb, var(--hue) 25%, transparent);
+  }
+
+  .calendar-row:hover {
+    background-color: var(--color-gray-50);
+  }
+
+  :global([data-theme='dark']) :is(.caret, .mini-day:not(.today)):hover {
+    background-color: var(--color-gray-800);
+  }
+
+  :global([data-theme='dark']) .text:hover {
+    background-color: var(--color-gray-850);
+    color: var(--color-white);
+  }
+
+  :global([data-theme='dark']) .create:hover {
+    background-color: var(--color-gray-800);
+  }
+
+  :global([data-theme='dark']) .cell:hover {
+    background-color: color-mix(in srgb, var(--color-gray-850) 20%, transparent);
+  }
+
+  :global([data-theme='dark']) .calendar-row:hover {
+    background-color: color-mix(in srgb, var(--color-gray-800) 50%, transparent);
+  }
+
   :is(.caret, .text, .create, .mini-day, .chip, .cell, .undo button):focus-visible {
     outline: 2px solid var(--color-blue-500);
     outline-offset: -2px;

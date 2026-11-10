@@ -71,6 +71,18 @@
     color: var(--color-white);
     font-size: var(--text-ui);
   }
+
+  .run {
+    transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .run:hover {
+    background-color: var(--color-gray-900);
+  }
+
+  :global([data-theme='dark']) .run:hover {
+    background-color: var(--color-gray-100);
+  }
   :global([data-theme='dark']) .run {
     background-color: var(--color-white);
     color: var(--color-black);

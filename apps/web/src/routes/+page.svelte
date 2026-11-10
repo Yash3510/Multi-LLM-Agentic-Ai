@@ -9,6 +9,7 @@
   import Logomark from '$lib/ui/components/Logomark.svelte';
   import TopBar from '$lib/ui/components/TopBar.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import { fade } from '$lib/ui/motion.svelte';
 
   const SUGGESTIONS = [
     { title: 'Check a threshold', detail: 'against R2 · Ratio' },
@@ -31,11 +32,12 @@
 </TopBar>
 
 <div class="landing">
-  <div class="welcome"><Logomark size={44} /></div>
+  <!-- The logo, then the suggestions, fade in as on the running app (common look, Motion). -->
+  <div class="welcome" in:fade={{ duration: 200 }}><Logomark size={44} /></div>
   <div class="composer">
     <Composer bind:value={draft} model="Planner" tools={7} onsend={() => {}} />
   </div>
-  <div class="suggestions">
+  <div class="suggestions" in:fade={{ duration: 200, delay: 200 }}>
     <p class="label"><Icon name="lightning" size={12} />{m.home_suggested()}</p>
     <ul>
       {#each SUGGESTIONS as suggestion (suggestion.title)}

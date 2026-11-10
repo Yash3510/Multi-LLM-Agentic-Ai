@@ -68,7 +68,8 @@
     color: var(--color-white);
     font-size: var(--text-caption);
     line-height: var(--text-caption--line-height);
-    transition: opacity var(--duration-base) var(--ease-out);
+    /* 300 ms in and 250 ms out, as the running app's tooltips fade. */
+    transition: opacity 300ms var(--ease-out);
   }
 
   [data-surface='tip']:is([data-starting-style], [data-ending-style]) {
@@ -77,8 +78,12 @@
 
   /* The tooltip's exit takes two thirds of its entrance and eases away. */
   [data-surface='tip'][data-ending-style] {
+    transition-duration: 250ms;
     transition-timing-function: var(--ease-exit);
-    transition-duration: calc(var(--duration-base) * 2 / 3);
+  }
+
+  [data-motion='reduce'] [data-surface='tip'] {
+    transition-duration: 120ms;
   }
 
   /*

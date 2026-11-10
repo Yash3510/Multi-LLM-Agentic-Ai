@@ -247,6 +247,37 @@
     background-color: var(--color-white);
     color: var(--color-black);
   }
+  /* Hover states (common look, Motion: playground): 150 ms on the standard curve. */
+  :is(.icon, .soft, .run) {
+    transition-property: background-color, color;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .icon:hover {
+    color: var(--color-gray-700);
+  }
+
+  .soft:hover {
+    background-color: var(--color-gray-100);
+  }
+
+  .run:hover {
+    background-color: var(--color-gray-900);
+  }
+
+  :global([data-theme='dark']) .icon:hover {
+    color: var(--color-gray-300);
+  }
+
+  :global([data-theme='dark']) .soft:hover {
+    background-color: var(--color-gray-800);
+  }
+
+  :global([data-theme='dark']) .run:hover {
+    background-color: var(--color-gray-100);
+  }
+
   :is(.icon, .role, .soft, .run):focus-visible {
     outline: 2px solid var(--color-blue-500);
     outline-offset: -2px;
