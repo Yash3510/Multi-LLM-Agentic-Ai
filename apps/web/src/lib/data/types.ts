@@ -119,6 +119,28 @@ export interface LedgerEntry {
   target: string;
 }
 
+/** Permission switches by category; keys a group does not store fall back to defaults. */
+export type StoredPermissions = Partial<
+  Record<
+    'workspace' | 'sharing' | 'access_grants' | 'chat' | 'features' | 'settings',
+    Record<string, boolean>
+  >
+>;
+
+/** A group of people with extra permissions (admin F54 to F92). */
+export interface Group {
+  id: string;
+  name: string;
+  description: string;
+  /** Who may share resources to the group. */
+  share: 'none' | 'members' | 'anyone';
+  permissions: StoredPermissions;
+  /** Member user ids. */
+  members: string[];
+}
+
+export type GroupDraft = Pick<Group, 'name' | 'description' | 'share' | 'permissions'>;
+
 /** The workspace tabs, in the running app's order. */
 export type WorkspaceTab = 'models' | 'knowledge' | 'prompts' | 'skills' | 'tools';
 
@@ -365,6 +387,18 @@ export interface DataSource {
     knowledge: string[];
     tools: string[];
   }>;
+  listGroups(): Promise<Group[]>;
+  createGroup(draft: GroupDraft): Promise<Group>;
+  updateGroup(id: string, draft: GroupDraft): Promise<void>;
+  deleteGroup(id: string): Promise<void>;
+  /** Brings back a group deleted in this session (the Undo after a delete). */
+  restoreGroup(id: string): Promise<void>;
+  setGroupMember(groupId: string, userId: string, member: boolean): Promise<void>;
+  /** The groups a person belongs to. */
+  userGroups(userId: string): Promise<Group[]>;
+  /** The permissions everyone with the user role has, as stored. */
+  getDefaultPermissions(): Promise<StoredPermissions>;
+  saveDefaultPermissions(permissions: StoredPermissions): Promise<void>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

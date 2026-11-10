@@ -22,7 +22,9 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `setStatus(status \| undefined)` | sets or clears the short status shown in the user menu (on `User.status`) | the user menu's status dialog |
 | `activeUsers()` | how many people are signed in now | the user menu's active count |
 | `listUsers()` / `addUser(person)` / `updateUser(id, change)` / `deleteUser(id)` / `restoreUser(id)` | everyone with an account (`AdminUser`: role, joined and last-active times), the signed-in admin first; passwords given here go only to the backend and are never kept; a delete can be undone in the same session | the admin People list and its dialogs |
-| `previewAccess(id)` | what a person can reach, by name: groups, models, knowledge, tools | the admin access preview |
+| `listGroups()` / `createGroup(draft)` / `updateGroup(id, draft)` / `deleteGroup(id)` / `restoreGroup(id)` / `setGroupMember(group, user, on)` / `userGroups(user)` | groups (`Group`: name, description, who may share to it, stored permissions, member ids); members change at once; a delete can be undone in the same session | the admin Groups tab and group editor |
+| `getDefaultPermissions()` / `saveDefaultPermissions(p)` | the permissions everyone with the user role has, as stored; missing keys fall back to built-in defaults (`lib/ui/permissions.ts`); the chat key `tool_settings` maps to the API's per-tool settings permission | the default permissions editor |
+| `previewAccess(id)` | what a person (or group) can reach, by name: groups, models, knowledge, tools | the admin access preview |
 | `adminLedger()` | every admin change, newest first (`LedgerEntry`: when, by whom, action, target; never a password) | the admin pages' change trail |
 | `getProfile()` / `saveProfile(profile)` | the person's profile (`Profile`: name, bio, gender, birth date, avatar kind, user variables); saving the name renames the signed-in person | the Account page |
 | `changePassword(current, next)` | changes the password; both go only to the backend, never logged, stored or put in a URL | the Account page |

@@ -13,6 +13,8 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  Group,
+  StoredPermissions,
   AdminUser,
   LedgerEntry,
   Profile,
@@ -561,6 +563,9 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     },
   ];
   const deleted = new Map<string, AdminUser>();
+  let groups: Group[] = [];
+  const deletedGroups = new Map<string, Group>();
+  let defaultPermissions: StoredPermissions = {};
   const ledger: LedgerEntry[] = [];
   const record = (action: string, target: string) =>
     ledger.unshift({ at: new Date(), by: user?.email ?? '', action, target });
@@ -971,6 +976,51 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
         knowledge: bases.map((one) => one.name),
         tools: toolList.map((one) => one.name),
       };
+    },
+    async listGroups() {
+      return structuredClone(groups);
+    },
+    async createGroup(draft) {
+      const group: Group = { ...structuredClone(draft), id: crypto.randomUUID(), members: [] };
+      groups = [...groups, group];
+      record('group.add', group.name);
+      return structuredClone(group);
+    },
+    async updateGroup(id, draft) {
+      groups = groups.map((one) => (one.id === id ? { ...one, ...structuredClone(draft) } : one));
+      record('group.update', draft.name);
+    },
+    async deleteGroup(id) {
+      const found = groups.find((one) => one.id === id);
+      if (!found) return;
+      deletedGroups.set(id, found);
+      groups = groups.filter((one) => one.id !== id);
+      record('group.delete', found.name);
+    },
+    async restoreGroup(id) {
+      const found = deletedGroups.get(id);
+      if (!found) return;
+      deletedGroups.delete(id);
+      groups = [...groups, found];
+      record('group.restore', found.name);
+    },
+    async setGroupMember(groupId, userId, member) {
+      const group = groups.find((one) => one.id === groupId);
+      if (!group || group.members.includes(userId) === member) return;
+      group.members = member
+        ? [...group.members, userId]
+        : group.members.filter((one) => one !== userId);
+      record(member ? 'group.member.add' : 'group.member.remove', `${group.name}: ${userId}`);
+    },
+    async userGroups(userId) {
+      return structuredClone(groups.filter((one) => one.members.includes(userId)));
+    },
+    async getDefaultPermissions() {
+      return structuredClone(defaultPermissions);
+    },
+    async saveDefaultPermissions(permissions) {
+      defaultPermissions = structuredClone(permissions);
+      record('permissions.defaults', 'user role');
     },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));

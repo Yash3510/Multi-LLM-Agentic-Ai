@@ -456,3 +456,44 @@ describe('fake access preview', () => {
     expect(preview.tools.length).toBe((await source.listTools()).length);
   });
 });
+
+describe('fake groups', () => {
+  it('creates, edits, deletes and restores groups, sets members and default permissions', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect(await source.listGroups()).toEqual([]);
+    const group = await source.createGroup({
+      name: 'Line 3',
+      description: 'Night shift',
+      share: 'members',
+      permissions: {},
+    });
+    expect(group).toMatchObject({ name: 'Line 3', members: [] });
+    await source.setGroupMember(group.id, 'u-admin', true);
+    expect((await source.listGroups())[0].members).toEqual(['u-admin']);
+    expect((await source.userGroups('u-admin')).map((one) => one.name)).toEqual(['Line 3']);
+    await source.updateGroup(group.id, {
+      name: 'Line 3A',
+      description: '',
+      share: 'anyone',
+      permissions: { chat: { edit: false } },
+    });
+    expect((await source.listGroups())[0]).toMatchObject({ name: 'Line 3A', share: 'anyone' });
+    await source.deleteGroup(group.id);
+    expect(await source.listGroups()).toEqual([]);
+    await source.restoreGroup(group.id);
+    expect(await source.listGroups()).toHaveLength(1);
+
+    expect(await source.getDefaultPermissions()).toEqual({});
+    await source.saveDefaultPermissions({ features: { api_keys: true } });
+    expect(await source.getDefaultPermissions()).toEqual({ features: { api_keys: true } });
+
+    expect((await source.adminLedger()).map((entry) => entry.action)).toEqual([
+      'permissions.defaults',
+      'group.restore',
+      'group.delete',
+      'group.update',
+      'group.member.add',
+      'group.add',
+    ]);
+  });
+});
