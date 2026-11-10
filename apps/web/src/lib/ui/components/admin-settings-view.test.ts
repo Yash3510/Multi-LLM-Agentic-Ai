@@ -101,3 +101,40 @@ describe('admin models and analytics (admin look §17, §23)', () => {
     expect(await findByText('Pipelines Not Detected')).toBeTruthy();
   });
 });
+
+describe('admin settings leftovers', () => {
+  it('adds a banner and a default interface setting in General', async () => {
+    const { findByRole, getByRole, source, findByText } = await open('General', 1);
+    await findByRole('heading', { name: 'General', level: 2 });
+    await fireEvent.click(getByRole('button', { name: 'Add banner' }));
+    await fireEvent.input(getByRole('textbox', { name: 'Banner text' }), {
+      target: { value: 'Maintenance at 6 PM' },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Configure' }));
+    await fireEvent.click(getByRole('switch', { name: 'Widescreen Mode' }));
+    expect(await findByText('1 settings configured')).toBeTruthy();
+    await fireEvent.click(getByRole('button', { name: 'Save' }));
+    await waitFor(async () => {
+      const values = await source.getAdminSettings('general');
+      expect(values.BANNERS).toMatchObject([{ content: 'Maintenance at 6 PM', type: 'info' }]);
+      expect(values.DEFAULT_INTERFACE).toEqual({ widescreen: true });
+    });
+  });
+
+  it('adds an arena model in Evaluations', async () => {
+    const { findByRole, getByRole, source } = await open('Evaluations');
+    await findByRole('heading', { name: 'Evaluations', level: 2 });
+    await fireEvent.click(getByRole('switch', { name: 'Arena Models' }));
+    await fireEvent.click(getByRole('button', { name: 'Add Arena Model' }));
+    await fireEvent.input(getByRole('textbox', { name: 'Arena model name' }), {
+      target: { value: 'Blind test' },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Add' }));
+    await fireEvent.click(getByRole('button', { name: 'Save' }));
+    await waitFor(async () =>
+      expect((await source.getAdminSettings('evaluations')).ARENA_MODELS).toMatchObject([
+        { name: 'Blind test' },
+      ]),
+    );
+  });
+});

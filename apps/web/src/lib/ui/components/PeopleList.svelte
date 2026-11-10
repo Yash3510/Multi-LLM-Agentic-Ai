@@ -5,7 +5,12 @@
   import type { AdminUser, DataSource } from '$lib/data';
   import { ago } from '$lib/ui/ago';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import { Dialog } from 'bits-ui';
+  import { resolve } from '$app/paths';
+  import type { ChatSummary } from '$lib/data';
   import ConfirmDialog from './ConfirmDialog.svelte';
+  import './modal.css';
+  import './admin-dialog.css';
 
   type Props = {
     source: DataSource;
@@ -40,6 +45,20 @@
   let typed = $state('');
   let undo = $state<AdminUser>();
   let now = $state(new Date());
+  let pageIndex = $state(0);
+  let chatsOf = $state<{ person: AdminUser; chats: ChatSummary[] }>();
+  const PER_PAGE = 30;
+
+  async function showChats(person: AdminUser) {
+    chatsOf = { person, chats: await source.userChats(person.id) };
+  }
+
+  const initials = (name: string) =>
+    name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('');
 
   async function load() {
     people = await source.listUsers();
@@ -148,11 +167,15 @@
           </tr>
         </thead>
         <tbody>
-          {#each shown as person (person.id)}
+          {#each shown.slice(pageIndex * PER_PAGE, (pageIndex + 1) * PER_PAGE) as person (person.id)}
             <tr>
               <td class="name">
                 <span class="who">
-                  <span class="avatar" aria-hidden="true"><Icon name="user" size={14} /></span>
+                  <span class="avatar" aria-hidden="true"
+                    >{#if person.avatar === 'initials'}<span class="initials"
+                        >{initials(person.name)}</span
+                      >{:else}<Icon name="user" size={14} />{/if}</span
+                  >
                   <span class="text">{person.name}</span>
                   {#if online(person)}<span class="online" title="Online"></span>{/if}
                 </span>
@@ -170,6 +193,15 @@
               <td>{joined.format(person.created)}</td>
               <td class="actions">
                 <span class="buttons">
+                  {#if person.role !== 'admin'}
+                    <button
+                      type="button"
+                      aria-label="Chats"
+                      title="Chats"
+                      onclick={() => showChats(person)}
+                      ><Icon name="chats-circle" size={14} /></button
+                    >
+                  {/if}
                   {#if person.role !== 'admin'}
                     <button
                       type="button"
@@ -200,11 +232,52 @@
         </tbody>
       </table>
     </div>
+    {#if shown.length > PER_PAGE}
+      <nav class="pager" aria-label="Pages">
+        {#each Array.from({ length: Math.ceil(shown.length / PER_PAGE) }, (_, at) => at) as at (at)}
+          <button
+            type="button"
+            aria-current={at === pageIndex ? 'page' : undefined}
+            onclick={() => (pageIndex = at)}>{at + 1}</button
+          >
+        {/each}
+      </nav>
+    {/if}
     <p class="hint">
       <Icon name="info" size={12} /> Click on the user role button to change a user's role.
     </p>
   {/if}
 </div>
+
+<Dialog.Root open={chatsOf !== undefined} onOpenChange={(next) => !next && (chatsOf = undefined)}>
+  <Dialog.Portal>
+    <Dialog.Overlay class="modal-backdrop" />
+    <Dialog.Content class="modal-frame" aria-describedby={undefined}>
+      <div class="admin-dialog large">
+        <div class="head">
+          <Dialog.Title>
+            {#snippet child({ props })}
+              <h3 {...props} class="title">
+                {chatsOf?.person.name.slice(0, 32)}'s Chats
+                <span class="muted">{chatsOf?.chats.length}</span>
+              </h3>
+            {/snippet}
+          </Dialog.Title>
+          <Dialog.Close class="close" aria-label="Close"><Icon name="x" size={16} /></Dialog.Close>
+        </div>
+        <div class="chats-body">
+          {#each chatsOf?.chats ?? [] as chat (chat.id)}
+            <a class="chat-row" href={resolve('/c/[id]', { id: chat.id })}
+              >{chat.title}<span>{ago(chat.updated, now)}</span></a
+            >
+          {:else}
+            <p class="chats-none">This person has no chats.</p>
+          {/each}
+        </div>
+      </div>
+    </Dialog.Content>
+  </Dialog.Portal>
+</Dialog.Root>
 
 <ConfirmDialog
   open={deleting !== undefined}
@@ -528,6 +601,59 @@
     font-size: var(--text-caption);
   }
 
+  .initials {
+    color: var(--color-gray-700);
+    font-size: 9px;
+  }
+  .pager {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-block: 8px;
+  }
+  .pager button {
+    inline-size: 32px;
+    block-size: 32px;
+    border-radius: 9px;
+    font-size: var(--text-ui);
+  }
+  .pager button:hover,
+  .pager button[aria-current] {
+    background-color: var(--color-gray-50);
+  }
+  :global([data-theme='dark']) .pager button[aria-current] {
+    background-color: var(--color-gray-850);
+  }
+  .muted {
+    margin-inline-start: 8px;
+    color: var(--color-gray-500);
+  }
+  .chats-body {
+    max-block-size: 352px;
+    padding: 0 20px 16px;
+    overflow-y: auto;
+  }
+  .chat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: var(--text-ui);
+  }
+  .chat-row span {
+    color: var(--color-gray-500);
+    font-size: var(--text-caption);
+  }
+  .chat-row:hover {
+    background-color: color-mix(in srgb, var(--color-gray-50) 70%, transparent);
+  }
+  .chats-none {
+    min-block-size: 80px;
+    padding: 20px;
+    color: var(--color-gray-500);
+    font-size: var(--text-caption);
+    text-align: center;
+  }
   .typed {
     inline-size: 100%;
     margin-block-start: 8px;

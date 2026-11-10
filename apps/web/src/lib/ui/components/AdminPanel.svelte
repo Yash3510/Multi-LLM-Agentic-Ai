@@ -13,6 +13,7 @@
   import Icon from '$lib/ui/icons/Icon.svelte';
   import type { ParamValue } from '$lib/ui/params';
   import AdvancedParams from './AdvancedParams.svelte';
+  import { SECTIONS as INTERFACE_SECTIONS } from '$lib/ui/interface-prefs';
   import SettingsSelect from './SettingsSelect.svelte';
   import Switch from './Switch.svelte';
   import './settings-page.css';
@@ -31,6 +32,31 @@
   let values = $state<Values>();
   let shown = $state<Record<string, boolean>>({});
   let opened = $state<Record<string, boolean>>({});
+  let arenaName = $state('');
+  let arenaModels = $state<string[]>([]);
+  let arenaOpen = $state(false);
+  type Banner = { type: string; content: string; dismissible: boolean };
+  const list = <T,>(key?: string) => (values?.[key ?? ''] ?? []) as T[];
+  const map = (key?: string) => (values?.[key ?? ''] ?? {}) as Record<string, boolean>;
+  const INTERFACE_SWITCHES = INTERFACE_SECTIONS.flatMap((section) =>
+    section.rows.filter((row) => row.kind === 'switch'),
+  );
+
+  async function uploadWorkflow(
+    key: string | undefined,
+    event: Event & { currentTarget: HTMLInputElement },
+  ) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    const text = await file.text();
+    try {
+      JSON.parse(text);
+      set(key, text);
+    } catch {
+      notice = 'That file is not a ComfyUI workflow.';
+    }
+  }
   let notice = $state('');
 
   $effect(() => {
@@ -69,6 +95,205 @@
                   <span class="label" class:muted={item.muted}>{item.label}</span>
                   {#if item.value}<span class="value">{item.value}</span>{/if}
                   {#if item.note}<p class="note info-note">{item.note}</p>{/if}
+                </div>
+              {:else if item.kind === 'interface-defaults'}
+                <div>
+                  <div class="row params-row">
+                    <span>{item.label}</span>
+                    <button
+                      type="button"
+                      class="quiet small"
+                      onclick={() =>
+                        (opened = { ...opened, [item.key ?? '']: !opened[item.key ?? ''] })}
+                      >{opened[item.key ?? ''] ? 'Close' : 'Configure'}</button
+                    >
+                  </div>
+                  {#if item.note}<p class="note">{item.note}</p>{/if}
+                  {#if opened[item.key ?? '']}
+                    <p class="note">
+                      {Object.keys(map(item.key)).length} settings configured
+                      {#if Object.keys(map(item.key)).length}<button
+                          type="button"
+                          class="quiet small"
+                          onclick={() => set(item.key, {})}>Clear</button
+                        >{/if}
+                    </p>
+                    <div class="defaults-box">
+                      {#each INTERFACE_SWITCHES as row (row.key)}
+                        <div class="row">
+                          <span>{row.label}</span>
+                          <Switch
+                            on={map(item.key)[row.key] ?? row.start === true}
+                            label={row.label}
+                            onchange={(next) =>
+                              set(item.key, { ...map(item.key), [row.key]: next })}
+                          />
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              {:else if item.kind === 'banners'}
+                <div>
+                  <div class="row">
+                    <span>{item.label}</span>
+                    <button
+                      type="button"
+                      class="round"
+                      aria-label="Add banner"
+                      onclick={() =>
+                        set(item.key, [
+                          ...list<Banner>(item.key),
+                          { type: 'info', content: '', dismissible: true },
+                        ])}><Icon name="plus" size={16} /></button
+                    >
+                  </div>
+                  {#if item.note}<p class="note">{item.note}</p>{/if}
+                  {#each list<Banner>(item.key) as banner, at (at)}
+                    <div class="banner">
+                      <SettingsSelect
+                        label="Banner type"
+                        value={banner.type}
+                        options={['info', 'warning', 'error', 'success'].map((one) => ({
+                          value: one,
+                          label: one.charAt(0).toUpperCase() + one.slice(1),
+                        }))}
+                        onchange={(value) =>
+                          set(
+                            item.key,
+                            list<Banner>(item.key).map((one, i) =>
+                              i === at ? { ...one, type: value } : one,
+                            ),
+                          )}
+                      />
+                      <textarea
+                        class="area"
+                        rows="1"
+                        aria-label="Banner text"
+                        value={banner.content}
+                        oninput={(e) =>
+                          set(
+                            item.key,
+                            list<Banner>(item.key).map((one, i) =>
+                              i === at ? { ...one, content: e.currentTarget.value } : one,
+                            ),
+                          )}></textarea>
+                      <span title="Remember Dismissal"
+                        ><Switch
+                          on={banner.dismissible}
+                          label="Remember Dismissal"
+                          onchange={(next) =>
+                            set(
+                              item.key,
+                              list<Banner>(item.key).map((one, i) =>
+                                i === at ? { ...one, dismissible: next } : one,
+                              ),
+                            )}
+                        /></span
+                      >
+                      <button
+                        type="button"
+                        class="round"
+                        aria-label="Remove banner"
+                        onclick={() =>
+                          set(
+                            item.key,
+                            list<Banner>(item.key).filter((_, i) => i !== at),
+                          )}><Icon name="x" size={16} /></button
+                      >
+                    </div>
+                  {/each}
+                </div>
+              {:else if item.kind === 'arena'}
+                <div>
+                  <div class="row">
+                    <span>{item.label}</span>
+                    <button
+                      type="button"
+                      class="round"
+                      aria-label="Add Arena Model"
+                      title="Add Arena Model"
+                      onclick={() => (arenaOpen = !arenaOpen)}
+                      ><Icon name="plus" size={16} /></button
+                    >
+                  </div>
+                  {#if arenaOpen}
+                    <div class="arena-form">
+                      <input
+                        class="input"
+                        bind:value={arenaName}
+                        placeholder="Arena model name"
+                        aria-label="Arena model name"
+                      />
+                      {#each choices.TASK_MODEL ?? [] as [id, label] (id)}
+                        <label class="check"
+                          ><input
+                            type="checkbox"
+                            checked={arenaModels.includes(id)}
+                            onchange={(e) =>
+                              (arenaModels = e.currentTarget.checked
+                                ? [...arenaModels, id]
+                                : arenaModels.filter((one) => one !== id))}
+                          />{label}</label
+                        >
+                      {/each}
+                      <button
+                        type="button"
+                        class="quiet"
+                        onclick={() => {
+                          if (!arenaName.trim()) return;
+                          set(item.key, [
+                            ...list<{ name: string; models: string[] }>(item.key),
+                            { name: arenaName.trim(), models: arenaModels },
+                          ]);
+                          arenaName = '';
+                          arenaModels = [];
+                          arenaOpen = false;
+                        }}>Add</button
+                      >
+                    </div>
+                  {/if}
+                  {#each list<{ name: string; models: string[] }>(item.key) as model, at (at)}
+                    <div class="row arena-row">
+                      <span
+                        >{model.name} <span class="unit">{model.models.length} models</span></span
+                      >
+                      <button
+                        type="button"
+                        class="quiet small"
+                        onclick={() =>
+                          set(
+                            item.key,
+                            list(item.key).filter((_, i) => i !== at),
+                          )}>Remove</button
+                      >
+                    </div>
+                  {:else}
+                    <p class="note">No arena models yet.</p>
+                  {/each}
+                </div>
+              {:else if item.kind === 'workflow'}
+                <div class="block">
+                  <div class="row tall">
+                    <span>{item.label}</span>
+                    <span class="workflow-actions">
+                      <label class="quiet"
+                        >Upload<input
+                          type="file"
+                          accept=".json"
+                          hidden
+                          aria-label="Workflow file"
+                          onchange={(e) => uploadWorkflow(item.key, e)}
+                        /></label
+                      >
+                      {#if values[item.key ?? '']}<button
+                          type="button"
+                          class="quiet"
+                          onclick={() => set(item.key, '')}>Reset</button
+                        >{/if}
+                    </span>
+                  </div>
+                  {#if item.note}<p class="note">{item.note}</p>{/if}
                 </div>
               {:else if item.kind === 'params'}
                 <div>
@@ -229,6 +454,58 @@
     }
   }
 
+  .round {
+    display: grid;
+    place-items: center;
+    inline-size: 24px;
+    block-size: 24px;
+    border-radius: 8px;
+    color: var(--color-gray-400);
+  }
+  .round:hover {
+    background-color: rgb(0 0 0 / 0.05);
+    color: var(--color-gray-900);
+  }
+  .defaults-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-block-size: 448px;
+    margin-block-start: 8px;
+    padding: 0 4px 8px 0;
+    overflow-y: auto;
+  }
+  .banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-block-start: 8px;
+  }
+  .banner textarea {
+    flex: 1;
+  }
+  .arena-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-block: 8px;
+  }
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-caption);
+  }
+  .arena-row {
+    margin-block-start: 6px;
+  }
+  .workflow-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .workflow-actions label {
+    cursor: pointer;
+  }
   .small {
     font-size: 11px;
   }

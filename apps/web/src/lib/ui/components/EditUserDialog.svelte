@@ -26,6 +26,7 @@
   let name = $state('');
   let email = $state('');
   let password = $state('');
+  let avatar = $state<'default' | 'initials'>('default');
   let problem = $state('');
   let groups = $state<Group[]>([]);
 
@@ -33,6 +34,7 @@
   $effect(() => {
     if (!open || !person) return;
     role = person.role;
+    avatar = person.avatar ?? 'default';
     name = person.name;
     email = person.email;
     password = '';
@@ -51,7 +53,13 @@
     event.preventDefault();
     if (!person) return;
     try {
-      await source.updateUser(person.id, { name, email, role, password: password || undefined });
+      await source.updateUser(person.id, {
+        name,
+        email,
+        role,
+        avatar,
+        password: password || undefined,
+      });
       password = '';
       onsaved();
     } catch (error) {
@@ -74,7 +82,23 @@
         {#if person}
           <form class="body" onsubmit={submit}>
             <div class="top">
-              <span class="avatar" aria-hidden="true"><Icon name="user" size={32} /></span>
+              <div class="picture">
+                <span class="avatar" aria-hidden="true"
+                  >{#if avatar === 'initials'}<span class="initials"
+                      >{name
+                        .split(/\s+/)
+                        .slice(0, 2)
+                        .map((part) => part.charAt(0).toUpperCase())
+                        .join('')}</span
+                    >{:else}<Icon name="user" size={32} />{/if}</span
+                >
+                <button type="button" class="pic-action" onclick={() => (avatar = 'default')}
+                  >Remove</button
+                >
+                <button type="button" class="pic-action" onclick={() => (avatar = 'initials')}
+                  >Initials</button
+                >
+              </div>
               <div class="details">
                 <p class="name">{person.name}</p>
                 <p class="created">Created at {joined.format(person.created)}</p>
@@ -172,6 +196,22 @@
     color: var(--color-white);
   }
 
+  .picture {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .initials {
+    color: var(--color-gray-700);
+    font-size: 18px;
+  }
+  .pic-action {
+    color: var(--color-gray-500);
+    font-size: var(--text-caption);
+  }
+  .pic-action:first-of-type {
+    margin-block-start: 8px;
+  }
   .details {
     flex: 1;
     min-inline-size: 0;

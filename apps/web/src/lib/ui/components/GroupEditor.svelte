@@ -59,6 +59,40 @@
   let resetting = $state(false);
   let deleting = $state(false);
   let typed = $state('');
+  let memberPicker = $state<HTMLInputElement>();
+  let importNote = $state('');
+
+  /** Name,Email rows: each known email becomes a member; unknown ones are reported. */
+  async function importMembers(event: Event & { currentTarget: HTMLInputElement }) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || !group) return;
+    const everyone = await source.listUsers();
+    const missing: string[] = [];
+    let added = 0;
+    for (const line of (await file.text()).split('\n').slice(1)) {
+      const email = line.split(',')[1]?.trim().toLowerCase();
+      if (!email) continue;
+      const person = everyone.find((one) => one.email.toLowerCase() === email);
+      if (!person) {
+        missing.push(email);
+        continue;
+      }
+      await source.setGroupMember(group.id, person.id, true);
+      if (!members.includes(person.id)) members = [...members, person.id];
+      added += 1;
+    }
+    importNote = `Added ${added} members.${missing.length ? ` Not found: ${missing.join(', ')}.` : ''}`;
+  }
+
+  function downloadTemplate() {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob(['Name,Email\n'], { type: 'text/csv' }));
+    link.download = 'group-members-template.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
 
   // Each opening starts on the first tab with the group (or defaults) copied in.
   $effect(() => {
@@ -191,7 +225,22 @@
                 <label class="member-search">
                   <Icon name="magnifying-glass" size={16} />
                   <input bind:value={query} placeholder="Search" aria-label="Search" />
+                  <button type="button" class="import" onclick={() => memberPicker?.click()}
+                    >Import CSV</button
+                  >
+                  <button type="button" class="import" onclick={downloadTemplate}
+                    >Download CSV Template</button
+                  >
                 </label>
+                <input
+                  bind:this={memberPicker}
+                  type="file"
+                  accept=".csv"
+                  hidden
+                  aria-label="Members file"
+                  onchange={importMembers}
+                />
+                {#if importNote}<p class="import-note" role="status">{importNote}</p>{/if}
                 {#if shownPeople.length}
                   <table>
                     <thead>
@@ -436,6 +485,21 @@
     outline: none;
   }
 
+  .import {
+    flex-shrink: 0;
+    padding: 2px 4px;
+    border-radius: 8px;
+    color: var(--color-gray-500);
+    font-size: var(--text-caption);
+  }
+  .import:hover {
+    color: var(--color-gray-700);
+  }
+  .import-note {
+    margin-block-end: 6px;
+    color: var(--color-gray-500);
+    font-size: var(--text-caption);
+  }
   table {
     inline-size: 100%;
     color: var(--color-gray-500);

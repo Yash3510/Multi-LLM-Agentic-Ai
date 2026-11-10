@@ -145,3 +145,33 @@ describe('group editor (admin F64 to F92)', () => {
     );
   });
 });
+
+describe('group member CSV import (admin F86)', () => {
+  it('adds members by email from a CSV file', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const group = await source.createGroup({
+      name: 'Team',
+      description: '',
+      share: 'members',
+      permissions: {},
+    });
+    const { findByRole, getByRole, container } = render(GroupEditor, {
+      props: {
+        open: true,
+        source,
+        mode: 'edit',
+        group,
+        defaults: {},
+        onsaved: vi.fn(),
+        onclose: vi.fn(),
+      },
+    });
+    await findByRole('dialog', { name: 'Edit User Group' });
+    await fireEvent.click(getByRole('button', { name: 'Users' }));
+    const input = container.ownerDocument.querySelector('input[accept=".csv"]') as HTMLInputElement;
+    await fireEvent.change(input, {
+      target: { files: [new File(['Name,Email\nAdmin,admin@4ce.local\n'], 'm.csv')] },
+    });
+    await waitFor(async () => expect((await source.listGroups())[0].members).toEqual(['u-admin']));
+  });
+});

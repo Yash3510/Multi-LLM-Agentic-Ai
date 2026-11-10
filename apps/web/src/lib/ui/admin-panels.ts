@@ -9,7 +9,19 @@ export type Values = Record<string, unknown>;
 
 export interface Item {
   kind:
-    'switch' | 'select' | 'text' | 'number' | 'textarea' | 'secret' | 'action' | 'info' | 'params';
+    | 'switch'
+    | 'select'
+    | 'text'
+    | 'number'
+    | 'textarea'
+    | 'secret'
+    | 'action'
+    | 'info'
+    | 'params'
+    | 'banners'
+    | 'interface-defaults'
+    | 'arena'
+    | 'workflow';
   label: string;
   key?: string;
   note?: string;
@@ -182,6 +194,25 @@ export const PANELS = {
               placeholder: 'e.g.) "http://localhost:3000"',
             },
           ),
+        ],
+      },
+      {
+        heading: 'UI',
+        items: [
+          {
+            kind: 'interface-defaults',
+            key: 'DEFAULT_INTERFACE',
+            label: 'Default Interface Settings',
+            note: 'Choose the interface settings new users start with.',
+            start: {},
+          },
+          {
+            kind: 'banners',
+            key: 'BANNERS',
+            label: 'Banners',
+            note: 'Create announcements shown to everyone at the top of the app.',
+            start: [],
+          },
         ],
       },
     ],
@@ -780,6 +811,22 @@ export const PANELS = {
               showIf: (values) => values.IMAGE_GENERATION_ENGINE === 'comfyui',
             },
           ),
+          {
+            kind: 'workflow',
+            key: 'COMFYUI_WORKFLOW',
+            label: 'ComfyUI Workflow',
+            note: 'Upload a workflow.json file exported as API format from ComfyUI.',
+            start: '',
+            showIf: (values: Values) => values.IMAGE_GENERATION_ENGINE === 'comfyui',
+          },
+          ...(['Prompt', 'Model', 'Width', 'Height', 'Steps', 'Seed'] as const).map((node) =>
+            field('text', `COMFYUI_NODE_${node.toUpperCase()}`, `${node} node`, undefined, {
+              placeholder: 'Node Ids',
+              half: true,
+              showIf: (values: Values) =>
+                values.IMAGE_GENERATION_ENGINE === 'comfyui' && Boolean(values.COMFYUI_WORKFLOW),
+            }),
+          ),
           field(
             'text',
             'AUTOMATIC1111_BASE_URL',
@@ -1235,10 +1282,10 @@ export const PANELS = {
         heading: 'Models',
         items: [
           {
-            kind: 'info',
-            label:
-              'No arena models yet. Arena models compare answers side by side when message rating is on.',
-            muted: true,
+            kind: 'arena',
+            key: 'ARENA_MODELS',
+            label: 'Arena Models',
+            start: [],
             showIf: on('ENABLE_EVALUATION_ARENA_MODELS'),
           },
         ],

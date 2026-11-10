@@ -60,3 +60,27 @@ describe('people list (admin F9 to F27)', () => {
     expect(within(admin).queryByRole('button', { name: 'Delete User' })).toBeNull();
   });
 });
+
+describe('people pager and chats (admin F25, F45 to F49)', () => {
+  it('pages at 30 people and opens a person’s chats', async () => {
+    const source = createFakeSource({ pace: 0 });
+    for (let index = 0; index < 31; index++) {
+      await source.addUser({
+        name: `Person ${index}`,
+        email: `p${index}@plant.test`,
+        password: 'demo-only-x',
+        role: 'user',
+      });
+    }
+    const { findByRole, getAllByRole, getByRole, findByText } = render(PeopleList, {
+      props: { source },
+    });
+    await findByRole('navigation', { name: 'Pages' });
+    expect(getAllByRole('row')).toHaveLength(31);
+    await fireEvent.click(getByRole('button', { name: '2' }));
+    await waitFor(() => expect(getAllByRole('row')).toHaveLength(4));
+    const row = getAllByRole('row')[1];
+    await fireEvent.click(within(row).getByRole('button', { name: 'Chats' }));
+    expect(await findByText('This person has no chats.')).toBeTruthy();
+  });
+});
