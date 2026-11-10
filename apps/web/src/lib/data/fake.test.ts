@@ -717,3 +717,24 @@ describe('fake calendar', () => {
     expect(await source.listEvents()).toHaveLength(1);
   });
 });
+
+describe('fake automations', () => {
+  it('saves, runs, deletes and restores automations', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect(await source.listAutomations()).toEqual([]);
+    const made = await source.saveAutomation({
+      name: 'Morning summary',
+      prompt: 'Summarise yesterday',
+      model: '4ce-tony',
+      schedule: { kind: 'daily', time: '09:00' },
+      destination: 'chat',
+      active: true,
+    });
+    await source.runAutomation(made.id);
+    expect((await source.listAutomations())[0].runs).toHaveLength(1);
+    await source.deleteAutomation(made.id);
+    expect(await source.listAutomations()).toEqual([]);
+    await source.restoreAutomation(made.id);
+    expect(await source.listAutomations()).toHaveLength(1);
+  });
+});

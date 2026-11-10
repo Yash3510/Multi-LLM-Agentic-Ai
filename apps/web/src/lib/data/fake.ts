@@ -13,6 +13,7 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  Automation,
   Calendar,
   CalendarEvent,
   Channel,
@@ -631,6 +632,8 @@ export function createFakeSource({
   const deletedFeedback = new Map<string, Feedback>();
   const adminSettings = new Map<string, Record<string, unknown>>();
   let notes: Note[] = [];
+  let automations: Automation[] = [];
+  const deletedAutomations = new Map<string, Automation>();
   let calendars: Calendar[] = [{ id: 'personal', name: 'Personal', color: 'blue' }];
   let events: CalendarEvent[] = [];
   const deletedEvents = new Map<string, CalendarEvent>();
@@ -1384,6 +1387,44 @@ export function createFakeSource({
       if (!found) return;
       deletedEvents.delete(id);
       events = [...events, found];
+    },
+    async listAutomations() {
+      return structuredClone(automations);
+    },
+    async getAutomation(id) {
+      const found = automations.find((one) => one.id === id);
+      return found && structuredClone(found);
+    },
+    async saveAutomation(draft) {
+      const before = automations.find((one) => one.id === draft.id);
+      const saved: Automation = {
+        ...structuredClone(draft),
+        id: draft.id ?? crypto.randomUUID(),
+        runs: before?.runs ?? [],
+      };
+      automations = before
+        ? automations.map((one) => (one.id === saved.id ? saved : one))
+        : [...automations, saved];
+      return structuredClone(saved);
+    },
+    async deleteAutomation(id) {
+      const found = automations.find((one) => one.id === id);
+      if (!found) return;
+      deletedAutomations.set(id, found);
+      automations = automations.filter((one) => one.id !== id);
+    },
+    async restoreAutomation(id) {
+      const found = deletedAutomations.get(id);
+      if (!found) return;
+      deletedAutomations.delete(id);
+      automations = [...automations, found];
+    },
+    async runAutomation(id) {
+      automations = automations.map((one) =>
+        one.id === id
+          ? { ...one, runs: [{ at: new Date(), chatId: CHATS[0]?.id }, ...one.runs] }
+          : one,
+      );
     },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));

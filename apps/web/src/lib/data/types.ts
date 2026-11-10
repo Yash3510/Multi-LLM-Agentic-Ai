@@ -253,6 +253,30 @@ export interface CalendarEvent {
   description: string;
 }
 
+/** When an automation runs. */
+export interface Schedule {
+  kind: 'once' | 'hourly' | 'daily' | 'weekly' | 'weekdays' | 'monthly';
+  /** HH:MM; for hourly only the minutes count. */
+  time: string;
+  /** 0 Sunday to 6 Saturday, for weekly. */
+  weekday?: number;
+}
+
+/** A prompt run on a schedule (automations F1 to F40). */
+export interface Automation {
+  id: string;
+  name: string;
+  prompt: string;
+  model: string;
+  schedule: Schedule;
+  /** Where each run's answer goes. */
+  destination: 'chat' | 'channel';
+  active: boolean;
+  runs: { at: Date; chatId?: string }[];
+}
+
+export type AutomationDraft = Omit<Automation, 'id' | 'runs'> & { id?: string };
+
 /** The workspace tabs, in the running app's order. */
 export type WorkspaceTab = 'models' | 'knowledge' | 'prompts' | 'skills' | 'tools';
 
@@ -589,6 +613,15 @@ export interface DataSource {
   deleteEvent(id: string): Promise<void>;
   /** Brings back an event deleted in this session (the Undo after a delete). */
   restoreEvent(id: string): Promise<void>;
+  listAutomations(): Promise<Automation[]>;
+  getAutomation(id: string): Promise<Automation | undefined>;
+  /** Adds an automation, or updates the one with the same id. */
+  saveAutomation(draft: AutomationDraft): Promise<Automation>;
+  deleteAutomation(id: string): Promise<void>;
+  /** Brings back an automation deleted in this session (the Undo after a delete). */
+  restoreAutomation(id: string): Promise<void>;
+  /** Runs an automation now (the fake records a run without calling a model). */
+  runAutomation(id: string): Promise<void>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;
