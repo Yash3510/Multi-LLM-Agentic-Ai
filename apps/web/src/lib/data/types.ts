@@ -318,6 +318,11 @@ export interface DataSource {
   /** Moves every chat into the archive. */
   archiveAllChats(): Promise<void>;
   deleteAllChats(): Promise<void>;
+  /** Archived chats, newest first. */
+  listArchivedChats(): Promise<ChatSummary[]>;
+  unarchiveChat(id: string): Promise<void>;
+  unarchiveAllChats(): Promise<void>;
+  deleteChat(id: string): Promise<void>;
   /** The person's memories, most recently changed first. */
   listMemories(): Promise<Memory[]>;
   addMemory(draft: MemoryDraft): Promise<Memory>;

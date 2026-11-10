@@ -363,3 +363,21 @@ describe('fake usage', () => {
     expect(usage.topModels[0]).toMatchObject({ id: '4ce-tony', messages: 6 });
   });
 });
+
+describe('fake archived chats', () => {
+  it('lists, unarchives one or all, and deletes one', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const before = await source.listChats();
+    await source.archiveAllChats();
+    expect((await source.listArchivedChats()).map((one) => one.id).sort()).toEqual(
+      before.map((one) => one.id).sort(),
+    );
+    await source.unarchiveChat(before[0].id);
+    expect((await source.listChats()).map((one) => one.id)).toEqual([before[0].id]);
+    await source.deleteChat(before[1].id);
+    expect(await source.getChat(before[1].id)).toBeUndefined();
+    await source.unarchiveAllChats();
+    expect(await source.listArchivedChats()).toEqual([]);
+    expect(await source.listChats()).toHaveLength(before.length - 1);
+  });
+});

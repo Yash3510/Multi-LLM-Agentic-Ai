@@ -920,6 +920,22 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     async archiveAllChats() {
       for (const chat of chats) archived.add(chat.id);
     },
+    async listArchivedChats() {
+      return chats
+        .filter((chat) => archived.has(chat.id))
+        .sort((a, b) => b.updated.getTime() - a.updated.getTime())
+        .map(({ id, title, updated, outcome }) => ({ id, title, updated, outcome }));
+    },
+    async unarchiveChat(id) {
+      archived.delete(id);
+    },
+    async unarchiveAllChats() {
+      archived.clear();
+    },
+    async deleteChat(id) {
+      chats = chats.filter((chat) => chat.id !== id);
+      archived.delete(id);
+    },
     async deleteAllChats() {
       chats = [];
       archived.clear();

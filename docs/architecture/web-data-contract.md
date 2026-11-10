@@ -23,6 +23,7 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `activeUsers()` | how many people are signed in now | the user menu's active count |
 | `getUsage()` | the person's usage (`Usage`): totals, a per-day heat map with weekly and running totals, insights, top models and tools; token counts are estimates | the Usage page |
 | `exportChats()` / `importChats(chats)` / `archiveAllChats()` / `deleteAllChats()` | every chat with its messages (archived included) for a JSON export; importing adds chats and returns how many; archiving hides them from `listChats()` | the Data Controls page |
+| `listArchivedChats()` / `unarchiveChat(id)` / `unarchiveAllChats()` / `deleteChat(id)` | archived chats newest first; unarchiving returns a chat to `listChats()`; deleting removes it for good | the Archived Chats page |
 | `listMemories()` / `addMemory(draft)` / `updateMemory(id, draft)` / `deleteMemory(id)` / `clearMemories()` | the person's memories (`Memory`: content, type `user` or `context`, optional path, updated time), most recently changed first | the Personalization page |
 | `getChat(id)` | `Chat` with its `messages`, or `undefined` | the conversation screen (`/c/[id]`) |
 | `ask(chatId, question, signal?)` | an async stream of `StreamEvent`s, ending at the sign-off request (or `done`, `stopped`, `error`) | the composer and the live answer |
