@@ -37,6 +37,11 @@
       })();
     </script>
     <style>
+      /* Fix the cascade layers' order before any stylesheet loads. The dev server can inject a
+         component stylesheet ahead of app.css, which would otherwise rank the components layer
+         below Tailwind's base reset and drop every shared button, menu and surface style. */
+      @layer properties, theme, base, components, utilities;
+
       /* The splash (entry look E0). It paints before any stylesheet loads, so its grounds name
          the token values themselves: --ref-white and --ref-gray-900. The brand-kit mark sits
          where the running app draws it, 86 px tall at 44 % of the viewport plus 5 px. */
