@@ -13,6 +13,8 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  Channel,
+  ChannelMessage,
   Note,
   ServerFunction,
   Feedback,
@@ -627,6 +629,35 @@ export function createFakeSource({
   const deletedFeedback = new Map<string, Feedback>();
   const adminSettings = new Map<string, Record<string, unknown>>();
   let notes: Note[] = [];
+  // One seeded channel with a short exchange, so the channel screen has something to show.
+  let channels: Channel[] = [
+    { id: 'general', name: 'general', description: 'Everyone', members: ['u-admin', 'u-asha'] },
+  ];
+  const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000);
+  let channelMessages: ChannelMessage[] = [
+    {
+      id: 'cm-1',
+      channelId: 'general',
+      userId: 'u-admin',
+      userName: '4CE Administrator',
+      content: 'Welcome to the general channel.',
+      at: minutesAgo(90),
+      pinned: true,
+      edited: false,
+      reactions: {},
+    },
+    {
+      id: 'cm-2',
+      channelId: 'general',
+      userId: 'u-admin',
+      userName: '4CE Administrator',
+      content: 'Share questions for the team here.',
+      at: minutesAgo(88),
+      pinned: false,
+      edited: false,
+      reactions: { '👍': ['u-asha'] },
+    },
+  ];
   const deletedNotes = new Map<string, Note>();
   const ledger: LedgerEntry[] = [];
   const record = (action: string, target: string) =>
@@ -1234,6 +1265,76 @@ export function createFakeSource({
         if (pace) await new Promise((done) => setTimeout(done, 30 * pace));
         yield word;
       }
+    },
+    async listChannels() {
+      return structuredClone(channels);
+    },
+    async getChannel(id) {
+      const found = channels.find((one) => one.id === id);
+      return found && structuredClone(found);
+    },
+    async createChannel({ name, description }) {
+      const channel: Channel = {
+        id: crypto.randomUUID(),
+        name: name.trim().toLowerCase().replace(/\s+/g, '-'),
+        description,
+        members: user ? [user.id] : [],
+      };
+      channels = [...channels, channel];
+      record('channel.add', channel.name);
+      return structuredClone(channel);
+    },
+    async deleteChannel(id) {
+      const found = channels.find((one) => one.id === id);
+      if (!found) return;
+      channels = channels.filter((one) => one.id !== id);
+      channelMessages = channelMessages.filter((one) => one.channelId !== id);
+      record('channel.delete', found.name);
+    },
+    async listChannelMessages(channelId) {
+      return structuredClone(channelMessages.filter((one) => one.channelId === channelId));
+    },
+    async sendChannelMessage(channelId, { content, replyTo }) {
+      const message: ChannelMessage = {
+        id: crypto.randomUUID(),
+        channelId,
+        userId: user?.id ?? '',
+        userName: user?.name ?? '',
+        content,
+        at: new Date(),
+        pinned: false,
+        edited: false,
+        reactions: {},
+        replyTo,
+      };
+      channelMessages = [...channelMessages, message];
+      return structuredClone(message);
+    },
+    async editChannelMessage(id, content) {
+      channelMessages = channelMessages.map((one) =>
+        one.id === id ? { ...one, content, edited: true } : one,
+      );
+    },
+    async deleteChannelMessage(id) {
+      channelMessages = channelMessages.filter((one) => one.id !== id);
+    },
+    async pinChannelMessage(id, pinned) {
+      channelMessages = channelMessages.map((one) => (one.id === id ? { ...one, pinned } : one));
+    },
+    async reactChannelMessage(id, emoji) {
+      const me = user?.id ?? '';
+      channelMessages = channelMessages.map((one) => {
+        if (one.id !== id) return one;
+        const who = one.reactions[emoji] ?? [];
+        const next = who.includes(me) ? who.filter((name) => name !== me) : [...who, me];
+        const reactions = { ...one.reactions, [emoji]: next };
+        if (!next.length) delete reactions[emoji];
+        return { ...one, reactions };
+      });
+    },
+    // Presence is simulated: the other member types now and then.
+    async channelTyping() {
+      return Math.floor(Date.now() / 7000) % 3 === 0 ? ['4CE Administrator'] : [];
     },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));

@@ -209,6 +209,30 @@ export interface Note {
   readOnly?: boolean;
 }
 
+/** A channel for shared conversation (channels F1 to F60). */
+export interface Channel {
+  id: string;
+  name: string;
+  description: string;
+  /** Member user ids. */
+  members: string[];
+}
+
+export interface ChannelMessage {
+  id: string;
+  channelId: string;
+  userId: string;
+  userName: string;
+  content: string;
+  at: Date;
+  pinned: boolean;
+  edited: boolean;
+  /** Emoji → the user ids who reacted. */
+  reactions: Record<string, string[]>;
+  /** The message this one replies to. */
+  replyTo?: string;
+}
+
 /** The workspace tabs, in the running app's order. */
 export type WorkspaceTab = 'models' | 'knowledge' | 'prompts' | 'skills' | 'tools';
 
@@ -507,6 +531,24 @@ export interface DataSource {
   restoreNote(id: string): Promise<void>;
   /** A clearer rewrite of a note's text, streamed in pieces (the model's answer). */
   enhanceNote(content: string, signal?: AbortSignal): AsyncIterable<string>;
+  listChannels(): Promise<Channel[]>;
+  getChannel(id: string): Promise<Channel | undefined>;
+  createChannel(draft: { name: string; description: string }): Promise<Channel>;
+  /** Removes a channel and its messages (logged as an admin change). */
+  deleteChannel(id: string): Promise<void>;
+  /** A channel's messages, oldest first. */
+  listChannelMessages(channelId: string): Promise<ChannelMessage[]>;
+  sendChannelMessage(
+    channelId: string,
+    draft: { content: string; replyTo?: string },
+  ): Promise<ChannelMessage>;
+  editChannelMessage(id: string, content: string): Promise<void>;
+  deleteChannelMessage(id: string): Promise<void>;
+  pinChannelMessage(id: string, pinned: boolean): Promise<void>;
+  /** Adds the signed-in person's reaction, or takes it back if already there. */
+  reactChannelMessage(id: string, emoji: string): Promise<void>;
+  /** Who else is typing in a channel right now (names). */
+  channelTyping(channelId: string): Promise<string[]>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

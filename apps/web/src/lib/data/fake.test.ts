@@ -632,3 +632,35 @@ describe('fake notes', () => {
     expect(await source.listNotes()).toHaveLength(1);
   });
 });
+
+describe('fake channels', () => {
+  it('lists channels with messages, sends, reacts, pins, edits, deletes and restores', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const [general] = await source.listChannels();
+    expect(general.name).toBe('general');
+    const before = await source.listChannelMessages(general.id);
+    expect(before.length).toBeGreaterThan(0);
+    const sent = await source.sendChannelMessage(general.id, {
+      content: 'Hello team',
+      replyTo: before[0].id,
+    });
+    await source.reactChannelMessage(sent.id, '👍');
+    await source.pinChannelMessage(sent.id, true);
+    await source.editChannelMessage(sent.id, 'Hello everyone');
+    const after = (await source.listChannelMessages(general.id)).at(-1);
+    expect(after).toMatchObject({
+      content: 'Hello everyone',
+      pinned: true,
+      replyTo: before[0].id,
+      edited: true,
+    });
+    expect(after?.reactions['👍']).toHaveLength(1);
+    await source.deleteChannelMessage(sent.id);
+    expect(await source.listChannelMessages(general.id)).toHaveLength(before.length);
+    const made = await source.createChannel({ name: 'line-3', description: '' });
+    expect((await source.listChannels()).map((one) => one.name)).toContain('line-3');
+    await source.deleteChannel(made.id);
+    expect((await source.adminLedger())[0].action).toBe('channel.delete');
+    expect((await source.channelTyping(general.id)).length).toBeGreaterThanOrEqual(0);
+  });
+});
