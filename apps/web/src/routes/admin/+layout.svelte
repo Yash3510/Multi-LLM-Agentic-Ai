@@ -14,7 +14,7 @@
 <svelte:head><title>Admin Panel / 4CE</title></svelte:head>
 
 <div class="admin">
-  <header class="bar">
+  <header class="bar" data-page-bar>
     <nav class="links" aria-label="Admin">
       <a
         href={resolve('/admin/users/[tab]', { tab: 'overview' })}

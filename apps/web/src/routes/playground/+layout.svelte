@@ -11,7 +11,7 @@
 <svelte:head><title>Playground / 4CE</title></svelte:head>
 
 <div class="frame">
-  <nav class="links" aria-label="Playground">
+  <nav class="links" aria-label="Playground" data-page-bar>
     <a href={resolve('/playground')} aria-current={section === '' ? 'page' : undefined}>Chat</a>
     <a
       href={resolve('/playground/completions')}

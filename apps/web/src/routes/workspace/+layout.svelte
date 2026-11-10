@@ -33,7 +33,7 @@
 </script>
 
 <div class="workspace">
-  <header class="bar">
+  <header class="bar" data-page-bar>
     <WorkspaceTabs {current} counts={data.counts} />
     {#if list}
       <span class="create">

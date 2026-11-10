@@ -168,7 +168,7 @@
 {/snippet}
 
 <div class="notes">
-  <div class="heading">
+  <div class="heading" data-page-bar>
     <span class="title">Notes <span class="count">{shown.length}</span></span>
     <span class="split">
       <a class="create-main" href={resolve('/notes/create')}>Create</a>

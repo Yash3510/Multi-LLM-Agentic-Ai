@@ -442,6 +442,42 @@
     background-color: var(--color-row-current);
   }
 
+  /* Below 768 px the running app drops the rail for a lone sidebar button in the corner, and
+     the open sidebar lies over the page instead of pushing it. */
+  @media (max-width: 47.99rem) {
+    .sidebar:not([data-open]) {
+      inline-size: 0;
+      overflow: visible;
+      box-shadow: none;
+    }
+
+    .sidebar[data-open] {
+      position: fixed;
+      inset-block: 0;
+      inset-inline-start: 0;
+      z-index: 50;
+    }
+
+    .rail {
+      position: fixed;
+      inset-block-start: 0;
+      inset-inline-start: 0;
+      z-index: 10;
+      block-size: auto;
+      padding: 6px 8px;
+    }
+
+    .rail > :not(.rail-group),
+    .rail-group > :not(.rail-open),
+    .rail-open .mark {
+      display: none;
+    }
+
+    .rail-open .open-glyph {
+      opacity: 1;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .sidebar {
       transition-duration: 1ms;

@@ -251,3 +251,11 @@
     box-shadow: none !important;
   }
 }
+
+/* Below 768 px the sidebar button sits in the top corner (Sidebar.svelte), so each page's top bar
+   starts after it, as in the running app. */
+@media (max-width: 47.99rem) {
+  [data-page-bar] {
+    margin-inline-start: 30px;
+  }
+}

@@ -73,7 +73,7 @@
 </script>
 
 <div class="automations">
-  <div class="heading">
+  <div class="heading" data-page-bar>
     <span class="title">Automations <span class="count">{shown.length}</span></span>
     <a class="create" href={resolve('/automations/create')}>Create</a>
   </div>

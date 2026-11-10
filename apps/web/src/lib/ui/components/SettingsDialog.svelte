@@ -93,6 +93,12 @@
     query = '';
     void source.getUserSettings().then((loaded) => (settings = loaded));
   });
+
+  // On narrow screens the tab row scrolls so the open tab starts it.
+  const reveal = (active: boolean) => (node: HTMLElement) => {
+    if (active && node.parentElement)
+      node.parentElement.scrollLeft = node.offsetLeft - node.parentElement.offsetLeft;
+  };
 </script>
 
 <Dialog.Root {open} onOpenChange={(next) => !next && onclose()}>
@@ -120,6 +126,7 @@
                     type="button"
                     class="tab"
                     aria-current={one.id === tab ? 'page' : undefined}
+                    {@attach reveal(one.id === tab)}
                     onclick={() => (tab = one.id)}
                   >
                     <Icon name={one.icon} size={14} /><span>{one.label}</span>
@@ -137,6 +144,7 @@
                     type="button"
                     class="tab"
                     aria-current={one.id === tab ? 'page' : undefined}
+                    {@attach reveal(one.id === tab)}
                     onclick={() => (tab = one.id)}
                   >
                     <Icon name={one.icon} size={14} /><span>{one.label}</span>
@@ -231,15 +239,18 @@
     color: var(--color-gray-100);
   }
 
+  /* Back and the tabs share one row on narrow screens, as in the running app. */
   nav {
     display: flex;
-    flex-direction: column;
     flex-shrink: 0;
+    align-items: center;
     border-block-end: 1px solid color-mix(in srgb, var(--color-gray-100) 30%, transparent);
   }
 
   @media (min-width: 48rem) {
     nav {
+      flex-direction: column;
+      align-items: stretch;
       inline-size: 240px;
       border-block-end: 0;
       border-inline-end: 1px solid color-mix(in srgb, var(--color-gray-100) 30%, transparent);
@@ -330,6 +341,8 @@
 
   .tabs {
     display: flex;
+    flex: 1;
+    min-inline-size: 0;
     gap: 1px;
     padding: 4px 4px 4px 0;
     overflow-x: auto;

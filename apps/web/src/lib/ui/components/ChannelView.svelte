@@ -104,7 +104,7 @@
 
 <div class="layout">
   <div class="channel">
-    <header class="bar">
+    <header class="bar" data-page-bar>
       <span class="members" aria-hidden="true">
         {#each channel.members.slice(0, 3) as member, index (member)}
           <span class="avatar" style:z-index={3 - index}><Icon name="user" size={14} /></span>

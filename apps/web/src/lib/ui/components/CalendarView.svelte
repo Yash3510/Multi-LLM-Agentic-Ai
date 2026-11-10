@@ -159,7 +159,7 @@
 </script>
 
 <div class="calendar">
-  <header class="top">
+  <header class="top" data-page-bar>
     <h1>{heading}</h1>
     <button type="button" class="caret" aria-label="Previous month" onclick={() => move(-1)}
       ><Icon name="caret-left" size={14} /></button
