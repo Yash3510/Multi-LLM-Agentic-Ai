@@ -445,7 +445,10 @@
   /* Below 768 px the running app drops the rail for a lone sidebar button in the corner, and
      the open sidebar lies over the page instead of pushing it. */
   @media (max-width: 47.99rem) {
+    /* Raised over the sticky top bar (z-index 30) so the corner button can be tapped. */
     .sidebar:not([data-open]) {
+      position: relative;
+      z-index: 40;
       inline-size: 0;
       overflow: visible;
       box-shadow: none;
