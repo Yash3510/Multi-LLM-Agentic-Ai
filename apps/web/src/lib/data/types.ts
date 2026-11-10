@@ -102,6 +102,23 @@ export interface User {
   status?: { emoji?: string; message?: string };
 }
 
+/** A person as the admin People list shows them (admin F9). */
+export interface AdminUser extends User {
+  created: Date;
+  lastActive: Date;
+}
+
+/** One admin change, kept so every change can be traced (who, what, to whom). */
+export interface LedgerEntry {
+  at: Date;
+  /** The admin's email. */
+  by: string;
+  /** Such as "user.add", "user.update", "user.delete", "user.restore". */
+  action: string;
+  /** What changed, by name or email; never a password. */
+  target: string;
+}
+
 /** The workspace tabs, in the running app's order. */
 export type WorkspaceTab = 'models' | 'knowledge' | 'prompts' | 'skills' | 'tools';
 
@@ -324,6 +341,25 @@ export interface DataSource {
   setStatus(status: { emoji?: string; message?: string } | undefined): Promise<void>;
   /** How many people are signed in now. */
   activeUsers(): Promise<number>;
+  /** Everyone with an account, the signed-in admin first (admin only). */
+  listUsers(): Promise<AdminUser[]>;
+  /** The password goes only to the backend: never logged, stored or put in a URL. */
+  addUser(person: {
+    name: string;
+    email: string;
+    password: string;
+    role: User['role'];
+  }): Promise<AdminUser>;
+  /** A new password is optional; it goes only to the backend. */
+  updateUser(
+    id: string,
+    change: { name: string; email: string; role: User['role']; password?: string },
+  ): Promise<void>;
+  deleteUser(id: string): Promise<void>;
+  /** Brings back a person deleted in this session (the Undo after a delete). */
+  restoreUser(id: string): Promise<void>;
+  /** Admin changes, newest first. */
+  adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;
   /** Saves the profile; the name also renames the signed-in person. */
   saveProfile(profile: Profile): Promise<void>;

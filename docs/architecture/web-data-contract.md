@@ -21,6 +21,8 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `getUserSettings()` / `saveUserSettings(change)` | the person's own settings (`UserSettings`: system prompt, advanced parameters left at Default are absent, interface choices by key); saving merges the given parts, and interface choices merge by key | the settings dialog's pages |
 | `setStatus(status \| undefined)` | sets or clears the short status shown in the user menu (on `User.status`) | the user menu's status dialog |
 | `activeUsers()` | how many people are signed in now | the user menu's active count |
+| `listUsers()` / `addUser(person)` / `updateUser(id, change)` / `deleteUser(id)` / `restoreUser(id)` | everyone with an account (`AdminUser`: role, joined and last-active times), the signed-in admin first; passwords given here go only to the backend and are never kept; a delete can be undone in the same session | the admin People list and its dialogs |
+| `adminLedger()` | every admin change, newest first (`LedgerEntry`: when, by whom, action, target; never a password) | the admin pages' change trail |
 | `getProfile()` / `saveProfile(profile)` | the person's profile (`Profile`: name, bio, gender, birth date, avatar kind, user variables); saving the name renames the signed-in person | the Account page |
 | `changePassword(current, next)` | changes the password; both go only to the backend, never logged, stored or put in a URL | the Account page |
 | `getUsage()` | the person's usage (`Usage`): totals, a per-day heat map with weekly and running totals, insights, top models and tools; token counts are estimates | the Usage page |

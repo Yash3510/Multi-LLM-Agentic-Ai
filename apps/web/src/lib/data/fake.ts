@@ -13,6 +13,8 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  AdminUser,
+  LedgerEntry,
   Profile,
   Usage,
   UsageDay,
@@ -545,6 +547,24 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     role: 'admin',
   };
   let hasAccount = true;
+  // Other people with accounts, the signed-in person's own record, people deleted this session
+  // (for Undo) and the admin ledger. Passwords given to addUser or updateUser are dropped.
+  const joined = new Date(2026, 10, 3);
+  let people: AdminUser[] = [
+    {
+      id: 'u-admin',
+      name: '4CE Administrator',
+      email: 'admin@4ce.local',
+      role: 'admin',
+      created: new Date(2026, 8, 20),
+      lastActive: new Date(),
+    },
+  ];
+  const deleted = new Map<string, AdminUser>();
+  const ledger: LedgerEntry[] = [];
+  const record = (action: string, target: string) =>
+    ledger.unshift({ at: new Date(), by: user?.email ?? '', action, target });
+  const sameEmail = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
   const person = (name: string, email: string, role: User['role']): User => ({
     id: `u-${email}`,
     name,
@@ -902,6 +922,49 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
     },
     async getChat(id) {
       return chats.find((chat) => chat.id === id);
+    },
+    async listUsers() {
+      const self: AdminUser[] = user ? [{ ...user, created: joined, lastActive: new Date() }] : [];
+      return [...self, ...people.map((one) => ({ ...one }))];
+    },
+    async addUser({ name, email, role }) {
+      const taken = [user?.email ?? '', ...people.map((one) => one.email)];
+      if (taken.some((one) => sameEmail(one, email))) {
+        throw new Error(`An account with ${email} already exists.`);
+      }
+      const added: AdminUser = {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        email: email.trim(),
+        role,
+        created: new Date(),
+        lastActive: new Date(),
+      };
+      people = [...people, added];
+      record('user.add', added.email);
+      return { ...added };
+    },
+    async updateUser(id, { name, email, role }) {
+      if (user?.id === id) user = { ...user, name, email, role };
+      people = people.map((one) => (one.id === id ? { ...one, name, email, role } : one));
+      record('user.update', email);
+    },
+    async deleteUser(id) {
+      const found = people.find((one) => one.id === id);
+      if (!found) return;
+      deleted.set(id, found);
+      people = people.filter((one) => one.id !== id);
+      record('user.delete', found.email);
+    },
+    async restoreUser(id) {
+      const found = deleted.get(id);
+      if (!found) return;
+      deleted.delete(id);
+      people = [...people, found];
+      record('user.restore', found.email);
+    },
+    async adminLedger() {
+      return ledger.map((entry) => ({ ...entry }));
     },
     async getProfile() {
       return structuredClone({ ...profile, name: user?.name ?? '' });

@@ -408,3 +408,40 @@ describe('fake profile and password', () => {
     await expect(source.changePassword('old-secret', 'new-secret')).resolves.toBeUndefined();
   });
 });
+
+describe('fake admin people', () => {
+  it('lists people, adds, edits, deletes and restores, writing a ledger entry each time', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const people = await source.listUsers();
+    expect(people[0]).toMatchObject({ role: 'admin' });
+    expect(people[0].created).toBeInstanceOf(Date);
+
+    const added = await source.addUser({
+      name: 'Ravi Kumar',
+      email: 'ravi@plant.test',
+      password: 'demo-only-2',
+      role: 'user',
+    });
+    expect(added).not.toHaveProperty('password');
+    await expect(
+      source.addUser({ name: 'Again', email: 'RAVI@plant.test', password: 'x', role: 'user' }),
+    ).rejects.toThrow(/already/);
+
+    await source.updateUser(added.id, { name: 'Ravi K', email: added.email, role: 'admin' });
+    expect((await source.listUsers()).find((one) => one.id === added.id)?.role).toBe('admin');
+
+    await source.deleteUser(added.id);
+    expect((await source.listUsers()).some((one) => one.id === added.id)).toBe(false);
+    await source.restoreUser(added.id);
+    expect((await source.listUsers()).some((one) => one.id === added.id)).toBe(true);
+
+    const ledger = await source.adminLedger();
+    expect(ledger.map((entry) => entry.action)).toEqual([
+      'user.restore',
+      'user.delete',
+      'user.update',
+      'user.add',
+    ]);
+    expect(JSON.stringify(ledger)).not.toContain('demo-only-2');
+  });
+});
