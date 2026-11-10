@@ -37,7 +37,7 @@
   const locale = toIntlLocale(getLocale());
   // Planned routes (web-screens.md); the hash keeps them typed until they exist.
   const DESTINATIONS: Destination[] = [
-    { href: '/#notes', label: 'Notes', icon: 'note' },
+    { href: '/notes', label: 'Notes', icon: 'note' },
     { href: '/workspace', label: 'Workspace', icon: 'workspace' },
   ];
 
