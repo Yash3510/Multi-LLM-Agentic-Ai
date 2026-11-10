@@ -350,3 +350,84 @@ describe('archived chats (F102)', () => {
     expect(await findByText('You have no archived conversations.')).toBeTruthy();
   });
 });
+
+describe('account (F103)', () => {
+  const open = async () => {
+    const view = setup();
+    const nav = view.getByRole('navigation', { name: 'Settings' });
+    await fireEvent.click(within(nav).getByRole('button', { name: 'Account' }));
+    await view.findByRole('heading', { name: 'Account', level: 2 });
+    return view;
+  };
+
+  it('saves the profile and a user variable, refusing a bad key', async () => {
+    const { getByRole, findByRole, findByText, source } = await open();
+    await fireEvent.input(getByRole('textbox', { name: 'Name' }), {
+      target: { value: 'Asha Rao' },
+    });
+    await fireEvent.change(getByRole('combobox', { name: 'Gender' }), {
+      target: { value: 'custom' },
+    });
+    await fireEvent.input(getByRole('textbox', { name: 'Custom Gender' }), {
+      target: { value: 'non-binary' },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Add' }));
+    const dialog = await findByRole('dialog', { name: 'Add User Variable' });
+    await fireEvent.input(within(dialog).getByRole('textbox', { name: 'Variable key' }), {
+      target: { value: 'Plant Code' },
+    });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    expect(await findByText('Variable keys must use lowercase snake case.')).toBeTruthy();
+    await fireEvent.input(within(dialog).getByRole('textbox', { name: 'Variable key' }), {
+      target: { value: 'plant_code' },
+    });
+    await fireEvent.input(within(dialog).getByRole('textbox', { name: 'Variable value' }), {
+      target: { value: 'P3' },
+    });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    expect(await findByText('plant_code')).toBeTruthy();
+    await fireEvent.click(getByRole('button', { name: 'Save' }));
+    await waitFor(async () =>
+      expect(await source.getProfile()).toMatchObject({
+        name: 'Asha Rao',
+        gender: 'non-binary',
+        variables: { plant_code: 'P3' },
+      }),
+    );
+  });
+
+  it('switches the avatar to initials and back to the default', async () => {
+    const { getByRole, source } = await open();
+    await fireEvent.click(getByRole('button', { name: 'Initials' }));
+    await fireEvent.click(getByRole('button', { name: 'Save' }));
+    await waitFor(async () =>
+      expect((await source.getProfile()).avatar).toEqual({ kind: 'initials' }),
+    );
+    await fireEvent.click(getByRole('button', { name: 'Remove' }));
+    await fireEvent.click(getByRole('button', { name: 'Save' }));
+    await waitFor(async () =>
+      expect((await source.getProfile()).avatar).toEqual({ kind: 'default' }),
+    );
+  });
+
+  it('changes the password when the new one is confirmed', async () => {
+    const { getByRole, getByLabelText, findByText, source } = await open();
+    const change = vi.spyOn(source, 'changePassword');
+    await fireEvent.click(getByRole('button', { name: 'Show' }));
+    await fireEvent.input(getByLabelText('Current Password'), { target: { value: 'old-pass' } });
+    await fireEvent.input(getByLabelText('New Password'), { target: { value: 'new-pass-1' } });
+    await fireEvent.input(getByLabelText('Confirm Password'), { target: { value: 'new-pass-2' } });
+    await fireEvent.click(getByRole('button', { name: 'Update password' }));
+    expect(
+      await findByText(
+        "The passwords you entered don't quite match. Please double-check and try again.",
+      ),
+    ).toBeTruthy();
+    expect(change).not.toHaveBeenCalled();
+    await fireEvent.input(getByLabelText('Confirm Password'), { target: { value: 'new-pass-1' } });
+    await fireEvent.click(getByRole('button', { name: 'Update password' }));
+    expect(await findByText('Password updated.')).toBeTruthy();
+    expect(change).toHaveBeenCalledWith('old-pass', 'new-pass-1');
+    expect((getByLabelText('New Password') as HTMLInputElement).value).toBe('');
+  });
+});
