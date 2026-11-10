@@ -283,3 +283,25 @@ describe('fake tools', () => {
     expect(await source.getTool('unit_convert')).toBeUndefined();
   });
 });
+
+describe('fake user settings', () => {
+  it('starts empty and keeps what is saved, merged', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect(await source.getUserSettings()).toEqual({});
+    await source.saveUserSettings({ system: 'Be brief.' });
+    await source.saveUserSettings({ params: { temperature: 0.5 } });
+    expect(await source.getUserSettings()).toEqual({
+      system: 'Be brief.',
+      params: { temperature: 0.5 },
+    });
+  });
+
+  it('sets and clears the status, and counts active people', async () => {
+    const source = createFakeSource({ pace: 0 });
+    await source.setStatus({ emoji: '🛠️', message: 'On site' });
+    expect((await source.currentUser())?.status).toEqual({ emoji: '🛠️', message: 'On site' });
+    await source.setStatus(undefined);
+    expect((await source.currentUser())?.status).toBeUndefined();
+    expect(await source.activeUsers()).toBe(1);
+  });
+});

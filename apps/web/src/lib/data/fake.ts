@@ -12,6 +12,7 @@ import type {
   PromptVersion,
   Skill,
   Tool,
+  UserSettings,
   StreamEvent,
   User,
   WorkspaceItem,
@@ -423,6 +424,7 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
   const docs = documents();
   const folders: StoredFolder[] = [];
   const prompts: Prompt[] = [];
+  let settings: UserSettings = {};
   const skills: Skill[] = [];
   const toolList = tools();
   const tool = (id: string) => toolList.find((one) => one.id === id);
@@ -597,6 +599,19 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
         for (const folder of folders) if (folder.parent === id) folder.parent = target.parent;
         folders.splice(folders.indexOf(target), 1);
       }
+    },
+    async getUserSettings() {
+      return structuredClone(settings);
+    },
+    async saveUserSettings(change) {
+      settings = { ...settings, ...structuredClone(change) };
+    },
+    async setStatus(status) {
+      if (user) user = { ...user, status };
+      if (user && !status) delete user.status;
+    },
+    async activeUsers() {
+      return user ? 1 : 0;
     },
     async listPrompts() {
       return prompts.map((one) => ({ ...one }));

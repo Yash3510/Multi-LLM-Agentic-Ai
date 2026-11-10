@@ -98,6 +98,8 @@ export interface User {
   name: string;
   email: string;
   role: 'admin' | 'user' | 'pending';
+  /** A short status the person set from the user menu. */
+  status?: { emoji?: string; message?: string };
 }
 
 /** The workspace tabs, in the running app's order. */
@@ -217,6 +219,16 @@ export interface Tool extends WorkspaceItem {
   writable: boolean;
 }
 
+/** The person's own settings (chat-composer F91 to F104); each page saves its part. */
+export interface UserSettings {
+  /** The system prompt for new chats. */
+  system?: string;
+  /** Advanced model parameters left at Default are absent. */
+  params?: Record<string, number | string | boolean>;
+  /** Interface, notification and audio choices, by key. */
+  ui?: Record<string, unknown>;
+}
+
 /** What the model editor saves (the API takes the full record; see web-data-contract.md). */
 export interface ModelRecord {
   id: string;
@@ -238,6 +250,13 @@ export interface DataSource {
   setupStatus(): Promise<{ firstAccount: boolean }>;
   createFirstAccount(name: string, email: string, password: string): Promise<User>;
   listChats(): Promise<ChatSummary[]>;
+  getUserSettings(): Promise<UserSettings>;
+  /** Merges the given parts into the saved settings. */
+  saveUserSettings(change: UserSettings): Promise<void>;
+  /** Sets or, with undefined, clears the person's status. */
+  setStatus(status: { emoji?: string; message?: string } | undefined): Promise<void>;
+  /** How many people are signed in now. */
+  activeUsers(): Promise<number>;
   /** How many items each workspace tab holds. */
   workspaceCounts(): Promise<Record<WorkspaceTab, number>>;
   listModels(): Promise<WorkspaceModel[]>;

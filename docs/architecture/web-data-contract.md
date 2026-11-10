@@ -18,6 +18,9 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | Call | Returns | Used by |
 | --- | --- | --- |
 | `listChats()` | `ChatSummary[]`, newest first: id, title, updated time and the last run's outcome | the sidebar's chat list and its run markers |
+| `getUserSettings()` / `saveUserSettings(change)` | the person's own settings (`UserSettings`: system prompt, advanced parameters left at Default are absent, interface choices by key); saving merges the given parts | the settings dialog's pages |
+| `setStatus(status \| undefined)` | sets or clears the short status shown in the user menu (on `User.status`) | the user menu's status dialog |
+| `activeUsers()` | how many people are signed in now | the user menu's active count |
 | `getChat(id)` | `Chat` with its `messages`, or `undefined` | the conversation screen (`/c/[id]`) |
 | `ask(chatId, question, signal?)` | an async stream of `StreamEvent`s, ending at the sign-off request (or `done`, `stopped`, `error`) | the composer and the live answer |
 | `decide(chatId, outcome, by, signal?)` | the rest of the run: `decision`, `receipt`, `done` | the sign-off panel |
