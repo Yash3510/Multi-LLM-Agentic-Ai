@@ -7,7 +7,9 @@
   import type { IconName } from '$lib/ui/icons/generated/icons';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { ADMIN_GROUPS, PANELS, type PanelId } from '$lib/ui/admin-panels';
+  import AdminAnalytics from './AdminAnalytics.svelte';
   import AdminConnections from './AdminConnections.svelte';
+  import AdminModels from './AdminModels.svelte';
   import AdminSettings from './AdminSettings.svelte';
   import SettingsAccount from './SettingsAccount.svelte';
   import SettingsArchived from './SettingsArchived.svelte';
@@ -168,6 +170,10 @@
             <SettingsArchived {source} />
           {:else if tab === 'account'}
             <SettingsAccount {source} />
+          {:else if admin && tab === 'admin-models'}
+            <AdminModels {source} />
+          {:else if admin && tab === 'admin-analytics'}
+            <AdminAnalytics {source} />
           {:else if admin && tab === 'admin-connections'}
             <AdminConnections {source} />
           {:else if adminPanel}

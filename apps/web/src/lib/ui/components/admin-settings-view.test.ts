@@ -62,3 +62,42 @@ describe('admin settings tabs (admin look §18)', () => {
     await waitFor(async () => expect((await source.adminLedger())[0].action).toBe('export.users'));
   });
 });
+
+describe('admin models and analytics (admin look §17, §23)', () => {
+  it('disables a model, saves, and resets only after typing RESET with Undo', async () => {
+    const { findByText, getByRole, findByRole, source } = await open('Models');
+    expect(await findByText('4CE / TONY (Orchestrator)')).toBeTruthy();
+    await fireEvent.click(getByRole('switch', { name: '4CE / TONY (Orchestrator)' }));
+    await fireEvent.click(getByRole('button', { name: 'Save' }));
+    await waitFor(async () =>
+      expect(await source.getAdminSettings('models')).toMatchObject({ disabled: ['4ce-tony'] }),
+    );
+    await fireEvent.click(getByRole('button', { name: 'Actions' }));
+    await fireEvent.click(await findByRole('menuitem', { name: 'Reset' }));
+    const confirm = await findByRole('alertdialog');
+    await fireEvent.input(within(confirm).getByRole('textbox'), { target: { value: 'RESET' } });
+    await fireEvent.click(within(confirm).getByRole('button', { name: 'Reset' }));
+    await waitFor(async () =>
+      expect(await source.getAdminSettings('models')).toMatchObject({ disabled: [] }),
+    );
+    await fireEvent.click(await findByText('Undo'));
+    await waitFor(async () =>
+      expect(await source.getAdminSettings('models')).toMatchObject({ disabled: ['4ce-tony'] }),
+    );
+  });
+
+  it('shows analytics totals and the model usage table', async () => {
+    const { findByText, getByText, getAllByText } = await open('Analytics');
+    expect(await findByText('Daily Messages')).toBeTruthy();
+    expect(getAllByText('4.4k')).toHaveLength(2);
+    expect(getByText('Model Usage')).toBeTruthy();
+    expect(
+      getByText('Message counts are based on assistant responses.', { exact: false }),
+    ).toBeTruthy();
+  });
+
+  it('says pipelines are not detected', async () => {
+    const { findByText } = await open('Pipelines');
+    expect(await findByText('Pipelines Not Detected')).toBeTruthy();
+  });
+});

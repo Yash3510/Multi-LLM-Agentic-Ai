@@ -33,6 +33,8 @@ export interface Item {
   action?: string;
   /** A value shown as text (info rows). */
   value?: string;
+  /** An info line in the quiet caption colour. */
+  muted?: boolean;
   showIf?: (values: Values) => boolean;
 }
 
@@ -1213,6 +1215,44 @@ export const PANELS = {
             action: 'Reindex',
           },
         ],
+      },
+    ],
+  },
+  evaluations: {
+    id: 'evaluations',
+    title: 'Evaluations',
+    sections: [
+      {
+        items: [
+          sw(
+            'ENABLE_EVALUATION_ARENA_MODELS',
+            'Arena Models',
+            'Message rating should be enabled to use this feature',
+          ),
+        ],
+      },
+      {
+        heading: 'Models',
+        items: [
+          {
+            kind: 'info',
+            label:
+              'No arena models yet. Arena models compare answers side by side when message rating is on.',
+            muted: true,
+            showIf: on('ENABLE_EVALUATION_ARENA_MODELS'),
+          },
+        ],
+      },
+    ],
+  },
+  pipelines: {
+    id: 'pipelines',
+    title: 'Pipelines',
+    noSave: true,
+    sections: [
+      {
+        heading: 'Source',
+        items: [{ kind: 'info', label: 'Pipelines Not Detected', muted: true }],
       },
     ],
   },

@@ -59,14 +59,14 @@
   <div class="body">
     <h2>{panel.title}</h2>
     {#if values}
-      {#each panel.sections as section, index (index)}
+      {#each panel.sections.filter((one) => shownItems(one, values ?? {}).length) as section, index (index)}
         <section>
           {#if section.heading}<h3 class="heading">{section.heading}</h3>{/if}
           <div class="rows">
             {#each shownItems(section, values) as item (item.key ?? item.label)}
               {#if item.kind === 'info'}
                 <div class="info">
-                  <span class="label">{item.label}</span>
+                  <span class="label" class:muted={item.muted}>{item.label}</span>
                   {#if item.value}<span class="value">{item.value}</span>{/if}
                   {#if item.note}<p class="note info-note">{item.note}</p>{/if}
                 </div>
@@ -239,6 +239,14 @@
 
   .info .label {
     line-height: 16px;
+  }
+
+  .info .label.muted {
+    color: var(--color-gray-400);
+  }
+
+  :global([data-theme='dark']) .info .label.muted {
+    color: var(--color-gray-600);
   }
 
   .admin-panel .info-note {
