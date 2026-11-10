@@ -546,3 +546,43 @@ describe('fake functions', () => {
     expect(await source.getFunction('missing')).toBeUndefined();
   });
 });
+
+describe('fake admin settings', () => {
+  it('keeps each panel apart, merges saves, and logs them', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect(await source.getAdminSettings('general')).toEqual({});
+    await source.saveAdminSettings('general', { ENABLE_CHANNELS: true });
+    await source.saveAdminSettings('general', { ENABLE_NOTES: false });
+    expect(await source.getAdminSettings('general')).toEqual({
+      ENABLE_CHANNELS: true,
+      ENABLE_NOTES: false,
+    });
+    expect(await source.getAdminSettings('authentication')).toEqual({});
+    expect((await source.adminLedger())[0]).toMatchObject({ action: 'settings.general' });
+  });
+});
+
+describe('fake admin data export and config import', () => {
+  it('exports config, chats and users, imports config with the old one kept for undo, and logs each', async () => {
+    const source = createFakeSource({ pace: 0 });
+    await source.saveAdminSettings('general', { ENABLE_CHANNELS: true });
+    expect(JSON.parse((await source.exportAdminData('config')) ?? '')).toEqual({
+      general: { ENABLE_CHANNELS: true },
+    });
+    expect(JSON.parse((await source.exportAdminData('chats')) ?? '[]').length).toBeGreaterThan(0);
+    expect((await source.exportAdminData('users'))?.split('\n')[0]).toBe('id,name,email,role');
+    expect(await source.exportAdminData('database')).toBeUndefined();
+    const previous = await source.importAdminConfig({ general: { ENABLE_NOTES: false } });
+    expect(await source.getAdminSettings('general')).toEqual({ ENABLE_NOTES: false });
+    await source.importAdminConfig(previous);
+    expect(await source.getAdminSettings('general')).toEqual({ ENABLE_CHANNELS: true });
+    const actions = (await source.adminLedger()).map((entry) => entry.action);
+    expect(actions.slice(0, 5)).toEqual([
+      'config.import',
+      'config.import',
+      'export.users',
+      'export.chats',
+      'export.config',
+    ]);
+  });
+});

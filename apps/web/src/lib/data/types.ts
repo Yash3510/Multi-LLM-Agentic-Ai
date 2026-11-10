@@ -461,6 +461,17 @@ export interface DataSource {
   /** Server-side functions (read only in this build). */
   listFunctions(): Promise<ServerFunction[]>;
   getFunction(id: string): Promise<ServerFunction | undefined>;
+  /** An admin settings panel's stored values, by key (unset keys use the panel's defaults). */
+  getAdminSettings(panel: string): Promise<Record<string, unknown>>;
+  /** Merges the given values into the panel's stored values. */
+  saveAdminSettings(panel: string, values: Record<string, unknown>): Promise<void>;
+  /** An admin export's file text (config and chats as JSON, users as CSV); undefined when this
+   * server cannot export it. Every export is logged. */
+  exportAdminData(kind: 'config' | 'chats' | 'users' | 'database'): Promise<string | undefined>;
+  /** Replaces the admin settings with an imported config; returns the previous one for undo. */
+  importAdminConfig(
+    config: Record<string, Record<string, unknown>>,
+  ): Promise<Record<string, Record<string, unknown>>>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

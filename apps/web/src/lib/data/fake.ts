@@ -624,6 +624,7 @@ export function createFakeSource({
     },
   ];
   const deletedFeedback = new Map<string, Feedback>();
+  const adminSettings = new Map<string, Record<string, unknown>>();
   const ledger: LedgerEntry[] = [];
   const record = (action: string, target: string) =>
     ledger.unshift({ at: new Date(), by: user?.email ?? '', action, target });
@@ -1123,6 +1124,34 @@ export function createFakeSource({
     async getFunction(id) {
       const found = functions.find((one) => one.id === id);
       return found && structuredClone(found);
+    },
+    async getAdminSettings(panel) {
+      return structuredClone(adminSettings.get(panel) ?? {});
+    },
+    async saveAdminSettings(panel, values) {
+      adminSettings.set(panel, { ...adminSettings.get(panel), ...structuredClone(values) });
+      record(`settings.${panel}`, Object.keys(values).join(', '));
+    },
+    async exportAdminData(kind) {
+      if (kind === 'database') return undefined;
+      record(`export.${kind}`, kind);
+      if (kind === 'config') return JSON.stringify(Object.fromEntries(adminSettings));
+      if (kind === 'chats') return JSON.stringify(chats);
+      const everyone = [...(user ? [user] : []), ...people];
+      const cell = (value: string) =>
+        /[",\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+      return [
+        'id,name,email,role',
+        ...everyone.map((one) => [one.id, one.name, one.email, one.role].map(cell).join(',')),
+      ].join('\n');
+    },
+    async importAdminConfig(config) {
+      const previous = structuredClone(Object.fromEntries(adminSettings));
+      adminSettings.clear();
+      for (const [panel, values] of Object.entries(structuredClone(config)))
+        adminSettings.set(panel, values);
+      record('config.import', Object.keys(config).join(', '));
+      return previous;
     },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));
