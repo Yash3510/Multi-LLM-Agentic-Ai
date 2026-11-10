@@ -257,3 +257,41 @@ describe('audio settings (F99)', () => {
     );
   });
 });
+
+describe('data controls (F100)', () => {
+  it('imports a chat file, and archives and deletes all after confirmation', async () => {
+    const { getByRole, findByRole, findByText, container, source } = setup();
+    const nav = getByRole('navigation', { name: 'Settings' });
+    await fireEvent.click(within(nav).getByRole('button', { name: 'Data Controls' }));
+    expect(await findByRole('heading', { name: 'Data Controls', level: 2 })).toBeTruthy();
+
+    const input = container.ownerDocument.querySelector(
+      'input[type="file"][accept=".json"]',
+    ) as HTMLInputElement;
+    const file = new File([JSON.stringify([{ title: 'From file', messages: [] }])], 'chats.json', {
+      type: 'application/json',
+    });
+    await fireEvent.change(input, { target: { files: [file] } });
+    expect(await findByText('Imported 1 chat.')).toBeTruthy();
+
+    const bad = new File(['not json'], 'bad.json', { type: 'application/json' });
+    await fireEvent.change(input, { target: { files: [bad] } });
+    expect(await findByText('That file is not a chat export.')).toBeTruthy();
+
+    await fireEvent.click(getByRole('button', { name: 'Archive All' }));
+    await fireEvent.click(
+      within(await findByRole('alertdialog', { name: 'Archive All Chats' })).getByRole('button', {
+        name: 'Confirm',
+      }),
+    );
+    await waitFor(async () => expect(await source.listChats()).toEqual([]));
+
+    await fireEvent.click(getByRole('button', { name: 'Delete All' }));
+    await fireEvent.click(
+      within(await findByRole('alertdialog', { name: 'Delete All Chats' })).getByRole('button', {
+        name: 'Confirm',
+      }),
+    );
+    await waitFor(async () => expect(await source.exportChats()).toEqual([]));
+  });
+});
