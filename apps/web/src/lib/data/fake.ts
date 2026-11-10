@@ -963,6 +963,15 @@ export function createFakeSource({ pace = 1 }: { pace?: number } = {}): DataSour
       people = [...people, found];
       record('user.restore', found.email);
     },
+    // Without groups or access rules yet, everyone reaches every model, base and tool.
+    async previewAccess() {
+      return {
+        groups: [],
+        models: BASE_MODELS.map((one) => one.name),
+        knowledge: bases.map((one) => one.name),
+        tools: toolList.map((one) => one.name),
+      };
+    },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));
     },

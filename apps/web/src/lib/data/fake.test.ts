@@ -445,3 +445,14 @@ describe('fake admin people', () => {
     expect(JSON.stringify(ledger)).not.toContain('demo-only-2');
   });
 });
+
+describe('fake access preview', () => {
+  it('lists the models, knowledge and tools a person can reach', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const preview = await source.previewAccess('u-admin');
+    expect(preview.groups).toEqual([]);
+    expect(preview.models.length).toBeGreaterThan(0);
+    expect(preview.knowledge.length).toBe((await source.listKnowledge()).length);
+    expect(preview.tools.length).toBe((await source.listTools()).length);
+  });
+});

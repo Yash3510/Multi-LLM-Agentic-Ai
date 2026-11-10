@@ -358,6 +358,13 @@ export interface DataSource {
   deleteUser(id: string): Promise<void>;
   /** Brings back a person deleted in this session (the Undo after a delete). */
   restoreUser(id: string): Promise<void>;
+  /** What a person can reach, by name: their groups, models, knowledge and tools. */
+  previewAccess(id: string): Promise<{
+    groups: string[];
+    models: string[];
+    knowledge: string[];
+    tools: string[];
+  }>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

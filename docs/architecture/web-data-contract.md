@@ -22,6 +22,7 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `setStatus(status \| undefined)` | sets or clears the short status shown in the user menu (on `User.status`) | the user menu's status dialog |
 | `activeUsers()` | how many people are signed in now | the user menu's active count |
 | `listUsers()` / `addUser(person)` / `updateUser(id, change)` / `deleteUser(id)` / `restoreUser(id)` | everyone with an account (`AdminUser`: role, joined and last-active times), the signed-in admin first; passwords given here go only to the backend and are never kept; a delete can be undone in the same session | the admin People list and its dialogs |
+| `previewAccess(id)` | what a person can reach, by name: groups, models, knowledge, tools | the admin access preview |
 | `adminLedger()` | every admin change, newest first (`LedgerEntry`: when, by whom, action, target; never a password) | the admin pages' change trail |
 | `getProfile()` / `saveProfile(profile)` | the person's profile (`Profile`: name, bio, gender, birth date, avatar kind, user variables); saving the name renames the signed-in person | the Account page |
 | `changePassword(current, next)` | changes the password; both go only to the backend, never logged, stored or put in a URL | the Account page |
