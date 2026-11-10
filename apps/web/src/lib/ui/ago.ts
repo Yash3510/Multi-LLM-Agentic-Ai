@@ -27,3 +27,21 @@ export function ago(when: Date, now = new Date()) {
 
 /** The full date, for the tooltip on a relative time. */
 export const longDate = new Intl.DateTimeFormat('en', { dateStyle: 'full', timeStyle: 'short' });
+
+const WEEKDAY = new Intl.DateTimeFormat('en', { weekday: 'long' });
+
+/** A date as dayjs's calendar words it: Today, Yesterday, Tomorrow, a weekday within the week
+ * either side ("Last Saturday"), else MM/DD/YYYY. Days count from the start of today. */
+export function calendarDay(when: Date, now = new Date()) {
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = (when.getTime() - midnight.getTime()) / (DAY * 1000);
+  if (days < -6 || days >= 7) {
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return `${pad(when.getMonth() + 1)}/${pad(when.getDate())}/${when.getFullYear()}`;
+  }
+  if (days < -1) return `Last ${WEEKDAY.format(when)}`;
+  if (days < 0) return 'Yesterday';
+  if (days < 1) return 'Today';
+  if (days < 2) return 'Tomorrow';
+  return WEEKDAY.format(when);
+}
