@@ -123,5 +123,17 @@
   "folder-open-bold": { "phosphor": "folder-open", "weight": "bold" },
   "add-text-bold": { "phosphor": "sort-descending", "weight": "bold" },
   "reset-bold": { "phosphor": "arrow-u-up-left", "weight": "bold" },
-  "clipboard": { "phosphor": "clipboard" }
+  "clipboard": { "phosphor": "clipboard" },
+  "smiley": { "phosphor": "smiley" },
+  "code": { "phosphor": "code" },
+  "settings-general": { "phosphor": "gear-six", "weight": "bold" },
+  "settings-interface": { "phosphor": "sliders-horizontal", "weight": "bold" },
+  "settings-notifications": { "phosphor": "notification", "weight": "bold" },
+  "settings-keyboard": { "phosphor": "keyboard", "weight": "bold" },
+  "settings-personalization": { "phosphor": "smiley", "weight": "bold" },
+  "settings-audio": { "phosphor": "speaker-high", "weight": "bold" },
+  "settings-data": { "phosphor": "database", "weight": "bold" },
+  "settings-usage": { "phosphor": "chart-line", "weight": "bold" },
+  "settings-archived": { "phosphor": "archive", "weight": "bold" },
+  "settings-account": { "phosphor": "user-circle", "weight": "bold" }
 }
