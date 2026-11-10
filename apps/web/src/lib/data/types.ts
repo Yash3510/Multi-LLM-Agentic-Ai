@@ -172,6 +172,22 @@ export interface LeaderboardEntry {
   tags: { tag: string; count: number }[];
 }
 
+/** A server-side function (admin F133 to F168): read only in this build. */
+export interface ServerFunction {
+  id: string;
+  name: string;
+  type: 'pipe' | 'filter' | 'action' | 'event';
+  version?: string;
+  description?: string;
+  /** The Python source. */
+  content: string;
+  enabled: boolean;
+  /** For filters and actions: applies to every model. */
+  global?: boolean;
+  updated: Date;
+  owner: { name: string; email: string };
+}
+
 /** The workspace tabs, in the running app's order. */
 export type WorkspaceTab = 'models' | 'knowledge' | 'prompts' | 'skills' | 'tools';
 
@@ -442,6 +458,9 @@ export interface DataSource {
     modelId: string,
     days: number,
   ): Promise<{ date: string; won: number; lost: number }[]>;
+  /** Server-side functions (read only in this build). */
+  listFunctions(): Promise<ServerFunction[]>;
+  getFunction(id: string): Promise<ServerFunction | undefined>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

@@ -13,6 +13,7 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  ServerFunction,
   Feedback,
   LeaderboardEntry,
   Group,
@@ -607,6 +608,21 @@ export function createFakeSource({
   const deletedGroups = new Map<string, Group>();
   let defaultPermissions: StoredPermissions = {};
   let feedback: Feedback[] = structuredClone(seeded);
+  // The orchestrator pipe the capture account shows, with a short stand-in body.
+  const functions: ServerFunction[] = [
+    {
+      id: 'orchestrator',
+      name: '4CE Orchestrator',
+      type: 'pipe',
+      version: '0.1.0',
+      description:
+        'TONY routes, FRIDAY grounds, JARVIS executes, ULTRON verifies, a human approves.',
+      content: `"""\ntitle: 4CE Orchestrator\nversion: 0.1.0\n"""\n\n\nclass Pipe:\n    def pipe(self, body: dict) -> str:\n        return "The 4CE server runs the six roles."\n`,
+      enabled: true,
+      updated: new Date(Date.now() - 32 * 86_400_000),
+      owner: { name: '4CE Administrator', email: 'admin@4ce.local' },
+    },
+  ];
   const deletedFeedback = new Map<string, Feedback>();
   const ledger: LedgerEntry[] = [];
   const record = (action: string, target: string) =>
@@ -1100,6 +1116,13 @@ export function createFakeSource({
         ).length;
         return { date: day, won, lost: that.filter((one) => one.result !== 0).length - won };
       });
+    },
+    async listFunctions() {
+      return structuredClone(functions);
+    },
+    async getFunction(id) {
+      const found = functions.find((one) => one.id === id);
+      return found && structuredClone(found);
     },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));

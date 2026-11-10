@@ -531,3 +531,18 @@ describe('fake evaluations', () => {
     expect((await source.adminLedger())[0].action).toBe('feedback.restore');
   });
 });
+
+describe('fake functions', () => {
+  it('lists the stand-in function and reads one by id', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const [first] = await source.listFunctions();
+    expect(first).toMatchObject({
+      name: '4CE Orchestrator',
+      type: 'pipe',
+      version: '0.1.0',
+      enabled: true,
+    });
+    expect((await source.getFunction(first.id))?.content).toContain('class Pipe');
+    expect(await source.getFunction('missing')).toBeUndefined();
+  });
+});
