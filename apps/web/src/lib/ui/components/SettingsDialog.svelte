@@ -7,6 +7,7 @@
   import type { IconName } from '$lib/ui/icons/generated/icons';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import SettingsGeneral from './SettingsGeneral.svelte';
+  import SettingsInterface from './SettingsInterface.svelte';
   import './modal.css';
 
   type Props = {
@@ -109,6 +110,8 @@
         <div class="content">
           {#if settings && tab === 'general'}
             <SettingsGeneral {source} {settings} {admin} />
+          {:else if settings && tab === 'interface'}
+            <SettingsInterface {source} {settings} />
           {:else if current}
             <!-- The other pages land one at a time. -->
             <h2 class="page-title">{current.label}</h2>

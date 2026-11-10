@@ -85,3 +85,21 @@ describe('general settings (F92)', () => {
     ]);
   });
 });
+
+describe('interface settings (F93, common F68)', () => {
+  it('saves a changed preference and opens Manage for quick actions', async () => {
+    const { findByRole, getByRole, getByText, findByText, source } = setup();
+    const nav = getByRole('navigation', { name: 'Settings' });
+    await fireEvent.click(within(nav).getByRole('button', { name: 'Interface' }));
+    expect(await findByRole('heading', { name: 'Interface', level: 2 })).toBeTruthy();
+    const row = getByText('Accessibility Mode').closest('.block') as HTMLElement;
+    await fireEvent.click(within(row).getByRole('switch'));
+    await fireEvent.click(getByRole('button', { name: 'Manage' }));
+    expect(await findByText('Default action buttons will be used.')).toBeTruthy();
+    await fireEvent.click(getByRole('button', { name: 'Close modal' }));
+    await fireEvent.click(getByRole('button', { name: 'Save' }));
+    await waitFor(async () =>
+      expect((await source.getUserSettings()).ui).toMatchObject({ accessibility: true }),
+    );
+  });
+});
