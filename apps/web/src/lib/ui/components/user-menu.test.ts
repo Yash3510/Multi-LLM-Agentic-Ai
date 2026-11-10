@@ -32,3 +32,23 @@ describe('user menu (layout F125 to F132)', () => {
     expect(onsettings).toHaveBeenCalled();
   });
 });
+
+describe('user menu admin row (layout look §7.1)', () => {
+  const props = {
+    open: true,
+    active: 1,
+    onsettings: vi.fn(),
+    onstatus: vi.fn(),
+    onsignout: vi.fn(),
+  };
+  it('shows Admin Panel to admins only', async () => {
+    const admin = render(UserMenu, { props: { ...props, user } });
+    expect(await admin.findByRole('menuitem', { name: 'Admin Panel' })).toBeTruthy();
+    admin.unmount();
+    const plain = render(UserMenu, {
+      props: { ...props, user: { ...user, role: 'user' as const } },
+    });
+    await plain.findByRole('menuitem', { name: 'Settings' });
+    expect(plain.queryByRole('menuitem', { name: 'Admin Panel' })).toBeNull();
+  });
+});

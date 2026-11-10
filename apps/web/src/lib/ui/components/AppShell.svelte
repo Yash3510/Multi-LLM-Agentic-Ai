@@ -17,6 +17,7 @@
   import SettingsDialog from './SettingsDialog.svelte';
   import StatusDialog from './StatusDialog.svelte';
   import UserMenu from './UserMenu.svelte';
+  import { provideOpenSettings } from '$lib/ui/settings-context';
 
   let {
     children,
@@ -31,6 +32,7 @@
   let settingsOpen = $state(false);
   let statusOpen = $state(false);
   let active = $state(1);
+  provideOpenSettings(() => (settingsOpen = true));
 
   const locale = toIntlLocale(getLocale());
   // Planned routes (web-screens.md); the hash keeps them typed until they exist.
