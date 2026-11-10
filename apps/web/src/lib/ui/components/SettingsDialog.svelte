@@ -10,6 +10,7 @@
   import SettingsInterface from './SettingsInterface.svelte';
   import SettingsKeyboard from './SettingsKeyboard.svelte';
   import SettingsNotifications from './SettingsNotifications.svelte';
+  import SettingsPersonalization from './SettingsPersonalization.svelte';
   import './modal.css';
 
   type Props = {
@@ -118,6 +119,8 @@
             <SettingsNotifications {source} {settings} />
           {:else if settings && tab === 'keyboard'}
             <SettingsKeyboard {source} {settings} />
+          {:else if settings && tab === 'personalization'}
+            <SettingsPersonalization {source} {settings} />
           {:else if current}
             <!-- The other pages land one at a time. -->
             <h2 class="page-title">{current.label}</h2>

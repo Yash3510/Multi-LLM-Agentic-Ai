@@ -147,3 +147,77 @@ describe('keyboard settings (F95)', () => {
     );
   });
 });
+
+describe('personalization settings (F98)', () => {
+  it('adds, searches, edits and removes a memory, and clears them all', async () => {
+    const { getByRole, findByRole, findByText, findByPlaceholderText, queryByText, source } =
+      setup();
+    const nav = getByRole('navigation', { name: 'Settings' });
+    await fireEvent.click(within(nav).getByRole('button', { name: 'Personalization' }));
+    expect(await findByText('Memories accessible by LLMs will be shown here.')).toBeTruthy();
+
+    await fireEvent.click(await findByRole('button', { name: 'Actions' }));
+    await fireEvent.click(await findByRole('menuitem', { name: 'Add Memory' }));
+    const add = await findByRole('dialog', { name: 'Add Memory' });
+    await fireEvent.click(within(add).getByRole('button', { name: 'User' }));
+    expect(within(add).getByRole('button', { name: 'Context' })).toBeTruthy();
+    await fireEvent.input(
+      within(add).getByPlaceholderText('Add durable context for future chats'),
+      {
+        target: { value: 'Works on line 3' },
+      },
+    );
+    await fireEvent.click(within(add).getByRole('button', { name: 'Add' }));
+    expect(await findByText('Works on line 3')).toBeTruthy();
+    expect((await source.listMemories())[0]).toMatchObject({ type: 'context' });
+
+    await fireEvent.input(await findByPlaceholderText('Search Memories'), {
+      target: { value: 'zzz' },
+    });
+    expect(await findByText('No results found')).toBeTruthy();
+    await fireEvent.click(getByRole('button', { name: 'Clear search' }));
+
+    await fireEvent.click(await findByRole('button', { name: 'Edit' }));
+    const edit = await findByRole('dialog', { name: 'Edit Memory' });
+    await fireEvent.input(within(edit).getByRole('textbox', { name: 'Memory' }), {
+      target: { value: 'Works on line 4' },
+    });
+    await fireEvent.click(within(edit).getByRole('button', { name: 'Update' }));
+    expect(await findByText('Works on line 4')).toBeTruthy();
+
+    await fireEvent.click(getByRole('button', { name: 'Remove' }));
+    const remove = await findByRole('alertdialog', { name: 'Delete Memory?' });
+    expect(within(remove).getByText('Works on line 4')).toBeTruthy();
+    await fireEvent.click(within(remove).getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(queryByText('Works on line 4')).toBeNull());
+
+    await fireEvent.click(await findByRole('button', { name: 'Actions' }));
+    await fireEvent.click(await findByRole('menuitem', { name: 'Add Memory' }));
+    const again = await findByRole('dialog', { name: 'Add Memory' });
+    await fireEvent.input(within(again).getByRole('textbox', { name: 'Memory' }), {
+      target: { value: 'One more' },
+    });
+    await fireEvent.click(within(again).getByRole('button', { name: 'Add' }));
+    expect(await findByText('One more')).toBeTruthy();
+    await fireEvent.click(await findByRole('button', { name: 'Actions' }));
+    await fireEvent.click(await findByRole('menuitem', { name: 'Clear memory' }));
+    await fireEvent.click(
+      within(await findByRole('alertdialog', { name: 'Clear Memory' })).getByRole('button', {
+        name: 'Confirm',
+      }),
+    );
+    await waitFor(async () => expect(await source.listMemories()).toEqual([]));
+  });
+
+  it('saves the memory switch at once', async () => {
+    const { getByRole, findByText, source } = setup();
+    const nav = getByRole('navigation', { name: 'Settings' });
+    await fireEvent.click(within(nav).getByRole('button', { name: 'Personalization' }));
+    const row = (await findByText('Experimental')).closest('.block') as HTMLElement;
+    await fireEvent.click(within(row).getByRole('switch'));
+    await waitFor(async () =>
+      expect((await source.getUserSettings()).ui).toMatchObject({ memory: false }),
+    );
+    expect(await findByText('Saved Memories').catch(() => null)).toBeNull();
+  });
+});
