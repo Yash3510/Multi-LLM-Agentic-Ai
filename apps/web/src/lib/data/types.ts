@@ -106,6 +106,8 @@ export interface User {
 export interface AdminUser extends User {
   created: Date;
   lastActive: Date;
+  /** The default picture or initials drawn from the name. */
+  avatar?: 'default' | 'initials';
 }
 
 /** One admin change, kept so every change can be traced (who, what, to whom). */
@@ -515,7 +517,13 @@ export interface DataSource {
   /** A new password is optional; it goes only to the backend. */
   updateUser(
     id: string,
-    change: { name: string; email: string; role: User['role']; password?: string },
+    change: {
+      name: string;
+      email: string;
+      role: User['role'];
+      password?: string;
+      avatar?: 'default' | 'initials';
+    },
   ): Promise<void>;
   deleteUser(id: string): Promise<void>;
   /** Brings back a person deleted in this session (the Undo after a delete). */
@@ -626,6 +634,8 @@ export interface DataSource {
   restoreAutomation(id: string): Promise<void>;
   /** Runs an automation now (the fake records a run without calling a model). */
   runAutomation(id: string): Promise<void>;
+  /** A person's chats, newest first (the admin chats view). */
+  userChats(id: string): Promise<ChatSummary[]>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

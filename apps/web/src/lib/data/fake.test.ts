@@ -738,3 +738,19 @@ describe('fake automations', () => {
     expect(await source.listAutomations()).toHaveLength(1);
   });
 });
+
+describe('fake admin leftovers', () => {
+  it("keeps a person's avatar choice and lists their chats", async () => {
+    const source = createFakeSource({ pace: 0 });
+    const [self, other] = await source.listUsers();
+    await source.updateUser(other.id, {
+      name: other.name,
+      email: other.email,
+      role: other.role,
+      avatar: 'initials',
+    });
+    expect((await source.listUsers())[1].avatar).toBe('initials');
+    expect((await source.userChats(self.id)).length).toBeGreaterThan(0);
+    expect(await source.userChats(other.id)).toEqual([]);
+  });
+});

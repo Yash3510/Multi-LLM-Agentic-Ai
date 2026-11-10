@@ -1050,9 +1050,11 @@ export function createFakeSource({
       record('user.add', added.email);
       return { ...added };
     },
-    async updateUser(id, { name, email, role }) {
+    async updateUser(id, { name, email, role, avatar }) {
       if (user?.id === id) user = { ...user, name, email, role };
-      people = people.map((one) => (one.id === id ? { ...one, name, email, role } : one));
+      people = people.map((one) =>
+        one.id === id ? { ...one, name, email, role, ...(avatar ? { avatar } : {}) } : one,
+      );
       record('user.update', email);
     },
     async deleteUser(id) {
@@ -1426,6 +1428,10 @@ export function createFakeSource({
           ? { ...one, runs: [{ at: new Date(), chatId: CHATS[0]?.id }, ...one.runs] }
           : one,
       );
+    },
+    // Only the signed-in person has chats in the fake.
+    async userChats(id) {
+      return id === user?.id ? this.listChats() : [];
     },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));
