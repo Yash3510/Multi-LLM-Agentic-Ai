@@ -197,6 +197,18 @@ export interface Analytics {
   users: { id: string; name: string; messages: number; tokens: number }[];
 }
 
+/** A note (notes F1 to F70); the content is Markdown. */
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  created: Date;
+  updated: Date;
+  owner: { name: string; email: string };
+  /** Shared with this person to read only. */
+  readOnly?: boolean;
+}
+
 /** The workspace tabs, in the running app's order. */
 export type WorkspaceTab = 'models' | 'knowledge' | 'prompts' | 'skills' | 'tools';
 
@@ -485,6 +497,16 @@ export interface DataSource {
   adminMaintenance(task: 'reset-uploads' | 'reset-vectors' | 'reindex'): Promise<void>;
   /** Everyone's usage over the last `days` days (0 for all time). */
   getAnalytics(days: number): Promise<Analytics>;
+  /** The person's notes and notes shared with them, newest first. */
+  listNotes(): Promise<Note[]>;
+  getNote(id: string): Promise<Note | undefined>;
+  createNote(draft: { title: string; content: string }): Promise<Note>;
+  updateNote(id: string, draft: { title: string; content: string }): Promise<void>;
+  deleteNote(id: string): Promise<void>;
+  /** Brings back a note deleted in this session (the Undo after a delete). */
+  restoreNote(id: string): Promise<void>;
+  /** A clearer rewrite of a note's text, streamed in pieces (the model's answer). */
+  enhanceNote(content: string, signal?: AbortSignal): AsyncIterable<string>;
   /** Admin changes, newest first. */
   adminLedger(): Promise<LedgerEntry[]>;
   getProfile(): Promise<Profile>;

@@ -13,6 +13,7 @@ import type {
   Skill,
   Tool,
   UserSettings,
+  Note,
   ServerFunction,
   Feedback,
   LeaderboardEntry,
@@ -625,6 +626,8 @@ export function createFakeSource({
   ];
   const deletedFeedback = new Map<string, Feedback>();
   const adminSettings = new Map<string, Record<string, unknown>>();
+  let notes: Note[] = [];
+  const deletedNotes = new Map<string, Note>();
   const ledger: LedgerEntry[] = [];
   const record = (action: string, target: string) =>
     ledger.unshift({ at: new Date(), by: user?.email ?? '', action, target });
@@ -1180,6 +1183,57 @@ export function createFakeSource({
         ],
         users: [{ id: 'u-admin', name: '4CE Administrator', messages: 3, tokens: 4400 }],
       };
+    },
+    async listNotes() {
+      return structuredClone(notes).sort((a, b) => b.updated.getTime() - a.updated.getTime());
+    },
+    async getNote(id) {
+      const found = notes.find((one) => one.id === id);
+      return found && structuredClone(found);
+    },
+    async createNote({ title, content }) {
+      const now = new Date();
+      const note: Note = {
+        id: crypto.randomUUID(),
+        title,
+        content,
+        created: now,
+        updated: now,
+        owner: { name: user?.name ?? '', email: user?.email ?? '' },
+      };
+      notes = [...notes, note];
+      return structuredClone(note);
+    },
+    async updateNote(id, { title, content }) {
+      notes = notes.map((one) =>
+        one.id === id ? { ...one, title, content, updated: new Date() } : one,
+      );
+    },
+    async deleteNote(id) {
+      const found = notes.find((one) => one.id === id);
+      if (!found) return;
+      deletedNotes.set(id, found);
+      notes = notes.filter((one) => one.id !== id);
+    },
+    async restoreNote(id) {
+      const found = deletedNotes.get(id);
+      if (!found) return;
+      deletedNotes.delete(id);
+      notes = [...notes, found];
+    },
+    // A stand-in rewrite: the text tidied into sentences, sent a few words at a time.
+    async *enhanceNote(content, signal) {
+      const tidy = content
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => line.charAt(0).toUpperCase() + line.slice(1).replace(/[.!?]?$/, '.'))
+        .join('\n\n');
+      for (const word of (tidy || 'Nothing to enhance yet.').split(/(?<= )/)) {
+        if (signal?.aborted) return;
+        if (pace) await new Promise((done) => setTimeout(done, 30 * pace));
+        yield word;
+      }
     },
     async adminLedger() {
       return ledger.map((entry) => ({ ...entry }));

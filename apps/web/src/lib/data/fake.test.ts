@@ -609,3 +609,26 @@ describe('fake analytics', () => {
     });
   });
 });
+
+describe('fake notes', () => {
+  it('creates, edits, deletes and restores notes, and streams an enhanced version', async () => {
+    const source = createFakeSource({ pace: 0 });
+    expect(await source.listNotes()).toEqual([]);
+    const note = await source.createNote({
+      title: 'Weekly review',
+      content: 'item 3 needs review',
+    });
+    await source.updateNote(note.id, {
+      title: 'Weekly review',
+      content: 'Item 3 needs a second look.',
+    });
+    expect((await source.getNote(note.id))?.content).toBe('Item 3 needs a second look.');
+    let text = '';
+    for await (const piece of source.enhanceNote('item 3 needs review')) text += piece;
+    expect(text.length).toBeGreaterThan(0);
+    await source.deleteNote(note.id);
+    expect(await source.listNotes()).toEqual([]);
+    await source.restoreNote(note.id);
+    expect(await source.listNotes()).toHaveLength(1);
+  });
+});

@@ -31,6 +31,7 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `exportAdminData(kind)` / `importAdminConfig(config)` | admin exports (config and chats as JSON, users as CSV; the database file only where supported) and a config import that returns the previous config for undo; each logged | the admin Database tab |
 | `adminMaintenance(task)` | Documents' Danger Zone: reset uploads, reset vectors (both permanent) or reindex; logged | the admin Documents tab |
 | `getAnalytics(days)` | everyone's usage for the admin dashboard (`Analytics`: totals, daily assistant messages, messages by model and by person); 0 days = all time | the admin Analytics tab |
+| `listNotes()` / `getNote(id)` / `createNote(draft)` / `updateNote(id, draft)` / `deleteNote(id)` / `restoreNote(id)` / `enhanceNote(content, signal?)` | notes (`Note`: title, Markdown content, owner, read-only flag); a delete can be undone in the same session; Enhance streams a rewrite like an answer | the notes pages |
 | `adminLedger()` | every admin change, newest first (`LedgerEntry`: when, by whom, action, target; never a password) | the admin pages' change trail |
 | `getProfile()` / `saveProfile(profile)` | the person's profile (`Profile`: name, bio, gender, birth date, avatar kind, user variables); saving the name renames the signed-in person | the Account page |
 | `changePassword(current, next)` | changes the password; both go only to the backend, never logged, stored or put in a URL | the Account page |
