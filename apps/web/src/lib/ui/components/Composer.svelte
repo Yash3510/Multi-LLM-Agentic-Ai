@@ -293,7 +293,6 @@
     padding: 0 7px;
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-pill);
-    background-image: var(--gloss-fill);
     color: var(--color-gray-500);
     font-family: var(--font-mono);
     font-size: 10.5px;

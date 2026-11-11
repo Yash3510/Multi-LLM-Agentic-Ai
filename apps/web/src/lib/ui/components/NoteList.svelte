@@ -340,13 +340,10 @@
     overflow: hidden;
     border-radius: var(--radius-pill);
     background-color: var(--color-gray-50);
-    box-shadow:
-      var(--gloss-edge),
-      0 0 0 1px var(--color-gray-200);
+    box-shadow: 0 0 0 1px var(--color-gray-200);
     color: var(--color-gray-900);
     font-size: var(--text-caption);
     line-height: 16px;
-    background-image: var(--gloss-fill);
   }
 
   .create-main {

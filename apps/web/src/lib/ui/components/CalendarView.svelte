@@ -359,20 +359,14 @@
     color: var(--color-gray-500);
     font-size: 13px;
     border-radius: var(--radius-pill);
-    box-shadow:
-      var(--gloss-edge),
-      0 0 0 1px var(--color-gray-200);
-    background-image: var(--gloss-fill);
+    box-shadow: 0 0 0 1px var(--color-gray-200);
   }
   .create {
     padding: 4px 10px;
     border-radius: var(--radius-pill);
     background-color: var(--color-gray-50);
-    box-shadow:
-      var(--gloss-edge),
-      0 0 0 1px var(--color-gray-200);
+    box-shadow: 0 0 0 1px var(--color-gray-200);
     font-size: var(--text-caption);
-    background-image: var(--gloss-fill);
   }
   :global([data-theme='dark']) .create {
     background-color: var(--color-gray-850);

@@ -424,10 +424,7 @@
 
   .tab[aria-current] {
     background-color: var(--color-gray-50);
-    background-image: var(--gloss-fill);
-    box-shadow:
-      var(--gloss-edge),
-      0 0 0 0.5px rgb(0 0 0 / 0.07);
+    box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.07);
     color: var(--color-gray-900);
     font-weight: var(--font-weight-medium);
   }

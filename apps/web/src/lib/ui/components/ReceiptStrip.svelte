@@ -169,8 +169,6 @@
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-pill);
     background-color: var(--color-white);
-    background-image: var(--gloss-fill);
-    box-shadow: var(--gloss-edge);
     color: var(--color-gray-600);
     font-size: var(--text-micro);
     line-height: 16px;
@@ -189,6 +187,12 @@
   .label[data-tone='good'] {
     border-color: var(--color-emerald-200);
     color: var(--color-emerald-800);
+  }
+
+  /* Dark: the verdict green that passes AA on the dark ground (polish pass, WP-F-10). */
+  :global([data-theme='dark']) .label[data-tone='good'] {
+    border-color: color-mix(in srgb, var(--color-ok) 35%, transparent);
+    color: var(--color-ok);
   }
 
   .label[data-tone='warn'] {
@@ -236,8 +240,6 @@
     padding: var(--spacing-2) var(--spacing-3);
     border: 1px solid var(--color-gray-100);
     border-radius: var(--radius-checks);
-    background-image: var(--gloss-card);
-    box-shadow: var(--gloss-edge);
   }
 
   :global([data-theme='dark']) .checks {

@@ -328,10 +328,7 @@
 
   .row[data-current] {
     background-color: var(--color-row-current);
-    background-image: var(--gloss-fill);
-    box-shadow:
-      var(--gloss-edge),
-      0 0 0 0.5px var(--color-hair);
+    box-shadow: 0 0 0 0.5px var(--color-hair);
   }
 
   :is(.row, .logo, .name, .closer, .rail-open, .rail-link, .rail-user):focus-visible {

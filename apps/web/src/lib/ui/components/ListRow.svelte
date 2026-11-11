@@ -85,10 +85,7 @@
 
   [data-list-row][data-current] {
     background-color: var(--color-row-current);
-    background-image: var(--gloss-fill);
-    box-shadow:
-      var(--gloss-edge),
-      0 0 0 0.5px var(--color-hair);
+    box-shadow: 0 0 0 0.5px var(--color-hair);
   }
 
   [data-list-row]:focus-visible {

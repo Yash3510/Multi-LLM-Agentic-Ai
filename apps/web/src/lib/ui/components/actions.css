@@ -111,9 +111,8 @@
     --action-fill: var(--color-surface-raised);
     --action-ink: var(--color-ink-1);
     --action-hover-fill: var(--color-surface-page);
-    --action-depth: var(--gloss-edge), var(--shadow-hairline);
-    --action-hover-depth: var(--gloss-edge), 0 0 0 0.5px var(--color-hair);
-    background-image: var(--gloss-fill);
+    --action-depth: var(--shadow-hairline);
+    --action-hover-depth: 0 0 0 0.5px var(--color-hair), 0 2px 6px var(--depth-near);
   }
 
   [data-action][data-variant='danger'] {
@@ -129,11 +128,11 @@
   /* Quiet icon buttons (sidebar, top bar, row actions): a muted grey that darkens to ink on a soft
      tint, flat, as the running app and Takeoff draw them. Gray-600 / gray-400 keep the glyph above
      3:1 on its ground (ADR-0041 amendment). */
-  /* Hovered, a quiet icon button sits on a crisp white tile with a hairline (polish pass). */
+  /* Hovered, a quiet icon button sits on a white tile with a hairline edge, flat (polish pass). */
   [data-action='icon'][data-variant='quiet'] {
     --action-ink: var(--color-gray-600);
     --action-hover-fill: var(--color-surface-raised);
-    --action-hover-depth: var(--tile-hover-edge);
+    --action-hover-depth: 0 0 0 1px var(--color-line-1);
   }
 
   :where([data-theme='dark']) [data-action='icon'][data-variant='quiet'] {

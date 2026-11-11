@@ -223,8 +223,6 @@
     padding: 6px 14px;
     border-radius: var(--radius-pill);
     background-color: var(--color-gray-50);
-    box-shadow: var(--gloss-edge);
-    background-image: var(--gloss-fill);
   }
   :global([data-theme='dark']) .soft {
     background-color: var(--color-gray-850);
