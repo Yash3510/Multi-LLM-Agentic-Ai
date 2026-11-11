@@ -3,7 +3,7 @@ title: Design system
 type: architecture
 status: planned
 owner: R3
-updated: 2026-10-13
+updated: 2026-11-11
 covers:
   - apps/web/src/lib/ui/
 tags: [4ce, architecture, frontend]
@@ -153,6 +153,18 @@ Hit targets stay at least 24 × 24 px in every density.
 | `pill`    | full  | Status labels only                                               |
 
 **When one rounded shape sits inside another,** the inner radius is the outer radius minus the padding between them. No other values are allowed.
+
+**The polish pass (WP-F-10)** softens these on its branch: buttons, filters and search fields go `pill`, and these radii join the scale.
+
+| Radius     | Value | Used for                                  |
+| ---------- | ----- | ----------------------------------------- |
+| `menu`     | 18    | Menus and popovers                        |
+| `composer` | 28    | The message composer                      |
+| `checks`   | 18    | The "What was checked" card under answers |
+| `row`      | 12    | Rows inside menus and lists, sidebar rows |
+| `tile`     | 10    | Icon buttons and their hover tile         |
+
+Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--field-inset-edge`); the pass adds no shadows.
 
 ## Depth: opaque only
 
