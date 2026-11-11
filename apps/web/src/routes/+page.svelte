@@ -35,7 +35,13 @@
   <!-- The logo, then the suggestions, fade in as on the running app (common look, Motion). -->
   <div class="welcome" in:fade={{ duration: 200 }}><Logomark size={44} /></div>
   <div class="composer">
-    <Composer bind:value={draft} model="Planner" tools={7} onsend={() => {}} />
+    <Composer
+      bind:value={draft}
+      model="Planner"
+      tools={7}
+      suggestion={`${SUGGESTIONS[0].title} ${SUGGESTIONS[0].detail}`}
+      onsend={() => {}}
+    />
   </div>
   <div class="suggestions" in:fade={{ duration: 200, delay: 200 }}>
     <p class="label"><Icon name="lightning" size={12} />{m.home_suggested()}</p>
