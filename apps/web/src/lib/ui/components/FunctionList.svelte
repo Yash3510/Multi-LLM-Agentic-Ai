@@ -367,6 +367,10 @@
     flex: 1;
     align-items: center;
     min-inline-size: 0;
+    border-radius: var(--radius-pill);
+    padding-inline: 12px;
+    background-image: var(--field-inset-fill);
+    box-shadow: var(--field-inset-edge);
   }
 
   .search > :global(svg) {

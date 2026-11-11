@@ -726,9 +726,12 @@
     min-inline-size: 0;
     padding-block: 4px;
     padding-inline-end: 16px;
-    border-radius: 0 12px 12px 0;
+    border-radius: var(--radius-pill);
     font-size: var(--text-caption);
     line-height: 16px;
+    padding-inline: 12px;
+    background-image: var(--field-inset-fill);
+    box-shadow: var(--field-inset-edge);
   }
 
   :global(.content-options),
