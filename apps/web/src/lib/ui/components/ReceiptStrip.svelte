@@ -2,6 +2,7 @@
   // The receipt under a released answer (own-4ce look S7, features F36-F37): labels saying how
   // the answer was produced, the fingerprint (click to copy) and the audit record, then what was
   // checked, then the folds: full provenance, each agent's output and the execution timeline.
+  import { foldTitle } from '$lib/ui/fold-title';
   import type { Receipt, Revision, SignOffRequest } from '$lib/data';
   import RevisionCard from './RevisionCard.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
@@ -118,6 +119,7 @@
     </div>
   {/if}
   {#each folds as fold (fold.title)}
+    {@const title = foldTitle(fold.title)}
     <div class="fold">
       <button
         type="button"
@@ -125,7 +127,10 @@
         aria-expanded={open[fold.title] ?? false}
         onclick={() => (open[fold.title] = !open[fold.title])}
       >
-        {fold.title}
+        <span>{title.text}</span>
+        {#if title.verdict}<span class="verdict" data-verdict={title.verdict}>{title.verdict}</span
+          >{/if}
+        {#if title.model}<span class="model">{title.model}</span>{/if}
         <span class="caret" data-open={open[fold.title] ? '' : undefined}
           ><Icon name="sort-caret-down" size={12} /></span
         >
@@ -164,6 +169,8 @@
     border: 1px solid var(--color-gray-200);
     border-radius: var(--radius-pill);
     background-color: var(--color-white);
+    background-image: var(--gloss-fill);
+    box-shadow: var(--gloss-edge);
     color: var(--color-gray-600);
     font-size: var(--text-micro);
     line-height: 16px;
@@ -228,7 +235,9 @@
     margin-block-start: 10px;
     padding: var(--spacing-2) var(--spacing-3);
     border: 1px solid var(--color-gray-100);
-    border-radius: 16px;
+    border-radius: var(--radius-checks);
+    background-image: var(--gloss-card);
+    box-shadow: var(--gloss-edge);
   }
 
   :global([data-theme='dark']) .checks {
@@ -278,18 +287,52 @@
   }
 
   /* Folds (chat-messages look §5.5): 13.5 px muted toggles with a caret that turns. */
+  /* Polish pass (WP-F-10): one row rhythm with hairlines, a touch more contrast, the model in
+     Plex Mono and the verdict in its colour. */
   .fold {
+    border-block-start: 1px solid var(--color-gray-50);
+  }
+
+  .fold:first-of-type {
     margin-block-start: 6px;
+  }
+
+  :global([data-theme='dark']) .fold {
+    border-color: var(--color-gray-850);
   }
 
   .fold-toggle {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-1);
-    padding-block: 3px;
-    color: var(--color-gray-500);
-    font-size: 13.5px;
+    gap: 7px;
+    min-block-size: 34px;
+    color: var(--color-gray-600);
+    font-size: var(--text-small);
     transition: color 150ms;
+  }
+
+  .model {
+    color: var(--color-gray-500);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+
+  .verdict {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+  }
+
+  .verdict[data-verdict='PASS'] {
+    color: var(--color-ok);
+  }
+
+  .verdict[data-verdict='FAIL'] {
+    color: var(--color-stop);
+  }
+
+  .caret {
+    color: var(--color-gray-400);
   }
 
   .fold-toggle:hover {
