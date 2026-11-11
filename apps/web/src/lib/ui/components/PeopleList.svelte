@@ -372,13 +372,16 @@
     flex-shrink: 0;
     margin-inline-start: 4px;
     padding: 4px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius-pill);
     background-color: var(--color-gray-50);
-    box-shadow: 0 0 0 1px var(--color-gray-200);
+    box-shadow:
+      var(--gloss-edge),
+      0 0 0 1px var(--color-gray-200);
     color: var(--color-gray-900);
     font-size: var(--text-caption);
     line-height: 16px;
     transition: background-color 150ms;
+    background-image: var(--gloss-fill);
   }
 
   .add:hover {

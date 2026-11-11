@@ -123,7 +123,7 @@
     inline-size: 100%;
     padding-inline: 2px;
     border: 1px solid color-mix(in srgb, var(--color-gray-100) 30%, transparent);
-    border-radius: 20px;
+    border-radius: var(--radius-composer);
     background-color: color-mix(in srgb, var(--color-white) 5%, transparent);
     box-shadow:
       0 0 0 1px rgb(0 0 0 / 0.04),

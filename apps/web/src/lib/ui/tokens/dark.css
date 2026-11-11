@@ -16,6 +16,14 @@
       --color-line-2: var(--ref-gray-700);
       --color-line-control: var(--ref-gray-600);
 
+      /* The finish in dark: the gloss turns to a faint light line; fields a faint lift. */
+      --gloss-edge: inset 0 1px 0 rgb(255 255 255 / 0.06);
+      --gloss-fill: linear-gradient(180deg, rgb(255 255 255 / 0.05) 0%, rgb(255 255 255 / 0) 75%);
+      --gloss-card: linear-gradient(180deg, rgb(255 255 255 / 0.03) 0%, rgb(255 255 255 / 0) 100%);
+      --field-inset-fill: linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.03));
+      --field-inset-edge: inset 0 0 0 0.5px rgb(255 255 255 / 0.08);
+      --tile-hover-edge: var(--gloss-edge), 0 0 0 1px rgb(255 255 255 / 0.12);
+
       --color-ink-1: var(--ref-white);
       --color-ink-2: var(--ref-gray-300);
       --color-ink-3: var(--ref-gray-400);

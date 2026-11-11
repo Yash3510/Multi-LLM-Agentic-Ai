@@ -188,5 +188,23 @@
     --depth-far: rgb(0 0 0 / 0.1);
     --focus-edge: color-mix(in srgb, var(--ref-blue-500) 50%, transparent);
     --focus-glow: color-mix(in srgb, var(--ref-blue-500) 22%, transparent);
+
+    /* The polish pass (WP-F-10): softer, rounder surfaces. Menus and the composer take larger
+       corners, rows inside menus and lists 12, icon tiles 10; buttons, filters and fields go full
+       pill (--radius-pill). */
+    --radius-menu: 18px;
+    --radius-row: 12px;
+    --radius-tile: 10px;
+    --radius-composer: 28px;
+    --radius-checks: 18px;
+
+    /* The finish: no added shadows, only a fine gloss line on the top edge and a soft top-lit fill;
+       fields sit in a frosted inset. */
+    --gloss-edge: inset 0 1px 0 rgb(255 255 255 / 1);
+    --gloss-fill: linear-gradient(180deg, rgb(255 255 255 / 0.95) 0%, rgb(255 255 255 / 0) 75%);
+    --gloss-card: linear-gradient(180deg, rgb(255 255 255 / 1) 0%, rgb(251 251 251 / 1) 100%);
+    --field-inset-fill: linear-gradient(180deg, rgb(0 0 0 / 0.03), rgb(0 0 0 / 0.012));
+    --field-inset-edge: inset 0 0 0 0.5px rgb(0 0 0 / 0.07);
+    --tile-hover-edge: var(--gloss-edge), 0 0 0 1px rgb(0 0 0 / 0.09);
   }
 }

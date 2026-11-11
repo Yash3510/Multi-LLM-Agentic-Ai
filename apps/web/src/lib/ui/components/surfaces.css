@@ -15,7 +15,7 @@
   [data-surface='float'] {
     z-index: 60;
     border: 0;
-    border-radius: var(--radius-inset);
+    border-radius: var(--radius-menu);
     background-color: var(--color-surface-raised);
     box-shadow: var(--shadow-e2);
     color: var(--color-ink-1);

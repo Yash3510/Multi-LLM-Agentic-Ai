@@ -268,8 +268,8 @@
     align-items: center;
     gap: 6px;
     block-size: 28px;
-    padding-inline: 8px;
-    border-radius: 8px;
+    padding-inline: 10px;
+    border-radius: var(--radius-pill);
     font-size: var(--text-caption);
     line-height: 16px;
     text-align: start;
@@ -305,9 +305,11 @@
     gap: 6px;
     block-size: 28px;
     margin: 4px 4px 2px;
-    padding-inline: 8px;
-    border-radius: 8px;
-    background-color: color-mix(in srgb, var(--color-gray-50) 70%, transparent);
+    padding-inline: 12px;
+    border-radius: var(--radius-pill);
+    background-color: transparent;
+    background-image: var(--field-inset-fill);
+    box-shadow: var(--field-inset-edge);
     font-size: var(--text-caption);
   }
 
@@ -422,6 +424,10 @@
 
   .tab[aria-current] {
     background-color: var(--color-gray-50);
+    background-image: var(--gloss-fill);
+    box-shadow:
+      var(--gloss-edge),
+      0 0 0 0.5px rgb(0 0 0 / 0.07);
     color: var(--color-gray-900);
     font-weight: var(--font-weight-medium);
   }

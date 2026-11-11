@@ -178,6 +178,10 @@
   gap: 8px;
   min-inline-size: 0;
   color: var(--color-gray-400);
+  border-radius: var(--radius-pill);
+  padding-inline: 12px;
+  background-image: var(--field-inset-fill);
+  box-shadow: var(--field-inset-edge);
 }
 
 [data-theme='dark'] .settings-page .search {

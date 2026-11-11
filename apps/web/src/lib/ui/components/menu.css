@@ -20,7 +20,9 @@
      12 px radius, 2 px inside, the large soft drop shadow and ink text. */
   [data-menu][data-surface='float'] {
     border: 1px solid var(--color-line-1);
-    border-radius: var(--radius-inset);
+    /* Polish pass (WP-F-10): 18 px corners, 5 px inside, so rows take 12 (18 − 5) or a touch more. */
+    border-radius: var(--radius-menu);
+    padding: 5px;
     background-color: var(--color-surface-raised);
     box-shadow:
       0 10px 15px -3px rgb(0 0 0 / 0.1),
@@ -34,9 +36,9 @@
     align-items: center;
     gap: var(--spacing-2);
     /* A 27 px row, radius 12, 8 px sides, 13 px text and 14 px icons (common look F12). */
-    min-block-size: 27px;
+    min-block-size: 32px;
     padding-inline: var(--spacing-2);
-    border-radius: var(--radius-inset);
+    border-radius: var(--radius-row);
     color: inherit;
     font-size: var(--text-small);
     line-height: var(--text-small--line-height);
