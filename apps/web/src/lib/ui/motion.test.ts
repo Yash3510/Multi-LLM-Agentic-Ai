@@ -45,6 +45,26 @@ describe('motion tokens', () => {
     expect(motionCss).toContain(`--ease-cubic-out: ${EASE.cubicOut};`);
     expect(DURATION.menu).toBe(200);
   });
+
+  it('adds the expo arrival curve and one spring, mirrored in CSS (ADR-0042)', async () => {
+    const { EASE } = await load();
+    expect(motionCss).toContain(`--ease-expo: ${EASE.expo};`);
+    // The formatter wraps the long value, so the spring is compared with whitespace removed.
+    const bare = (text: string) => text.replaceAll(/\s+/g, '');
+    expect(bare(motionCss)).toContain(bare(`--ease-spring: ${EASE.spring};`));
+  });
+
+  it('keeps the spring gentle: it peaks at 3 % or less and settles at 1', async () => {
+    const { EASE } = await load();
+    const stops = EASE.spring
+      .slice('linear('.length, -1)
+      .split(', ')
+      .map((stop) => Number.parseFloat(stop));
+    expect(stops[0]).toBe(0);
+    expect(stops.at(-1)).toBe(1);
+    expect(Math.max(...stops)).toBeGreaterThan(1);
+    expect(Math.max(...stops)).toBeLessThanOrEqual(1.03);
+  });
 });
 
 describe('motion setting', () => {
