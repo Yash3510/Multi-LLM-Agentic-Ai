@@ -125,6 +125,7 @@
 <div class="settings-page">
   <div class="body">
     <h2>Account</h2>
+    <p class="lede">Your profile and password.</p>
     {#if profile}
       <section>
         <h3>Profile</h3>

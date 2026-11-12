@@ -53,6 +53,7 @@
 
 <div class="settings-page">
   <h2>General</h2>
+  <p class="lede">Theme, language and the defaults for new chats.</p>
   <div class="body">
     <section>
       <h3>Appearance</h3>

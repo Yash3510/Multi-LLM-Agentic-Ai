@@ -88,6 +88,7 @@
 
 <div class="settings-page">
   <h2>Usage</h2>
+  <p class="lede">Your tokens, models, tools and activity.</p>
   {#if failed}
     <p class="failed">Failed to load usage</p>
   {:else if usage}

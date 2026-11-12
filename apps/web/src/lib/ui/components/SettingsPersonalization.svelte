@@ -65,6 +65,7 @@
 
 <div class="settings-page">
   <h2>Personalization</h2>
+  <p class="lede">Memories that tailor responses to you.</p>
   <div class="body">
     <h3>Memory</h3>
     <div class="block">

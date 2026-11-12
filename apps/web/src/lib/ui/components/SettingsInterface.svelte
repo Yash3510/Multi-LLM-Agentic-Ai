@@ -58,6 +58,7 @@
 
 <div class="settings-page">
   <h2>Interface</h2>
+  <p class="lede">How 4CE, the interface and chats look and behave.</p>
   <div class="body">
     <div class="panel">
       {#each SECTIONS as section (section.heading)}

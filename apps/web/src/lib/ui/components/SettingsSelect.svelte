@@ -42,7 +42,7 @@
     padding-inline: 14px 32px;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--color-gray-100) 50%, transparent);
-    border-radius: var(--radius-pill);
+    border-radius: var(--radius-control);
     background-color: color-mix(in srgb, var(--color-gray-50) 40%, transparent);
     color: var(--color-gray-700);
     font-size: var(--text-caption);

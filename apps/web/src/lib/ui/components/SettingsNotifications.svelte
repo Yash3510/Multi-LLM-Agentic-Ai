@@ -37,6 +37,7 @@
 
 <div class="settings-page">
   <h2>Notifications</h2>
+  <p class="lede">Browser notifications and the notification sound.</p>
   <div class="body">
     <div class="rows grouped">
       <div class="block">
