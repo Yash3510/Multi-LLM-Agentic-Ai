@@ -257,6 +257,23 @@
     background-color: var(--color-gray-800);
   }
 
+  /* Tools, dictation and the model also darken their ink under the pointer, as on the running app. */
+  :is(.chip, .end .round):hover {
+    color: var(--color-gray-900);
+  }
+
+  .model:hover {
+    color: var(--color-gray-700);
+  }
+
+  :global([data-theme='dark']) :is(.chip, .end .round):hover {
+    color: var(--color-white);
+  }
+
+  :global([data-theme='dark']) .model:hover {
+    color: var(--color-gray-200);
+  }
+
   .divider {
     align-self: center;
     inline-size: 1px;
@@ -310,6 +327,8 @@
   }
 
   .action {
+    /* 200 ms, as measured on the running app's voice button. */
+    --interact-duration: 200ms;
     position: relative;
     background-color: var(--color-solid);
     color: var(--color-on-solid);
