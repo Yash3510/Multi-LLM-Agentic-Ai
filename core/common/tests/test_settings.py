@@ -159,6 +159,9 @@ def test_a_blank_s3_key_is_a_missing_key(env: pytest.MonkeyPatch, name: str, bla
         "http://localhost:9000?x=1",
         "http://localhost:99999",
         "http:// localhost:9000",
+        " http://localhost:9000",  # urlsplit strips a leading space too
+        "http://localhost:9000 ",
+        "http://localhost:9000/ ",
         "http://fource_minio_1:9000",  # botocore refuses these hosts when the client is made
         "http://-minio:9000",
         "http://[fe80::1%eth0:1]:9000",  # botocore refuses a zone id and an IPvFuture host
