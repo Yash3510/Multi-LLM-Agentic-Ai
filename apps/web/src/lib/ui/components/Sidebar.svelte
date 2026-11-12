@@ -312,8 +312,8 @@
     text-align: start;
     text-decoration: none;
     transition:
-      background-color var(--duration-base) var(--ease-out),
-      color var(--duration-base) var(--ease-out);
+      background-color var(--duration-interact) var(--ease-standard),
+      color var(--duration-interact) var(--ease-standard);
   }
 
   .glyph {
@@ -323,7 +323,6 @@
   @media (hover: hover) {
     :is(.row, .closer, .logo):hover {
       background-color: var(--color-row-hover);
-      transition-duration: var(--duration-instant);
     }
   }
 

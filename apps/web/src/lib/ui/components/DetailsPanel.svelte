@@ -215,8 +215,8 @@
     font-weight: var(--font-weight-medium);
     white-space: nowrap;
     transition:
-      color var(--duration-instant) var(--ease-out),
-      background-color var(--duration-base) var(--ease-out);
+      color var(--duration-interact) var(--ease-standard),
+      background-color var(--duration-interact) var(--ease-standard);
   }
 
   .details :global(.details-tab:hover) {
@@ -356,7 +356,7 @@
     color: var(--color-ink-1);
     font-family: var(--font-mono);
     font-size: var(--text-micro);
-    transition: background-color var(--duration-instant) var(--ease-out);
+    transition: background-color var(--duration-interact) var(--ease-standard);
   }
 
   .ref:enabled:hover,
@@ -535,6 +535,6 @@
     color: var(--color-ink-1);
     font-size: var(--text-caption);
     font-weight: var(--font-weight-medium);
-    transition: background-color var(--duration-instant) var(--ease-out);
+    transition: background-color var(--duration-interact) var(--ease-standard);
   }
 </style>

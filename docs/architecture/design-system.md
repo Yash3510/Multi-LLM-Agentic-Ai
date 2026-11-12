@@ -186,9 +186,10 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 
 | Token        | Duration | Used for                                                      |
 | ------------ | -------- | ------------------------------------------------------------- |
-| `instant`    | 100 ms   | Press and colour feedback                                     |
-| `quick`      | 160 ms   | Hover, icon swaps                                             |
-| `base`       | 240 ms   | Tooltips, chips, focus                                        |
+| `instant`    | 100 ms   | The few controls the running app times at 100 ms              |
+| `interact`   | 150 ms   | Hover, press and focus, the same in and out (ADR-0042)        |
+| `quick`      | 160 ms   | Icon swaps                                                    |
+| `base`       | 240 ms   | Tooltips, chips, panels                                       |
 | `calm`       | 360 ms   | Cards entering, popovers, expand and collapse                 |
 | `slow`       | 560 ms   | Docking panels, dialogs, page crossfades                      |
 | `deliberate` | 900 ms   | Rail state changes: ring closing, mark drawing                |
@@ -200,6 +201,7 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 | Easing        | Curve                            | Used for                                                  |
 | ------------- | -------------------------------- | --------------------------------------------------------- |
 | `ease-out`    | `cubic-bezier(0.22, 1, 0.36, 1)` | Anything arriving                                         |
+| `ease-standard` | `cubic-bezier(0.4, 0, 0.2, 1)` | Hover, press and focus                                    |
 | `ease-in-out` | `cubic-bezier(0.45, 0, 0.25, 1)` | Moving between two resting states (also the logo's curve) |
 | `ease-exit`   | `cubic-bezier(0.4, 0, 1, 1)`     | Anything leaving                                          |
 | linear        | —                                | Continuous loops only                                     |
@@ -211,7 +213,7 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 - **Shape of motion:**
   - No overshoot and no springs.
   - No element scales above 1 or below 0.96. Entrances are opacity plus at most 8 px of movement.
-  - No blur and no rotation in transitions.
+  - No blur in transitions. No rotation, except the logo mark turning 120° under a hovered card (ADR-0042).
 - **One moving thing per region at a time.**
 - **Expand and collapse** always animate `grid-template-rows` from `0fr` to `1fr` at `calm`. Nothing jumps in height.
 - **The signature motions are the only expressive ones,** and they live in one module: the rail handover, the working dots, the ring closing, the mark drawing, the violet light pass and the logo.
@@ -230,7 +232,7 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 | State              | Treatment                                                                                                                   |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | default            | —                                                                                                                           |
-| hover              | Hover surface, `line-2` border, no movement                                                                                 |
+| hover              | Hover surface, `line-2` border, in 150 ms; a card may lift 1 px with a soft shadow where the running app does (ADR-0042)    |
 | focus-visible      | 2 px `accent` outline, offset 2 px; inset inside scroll areas and table rows                                                |
 | active             | One surface step darker for 100 ms; no scale                                                                                |
 | selected / current | `accent-soft` fill, a 2 px accent edge, `ink-1` text                                                                        |

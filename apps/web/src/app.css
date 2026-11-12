@@ -165,10 +165,12 @@
   }
 
   /*
-   * One feel for everything the pointer can use (ADR-0042): a hover arrives at once and leaves
-   * softly, and a press settles the control a little. :where keeps the selector at zero
-   * specificity, so the reduced-motion rule below still wins. The declarations are important
-   * because component styles are unlayered and would otherwise keep their own timings.
+   * One feel for everything the pointer can use (ADR-0042): hover, press and focus change in
+   * 150 ms on the standard curve, the same in and out, as on the running app. A component that
+   * needs the 100 ms or 200 ms the running app uses there sets --interact-duration. :where keeps
+   * the selector at zero specificity, so the reduced-motion rule below still wins. The
+   * declarations are important because component styles are unlayered and would otherwise keep
+   * their own timings.
    */
   :where(
     button,
@@ -184,22 +186,8 @@
     transition-property:
       color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
       opacity, box-shadow, visibility, transform, translate, rotate, scale !important;
-    transition-duration: var(--duration-base) !important;
-    transition-timing-function: var(--ease-out) !important;
-  }
-
-  :where(
-    button,
-    a,
-    summary,
-    [role='button'],
-    [role='tab'],
-    [role='menuitem'],
-    [role='option'],
-    [data-menu-row],
-    [data-list-row]
-  ):is(:hover, :active, :focus-visible) {
-    transition-duration: var(--duration-instant) !important;
+    transition-duration: var(--interact-duration, var(--duration-interact)) !important;
+    transition-timing-function: var(--ease-standard) !important;
   }
 
   :where(button, summary, [role='button']):active:not(:disabled, [aria-disabled='true']) {

@@ -204,13 +204,9 @@
 
   :is(.fingerprint, .audit) {
     transition:
-      background-color var(--duration-base) var(--ease-out),
-      border-color var(--duration-base) var(--ease-out),
-      color var(--duration-base) var(--ease-out);
-  }
-
-  :is(.fingerprint, .audit):hover {
-    transition-duration: var(--duration-instant);
+      background-color var(--duration-interact) var(--ease-standard),
+      border-color var(--duration-interact) var(--ease-standard),
+      color var(--duration-interact) var(--ease-standard);
   }
 
   .fingerprint:hover {

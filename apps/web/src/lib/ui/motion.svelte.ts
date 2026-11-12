@@ -5,6 +5,7 @@ import type { TransitionConfig } from 'svelte/transition';
 /** Milliseconds, by token name (--duration-*). */
 export const DURATION = {
   instant: 100,
+  interact: 150,
   quick: 160,
   base: 240,
   calm: 360,
@@ -18,6 +19,7 @@ export const DURATION = {
 /** CSS easing strings, by token name (--ease-out, --ease-in-out, --ease-exit). Linear is for loops only. */
 export const EASE = {
   out: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  standard: 'cubic-bezier(0.4, 0, 0.2, 1)',
   inOut: 'cubic-bezier(0.45, 0, 0.25, 1)',
   exit: 'cubic-bezier(0.4, 0, 1, 1)',
   cubicOut: 'cubic-bezier(0.33, 1, 0.68, 1)',

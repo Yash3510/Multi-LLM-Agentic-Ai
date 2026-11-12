@@ -34,7 +34,12 @@ Two of the asks conflict with the written rules: a spring overshoots, and the ru
 
 ### 3. Hover and press
 
-A hover arrives in `instant` and leaves in `base`, so pointing feels immediate and leaving feels soft. A pressed control scales to 0.96, the existing lower limit.
+**Amended 2026-11-12.** Hover, press and focus change in `interact`, 150 ms, on `--ease-standard`, `cubic-bezier(0.4, 0, 0.2, 1)`, the same in and out. This is what the running app measures. The first version, in at `instant` and out at `base` on `--ease-out`, held every hover for 240 ms on the way out, and the owner found it laggy beside the running app.
+
+- **100 ms** (`instant`) where the running app uses 100 ms, such as the sidebar's section headings.
+- **Panels, dialogs and page moves** keep `base` or longer.
+- **Lift and shadow on hover** are allowed where the running app has them: a card may rise 1 px, darken its border and gain the running app's soft shadow, in 200 ms.
+- **Press:** a pressed control scales to 0.96, the existing lower limit.
 
 ### 4. Menus grow from their trigger
 
@@ -50,7 +55,7 @@ Moving between routes crossfades the page with the browser's view transitions wh
 
 ### 7. What stays
 
-No blur and no rotation in transitions. No element scales above 1 or below 0.96. Expand and collapse animate `grid-template-rows`. Under reduced motion nothing moves or scales, the spring is not used, and crossfades take 120 ms or less.
+No blur in transitions. No rotation, with one exception (amended 2026-11-12): the logo mark turns 120° when its card is hovered, as in the running app, in 700 ms on that app's curve, which overshoots slightly. The mark is rotated, never redrawn. No element scales above 1 or below 0.96. Expand and collapse animate `grid-template-rows`. Under reduced motion nothing moves or scales, the spring is not used, and crossfades take 120 ms or less.
 
 ## Alternatives considered
 
@@ -61,6 +66,7 @@ No blur and no rotation in transitions. No element scales above 1 or below 0.96.
 ## Consequences
 
 - The design system page's motion rules change as above.
+- `motion.test.ts` checks that the interaction rule in `app.css` uses `interact` on the standard curve, with no slower leave.
 - `motion.test.ts` gains a check that the spring peaks at 1.03 or less and ends at 1. The existing check that fades never overshoot stays.
 - Browsers without `linear()` or view transitions fall back to `--ease-expo` and to an instant route change.
 
