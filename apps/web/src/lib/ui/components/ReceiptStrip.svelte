@@ -4,6 +4,7 @@
   // checked, then the folds: full provenance, each agent's output and the execution timeline.
   import { foldTitle } from '$lib/ui/fold-title';
   import type { Receipt, Revision, SignOffRequest } from '$lib/data';
+  import Expand from './Expand.svelte';
   import RevisionCard from './RevisionCard.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
@@ -136,15 +137,17 @@
         >
       </button>
       {#if open[fold.title]}
-        {#if fold.title === 'Execution timeline'}
-          <ol class="timeline">
-            {#each timeline as step, index (index)}
-              <li><span class="offset">{step.at}</span>{step.text}</li>
-            {/each}
-          </ol>
-        {:else}
-          <div class="fold-body" {@attach safeHtml(renderMarkdown(fold.body))}></div>
-        {/if}
+        <Expand>
+          {#if fold.title === 'Execution timeline'}
+            <ol class="timeline">
+              {#each timeline as step, index (index)}
+                <li><span class="offset">{step.at}</span>{step.text}</li>
+              {/each}
+            </ol>
+          {:else}
+            <div class="fold-body" {@attach safeHtml(renderMarkdown(fold.body))}></div>
+          {/if}
+        </Expand>
       {/if}
     </div>
   {/each}
@@ -295,6 +298,31 @@
     border-block-start: 1px solid var(--color-gray-50);
   }
 
+  /* The wire (ADR-0042): an opened row draws the stage rail's finished rule over its hairline. */
+  .fold {
+    position: relative;
+  }
+
+  .fold:has(> .fold-toggle[aria-expanded='true'])::before {
+    position: absolute;
+    inset: -1px 0 auto;
+    block-size: 1px;
+    background-color: var(--color-ink-1);
+    transform-origin: left center;
+    animation: wire-draw var(--duration-slow) var(--ease-expo) both;
+    content: '';
+  }
+
+  @keyframes wire-draw {
+    from {
+      scale: 0 1;
+    }
+  }
+
+  .fold-toggle[aria-expanded='true'] > span:first-child {
+    color: var(--color-ink-1);
+  }
+
   .fold:first-of-type {
     margin-block-start: 6px;
   }
@@ -356,7 +384,7 @@
 
   .caret {
     display: inline-flex;
-    transition: rotate 300ms;
+    transition: rotate var(--duration-calm) var(--ease-expo);
   }
 
   .caret[data-open] {

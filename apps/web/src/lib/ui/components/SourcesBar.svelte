@@ -3,6 +3,7 @@
   // list, each with its citation number. It lines up with the provenance rows above it.
   import type { Source } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import Expand from './Expand.svelte';
 
   let { sources, onopen }: { sources: Source[]; onopen?: (index: number) => void } = $props();
 
@@ -25,21 +26,23 @@
     >
   </button>
   {#if open}
-    <ul class="list">
-      {#each sources as source (source.index)}
-        <li>
-          <button
-            type="button"
-            class="item"
-            aria-label="View source: {source.title}"
-            onclick={() => onopen?.(source.index)}
-          >
-            <span class="badge">{source.index}</span>
-            <span class="title">{source.title}</span>
-          </button>
-        </li>
-      {/each}
-    </ul>
+    <Expand>
+      <ul class="list">
+        {#each sources as source (source.index)}
+          <li>
+            <button
+              type="button"
+              class="item"
+              aria-label="View source: {source.title}"
+              onclick={() => onopen?.(source.index)}
+            >
+              <span class="badge">{source.index}</span>
+              <span class="title">{source.title}</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    </Expand>
   {/if}
 </div>
 
@@ -80,7 +83,7 @@
   .caret {
     display: inline-flex;
     color: var(--color-gray-400);
-    transition: rotate 300ms;
+    transition: rotate var(--duration-calm) var(--ease-expo);
   }
 
   .caret[data-open] {
