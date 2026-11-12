@@ -159,3 +159,19 @@ Checked afterwards on `/c/c-demo`: in dark the row hover and tint resolve to 9 %
 **Docs updated:** `docs/adr/0041-exact-match-look.md`.
 
 **Known limits:** Archived Chats is unchanged (a list page with nothing to group). The admin pages are not grouped. Only General has the on-change save bar. Unverified: phone width, and Usage's Top models and Most used tools lists, which sit below the fold in the screenshots.
+
+## 2026-11-13: grouped admin pages and a quieter answer area
+
+**What changed:** The eleven schema-driven admin pages and Connections use the grouped rows of the personal pages: each value, field or switch is a padded cell with a line between cells. In an answer, the tool line is a small grey fold-out (mono tool name, grey tick, caret beside the text), a citation is a thin outlined tag with no fill, and a table is one outlined box with a tinted sentence-case header.
+
+**Why:** the frontend owner asked for the admin pages to be grouped like the personal ones, and found the answer area rough: the green tick and full-width tool row competed with the answer, citations read as buttons, and caps table headers had no frame.
+
+**Files:** in `apps/web/src/lib/ui/components`: `AdminPanel.svelte`, `AdminConnections.svelte`, `ToolGroup.svelte`, `ResponseMessage.svelte`.
+
+**How it was verified:** in `apps/web`: `npx vitest run` (550 passed, 91 files), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui` (no findings), `npx prettier --check src/lib/ui` (formatted), `npx playwright test` (8 passed), `npm run build` (exit 0). The answer area on `/c/c-0142` was read in light and dark; the fourteen admin tabs were read in light.
+
+**Decisions:** [ADR-0041](../../../adr/0041-exact-match-look.md) amendment updated. Typed confirmations, permissions and audit entries on the admin pages are untouched. No new package.
+
+**Docs updated:** `docs/adr/0041-exact-match-look.md`, `docs/state.md`.
+
+**Known limits:** Admin Models and Analytics are unchanged. Admin pages have no description line under the title (the copy needs the owner's wording). Only General has the on-change save bar. Unverified: phone width, the admin pages in dark, a failed tool call, and a wide or multi-row table.
