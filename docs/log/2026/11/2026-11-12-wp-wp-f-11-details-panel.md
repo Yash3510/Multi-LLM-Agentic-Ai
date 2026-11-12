@@ -78,3 +78,19 @@ Checked afterwards on `/c/c-demo`: in dark the row hover and tint resolve to 9 %
 
 **Known limits:** unverified: a hover-by-hover comparison with the old app.
 
+
+## 2026-11-12: hover and press timing against the running app
+
+**What changed:** hover, press and focus now change in `interact`, 150 ms, on `--ease-standard`, the same in and out; a component sets `--interact-duration` for the running app's other timings (100 ms on the sidebar's section buttons, 200 ms on the voice button and cards). The logo mark turns 120° when its link or the welcome hero is hovered. Every chat row shows its menu button on hover in place of the age. The composer's tools, dictation and model ink darken on hover. An interactive card rises 1 px.
+
+**Why:** measured side by side, the running app's hovers take 150 ms (some 100 ms) and ours took 240 ms on a soft ease-out on the way out, so the app felt laggy; several hover states the running app has were missing.
+
+**Files:** `app.css`, `tokens/motion.css`, `motion.svelte.ts`, `motion.test.ts`, `tokens/surfaces.css`, `Sidebar.svelte`, `message.css`, `ReceiptStrip.svelte`, `DetailsPanel.svelte`, `Pill.svelte`, `Logomark.svelte`, `AppShell.svelte`, `Composer.svelte`, `Card.svelte`, `routes/+page.svelte`.
+
+**How it was verified:** the new check in `motion.test.ts` failed before the change and passes after. In `apps/web`: `npx vitest run` (89 files, 541 tests passed), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui src/routes/c` (no findings), `npx prettier --check src/lib/ui src/routes/c` (formatted), `npx playwright test` (8 passed). Read from the running page: a sidebar row transitions in 0.15 s on `cubic-bezier(0.4, 0, 0.2, 1)`; the mark's `rotate` is `120deg` under hover; the row menu's opacity goes 0 to 1 and the age to 0; the section button transitions in 0.1 s. Hover-and-click clips of the sidebar, composer, settings and a card were recorded on both apps and joined side by side (local, not committed).
+
+**Decisions:** [ADR-0042](../../../adr/0042-motion-language.md) §3 and §7 amended: 150 ms and 100 ms interactions, lift and shadow where the running app has them, and the one rotation for the logo mark, which is rotated and never redrawn.
+
+**Docs updated:** `docs/adr/0042-motion-language.md`, `docs/architecture/design-system.md`, `docs/state.md`.
+
+**Known limits:** the per-row chat menu buttons have no action yet, like the one before them. No shortcut hints on New Chat and Search, because the shortcuts are not wired. The interactive card is only used on `/ui`, so the lift shows nowhere else yet. The top bar's button hover still differs from the running app's. Unverified: the new hovers in dark, beyond the composer's ink.
