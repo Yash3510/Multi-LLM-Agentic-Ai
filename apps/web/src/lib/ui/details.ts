@@ -72,7 +72,9 @@ export interface TimelineSpan {
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
 /** Each status event as a span that runs until the next one. The run ends at its last status. */
-export function timelineSpans(steps: { ms: number; stage: string; text: string }[]): TimelineSpan[] {
+export function timelineSpans(
+  steps: { ms: number; stage: string; text: string }[],
+): TimelineSpan[] {
   const total = steps.at(-1)?.ms ?? 0;
   const place = (ms: number) => (total ? ms / total : 0);
   return steps.map((step, index) => {

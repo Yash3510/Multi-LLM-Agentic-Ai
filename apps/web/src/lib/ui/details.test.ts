@@ -54,7 +54,14 @@ describe('timelineSpans', () => {
 
   it('runs each step until the next one starts, as fractions of the run', () => {
     expect(timelineSpans(steps)).toEqual([
-      { at: '+0.0s', role: 'Planner', text: 'reading the question', start: 0, end: 0.3, took: '1.2s' },
+      {
+        at: '+0.0s',
+        role: 'Planner',
+        text: 'reading the question',
+        start: 0,
+        end: 0.3,
+        took: '1.2s',
+      },
       { at: '+1.2s', role: 'Reader', text: 'searching', start: 0.3, end: 1, took: '2.8s' },
       { at: '+4.0s', role: 'Sign-off', text: 'Waiting for sign-off', start: 1, end: 1 },
     ]);
@@ -76,7 +83,11 @@ describe('sourceUses', () => {
     ];
     expect(sourceUses(sources, checks, 'It is 82.5 % [2].')).toEqual([
       { ...sources[0], cited: false, supports: ['R2 within its limit'] },
-      { ...sources[1], cited: true, supports: ['R2 within its limit', 'Every figure has a source'] },
+      {
+        ...sources[1],
+        cited: true,
+        supports: ['R2 within its limit', 'Every figure has a source'],
+      },
     ]);
   });
 });
