@@ -50,11 +50,11 @@
   --color-solid: var(--ref-black);
   --color-on-solid: var(--ref-white);
   --color-solid-hover: var(--ref-gray-950);
-  --color-tint: color-mix(in srgb, var(--ref-black) 4.5%, transparent);
+  --color-tint: color-mix(in srgb, var(--ref-black) 6.5%, transparent);
   /* Measured on the running app: answer prose ink (its prose style's grey, slightly blue), and the
      list row's hover and open fills. */
   --color-prose: oklch(0.373 0.034 259.733);
-  --color-row-hover: var(--ref-gray-100);
+  --color-row-hover: color-mix(in srgb, var(--ref-black) 6.5%, transparent);
   --color-row-current: color-mix(in srgb, var(--ref-black) 3.5%, transparent);
   /* The hairline edge and the faint track of a segmented control or switch. */
   --color-hair: color-mix(in srgb, var(--ref-black) 10%, transparent);
