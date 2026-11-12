@@ -114,6 +114,26 @@
     background-color: color-mix(in srgb, var(--color-gray-800) 60%, transparent);
   }
 
+  /* With the sliding highlight attached (glide.ts), the marker carries the pointer's fill from
+     row to row. The keyboard's highlight below stays on the row itself. */
+  [data-menu] {
+    --glide-fill: color-mix(in srgb, var(--color-gray-50) 60%, transparent);
+  }
+
+  :where([data-theme='dark']) [data-menu] {
+    --glide-fill: color-mix(in srgb, var(--color-gray-800) 60%, transparent);
+  }
+
+  @media (forced-colors: none) {
+    [data-menu][data-glide-host] [data-menu-row][data-highlighted] {
+      background-color: transparent;
+    }
+  }
+
+  [data-menu][data-keyboard] [data-glide] {
+    opacity: 0;
+  }
+
   /* The keyboard's highlight: the hover fill plus a soft blue inner edge, so it still reads as
      focus without a hard ring (ADR-0041 amendment). */
   :is(
