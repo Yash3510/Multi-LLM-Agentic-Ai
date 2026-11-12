@@ -372,14 +372,24 @@
     font-weight: var(--font-weight-medium);
   }
 
+  /* A table is one outlined box, like a settings group. */
   .body :global(table) {
-    border-collapse: collapse;
+    margin-block: 10px 6px;
+    overflow: hidden;
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-control);
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: var(--text-small);
   }
 
   .body :global(:is(th, td)) {
-    padding: var(--spacing-1) var(--spacing-3);
+    padding: 6px 14px;
     border-block-end: 1px solid var(--color-line-1);
+  }
+
+  .body :global(tr:last-child > td) {
+    border-block-end: 0;
   }
 
   /* Columns marked right-aligned in the markdown (numbers) keep their align attribute. */
@@ -387,20 +397,16 @@
     text-align: start;
   }
 
-  /* Table headers speak in the stage names' quiet caps; figures line up down a column. */
+  /* A quiet header row on a soft ground; figures line up down a column. */
   .body :global(th) {
-    color: var(--color-gray-600);
-    font-size: var(--text-tag);
-    font-weight: var(--font-weight-medium);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  :global([data-theme='dark']) .body :global(th) {
+    background-color: var(--glass-soft);
     color: var(--color-ink-3);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-medium);
   }
 
   .body :global(td) {
+    color: var(--color-ink-1);
     font-variant-numeric: tabular-nums;
   }
 
@@ -418,34 +424,26 @@
     display: inline-flex;
     align-items: center;
     max-inline-size: 16rem;
-    margin-inline: 1px;
-    padding: 1px 6px;
+    margin-inline: 3px 1px;
+    padding: 0 5px;
     overflow: hidden;
-    border: 1px solid var(--color-gray-200);
-    border-radius: var(--radius-pill);
-    background-color: var(--color-gray-50);
-    color: var(--color-gray-700);
-    font-size: 0.66rem;
+    border: 1px solid var(--color-line-1);
+    border-radius: 5px;
+    color: var(--color-ink-2);
+    font-size: 11px;
     font-style: normal;
     font-weight: var(--font-weight-medium);
-    line-height: 1.35;
+    line-height: 16px;
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: baseline;
-    translate: 0 1px;
+    translate: 0 -1px;
     cursor: pointer;
   }
 
   .body :global(.chip:hover) {
-    border-color: var(--color-gray-300);
-    background-color: var(--color-gray-100);
-    color: var(--color-gray-900);
-  }
-
-  :global([data-theme='dark']) .body :global(.chip) {
-    border-color: var(--color-gray-700);
-    background-color: var(--color-gray-850);
-    color: var(--color-gray-200);
+    background-color: var(--glass-soft);
+    color: var(--color-ink-1);
   }
 
   .body :global(:not(pre) > code) {
