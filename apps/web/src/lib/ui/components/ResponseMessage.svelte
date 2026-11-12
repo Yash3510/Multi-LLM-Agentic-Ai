@@ -360,7 +360,7 @@
   }
 
   .body :global(strong) {
-    font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-medium);
   }
 
   .body :global(table) {
