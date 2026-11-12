@@ -121,6 +121,24 @@ def test_s3_storage_needs_its_endpoint_and_both_keys(env: pytest.MonkeyPatch) ->
 
 
 @pytest.mark.parametrize(
+    ("name", "blank"),
+    [("FOURCE_S3_SECRET_KEY", "   "), ("FOURCE_S3_ACCESS_KEY", "\t")],
+)
+def test_a_blank_s3_key_is_a_missing_key(env: pytest.MonkeyPatch, name: str, blank: str) -> None:
+    env.setenv("FOURCE_STORAGE", "s3")
+    env.setenv("FOURCE_S3_ENDPOINT", "http://localhost:9000")
+    env.setenv("FOURCE_S3_ACCESS_KEY", "fource")
+    env.setenv("FOURCE_S3_SECRET_KEY", "s3-secret-value")
+    env.setenv(name, blank)
+    with pytest.raises(ValidationError) as refused:
+        Settings()
+    message = str(refused.value)
+    assert name in message
+    assert repr(blank) not in message and f"={blank}" not in message
+    assert "s3-secret-value" not in message
+
+
+@pytest.mark.parametrize(
     "endpoint",
     [
         "localhost:9000",
@@ -132,6 +150,15 @@ def test_s3_storage_needs_its_endpoint_and_both_keys(env: pytest.MonkeyPatch) ->
         "http:// localhost:9000",
         "http://fource_minio_1:9000",  # botocore refuses these hosts when the client is made
         "http://-minio:9000",
+        "http://[fe80::1%eth0:1]:9000",  # botocore refuses a zone id and an IPvFuture host
+        "http://[fe80::1%en$]:9000",
+        "http://[v1.a:b]:9000",
+        "http://[vF.x:y]:9000",
+        "http://localhost:9000?",  # urlsplit drops an empty query or fragment
+        "http://localhost:9000#",
+        "\x01http://localhost:9000",  # and strips a leading control character
+        "\x1bhttp://localhost:9000",
+        "http://\u212ainio:9000",  # the Kelvin sign folds to a plain k
     ],
 )
 def test_an_endpoint_is_scheme_host_and_port_only(env: pytest.MonkeyPatch, endpoint: str) -> None:
@@ -143,7 +170,16 @@ def test_an_endpoint_is_scheme_host_and_port_only(env: pytest.MonkeyPatch, endpo
 
 
 def test_a_plain_endpoint_is_kept(env: pytest.MonkeyPatch) -> None:
-    for endpoint in ("http://localhost:9000", "https://minio.internal", "http://[::1]:9000/"):
+    for endpoint in (
+        "http://localhost:9000",
+        "https://minio.internal",
+        "http://[::1]:9000/",
+        "http://[::]:9000",
+        "http://[2001:db8::1]:9000",
+        "http://[::ffff:127.0.0.1]:9000",
+        "http://[::1.2.3.4]:9000",
+        "http://[1:2:3:4:5:6:7::]:9000",
+    ):
         env.setenv("FOURCE_S3_ENDPOINT", endpoint)
         assert Settings().s3_endpoint == endpoint
 
@@ -151,8 +187,17 @@ def test_a_plain_endpoint_is_kept(env: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize("bucket", ["Fource", "ab", "fource_files", "-fource", "fource-", "a" * 64])
 def test_a_bucket_name_follows_the_s3_rules(env: pytest.MonkeyPatch, bucket: str) -> None:
     env.setenv("FOURCE_S3_BUCKET", bucket)
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as refused:
         Settings()
+    assert "FOURCE_S3_BUCKET" in str(refused.value)
+
+
+def test_a_refused_bucket_name_is_not_echoed(env: pytest.MonkeyPatch) -> None:
+    env.setenv("FOURCE_S3_BUCKET", "Bad_Bucket_Marker")
+    with pytest.raises(ValidationError) as refused:
+        Settings()
+    assert "FOURCE_S3_BUCKET" in str(refused.value)
+    assert "Bad_Bucket_Marker" not in str(refused.value)
 
 
 @pytest.mark.parametrize("region", ["EU Central", "us-", "123"])
@@ -160,8 +205,17 @@ def test_a_region_is_one_lower_case_word(env: pytest.MonkeyPatch, region: str) -
     env.setenv("FOURCE_S3_REGION", "eu-central-1")
     assert Settings().s3_region == "eu-central-1"
     env.setenv("FOURCE_S3_REGION", region)  # botocore refuses "us-" and "123" too, but later
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as refused:
         Settings()
+    assert "FOURCE_S3_REGION" in str(refused.value)
+
+
+def test_a_refused_region_is_not_echoed(env: pytest.MonkeyPatch) -> None:
+    env.setenv("FOURCE_S3_REGION", "Bad_Region_Marker")
+    with pytest.raises(ValidationError) as refused:
+        Settings()
+    assert "FOURCE_S3_REGION" in str(refused.value)
+    assert "Bad_Region_Marker" not in str(refused.value)
 
 
 @pytest.mark.parametrize(
