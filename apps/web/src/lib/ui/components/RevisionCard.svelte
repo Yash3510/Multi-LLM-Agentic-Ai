@@ -160,15 +160,15 @@
   }
 
   .removed {
-    background-color: var(--color-red-50);
-    color: var(--color-red-700);
+    background-color: var(--color-stop-soft);
+    color: var(--color-stop);
     text-decoration: line-through;
-    text-decoration-color: color-mix(in srgb, var(--color-red-700) 45%, transparent);
+    text-decoration-color: color-mix(in srgb, var(--color-stop) 45%, transparent);
   }
 
   .added {
-    background-color: var(--color-emerald-50);
-    color: var(--color-emerald-700);
+    background-color: var(--color-ok-soft);
+    color: var(--color-ok);
   }
 
   .foot {

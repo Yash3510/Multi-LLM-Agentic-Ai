@@ -21,6 +21,7 @@ tags: [4ce, log, frontend]
 - **Soft glass for floating surfaces:** menus, popovers, the select list, dialogs, sheets, the side panel, the composer and the top bar take the glass tokens (`tokens/glass.css`). Surfaces in the flow take a soft fill and a top highlight. No accent colour and no glow.
 - **Rounder shapes:** `--radius-panel` 20 to 24 px and `--radius-inset` 12 to 14 px.
 - **Plain message type:** a sent message uses the body size (15 px, was 16 px) and emphasis in a reply is medium weight (was semibold).
+- **Diff highlights in dark:** the try-2 diff in "What changed" uses the status tokens (`--color-stop-soft`, `--color-ok-soft`), so it no longer shows light fills in dark.
 - **Demo chat:** the fake source has a chat, "Details demo", whose run fills every tab: a second try, six agent outputs and a source the answer does not cite.
 
 ## Why
@@ -60,4 +61,3 @@ Run in `apps/web` on 2026-11-12:
 ## Known limits
 
 - Unverified: the settings dialog, sheets and the side panel in dark with the glass fill; only the chat page was checked in both themes.
-- The try-2 diff in "What changed" keeps light highlight fills in dark. It predates this change and is not fixed here. No issue is filed yet.
