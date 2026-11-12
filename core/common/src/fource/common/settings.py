@@ -1,4 +1,5 @@
 import re
+from ipaddress import AddressValueError, IPv6Address
 from pathlib import Path
 from typing import Literal, Self
 from urllib.parse import urlsplit
@@ -15,8 +16,10 @@ _HOST = re.compile(r"((?!-)[a-z0-9-]{1,63}(?<!-)\.)*(?!-)[a-z0-9-]{1,63}(?<!-)\.
 
 def _plain_http_url(value: str, *, path_allowed: bool) -> bool:
     """http:// or https:// with a host and an optional port (and path, if allowed); never a
-    user, password, query or fragment, which would hide credentials or change the request."""
-    if any(character.isspace() for character in value):
+    user, password, query or fragment, which would hide credentials or change the request.
+    Only printable ASCII: urlsplit strips control characters and folds look-alike letters, so
+    the value it parses would not be the value that was set."""
+    if not (value.isascii() and value.isprintable()) or "?" in value or "#" in value:
         return False
     try:
         parts = urlsplit(value)
@@ -35,9 +38,16 @@ def _plain_http_url(value: str, *, path_allowed: bool) -> bool:
 def _s3_host(url: str) -> bool:
     """Whether botocore takes the URL's host: letters, digits and hyphens between dots, or an
     IPv6 address (utils.is_valid_endpoint_url). It refuses any other host only when the client
-    is made, with a message that holds the URL."""
+    is made, with a message that holds the URL. A bracketed host must be a plain IPv6 address:
+    botocore also refuses a zone id (`%`) with unusual characters and the IPvFuture form."""
     host = urlsplit(url).hostname or ""
-    return ":" in host or (len(host) <= 255 and _HOST.fullmatch(host) is not None)
+    if ":" in host:
+        try:
+            IPv6Address(host)
+        except AddressValueError:
+            return False
+        return "%" not in host
+    return len(host) <= 255 and _HOST.fullmatch(host) is not None
 
 
 class Settings(BaseSettings):
@@ -113,12 +123,14 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _s3_is_complete(self) -> Self:
         if self.storage == "s3":
+            secret = self.s3_secret_key.get_secret_value() if self.s3_secret_key else None
             given = {
                 "FOURCE_S3_ENDPOINT": self.s3_endpoint,
                 "FOURCE_S3_ACCESS_KEY": self.s3_access_key,
-                "FOURCE_S3_SECRET_KEY": self.s3_secret_key,
+                "FOURCE_S3_SECRET_KEY": secret,
             }
-            missing = [name for name, value in given.items() if not value]
+            # A blank value, as a container environment can leave one, is a missing key.
+            missing = [name for name, value in given.items() if not value or not value.strip()]
             if missing:
                 raise ValueError(f"FOURCE_STORAGE=s3 needs {', '.join(missing)}")
         return self
