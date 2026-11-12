@@ -22,7 +22,7 @@ The bar is set above today's UI. It keeps the calm, slow, premium feel that was 
    - Violet means an agent is working, or keyboard focus.
    - Ink means a human decision.
    - Green, amber and red mean the Rule Engine's PASS, REVIEW and FAIL.
-3. **Opaque and flat.** No glass, blur, sheen or gloss. Depth comes from surface steps, hairlines and soft shadows.
+3. **Opaque and flat.** No glass, blur, sheen or gloss. Depth comes from surface steps, hairlines and soft shadows. [ADR-0043](../adr/0043-soft-glass-surfaces.md) (proposed) allows glass on floating surfaces, from the glass tokens only.
 4. **Calm motion.** Named durations, no overshoot, no scale bumps, one moving thing per region. Motion means something changed; it is never decoration.
 5. **Every state, every time.** No component ships without all of its states, light and dark, reduced motion, Hindi and print.
 6. **Numbers are identical everywhere.** One format module, so a receipt, a ledger row and a printout show the same string.
@@ -164,6 +164,8 @@ Hit targets stay at least 24 × 24 px in every density.
 | `row`      | 12    | Rows inside menus and lists, sidebar rows |
 | `tile`     | 10    | Icon buttons and their hover tile         |
 
+**Soft glass (WP-F-11)** makes `inset` 14 and `panel` 24 on its branch; the details panel under an answer uses `panel`, with pill tabs.
+
 Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--field-inset-edge`); the pass adds no shadows.
 
 ## Depth: opaque only
@@ -178,6 +180,7 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 - **Dark mode** carries depth mainly through lighter surface steps, plus a one-pixel top hairline at white/4%, with shadows at twice the alpha.
 - **The scrim is a flat colour.** It takes the page's dark tone (graphite at lightness 0.18) at 45% opacity in light and 65% in dark.
 - **Banned by lint:** `backdrop-filter`, `filter: blur`, translucent white panels, sheen gradients and glossy inner highlights.
+- **Soft glass (WP-F-11, [ADR-0043](../adr/0043-soft-glass-surfaces.md), proposed)** changes this on its branch. A surface that floats over content (menu, popover, dialog, composer, top bar) may use the `glass` rule from `tokens/glass.css`: a fill at 72 to 86 % of its surface colour, `blur(20px) saturate(1.4)` behind it and a one-pixel top highlight. A surface in the flow takes the soft fill and highlight only. No coloured glow, wash or gradient sits behind any surface, and the fill is opaque where blur is missing or reduced transparency is asked for.
 
 ## Motion
 
