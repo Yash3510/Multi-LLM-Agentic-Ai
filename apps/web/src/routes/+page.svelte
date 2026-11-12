@@ -33,7 +33,7 @@
 
 <div class="landing">
   <!-- The logo, then the suggestions, fade in as on the running app (common look, Motion). -->
-  <div class="welcome" in:fade={{ duration: 200 }}><Logomark size={44} /></div>
+  <div class="welcome" data-mark-turn in:fade={{ duration: 200 }}><Logomark size={44} /></div>
   <div class="composer">
     <Composer
       bind:value={draft}
