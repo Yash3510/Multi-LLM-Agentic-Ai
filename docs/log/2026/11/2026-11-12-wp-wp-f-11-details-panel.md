@@ -94,3 +94,20 @@ Checked afterwards on `/c/c-demo`: in dark the row hover and tint resolve to 9 %
 **Docs updated:** `docs/adr/0042-motion-language.md`, `docs/architecture/design-system.md`, `docs/state.md`.
 
 **Known limits:** the per-row chat menu buttons have no action yet, like the one before them. No shortcut hints on New Chat and Search, because the shortcuts are not wired. The interactive card is only used on `/ui`, so the lift shows nowhere else yet. The top bar's button hover still differs from the running app's. Unverified: the new hovers in dark, beyond the composer's ink.
+
+
+## 2026-11-13: toasts and the settings dialog
+
+**What changed:** toasts sit on the soft glass surface and wait while the pointer or focus is on them. The settings dialog is a card of at most 920 by 640 px with a close button, a Personal and Admin switch for admins, one level of headings, a filled icon on the open tab and a fade where the list scrolls. The General page is grouped into Appearance, Language, System prompt and Advanced; Theme is a segmented control with icons, the system prompt a multi-line box, model parameters a disclosure row, and the save bar shows only when something changed and confirms with a toast. The theme picker's emoji are gone. The icon generator accepts the `fill` weight.
+
+**Why:** the frontend owner found the toasts off the current look and the settings dialog poor, and approved six suggestions for it.
+
+**Files:** `tools/icons/generate.mjs`, `tools/icons/generate.test.mjs`, and in `apps/web/src/lib/ui`: `icons/registry.json`, `toast.svelte.ts`, `toast.test.ts`, `settings-nav.ts`, `settings-nav.test.ts`, `settings-draft.ts`, `settings-draft.test.ts`, `components/Toaster.svelte`, `components/SettingsDialog.svelte`, `components/SettingsGeneral.svelte`, `components/SegmentedControl.svelte`, `components/settings-page.css`, `components/settings-view.test.ts`, `components/admin-settings-view.test.ts`.
+
+**How it was verified:** the tests for the two new modules were written first. In `apps/web`: `npx vitest run` (550 tests passed), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui` (no findings), `npx prettier --check src/lib/ui` (formatted), `npx playwright test` (8 passed), `npm run build` (built), `npx vitest run --root ../.. tools/icons` (7 passed). Screenshots of the dialog were read in light, dark, with the save bar showing, and at 400 px wide.
+
+**Decisions:** [ADR-0041](../../../adr/0041-exact-match-look.md) amended (2026-11-13): the dialog, the filled icon for a selected state and the grouped General page leave the exact match. No new package.
+
+**Docs updated:** `docs/adr/0041-exact-match-look.md`, `docs/state.md`.
+
+**Known limits:** only the General page has the grouped rows and the on-change save bar; the other settings and admin pages keep their old rows and an always-visible Save. Saving is still local to the page, as before. The content column is about 648 px, not the 600 px suggested. Unverified: the admin side in dark.

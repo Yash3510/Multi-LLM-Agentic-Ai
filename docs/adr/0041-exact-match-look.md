@@ -3,7 +3,7 @@ title: Exact-match look
 type: adr
 status: planned
 owner: R3
-updated: 2026-11-03
+updated: 2026-11-13
 covers:
   - apps/web/src/lib/ui/
   - tools/design-lint/
@@ -83,6 +83,19 @@ After reviewing the first restyle side by side, the frontend owner rejected thre
 - **Choices:** segmented controls use a raised thumb that slides on a faint track, and check boxes are 16 px with a solid fill when checked.
 
 The idea for the tactile depth came from the owner's own Takeoff project. Its values were rewritten here, not copied. Screens built later still follow the measured tables for layout, sizes and colours, and use these components. The pixel check therefore measures screens with these components as the baseline.
+
+## Amendment, 2026-11-13: the settings dialog and filled icons
+
+The frontend owner reviewed the settings dialog, which matched the running app, and rejected it. Following six approved suggestions, it now deviates from the exact match:
+
+- **The dialog is a card,** at most 920 px by 640 px, with the 24 px panel radius, a line-1 border, the soft glass edge, a lighter backdrop and a close button at the top right. The Back button is gone.
+- **One side at a time.** An admin chooses Personal or Admin with a two-way switch above the search; the list then shows that side's groups under one level of headings. A search covers both sides. The list fades out where it scrolls.
+- **The open tab's icon is filled.** `tools/icons` accepts a third weight, `fill`, and the registry holds a fill twin for each settings and admin tab icon. Fill marks a selected or active state only; it never replaces regular or bold at rest.
+- **The General page is grouped:** Appearance, Language, System prompt and Advanced, each a titled group of rows with the description under its label. Theme is a segmented control with an icon per choice (System, Light, Dark, OLED). The system prompt is a multi-line box. Model parameters open from a disclosure row whose caret swaps, without rotating ([ADR-0042](0042-motion-language.md)).
+- **The General page's save bar shows only when something changed,** with Reset and Save, and a saved change is confirmed by a toast.
+- **Toasts sit on the soft glass surface** ([ADR-0043](0043-soft-glass-surfaces.md)) and wait while the pointer or focus is on them.
+
+The other settings and admin pages keep the running app's rows and their always-visible Save until each is reworked.
 
 ## Status
 
