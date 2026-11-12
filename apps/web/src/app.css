@@ -312,3 +312,28 @@
     margin-inline-start: 30px;
   }
 }
+
+/* Route crossfade (ADR-0042): the page fades, the rest of the window (the sidebar) stays still. */
+[data-routing] #main {
+  view-transition-name: page;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(page),
+::view-transition-old(page),
+::view-transition-new(page) {
+  animation-duration: var(--duration-base);
+  animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(page),
+  ::view-transition-old(page),
+  ::view-transition-new(page) {
+    animation-duration: 120ms;
+  }
+}
