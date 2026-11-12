@@ -143,3 +143,19 @@ Checked afterwards on `/c/c-demo`: in dark the row hover and tint resolve to 9 %
 **Docs updated:** `docs/adr/0041-exact-match-look.md`, `docs/state.md`.
 
 **Known limits:** Keyboard and Archived Chats have no description line. Account, Keyboard, Personalization, Usage, Archived Chats and the admin pages are still not grouped, and only General has the on-change save bar. Unverified: phone width, and pages other than Data Controls in dark.
+
+## 2026-11-13: grouped Keyboard, Personalization, Usage and Account
+
+**What changed:** Keyboard's enable switch, Personalization's Memory switch, Usage's three lists, and Account's User Variables and Password sit in outlined groups like General. Keyboard has a description line, and its title row now clears the dialog's close button ("Reset Defaults" overlapped it). An Account field is one surface: the shell draws the edge and the control inside draws none.
+
+**Why:** the frontend owner asked for the remaining settings pages to be grouped like the first ones.
+
+**Files:** in `apps/web/src/lib/ui/components`: `SettingsKeyboard.svelte`, `SettingsPersonalization.svelte`, `SettingsUsage.svelte`, `SettingsAccount.svelte`, `settings-page.css`.
+
+**How it was verified:** in `apps/web`: `npx vitest run` (550 passed, 91 files), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui` (no findings), `npx prettier --check src/lib/ui` (formatted), `npx playwright test` (8 passed), `npm run build` (exit 0). Screenshots of Keyboard, Personalization, Usage and Account were read in light and dark.
+
+**Decisions:** [ADR-0041](../../../adr/0041-exact-match-look.md) amendment updated. No new package.
+
+**Docs updated:** `docs/adr/0041-exact-match-look.md`.
+
+**Known limits:** Archived Chats is unchanged (a list page with nothing to group). The admin pages are not grouped. Only General has the on-change save bar. Unverified: phone width, and Usage's Top models and Most used tools lists, which sit below the fold in the screenshots.

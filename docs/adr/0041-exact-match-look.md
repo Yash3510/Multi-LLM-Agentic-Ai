@@ -100,7 +100,7 @@ The frontend owner reviewed the settings dialog, which matched the running app, 
 - **Interface, Audio, Notifications and Data Controls use the same outlined groups** as General. They keep their always-visible Save.
 - **Icons stay at the regular weight at every size.** A bolder weight at 16 px and below was mocked up and the owner chose regular.
 
-The remaining settings pages (Account, Keyboard, Personalization, Usage, Archived Chats) and the admin pages keep the running app's rows until each is reworked.
+Account, Keyboard, Personalization and Usage are grouped the same way (2026-11-13); an Account field is one surface, with no second edge inside it. Archived Chats is a list page with nothing to group. The admin pages keep the running app's rows until each is reworked.
 
 ## Status
 
