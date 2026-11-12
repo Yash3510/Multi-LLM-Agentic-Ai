@@ -225,7 +225,8 @@
 @layer components {
   /*
    * Cards in the flow (ADR-0041 amendment): a 20 px radius, raised fill and hairline depth, no
-   * border. An interactive card lifts to e1 on hover and settles to 99% while pressed.
+   * border. An interactive card lifts to e1 on hover, rising 1 px in 200 ms as the running app's
+   * cards do (ADR-0042), and settles to 99% while pressed.
    */
   [data-surface='card'] {
     --card-fill: var(--color-surface-raised);
@@ -247,8 +248,17 @@
   }
 
   [data-surface='card'][data-interactive] {
+    --interact-duration: 200ms;
     cursor: pointer;
     touch-action: manipulation;
+  }
+
+  :root:not([data-motion='reduce'])
+    [data-surface='card'][data-interactive]:not([data-disabled], [aria-busy='true']):is(
+      :hover,
+      [data-preview='hover']
+    ) {
+    translate: 0 -1px;
   }
 
   [data-surface='card'][data-interactive]:not([data-disabled], [aria-busy='true']):is(
