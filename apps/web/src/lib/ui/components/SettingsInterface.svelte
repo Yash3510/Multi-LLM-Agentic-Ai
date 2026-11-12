@@ -62,95 +62,98 @@
     <div class="panel">
       {#each SECTIONS as section (section.heading)}
         <h3 class="heading">{section.heading}</h3>
-        {#each section.rows as row (row.key)}
-          {@const value = prefs[row.key] as PrefValue}
-          <div class="block">
-            <div class="row">
-              <span class="label">{row.label}</span>
-              <span class="control">
-                {#if row.kind === 'switch'}
-                  <Switch on={value === true} onchange={(next) => toggle(row, next)} />
-                {:else if row.kind === 'cycle'}
-                  <button
-                    type="button"
-                    class="cycle"
-                    onclick={() => set(row.key, cycle(row, value))}
-                    >{choiceLabel(row, value)}</button
-                  >
-                {:else if row.kind === 'scale'}
-                  <button
-                    type="button"
-                    class="cycle"
-                    onclick={() => set(row.key, typeof value === 'number' ? undefined : 1)}
-                    >{scaleLabel(value)}</button
-                  >
-                {:else if row.kind === 'font'}
-                  <button
-                    type="button"
-                    class="cycle"
-                    onclick={() => set(row.key, value === undefined ? '' : undefined)}
-                    >{value === undefined ? 'Default' : 'Custom'}</button
-                  >
-                {:else if row.kind === 'upload'}
-                  {#if value}
-                    <button type="button" class="cycle" onclick={() => set(row.key, undefined)}
-                      >Reset</button
-                    >
-                  {:else}
-                    <button type="button" class="cycle" onclick={() => backgroundInput?.click()}
-                      >Upload</button
-                    >
-                  {/if}
-                {:else if row.kind === 'manage'}
-                  {#if value === true}
+        <div class="rows grouped">
+          {#each section.rows as row (row.key)}
+            {@const value = prefs[row.key] as PrefValue}
+            <div class="block">
+              <div class="row">
+                <span class="label">{row.label}</span>
+                <span class="control">
+                  {#if row.kind === 'switch'}
+                    <Switch on={value === true} onchange={(next) => toggle(row, next)} />
+                  {:else if row.kind === 'cycle'}
                     <button
                       type="button"
                       class="cycle"
-                      onclick={() => (managing = row.key as typeof managing)}>Manage</button
+                      onclick={() => set(row.key, cycle(row, value))}
+                      >{choiceLabel(row, value)}</button
                     >
+                  {:else if row.kind === 'scale'}
+                    <button
+                      type="button"
+                      class="cycle"
+                      onclick={() => set(row.key, typeof value === 'number' ? undefined : 1)}
+                      >{scaleLabel(value)}</button
+                    >
+                  {:else if row.kind === 'font'}
+                    <button
+                      type="button"
+                      class="cycle"
+                      onclick={() => set(row.key, value === undefined ? '' : undefined)}
+                      >{value === undefined ? 'Default' : 'Custom'}</button
+                    >
+                  {:else if row.kind === 'upload'}
+                    {#if value}
+                      <button type="button" class="cycle" onclick={() => set(row.key, undefined)}
+                        >Reset</button
+                      >
+                    {:else}
+                      <button type="button" class="cycle" onclick={() => backgroundInput?.click()}
+                        >Upload</button
+                      >
+                    {/if}
+                  {:else if row.kind === 'manage'}
+                    {#if value === true}
+                      <button
+                        type="button"
+                        class="cycle"
+                        onclick={() => (managing = row.key as typeof managing)}>Manage</button
+                      >
+                    {/if}
+                    <Switch on={value === true} onchange={(next) => set(row.key, next)} />
                   {/if}
-                  <Switch on={value === true} onchange={(next) => set(row.key, next)} />
-                {/if}
-              </span>
+                </span>
+              </div>
+              {#if row.kind === 'scale' && typeof value === 'number'}
+                <div class="scale">
+                  <button
+                    type="button"
+                    aria-label="Decrease UI Scale"
+                    onclick={() => set(row.key, Math.max(1, Math.round((value - 0.1) * 100) / 100))}
+                    ><Icon name="minus" size={14} /></button
+                  >
+                  <input
+                    type="range"
+                    min="1"
+                    max="1.5"
+                    step="0.01"
+                    {value}
+                    aria-label="UI Scale"
+                    oninput={(event) => set(row.key, Number(event.currentTarget.value))}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Increase UI Scale"
+                    onclick={() =>
+                      set(row.key, Math.min(1.5, Math.round((value + 0.1) * 100) / 100))}
+                    ><Icon name="plus" size={14} /></button
+                  >
+                </div>
+              {/if}
+              {#if row.kind === 'font' && value !== undefined}
+                <div class="font">
+                  <input
+                    value={String(value)}
+                    placeholder="Aptos"
+                    aria-label="Font Family"
+                    oninput={(event) => set(row.key, event.currentTarget.value)}
+                  />
+                </div>
+              {/if}
+              <p class="note">{row.note}</p>
             </div>
-            {#if row.kind === 'scale' && typeof value === 'number'}
-              <div class="scale">
-                <button
-                  type="button"
-                  aria-label="Decrease UI Scale"
-                  onclick={() => set(row.key, Math.max(1, Math.round((value - 0.1) * 100) / 100))}
-                  ><Icon name="minus" size={14} /></button
-                >
-                <input
-                  type="range"
-                  min="1"
-                  max="1.5"
-                  step="0.01"
-                  {value}
-                  aria-label="UI Scale"
-                  oninput={(event) => set(row.key, Number(event.currentTarget.value))}
-                />
-                <button
-                  type="button"
-                  aria-label="Increase UI Scale"
-                  onclick={() => set(row.key, Math.min(1.5, Math.round((value + 0.1) * 100) / 100))}
-                  ><Icon name="plus" size={14} /></button
-                >
-              </div>
-            {/if}
-            {#if row.kind === 'font' && value !== undefined}
-              <div class="font">
-                <input
-                  value={String(value)}
-                  placeholder="Aptos"
-                  aria-label="Font Family"
-                  oninput={(event) => set(row.key, event.currentTarget.value)}
-                />
-              </div>
-            {/if}
-            <p class="note">{row.note}</p>
-          </div>
-        {/each}
+          {/each}
+        </div>
       {/each}
     </div>
   </div>

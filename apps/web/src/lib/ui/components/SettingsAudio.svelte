@@ -68,7 +68,7 @@
   <div class="body">
     <section>
       <h3>STT Settings</h3>
-      <div class="rows">
+      <div class="rows grouped">
         <div class="block">
           <div class="row">
             <span>Speech-to-Text Engine</span>
@@ -109,7 +109,7 @@
     </section>
     <section>
       <h3>TTS Settings</h3>
-      <div class="rows">
+      <div class="rows grouped">
         <div class="block">
           <div class="row">
             <span>Text-to-Speech Engine</span>

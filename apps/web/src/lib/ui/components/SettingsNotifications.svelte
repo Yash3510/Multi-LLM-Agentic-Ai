@@ -38,7 +38,7 @@
 <div class="settings-page">
   <h2>Notifications</h2>
   <div class="body">
-    <div class="rows">
+    <div class="rows grouped">
       <div class="block">
         <div class="row">
           <span>Browser Notifications</span>

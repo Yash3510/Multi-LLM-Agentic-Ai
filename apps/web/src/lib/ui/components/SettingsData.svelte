@@ -93,7 +93,7 @@
   <div class="body">
     <section>
       <h3>Chats</h3>
-      <div class="rows">
+      <div class="rows grouped">
         {@render row('Import Chats', 'Import chat history from a JSON export file.', 'Import', () =>
           picker?.click(),
         )}
@@ -121,7 +121,7 @@
     </section>
     <section>
       <h3>Files</h3>
-      <div class="rows">
+      <div class="rows grouped">
         {@render row('Manage Files', 'Open the file manager for uploaded files.', 'Manage')}
       </div>
     </section>

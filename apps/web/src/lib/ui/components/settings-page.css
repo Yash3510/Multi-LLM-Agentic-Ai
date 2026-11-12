@@ -384,3 +384,30 @@
 .settings-page .field-control.multiline {
   border-radius: var(--radius-card);
 }
+
+/* Row pages (Interface, Audio, Notifications, Data Controls): a section's blocks form one group
+   with a hairline between them, the same look as .group and .item. */
+.settings-page .rows.grouped {
+  gap: 0;
+  border: 1px solid var(--color-line-1);
+  border-radius: var(--radius-card);
+  background-color: var(--glass-soft);
+  box-shadow: var(--glass-edge);
+}
+
+.settings-page .rows.grouped > .block {
+  padding: 12px 14px;
+}
+
+.settings-page .rows.grouped > .block + .block {
+  border-block-start: 1px solid var(--color-line-1);
+}
+
+.settings-page .rows.grouped > .block > .row {
+  color: var(--color-ink-1);
+}
+
+.settings-page .rows.grouped .note {
+  margin-block-start: 2px;
+  color: var(--color-ink-3);
+}
