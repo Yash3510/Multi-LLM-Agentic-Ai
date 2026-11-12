@@ -150,12 +150,12 @@
     color: var(--action-hover-ink);
   }
 
-  /* A press settles the button to 98%: a mechanical click, no colour jump. */
+  /* A press settles the button: a mechanical click, no colour jump. */
   [data-action]:not(:disabled, [aria-disabled='true'], [aria-busy='true']):is(
       :active,
       [data-preview='active']
     ) {
-    transform: scale(0.98);
+    scale: var(--press-scale);
   }
 
   /* Keyboard focus: the soft glow, laid over the button's own depth. */
