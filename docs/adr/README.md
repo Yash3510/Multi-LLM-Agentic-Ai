@@ -34,3 +34,4 @@ Numbers 0009 to 0034 are reserved by the master plan (§15) for the decisions it
 | [0039](0039-every-action-writes-a-ledger-entry.md) | Every action writes a ledger entry | proposed |
 | [0040](0040-job-queue-on-postgresql.md) | Job queue on PostgreSQL | proposed |
 | [0041](0041-exact-match-look.md) | Exact-match look | proposed |
+| [0042](0042-motion-language.md) | Motion language | proposed |
