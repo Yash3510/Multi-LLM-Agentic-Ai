@@ -111,3 +111,19 @@ Checked afterwards on `/c/c-demo`: in dark the row hover and tint resolve to 9 %
 **Docs updated:** `docs/adr/0041-exact-match-look.md`, `docs/state.md`.
 
 **Known limits:** only the General page has the grouped rows and the on-change save bar; the other settings and admin pages keep their old rows and an always-visible Save. Saving is still local to the page, as before. The content column is about 648 px, not the 600 px suggested. Unverified: the admin side in dark.
+
+## 2026-11-13: rounder settings and grouped row pages
+
+**What changed:** the settings card and its controls are rounder (card 32 px, groups 20 px, pill switches, selects and close button). Interface, Audio, Notifications and Data Controls show their rows in outlined groups like General. Icon weights are unchanged: the owner compared a bolder small weight and kept regular.
+
+**Why:** the frontend owner approved both from before/after mockups and asked for them to land before detail work.
+
+**Files:** in `apps/web/src/lib/ui/components`: `SettingsDialog.svelte`, `SegmentedControl.svelte`, `SettingsSelect.svelte`, `SettingsInterface.svelte`, `SettingsAudio.svelte`, `SettingsNotifications.svelte`, `SettingsData.svelte`, `settings-page.css`.
+
+**How it was verified:** in `apps/web`: `npx vitest run` (550 passed), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui` (no findings), `npx prettier --check src/lib/ui` (formatted), `npx playwright test` (8 passed), `npm run build` (exit 0). Screenshots of General, Interface, Notifications, Audio, Data Controls and Account were read in light, and Interface in dark.
+
+**Decisions:** [ADR-0041](../../../adr/0041-exact-match-look.md) amendment extended. `SegmentedControl` takes its radii from two custom properties so only the settings dialog changes. No new package.
+
+**Docs updated:** `docs/adr/0041-exact-match-look.md`, `docs/state.md`.
+
+**Known limits:** Account, Keyboard, Personalization, Usage, Archived Chats and the admin pages are not grouped yet. Only General has the on-change save bar. Unverified: the grouped pages at phone width, and the other pages in dark.

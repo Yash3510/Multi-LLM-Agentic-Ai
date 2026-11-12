@@ -95,7 +95,11 @@ The frontend owner reviewed the settings dialog, which matched the running app, 
 - **The General page's save bar shows only when something changed,** with Reset and Save, and a saved change is confirmed by a toast.
 - **Toasts sit on the soft glass surface** ([ADR-0043](0043-soft-glass-surfaces.md)) and wait while the pointer or focus is on them.
 
-The other settings and admin pages keep the running app's rows and their always-visible Save until each is reworked.
+- **Rounder corners,** asked for by the owner on review: the card's radius is 32 px, groups use the 20 px card radius, and the switches, the selects and the close button are pills. The multi-line box uses the card radius.
+- **Interface, Audio, Notifications and Data Controls use the same outlined groups** as General. They keep their always-visible Save.
+- **Icons stay at the regular weight at every size.** A bolder weight at 16 px and below was mocked up and the owner chose regular.
+
+The remaining settings pages (Account, Keyboard, Personalization, Usage, Archived Chats) and the admin pages keep the running app's rows until each is reworked.
 
 ## Status
 
