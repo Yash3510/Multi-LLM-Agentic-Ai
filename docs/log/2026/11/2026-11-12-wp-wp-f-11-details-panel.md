@@ -74,5 +74,7 @@ Run in `apps/web` on 2026-11-12:
 
 **Decisions:** no new ADR; all of it follows [ADR-0042](../../../adr/0042-motion-language.md) (CSS only, the one spring for the marker's position, reduced motion handled by the existing rule in `app.css`). The two hover tokens move off the measured values of ADR-0041 because those could not be seen.
 
-**Known limits:** unverified: dark theme and reduced motion for this pass, and a hover-by-hover comparison with the old app.
+Checked afterwards on `/c/c-demo`: in dark the row hover and tint resolve to 9 % white on the `#0d0d0d` sidebar and the tab marker shows on the panel; with `data-motion="reduce"` the marker and tab content change place without a transition, a sent message and its reply run no animation, and hovers fade in 120 ms.
+
+**Known limits:** unverified: a hover-by-hover comparison with the old app.
 
