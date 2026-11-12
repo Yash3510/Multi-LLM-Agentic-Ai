@@ -441,3 +441,25 @@
 .settings-page .rows.grouped .quiet.danger {
   color: var(--color-stop);
 }
+
+/* A group of plain label and value rows (Usage). */
+.settings-page .rows.grouped > .row {
+  padding: 10px 14px;
+  color: var(--color-ink-1);
+}
+
+.settings-page .rows.grouped > .row + .row {
+  border-block-start: 1px solid var(--color-line-1);
+}
+
+/* An Account field is one surface: the shell draws the edge, the control inside draws none. */
+.settings-page .field-control:not(.multiline) :is(.input, .area, select) {
+  border: 0;
+  background-color: transparent;
+  padding-inline-start: 0;
+}
+
+.settings-page .rows.grouped > .none {
+  margin: 0;
+  padding: 10px 14px;
+}

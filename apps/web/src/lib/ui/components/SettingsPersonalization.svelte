@@ -68,15 +68,17 @@
   <p class="lede">Memories that tailor responses to you.</p>
   <div class="body">
     <h3>Memory</h3>
-    <div class="block">
-      <div class="row">
-        <span class="label">Memory <span class="experimental">Experimental</span></span>
-        <Switch on={enabled} onchange={setEnabled} />
+    <div class="rows grouped">
+      <div class="block">
+        <div class="row">
+          <span class="label">Memory <span class="experimental">Experimental</span></span>
+          <Switch on={enabled} onchange={setEnabled} />
+        </div>
+        <p class="note">
+          You can personalize your interactions with LLMs by adding memories through the 'Add
+          Memory' button below, making them more helpful and tailored to you.
+        </p>
       </div>
-      <p class="note">
-        You can personalize your interactions with LLMs by adding memories through the 'Add Memory'
-        button below, making them more helpful and tailored to you.
-      </p>
     </div>
     {#if enabled && memories}
       <div class="saved">
@@ -205,7 +207,7 @@
   }
 
   .saved {
-    margin-block-end: 4px;
+    margin-block: 14px 4px;
     color: var(--color-gray-600);
     font-size: var(--text-caption);
     line-height: 16px;

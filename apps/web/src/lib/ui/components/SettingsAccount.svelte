@@ -237,84 +237,95 @@
       </section>
 
       <section class="variables">
-        <div class="variables-head">
-          <span>User Variables <span class="count">{variables.length}</span></span>
-          <button type="button" class="quiet" onclick={() => (editing = {})}>Add</button>
-        </div>
-        <div class="variable-list">
-          {#each variables as variable, index (variable.key)}
-            <div class="variable">
-              <span class="key">{variable.key}</span>
-              <span class="value">{variable.value || 'Empty'}</span>
-              <button type="button" class="quiet" onclick={() => (editing = { index })}>Edit</button
-              >
+        <div class="rows grouped">
+          <div class="block">
+            <div class="variables-head">
+              <span>User Variables <span class="count">{variables.length}</span></span>
+              <button type="button" class="quiet" onclick={() => (editing = {})}>Add</button>
             </div>
-          {:else}
-            <p class="empty">No user variables configured.</p>
-          {/each}
+            <div class="variable-list">
+              {#each variables as variable, index (variable.key)}
+                <div class="variable">
+                  <span class="key">{variable.key}</span>
+                  <span class="value">{variable.value || 'Empty'}</span>
+                  <button type="button" class="quiet" onclick={() => (editing = { index })}
+                    >Edit</button
+                  >
+                </div>
+              {:else}
+                <p class="empty">No user variables configured.</p>
+              {/each}
+            </div>
+            <p class="note usage">
+              Use these in model system prompts as {'{{user.variables.key_name}}'}.
+            </p>
+          </div>
         </div>
-        <p class="note usage">
-          Use these in model system prompts as {'{{user.variables.key_name}}'}.
-        </p>
       </section>
 
       <section>
         <h3>Password</h3>
-        <div class="block">
-          <div class="row">
-            <span>Change Password</span>
-            <button type="button" class="quiet" onclick={() => (showPassword = !showPassword)}
-              >{showPassword ? 'Hide' : 'Show'}</button
-            >
+        <div class="rows grouped">
+          <div class="block">
+            <div class="row">
+              <span>Change Password</span>
+              <button type="button" class="quiet" onclick={() => (showPassword = !showPassword)}
+                >{showPassword ? 'Hide' : 'Show'}</button
+              >
+            </div>
+            <p class="note password-note">
+              Update the password used for email and password sign-in.
+            </p>
+            {#if showPassword}
+              <form
+                class="password"
+                onsubmit={(event) => {
+                  event.preventDefault();
+                  void changePassword();
+                }}
+              >
+                <label class="secret">
+                  <span>Current Password</span>
+                  <input
+                    class="input"
+                    type="password"
+                    bind:value={current}
+                    placeholder="Enter your current password"
+                    autocomplete="current-password"
+                    required
+                  />
+                </label>
+                <label class="secret">
+                  <span>New Password</span>
+                  <input
+                    class="input"
+                    type="password"
+                    bind:value={next}
+                    placeholder="Enter your new password"
+                    autocomplete="new-password"
+                    required
+                  />
+                </label>
+                <label class="secret">
+                  <span>Confirm Password</span>
+                  <input
+                    class="input"
+                    type="password"
+                    bind:value={confirm}
+                    placeholder="Confirm your new password"
+                    autocomplete="off"
+                    required
+                  />
+                </label>
+                {#if passwordProblem}<p class="problem" role="alert">{passwordProblem}</p>{/if}
+                {#if passwordNotice}<p class="done" role="status">{passwordNotice}</p>{/if}
+                <div class="update">
+                  <button type="submit" class="quiet">Update password</button>
+                </div>
+              </form>
+            {/if}
           </div>
-          <p class="note password-note">Update the password used for email and password sign-in.</p>
         </div>
-        {#if showPassword}
-          <form
-            class="password"
-            onsubmit={(event) => {
-              event.preventDefault();
-              void changePassword();
-            }}
-          >
-            <label class="secret">
-              <span>Current Password</span>
-              <input
-                class="input"
-                type="password"
-                bind:value={current}
-                placeholder="Enter your current password"
-                autocomplete="current-password"
-                required
-              />
-            </label>
-            <label class="secret">
-              <span>New Password</span>
-              <input
-                class="input"
-                type="password"
-                bind:value={next}
-                placeholder="Enter your new password"
-                autocomplete="new-password"
-                required
-              />
-            </label>
-            <label class="secret">
-              <span>Confirm Password</span>
-              <input
-                class="input"
-                type="password"
-                bind:value={confirm}
-                placeholder="Confirm your new password"
-                autocomplete="off"
-                required
-              />
-            </label>
-            {#if passwordProblem}<p class="problem" role="alert">{passwordProblem}</p>{/if}
-            {#if passwordNotice}<p class="done" role="status">{passwordNotice}</p>{/if}
-            <div class="update"><button type="submit" class="quiet">Update password</button></div>
-          </form>
-        {/if}
       </section>
     {/if}
   </div>
