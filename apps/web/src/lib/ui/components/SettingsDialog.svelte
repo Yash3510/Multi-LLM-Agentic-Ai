@@ -301,6 +301,7 @@
   /* Never squeezed: both sides stay readable beside the search on a narrow screen. */
   .sides {
     flex: none;
+    inline-size: 200px;
   }
 
   @media (min-width: 48rem) {
@@ -311,6 +312,7 @@
     }
 
     .sides {
+      inline-size: auto;
       margin-block-end: 10px;
     }
   }
