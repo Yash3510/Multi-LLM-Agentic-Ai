@@ -61,3 +61,18 @@ Run in `apps/web` on 2026-11-12:
 ## Known limits
 
 - Unverified: the settings dialog, sheets and the side panel in dark with the glass fill; only the chat page was checked in both themes.
+
+## 2026-11-12: motion on the chat page
+
+**What changed:** hovers read on both grounds (`--color-tint` and `--color-row-hover` are now 6.5 % ink in light and 9 % in dark) and arrive in `instant`, leave in `base` on sidebar rows, message actions and the receipt's two buttons. The details tabs use the sliding highlight (`glide.ts`) for the open tab and the pointer, and a tab's content rises 4 px as it fades in. A message asked or answered in the visit rises 8 px into place; its receipt labels follow 40 ms apart, then the checks and the details panel. Saved threads stay at rest.
+
+**Why:** the frontend owner found the rebuilt chat page still: hovers too faint to see (the dark row hover was black on black), tabs that jump, and nothing arriving.
+
+**Files:** `tokens/theme.css`, `tokens/dark.css`, `Sidebar.svelte`, `message.css`, `ReceiptStrip.svelte`, `DetailsPanel.svelte`, `UserMessage.svelte`, `ResponseMessage.svelte`, `routes/c/[id]/+page.svelte`.
+
+**How it was verified:** in `apps/web`: `npx vitest run` (89 files, 540 tests passed), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui src/routes/c` (no findings), `npx prettier --check src/lib/ui src/routes/c` (formatted), `npx playwright test` (8 passed). On `/c/c-demo` in light: the tab marker moved from 0 px to 214 px on a click; a sent message and its reply ran `message-in`; after release the labels ran `label-in` at 0, 40, 80 and 120 ms and the panel `details-in` at 240 ms.
+
+**Decisions:** no new ADR; all of it follows [ADR-0042](../../../adr/0042-motion-language.md) (CSS only, the one spring for the marker's position, reduced motion handled by the existing rule in `app.css`). The two hover tokens move off the measured values of ADR-0041 because those could not be seen.
+
+**Known limits:** unverified: dark theme and reduced motion for this pass, and a hover-by-hover comparison with the old app.
+
