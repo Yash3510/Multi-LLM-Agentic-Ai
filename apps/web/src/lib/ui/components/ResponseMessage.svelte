@@ -369,8 +369,21 @@
     text-align: start;
   }
 
+  /* Table headers speak in the stage names' quiet caps; figures line up down a column. */
   .body :global(th) {
+    color: var(--color-gray-600);
+    font-size: var(--text-tag);
     font-weight: var(--font-weight-medium);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  :global([data-theme='dark']) .body :global(th) {
+    color: var(--color-ink-3);
+  }
+
+  .body :global(td) {
+    font-variant-numeric: tabular-nums;
   }
 
   .body :global(pre) {

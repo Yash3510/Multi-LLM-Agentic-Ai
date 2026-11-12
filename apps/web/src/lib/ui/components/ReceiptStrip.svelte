@@ -59,7 +59,7 @@
 
 <div class="receipt" role="group" aria-label="How this answer was produced">
   <div class="labels">
-    <span class="label"><b>Local</b> {receipt.model}</span>
+    <span class="label" data-label="model"><b>Local</b> {receipt.model}</span>
     {#if receipt.sources > 0}
       <span
         class="label"
@@ -179,6 +179,15 @@
 
   .label b {
     font-weight: var(--font-weight-medium);
+  }
+
+  /* The model is a machine value, so it is set in mono; its "Local" stays in the text face. */
+  .label[data-label='model'] {
+    font-family: var(--font-mono);
+  }
+
+  .label[data-label='model'] b {
+    font-family: var(--font-sans);
   }
 
   :global([data-theme='dark']) .label {
