@@ -1,17 +1,19 @@
 <script lang="ts">
-  // The settings dialog (chat-composer look §9.1, F91): Back, search, the person's tabs under
-  // their captions, and the chosen page. The admin tabs join with the admin area; Connections is
-  // left out, as the owner chose.
+  // The settings dialog (F91; ADR-0041 amendment, 2026-11-13): a title, the Personal or Admin
+  // switch for admins, search, that side's tabs under their captions, and the chosen page. The
+  // person's Connections tab is left out, as the owner chose.
   import { Dialog } from 'bits-ui';
   import type { DataSource, UserSettings } from '$lib/data';
-  import type { IconName } from '$lib/ui/icons/generated/icons';
+  import { ICONS, type IconName } from '$lib/ui/icons/generated/icons';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { ADMIN_GROUPS, PANELS, type PanelId } from '$lib/ui/admin-panels';
   import { glide } from '$lib/ui/glide';
+  import { scopeOf, shownGroups, type Scope } from '$lib/ui/settings-nav';
   import AdminAnalytics from './AdminAnalytics.svelte';
   import AdminConnections from './AdminConnections.svelte';
   import AdminModels from './AdminModels.svelte';
   import AdminSettings from './AdminSettings.svelte';
+  import SegmentedControl from './SegmentedControl.svelte';
   import SettingsAccount from './SettingsAccount.svelte';
   import SettingsArchived from './SettingsArchived.svelte';
   import SettingsAudio from './SettingsAudio.svelte';
@@ -35,6 +37,10 @@
   let { open, source, admin = false, onclose }: Props = $props();
 
   type Tab = { id: string; label: string; icon: IconName };
+  const SIDES = [
+    { value: 'personal', label: 'Personal' },
+    { value: 'admin', label: 'Admin' },
+  ];
   const GROUPS: { caption: string; tabs: Tab[] }[] = [
     {
       caption: 'Basics',
@@ -67,18 +73,21 @@
   let query = $state('');
   let settings = $state<UserSettings>();
 
-  const matching = (groups: typeof GROUPS) =>
-    groups
-      .map((group) => ({
-        ...group,
-        tabs: group.tabs.filter((one) =>
-          one.label.toLowerCase().includes(query.trim().toLowerCase()),
-        ),
-      }))
-      .filter((group) => group.tabs.length);
-  const shown = $derived(matching(GROUPS));
-  // Admins see the admin tabs under their own captions (admin look §18).
-  const shownAdmin = $derived(admin ? matching(ADMIN_GROUPS) : []);
+  let scope = $state<Scope>('personal');
+
+  const shown = $derived(shownGroups<Tab>(GROUPS, ADMIN_GROUPS, scope, query, admin));
+  /** The selected tab's icon is the filled twin of its own, where the registry has one. */
+  const filled = (icon: IconName): IconName => {
+    const twin = `${icon}-fill`;
+    return twin in ICONS ? (twin as IconName) : icon;
+  };
+
+  // Changing side opens that side's first page, so the list always holds the open tab.
+  function side(next: string) {
+    scope = next as Scope;
+    if (scopeOf(tab) !== scope) tab = scope === 'admin' ? ADMIN_GROUPS[0].tabs[0].id : 'general';
+  }
+
   const current = $derived(
     [...GROUPS, ...ADMIN_GROUPS].flatMap((group) => group.tabs).find((one) => one.id === tab),
   );
@@ -92,6 +101,7 @@
   $effect(() => {
     if (!open) return;
     tab = 'general';
+    scope = 'personal';
     query = '';
     void source.getUserSettings().then((loaded) => (settings = loaded));
   });
@@ -105,58 +115,49 @@
 
 <Dialog.Root {open} onOpenChange={(next) => !next && onclose()}>
   <Dialog.Portal>
-    <Dialog.Overlay class="modal-backdrop" />
+    <Dialog.Overlay class="modal-backdrop settings-backdrop" />
     <Dialog.Content class="modal-frame settings-frame" aria-describedby={undefined}>
-      <Dialog.Title class="sr-only">Settings</Dialog.Title>
       <div class="card">
+        <button type="button" class="close" aria-label="Close" onclick={onclose}>
+          <Icon name="x" size={16} />
+        </button>
         <nav aria-label="Settings">
-          <button type="button" class="back" onclick={onclose}>
-            <Icon name="caret-left" size={12} /><span>Back</span>
-          </button>
+          <Dialog.Title class="settings-title">Settings</Dialog.Title>
+          {#if admin}
+            <div class="sides">
+              <SegmentedControl
+                fill
+                aria-label="Whose settings"
+                value={scope}
+                options={SIDES}
+                onValueChange={side}
+              />
+            </div>
+          {/if}
           <label class="search">
             <Icon name="magnifying-glass" size={14} />
             <span class="sr-only">Search</span>
             <input bind:value={query} placeholder="Search" />
           </label>
           <div class="tabs" {@attach glide({ active: '.tab[aria-current]', hover: '.tab' })}>
-            {#if shown.length}
-              <span class="caption first">Personal</span>
-              {#each shown as group, index (group.caption)}
-                <span class="caption" class:lead={index === 0}>{group.caption}</span>
-                {#each group.tabs as one (one.id)}
-                  <button
-                    type="button"
-                    class="tab"
-                    aria-current={one.id === tab ? 'page' : undefined}
-                    {@attach reveal(one.id === tab)}
-                    onclick={() => (tab = one.id)}
+            {#each shown as group (group.tabs[0].id)}
+              <span class="caption">{group.caption}</span>
+              {#each group.tabs as one (one.id)}
+                <button
+                  type="button"
+                  class="tab"
+                  aria-current={one.id === tab ? 'page' : undefined}
+                  {@attach reveal(one.id === tab)}
+                  onclick={() => ((tab = one.id), (scope = scopeOf(one.id)))}
+                >
+                  <Icon name={one.id === tab ? filled(one.icon) : one.icon} size={16} /><span
+                    >{one.label}</span
                   >
-                    <Icon name={one.icon} size={14} /><span>{one.label}</span>
-                  </button>
-                {/each}
+                </button>
               {/each}
-            {/if}
-            {#if shownAdmin.length}
-              <div class="admin-rule"></div>
-              <span class="caption admin-caption">Admin</span>
-              {#each shownAdmin as group, index (group.caption)}
-                <span class="caption" class:lead={index === 0}>{group.caption}</span>
-                {#each group.tabs as one (one.id)}
-                  <button
-                    type="button"
-                    class="tab"
-                    aria-current={one.id === tab ? 'page' : undefined}
-                    {@attach reveal(one.id === tab)}
-                    onclick={() => (tab = one.id)}
-                  >
-                    <Icon name={one.icon} size={14} /><span>{one.label}</span>
-                  </button>
-                {/each}
-              {/each}
-            {/if}
-            {#if !shown.length && !shownAdmin.length}
+            {:else}
               <p class="none">No matches</p>
-            {/if}
+            {/each}
           </div>
         </nav>
         <div class="content">
@@ -199,7 +200,15 @@
 </Dialog.Root>
 
 <style>
-  /* 16 px round the panel, 24 from 640 px, 32 from 1024 px (look §9.1). */
+  /* A softer dim than the working dialogs: settings is a place to look round, not a question. */
+  :global(.settings-backdrop) {
+    background-color: rgb(0 0 0 / 0.3);
+  }
+
+  :global([data-theme='dark'] .settings-backdrop) {
+    background-color: rgb(0 0 0 / 0.5);
+  }
+
   :global(.settings-frame) {
     padding: 16px calc(16px + 0.45rem) 16px 16px;
   }
@@ -210,23 +219,21 @@
     }
   }
 
-  @media (min-width: 64rem) {
-    :global(.settings-frame) {
-      padding: 32px calc(32px + 0.45rem) 32px 32px;
-    }
-  }
-
+  /* 920 by 640 at most (ADR-0041 amendment, 2026-11-13): a label and its control stay one row. */
   .card {
+    position: relative;
     display: flex;
     flex-direction: column;
     inline-size: 100%;
-    max-inline-size: 1280px;
-    block-size: min(max(864px, 80dvh), calc(100dvh - 64px));
+    max-inline-size: 920px;
+    block-size: min(640px, calc(100dvh - 48px));
     margin: auto;
     overflow: hidden;
-    border: 1px solid var(--color-white);
-    border-radius: 32px;
-    background-color: var(--color-white);
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-panel);
+    background-color: var(--color-surface-raised);
+    box-shadow: var(--shadow-e3), var(--glass-edge);
+    color: var(--color-ink-1);
   }
 
   @media (min-width: 48rem) {
@@ -236,82 +243,104 @@
   }
 
   :global([data-theme='dark']) .card {
-    border-color: var(--color-gray-850);
     background-color: var(--color-gray-900);
-    color: var(--color-gray-100);
   }
 
-  /* Back and the tabs share one row on narrow screens, as in the running app. */
+  .close {
+    position: absolute;
+    inset-block-start: 12px;
+    inset-inline-end: 12px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    inline-size: 28px;
+    block-size: 28px;
+    border-radius: 8px;
+    color: var(--color-ink-3);
+  }
+
+  .close:hover {
+    background-color: var(--color-tint);
+    color: var(--color-ink-1);
+  }
+
+  /* On a narrow screen: the title, then the switch, then the tabs as one scrolling row. */
   nav {
     display: flex;
     flex-shrink: 0;
+    flex-wrap: wrap;
     align-items: center;
-    border-block-end: 1px solid color-mix(in srgb, var(--color-gray-100) 30%, transparent);
+    gap: 8px;
+    padding: 14px 12px 8px;
+    border-block-end: 1px solid var(--color-line-1);
   }
 
   @media (min-width: 48rem) {
     nav {
       flex-direction: column;
+      flex-wrap: nowrap;
       align-items: stretch;
-      inline-size: 240px;
+      gap: 0;
+      inline-size: 224px;
+      padding: 16px 10px 0;
       border-block-end: 0;
-      border-inline-end: 1px solid color-mix(in srgb, var(--color-gray-100) 30%, transparent);
+      border-inline-end: 1px solid var(--color-line-1);
+      background-color: var(--glass-soft);
     }
   }
 
-  :global([data-theme='dark']) nav {
-    border-color: rgb(255 255 255 / 0.02);
+  :global(.settings-title) {
+    flex: 1 1 100%;
+    padding-inline: 8px 40px;
+    color: var(--color-ink-1);
+    font-size: var(--text-ui);
+    font-weight: var(--font-weight-medium);
+    line-height: 20px;
   }
 
-  .back,
+  /* Never squeezed: both sides stay readable beside the search on a narrow screen. */
+  .sides {
+    flex: none;
+  }
+
+  @media (min-width: 48rem) {
+    :global(.settings-title) {
+      flex: none;
+      padding-block-end: 12px;
+      padding-inline-end: 8px;
+    }
+
+    .sides {
+      margin-block-end: 10px;
+    }
+  }
+
   .tab {
     display: flex;
     flex-shrink: 0;
     align-items: center;
-    gap: 6px;
-    block-size: 28px;
+    gap: 8px;
+    block-size: 30px;
     padding-inline: 10px;
     border-radius: var(--radius-pill);
+    color: var(--color-ink-2);
     font-size: var(--text-caption);
     line-height: 16px;
     text-align: start;
-    transition: color 75ms;
-  }
-
-  .back {
-    margin: 4px;
-    color: var(--color-gray-400);
-  }
-
-  @media (min-width: 48rem) {
-    .back {
-      margin-block-end: 0;
-    }
-  }
-
-  .back:hover {
-    color: var(--color-gray-700);
-  }
-
-  :global([data-theme='dark']) .back {
-    color: var(--color-gray-600);
-  }
-
-  :global([data-theme='dark']) .back:hover {
-    color: var(--color-gray-300);
   }
 
   .search {
     display: none;
     align-items: center;
     gap: 6px;
-    block-size: 28px;
-    margin: 4px 4px 2px;
+    block-size: 30px;
+    margin-block-end: 6px;
     padding-inline: 12px;
     border-radius: var(--radius-pill);
     background-color: transparent;
     background-image: var(--field-inset-fill);
     box-shadow: var(--field-inset-edge);
+    color: var(--color-ink-3);
     font-size: var(--text-caption);
   }
 
@@ -331,7 +360,7 @@
     padding-block: 4px;
     line-height: 16px;
     background: transparent;
-    color: inherit;
+    color: var(--color-ink-1);
     font-size: var(--text-caption);
   }
 
@@ -340,25 +369,28 @@
   }
 
   .search input::placeholder {
-    color: var(--color-gray-400);
+    color: var(--color-ink-3);
   }
 
   .tabs {
     display: flex;
-    flex: 1;
+    flex: 1 1 100%;
     min-inline-size: 0;
     gap: 1px;
-    padding: 4px 4px 4px 0;
     overflow-x: auto;
     scrollbar-width: none;
   }
 
+  /* The list fades out at the foot where it scrolls; the padding keeps the last tab clear of it. */
   @media (min-width: 48rem) {
     .tabs {
+      flex: 1;
       flex-direction: column;
-      padding: 4px;
+      min-block-size: 0;
+      padding-block-end: 20px;
       overflow-x: visible;
       overflow-y: auto;
+      mask-image: linear-gradient(to bottom, black calc(100% - 20px), transparent);
     }
 
     .tab {
@@ -368,42 +400,15 @@
 
   .caption {
     display: none;
-    margin-block: 8px 2px;
-    padding-inline: 8px;
-    color: var(--color-gray-400);
+    margin-block: 12px 4px;
+    padding-inline: 10px;
+    color: var(--color-ink-3);
     font-size: var(--text-nano);
     line-height: 15px;
   }
 
-  /* As the running app measures: "Personal" 6 px down, its first group 2 px under it. */
-  .caption.first {
-    margin-block-start: 6px;
-  }
-
-  /* The admin block (admin look §18): a rule, then "Admin" 2 px above its first group. */
-  .admin-rule {
-    display: none;
-    block-size: 1px;
-    margin: 8px 4px;
-    background-color: color-mix(in srgb, var(--color-gray-100) 40%, transparent);
-  }
-
-  :global([data-theme='dark']) .admin-rule {
-    background-color: rgb(255 255 255 / 0.025);
-  }
-
-  @media (min-width: 48rem) {
-    .admin-rule {
-      display: block;
-    }
-  }
-
-  .caption.admin-caption {
-    margin-block-start: 0;
-  }
-
-  .caption.lead {
-    margin-block-start: 2px;
+  .caption:first-of-type {
+    margin-block-start: 4px;
   }
 
   @media (min-width: 48rem) {
@@ -412,57 +417,31 @@
     }
   }
 
-  :global([data-theme='dark']) .caption {
-    color: var(--color-gray-600);
-  }
-
-  .tab {
-    color: var(--color-gray-500);
-  }
-
   .tab:hover {
-    color: var(--color-gray-700);
+    color: var(--color-ink-1);
   }
 
   .tab[aria-current] {
-    background-color: var(--color-gray-50);
-    box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.07);
-    color: var(--color-gray-900);
+    background-color: var(--color-tint);
+    color: var(--color-ink-1);
     font-weight: var(--font-weight-medium);
   }
 
   /* With the sliding highlight attached, the marker paints the fill the open tab used to. */
   .tabs {
-    --glide-fill: var(--color-gray-50);
-    --glide-edge: 0 0 0 0.5px rgb(0 0 0 / 0.07);
-    --glide-hover-fill: color-mix(in srgb, var(--color-gray-50) 55%, transparent);
-  }
-
-  :global([data-theme='dark']) .tabs {
-    --glide-fill: rgb(255 255 255 / 0.04);
-    --glide-edge: none;
-    --glide-hover-fill: rgb(255 255 255 / 0.025);
+    --glide-fill: var(--color-tint);
+    --glide-hover-fill: color-mix(in srgb, var(--color-tint) 55%, transparent);
   }
 
   @media (forced-colors: none) {
     .tabs:global([data-glide-host]) .tab[aria-current] {
       background-color: transparent;
-      box-shadow: none;
     }
   }
 
-  :global([data-theme='dark']) .tab:hover {
-    color: var(--color-gray-300);
-  }
-
-  :global([data-theme='dark']) .tab[aria-current] {
-    background-color: rgb(255 255 255 / 0.04);
-    color: var(--color-white);
-  }
-
   .none {
-    padding: 4px 8px;
-    color: var(--color-gray-400);
+    padding: 4px 10px;
+    color: var(--color-ink-3);
     font-size: var(--text-caption);
   }
 
@@ -478,22 +457,18 @@
 
   @media (min-width: 48rem) {
     .content {
-      padding-inline: 20px;
+      padding: 18px 24px 16px;
     }
   }
 
   .page-title {
-    color: var(--color-gray-900);
+    color: var(--color-ink-1);
     font-size: var(--text-ui);
     font-weight: var(--font-weight-medium);
     line-height: 20px;
   }
 
-  :global([data-theme='dark']) .page-title {
-    color: var(--color-white);
-  }
-
-  :is(.back, .tab):focus-visible {
+  :is(.close, .tab):focus-visible {
     outline: 2px solid var(--color-blue-500);
     outline-offset: -2px;
   }

@@ -5,13 +5,16 @@
   // (ADR-0041 amendment).
   import { RadioGroup } from 'bits-ui';
   import type { HTMLAttributes } from 'svelte/elements';
+  import type { IconName } from '$lib/ui/icons/generated/icons';
+  import Icon from '$lib/ui/icons/Icon.svelte';
   import { getField, idList } from './field-context';
   import type { FieldOption } from './options';
   import './field-control.css';
 
   type Props = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
     value?: string;
-    options: readonly FieldOption[];
+    /** An option may lead with an icon, as the theme choice does. */
+    options: readonly (FieldOption & { icon?: IconName })[];
     /** For form submission. */
     name?: string;
     invalid?: boolean;
@@ -101,6 +104,7 @@
         <RadioGroup.Item value={option.value} disabled={option.disabled}>
           {#snippet child({ props: itemProps })}
             <button {...itemProps} class="segment" data-preview={index === 0 ? preview : undefined}>
+              {#if option.icon}<Icon name={option.icon} size={14} />{/if}
               <span class="segment-label">{option.label}</span>
             </button>
           {/snippet}
@@ -152,6 +156,7 @@
     flex: 0 1 auto;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     min-width: 0;
     height: 26px;
     padding-inline: 12px;

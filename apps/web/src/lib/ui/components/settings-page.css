@@ -265,3 +265,118 @@
   outline: 2px solid var(--color-blue-500);
   outline-offset: -2px;
 }
+
+/* Grouped rows (ADR-0041 amendment, 2026-11-13): a section's rows sit in one outlined group with
+   a hairline between them. The name and its hint stack on the left, the control sits right. */
+.settings-page .group {
+  border: 1px solid var(--color-line-1);
+  border-radius: var(--radius-notice);
+  background-color: var(--glass-soft);
+  box-shadow: var(--glass-edge);
+}
+
+.settings-page .item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  inline-size: 100%;
+  padding: 12px 14px;
+  text-align: start;
+}
+
+.settings-page .item + .item {
+  border-block-start: 1px solid var(--color-line-1);
+}
+
+.settings-page .item .text {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.settings-page .name {
+  color: var(--color-ink-1);
+  font-size: var(--text-caption);
+  line-height: 16px;
+}
+
+.settings-page .hint {
+  color: var(--color-ink-3);
+  font-size: var(--text-micro);
+  line-height: 16px;
+}
+
+.settings-page .hint.under {
+  margin-block-start: 6px;
+  padding-inline: 2px;
+}
+
+.settings-page .disclose {
+  border-radius: var(--radius-notice);
+  color: var(--color-ink-3);
+}
+
+.settings-page .disclose:hover {
+  color: var(--color-ink-1);
+}
+
+.settings-page .disclose[aria-expanded='true'] {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.settings-page .item.open {
+  display: block;
+}
+
+/* The save bar shows only while something is unsaved. */
+.settings-page .savebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-block-start: 12px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--color-line-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--glass-soft);
+  box-shadow: var(--glass-edge);
+  animation: savebar-in var(--duration-base) var(--ease-expo);
+}
+
+.settings-page .savebar-text {
+  flex: 1;
+  color: var(--color-ink-2);
+  font-size: var(--text-caption);
+  line-height: 16px;
+}
+
+.settings-page .savebar .quiet {
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+}
+
+.settings-page .savebar .save {
+  padding: 5px 14px;
+  font-size: var(--text-caption);
+  line-height: 18px;
+}
+
+@keyframes savebar-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+[data-motion='reduce'] .settings-page .savebar {
+  animation: none;
+}
+
+.settings-page .disclose:focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: -2px;
+}
