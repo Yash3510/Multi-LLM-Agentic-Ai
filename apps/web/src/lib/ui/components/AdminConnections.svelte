@@ -80,45 +80,48 @@
 
 {#snippet provider(kind: Kind, label: string, enable: 'ENABLE_OPENAI_API' | 'ENABLE_OLLAMA_API')}
   {#if config}
-    <div class="row">
-      <span>{label}</span>
-      <Switch
-        on={config[enable]}
-        {label}
-        onchange={(next) => config && (config = { ...config, [enable]: next })}
-      />
+    <div class="block">
+      <div class="row">
+        <span>{label}</span>
+        <Switch
+          on={config[enable]}
+          {label}
+          onchange={(next) => config && (config = { ...config, [enable]: next })}
+        />
+      </div>
+      {#if config[enable]}
+        <div class="manage">
+          <span>Manage {label} Connections</span>
+          <button
+            type="button"
+            class="add"
+            aria-label="Add Connection"
+            title="Add Connection"
+            onclick={() => (editing = { kind })}><Icon name="plus" size={16} /></button
+          >
+        </div>
+        <div class="list">
+          {#each config[listKey(kind)] as connection, index (index)}
+            <div class="connection">
+              <span class="url" title={connection.url}>{connection.url}</span>
+              <button
+                type="button"
+                class="gear"
+                aria-label="Configure"
+                title="Configure"
+                onclick={() => (editing = { kind, index })}
+                ><Icon name="gear-six" size={16} /></button
+              >
+              <Switch
+                on={connection.enabled}
+                label={connection.url}
+                onchange={(next) => toggle(kind, index, next)}
+              />
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
-    {#if config[enable]}
-      <div class="manage">
-        <span>Manage {label} Connections</span>
-        <button
-          type="button"
-          class="add"
-          aria-label="Add Connection"
-          title="Add Connection"
-          onclick={() => (editing = { kind })}><Icon name="plus" size={16} /></button
-        >
-      </div>
-      <div class="list">
-        {#each config[listKey(kind)] as connection, index (index)}
-          <div class="connection">
-            <span class="url" title={connection.url}>{connection.url}</span>
-            <button
-              type="button"
-              class="gear"
-              aria-label="Configure"
-              title="Configure"
-              onclick={() => (editing = { kind, index })}><Icon name="gear-six" size={16} /></button
-            >
-            <Switch
-              on={connection.enabled}
-              label={connection.url}
-              onchange={(next) => toggle(kind, index, next)}
-            />
-          </div>
-        {/each}
-      </div>
-    {/if}
   {/if}
 {/snippet}
 
@@ -127,14 +130,14 @@
     <h2>Connections</h2>
     {#if config}
       <section>
-        <div class="rows">
+        <div class="rows grouped">
           {@render provider('openai', 'OpenAI API', 'ENABLE_OPENAI_API')}
           {@render provider('ollama', 'Ollama API', 'ENABLE_OLLAMA_API')}
         </div>
       </section>
       <section class="user">
         <h3 class="heading">User Connections</h3>
-        <div class="rows">
+        <div class="rows grouped">
           <div class="block">
             <div class="row">
               <span>Cache Base Model List</span>

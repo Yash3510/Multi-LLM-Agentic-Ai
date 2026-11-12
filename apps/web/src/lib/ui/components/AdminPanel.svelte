@@ -89,16 +89,16 @@
       {#each panel.sections.filter((one) => shownItems(one, values ?? {}).length) as section, index (index)}
         <section>
           {#if section.heading}<h3 class="heading">{section.heading}</h3>{/if}
-          <div class="rows">
+          <div class="rows grouped">
             {#each shownItems(section, values) as item (item.key ?? item.label)}
               {#if item.kind === 'info'}
-                <div class="info">
+                <div class="info cell">
                   <span class="label" class:muted={item.muted}>{item.label}</span>
                   {#if item.value}<span class="value">{item.value}</span>{/if}
                   {#if item.note}<p class="note info-note">{item.note}</p>{/if}
                 </div>
               {:else if item.kind === 'interface-defaults'}
-                <div>
+                <div class="cell">
                   <div class="row params-row">
                     <span>{item.label}</span>
                     <button
@@ -135,7 +135,7 @@
                   {/if}
                 </div>
               {:else if item.kind === 'banners'}
-                <div>
+                <div class="cell">
                   <div class="row">
                     <span>{item.label}</span>
                     <button
@@ -206,7 +206,7 @@
                   {/each}
                 </div>
               {:else if item.kind === 'arena'}
-                <div>
+                <div class="cell">
                   <div class="row">
                     <span>{item.label}</span>
                     <button
@@ -297,7 +297,7 @@
                   {#if item.note}<p class="note">{item.note}</p>{/if}
                 </div>
               {:else if item.kind === 'params'}
-                <div>
+                <div class="cell">
                   <div class="row params-row">
                     <span>{item.label}</span>
                     <button
@@ -321,7 +321,7 @@
                   {/if}
                 </div>
               {:else if item.field}
-                <div class:half={item.half}>
+                <div class="cell" class:half={item.half}>
                   <label class="field-label" for="admin-{item.key}">{item.label}</label>
                   <div class="field-control">
                     {#if item.kind === 'textarea'}
@@ -438,7 +438,19 @@
   .admin-panel .rows {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    column-gap: 12px;
+  }
+
+  /* A value or a field is a cell of the group, padded like a switch row. */
+  .cell {
+    padding: 12px 14px;
+  }
+
+  .admin-panel .rows > :global(* + *) {
+    border-block-start: 1px solid var(--color-line-1);
+  }
+
+  .admin-panel .rows > :global(.half:first-child + .half) {
+    border-block-start: 0;
   }
 
   @media (min-width: 40rem) {
