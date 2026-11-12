@@ -1,6 +1,7 @@
 <script lang="ts">
   // An answer (chat-messages look §3.1, §3.4, §3.6): the 4CE mark in a 40 px slot, the agent's
   // name, the body in 15 px prose (markdown, sanitised), and the action bar.
+  import { untrack } from 'svelte';
   import { m } from '$lib/i18n/generated/messages.js';
   import { getLocale } from '$lib/i18n/generated/runtime.js';
   import Icon from '$lib/ui/icons/Icon.svelte';
@@ -52,6 +53,10 @@
     finished = true,
     onretry,
   }: Props = $props();
+
+  // Answered in this visit: the row, then its labels and details, arrive in turn. A saved answer
+  // mounts finished and stays at rest.
+  const fresh = untrack(() => !finished);
 
   const ACTIONS = [
     { name: 'rename', label: m.message_edit() },
@@ -177,7 +182,11 @@
   });
 </script>
 
-<div data-message-row data-actions-shown={last ? '' : undefined}>
+<div
+  data-message-row
+  data-actions-shown={last ? '' : undefined}
+  data-fresh={fresh ? '' : undefined}
+>
   <div class="response">
     <div class="avatar"><Logomark size={30} /></div>
     <div class="column">

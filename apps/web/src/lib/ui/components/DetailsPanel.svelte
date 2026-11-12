@@ -12,7 +12,9 @@
     sourceUses,
     timelineSpans,
   } from '$lib/ui/details';
+  import { glide } from '$lib/ui/glide';
   import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
+  import './glide.css';
 
   type Props = {
     folds?: Receipt['folds'];
@@ -60,11 +62,18 @@
   <section class="details" aria-label="Details of this answer">
     <Tabs.Root {value} onValueChange={(next) => (chosen = next)}>
       <Tabs.List class="details-tabs" aria-label="Details">
-        {#each tabs as tab (tab.value)}
-          <Tabs.Trigger class="details-tab" value={tab.value}>
-            {tab.label}{#if tab.count}<span class="count">{tab.count}</span>{/if}
-          </Tabs.Trigger>
-        {/each}
+        {#snippet child({ props })}
+          <div
+            {...props}
+            {@attach glide({ active: '.details-tab[data-state="active"]', hover: '.details-tab' })}
+          >
+            {#each tabs as tab (tab.value)}
+              <Tabs.Trigger class="details-tab" value={tab.value}>
+                {tab.label}{#if tab.count}<span class="count">{tab.count}</span>{/if}
+              </Tabs.Trigger>
+            {/each}
+          </div>
+        {/snippet}
       </Tabs.List>
 
       <Tabs.Content class="details-body" value="provenance">
@@ -184,7 +193,12 @@
     font-size: var(--text-small);
   }
 
+  /* The marker slides between tabs and follows the pointer (glide.css). */
   .details :global(.details-tabs) {
+    --glide-fill: var(--color-surface-raised);
+    --glide-edge: var(--shadow-hairline);
+    --glide-hover-fill: var(--color-tint);
+
     display: flex;
     gap: 2px;
     overflow-x: auto;
@@ -213,6 +227,13 @@
     background-color: var(--color-surface-raised);
     box-shadow: var(--shadow-hairline);
     color: var(--color-ink-1);
+  }
+
+  @media (forced-colors: none) {
+    .details :global([data-glide-host] .details-tab[data-state='active']) {
+      background-color: transparent;
+      box-shadow: none;
+    }
   }
 
   .details :global(.details-tab:focus-visible) {
@@ -246,13 +267,28 @@
 
   @media (prefers-reduced-motion: no-preference) {
     .details :global(.details-body) {
-      transition: opacity var(--duration-base) var(--ease-out);
+      transition:
+        opacity var(--duration-base) var(--ease-out),
+        translate var(--duration-calm) var(--ease-expo);
     }
 
     @starting-style {
       .details :global(.details-body) {
         opacity: 0;
+        translate: 0 4px;
       }
+    }
+  }
+
+  /* On a run answered here the panel follows the receipt's labels in. */
+  :global([data-fresh]) .details {
+    animation: details-in var(--duration-calm) var(--ease-out) 240ms both;
+  }
+
+  @keyframes details-in {
+    from {
+      opacity: 0;
+      translate: 0 8px;
     }
   }
 

@@ -37,17 +37,18 @@
     border-radius: 8px;
     color: inherit;
     transition:
-      background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
-      color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      background-color var(--duration-base) var(--ease-out),
+      color var(--duration-base) var(--ease-out),
+      opacity var(--duration-base) var(--ease-out);
   }
 
   [data-message-action]:hover {
-    background-color: rgb(0 0 0 / 0.05);
+    background-color: var(--color-tint);
     color: var(--color-black);
+    transition-duration: var(--duration-instant);
   }
 
   :where([data-theme='dark']) [data-message-action]:hover {
-    background-color: rgb(255 255 255 / 0.05);
     color: var(--color-white);
   }
 
@@ -67,6 +68,7 @@
   }
 
   [data-message-time] {
+    transition: opacity var(--duration-base) var(--ease-out);
     margin-inline: var(--spacing-1);
     color: var(--color-gray-400);
     font-size: var(--text-micro);
@@ -77,5 +79,17 @@
 
   :where([data-theme='dark']) [data-message-time] {
     color: var(--color-gray-600);
+  }
+
+  /* A message asked or answered here rises into place; a saved thread is already at rest. */
+  [data-message-row][data-fresh] {
+    animation: message-in var(--duration-calm) var(--ease-out) both;
+  }
+
+  @keyframes message-in {
+    from {
+      opacity: 0;
+      translate: 0 8px;
+    }
   }
 }

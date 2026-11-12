@@ -127,6 +127,42 @@
     line-height: 16px;
   }
 
+  /* On a run answered here the labels arrive one after another, 40 ms apart. */
+  :global([data-fresh]) .label {
+    animation: label-in var(--duration-calm) var(--ease-out) both;
+  }
+
+  :global([data-fresh]) .label:nth-child(2) {
+    animation-delay: 40ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(3) {
+    animation-delay: 80ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(4) {
+    animation-delay: 120ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(5) {
+    animation-delay: 160ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(n + 6) {
+    animation-delay: 200ms;
+  }
+
+  :global([data-fresh]) .checks {
+    animation: label-in var(--duration-calm) var(--ease-out) 200ms both;
+  }
+
+  @keyframes label-in {
+    from {
+      opacity: 0;
+      translate: 0 6px;
+    }
+  }
+
   .label b {
     font-weight: var(--font-weight-medium);
   }
@@ -166,15 +202,21 @@
     border-style: dashed;
   }
 
-  .fingerprint {
+  :is(.fingerprint, .audit) {
     transition:
-      border-color 150ms,
-      color 150ms;
+      background-color var(--duration-base) var(--ease-out),
+      border-color var(--duration-base) var(--ease-out),
+      color var(--duration-base) var(--ease-out);
+  }
+
+  :is(.fingerprint, .audit):hover {
+    transition-duration: var(--duration-instant);
   }
 
   .fingerprint:hover {
-    border-color: var(--color-gray-300);
-    color: var(--color-gray-900);
+    border-color: var(--color-line-2);
+    background-color: var(--color-surface-hover);
+    color: var(--color-ink-1);
   }
 
   .fingerprint code {
