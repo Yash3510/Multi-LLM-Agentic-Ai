@@ -127,3 +127,19 @@ Checked afterwards on `/c/c-demo`: in dark the row hover and tint resolve to 9 %
 **Docs updated:** `docs/adr/0041-exact-match-look.md`, `docs/state.md`.
 
 **Known limits:** Account, Keyboard, Personalization, Usage, Archived Chats and the admin pages are not grouped yet. Only General has the on-change save bar. Unverified: the grouped pages at phone width, and the other pages in dark.
+
+## 2026-11-13: less round settings, page descriptions and row buttons
+
+**What changed:** the settings card and its controls are less round (card 22 px, groups 14 px, tabs, search, selects and Save 10 px, no pills). Eight pages have one line under the title saying what they hold. A grouped row's action (Import, Export, Default and so on) is a small outlined button, and Delete All is in the stop red.
+
+**Why:** the frontend owner found the rounder pass too round and the pages empty, and approved this from before/after mockups. The theme switch stays as it is; the theme pictures in the mockup were declined.
+
+**Files:** in `apps/web/src/lib/ui/components`: `SettingsDialog.svelte`, `SettingsSelect.svelte`, `SettingsGeneral.svelte`, `SettingsInterface.svelte`, `SettingsNotifications.svelte`, `SettingsAudio.svelte`, `SettingsData.svelte`, `SettingsUsage.svelte`, `SettingsPersonalization.svelte`, `SettingsAccount.svelte`, `settings-page.css`.
+
+**How it was verified:** in `apps/web`: `npx vitest run` (550 passed), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui` (no findings), `npx prettier --check src/lib/ui` (formatted), `npx playwright test` (8 passed), `npm run build` (exit 0). Screenshots of General, Interface, Data Controls and Account were read in light, and Data Controls in dark.
+
+**Decisions:** [ADR-0041](../../../adr/0041-exact-match-look.md) amendment updated. No new package.
+
+**Docs updated:** `docs/adr/0041-exact-match-look.md`, `docs/state.md`.
+
+**Known limits:** Keyboard and Archived Chats have no description line. Account, Keyboard, Personalization, Usage, Archived Chats and the admin pages are still not grouped, and only General has the on-change save bar. Unverified: phone width, and pages other than Data Controls in dark.
