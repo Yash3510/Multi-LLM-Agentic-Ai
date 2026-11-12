@@ -1,6 +1,7 @@
 <script lang="ts">
   // Create prompt (workspace look §6.2, F93): a near-full-window card with the name and access,
   // the slash command (made from the name until typed), tags, and the prompt text.
+  import Wire from './Wire.svelte';
   import { Dialog } from 'bits-ui';
   import { untrack } from 'svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
@@ -115,7 +116,7 @@
             <button type="button" class="cancel" onclick={onclose}>Cancel</button>
             <button type="submit" class="create" disabled={saving}>
               Save & Create
-              {#if saving}<span class="spinner" aria-hidden="true"></span>{/if}
+              {#if saving}<Wire />{/if}
             </button>
           </div>
         </form>
@@ -335,21 +336,6 @@
   :global([data-theme='dark']) .create {
     background-color: var(--color-white);
     color: var(--color-black);
-  }
-
-  .spinner {
-    inline-size: 16px;
-    block-size: 16px;
-    border: 2px solid color-mix(in srgb, currentcolor 25%, transparent);
-    border-block-start-color: currentcolor;
-    border-radius: var(--radius-pill);
-    animation: spin 0.75s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      rotate: 1turn;
-    }
   }
 
   :global(.prompt-close:focus-visible),

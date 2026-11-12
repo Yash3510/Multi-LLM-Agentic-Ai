@@ -2,6 +2,7 @@
   // A knowledge base (workspace look §5, features F66 to F77): its name and description (saved a
   // second after typing stops), then a card with search, view and sort, the path into folders,
   // the folders and documents, and a sheet to read and edit a document's text.
+  import Wire from './Wire.svelte';
   import { Dialog, Popover } from 'bits-ui';
   import { untrack } from 'svelte';
   import { resolve } from '$app/paths';
@@ -420,7 +421,7 @@
 
     <div class="list">
       {#if loading}
-        <div class="loading" aria-label="Loading"><span class="spinner"></span></div>
+        <div class="loading"><Wire width={48} label="Loading" /></div>
       {:else if folders.length || documents.length}
         {#each folders as item (item.id)}
           <ContentRow
@@ -535,7 +536,7 @@
         {#if base.writable}
           <button type="button" class="sheet-save" disabled={saving} onclick={saveText}>
             Save
-            {#if saving}<span class="spinner small"></span>{/if}
+            {#if saving}<span class="saving"><Wire /></span>{/if}
           </button>
         {/if}
       </div>
@@ -888,23 +889,9 @@
     margin-block: 40px;
   }
 
-  .spinner {
-    inline-size: 16px;
-    block-size: 16px;
-    border: 2px solid color-mix(in srgb, currentcolor 25%, transparent);
-    border-block-start-color: currentcolor;
-    border-radius: var(--radius-pill);
-    animation: spin 0.75s linear infinite;
-  }
-
-  .spinner.small {
+  .saving {
+    display: inline-flex;
     margin-inline-start: 8px;
-  }
-
-  @keyframes spin {
-    to {
-      rotate: 1turn;
-    }
   }
 
   :global(.sheet-backdrop) {

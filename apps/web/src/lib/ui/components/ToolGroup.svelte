@@ -1,7 +1,8 @@
 <script lang="ts">
-  // A run's tool calls as one fold-out (chat-messages look §5.5): a leading status (a spinner while
+  // A run's tool calls as one fold-out (chat-messages look §5.5): a leading status (a travelling light while
   // a call runs, an emerald tick when all are done, a red cross on failure), the label and a
   // summary, then each call's input and output when opened.
+  import Wire from './Wire.svelte';
   import type { ToolCall } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
 
@@ -29,7 +30,7 @@
   >
     <span class="lead" aria-hidden="true">
       {#if status === 'running'}
-        <span class="spinner"></span>
+        <Wire width={14} />
       {:else if status === 'failed'}
         <Icon name="tools-failed" size={16} />
       {:else}
@@ -105,15 +106,6 @@
     color: var(--color-emerald-400);
   }
 
-  .spinner {
-    inline-size: 16px;
-    block-size: 16px;
-    border: 2px solid var(--color-gray-200);
-    border-block-start-color: var(--color-gray-500);
-    border-radius: var(--radius-pill);
-    animation: spin 0.8s linear infinite;
-  }
-
   .text {
     display: flex;
     flex: 1;
@@ -183,12 +175,6 @@
     text-overflow: ellipsis;
   }
 
-  @keyframes spin {
-    to {
-      rotate: 1turn;
-    }
-  }
-
   @keyframes shimmer {
     to {
       background-position: -100% 0;
@@ -196,7 +182,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .spinner,
     .label[data-running] {
       animation: none;
     }
