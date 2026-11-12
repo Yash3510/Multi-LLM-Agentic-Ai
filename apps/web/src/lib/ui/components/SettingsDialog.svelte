@@ -230,7 +230,10 @@
     margin: auto;
     overflow: hidden;
     border: 1px solid var(--color-line-1);
-    border-radius: var(--radius-panel);
+    /* Rounder than a panel, and its switches and selects are pills (ADR-0041, 2026-11-13). */
+    --segmented-radius: var(--radius-pill);
+    --segmented-inner-radius: var(--radius-pill);
+    border-radius: 32px;
     background-color: var(--color-surface-raised);
     box-shadow: var(--shadow-e3), var(--glass-edge);
     color: var(--color-ink-1);
@@ -255,7 +258,7 @@
     place-items: center;
     inline-size: 28px;
     block-size: 28px;
-    border-radius: 8px;
+    border-radius: var(--radius-pill);
     color: var(--color-ink-3);
   }
 

@@ -121,7 +121,7 @@
     display: inline-flex;
     max-width: 100%;
     padding: 3px;
-    border-radius: 11px;
+    border-radius: var(--segmented-radius, 11px);
     background-color: var(--color-track);
   }
 
@@ -141,7 +141,7 @@
     position: absolute;
     inset-block: 3px;
     inset-inline-start: 0;
-    border-radius: 8px;
+    border-radius: var(--segmented-inner-radius, 8px);
     background-color: var(--color-surface-raised);
     box-shadow: var(--shadow-hairline);
     transition:
@@ -160,7 +160,7 @@
     min-width: 0;
     height: 26px;
     padding-inline: 12px;
-    border-radius: 8px;
+    border-radius: var(--segmented-inner-radius, 8px);
     color: var(--color-ink-3);
     font-size: var(--text-small);
     line-height: 20px;

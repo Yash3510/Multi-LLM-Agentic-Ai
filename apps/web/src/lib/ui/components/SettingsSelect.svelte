@@ -38,11 +38,11 @@
 
   select {
     max-inline-size: 100%;
-    block-size: 28px;
-    padding-inline: 10px 32px;
+    block-size: 30px;
+    padding-inline: 14px 32px;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--color-gray-100) 50%, transparent);
-    border-radius: 8px;
+    border-radius: var(--radius-pill);
     background-color: color-mix(in srgb, var(--color-gray-50) 40%, transparent);
     color: var(--color-gray-700);
     font-size: var(--text-caption);

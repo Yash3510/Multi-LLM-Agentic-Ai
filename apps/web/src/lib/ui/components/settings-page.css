@@ -270,7 +270,7 @@
    a hairline between them. The name and its hint stack on the left, the control sits right. */
 .settings-page .group {
   border: 1px solid var(--color-line-1);
-  border-radius: var(--radius-notice);
+  border-radius: var(--radius-card);
   background-color: var(--glass-soft);
   box-shadow: var(--glass-edge);
 }
@@ -316,7 +316,7 @@
 }
 
 .settings-page .disclose {
-  border-radius: var(--radius-notice);
+  border-radius: var(--radius-card);
   color: var(--color-ink-3);
 }
 
@@ -379,4 +379,8 @@
 .settings-page .disclose:focus-visible {
   outline: 2px solid var(--color-blue-500);
   outline-offset: -2px;
+}
+
+.settings-page .field-control.multiline {
+  border-radius: var(--radius-card);
 }
