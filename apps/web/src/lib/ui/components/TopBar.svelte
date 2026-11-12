@@ -42,17 +42,10 @@
     align-items: center;
     gap: var(--spacing-1);
     padding: 2px var(--spacing-1) var(--spacing-1) 6px;
-    background-color: var(--color-surface-page);
-  }
-
-  /* The bar is solid, so text never shows through the title; content dissolves into it below. */
-  .bar::after {
-    content: '';
-    position: absolute;
-    inset: 100% 0 auto;
-    block-size: 28px;
-    background: linear-gradient(to bottom, var(--color-surface-page), transparent);
-    pointer-events: none;
+    /* Glass (ADR-0043): content blurs under the bar, so text never reads through the title. */
+    background-color: var(--glass-page);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
   }
 
   .title {

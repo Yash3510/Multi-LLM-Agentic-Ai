@@ -114,9 +114,9 @@
 
   /* Named radii (ADR-0041 amendment): buttons a 10 px soft rectangle, fields and menus 12, cards
      and dialogs 20. Full pills are kept for status chips only. */
-  --radius-panel: 20px;
+  --radius-panel: 24px;
   --radius-card: 20px;
-  --radius-inset: 12px;
+  --radius-inset: 14px;
   --radius-control: 10px;
   --radius-tight: 6px;
   --radius-tag: 7px;
