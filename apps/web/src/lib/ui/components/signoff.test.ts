@@ -1,6 +1,7 @@
 import { fireEvent, render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import ReceiptStrip from './ReceiptStrip.svelte';
+import DetailsPanel from './DetailsPanel.svelte';
 import SignOffPanel from './SignOffPanel.svelte';
 
 const request = {
@@ -103,19 +104,33 @@ describe('ReceiptStrip', () => {
     expect(checked?.getAttribute('data-tone')).toBe('warn');
   });
 
-  it('folds provenance and the execution timeline', async () => {
-    const { getByRole, container } = render(ReceiptStrip, {
+  it('shows provenance, the timeline and the sources as tabs of one panel', async () => {
+    const onopen = vi.fn();
+    const { getByRole, container } = render(DetailsPanel, {
       props: {
-        receipt,
+        folds: [
+          {
+            title: 'Full provenance',
+            body: '| Figure | Source |\n| --- | --- |\n| 82.5 % | [1] |',
+          },
+        ],
+        sources,
         checks: request.checks,
-        timeline: [{ at: '+0.0s', text: 'Planner: reading the request' }],
+        answer: 'Within the limit [1].',
+        steps: [
+          { ms: 0, stage: 'planner', text: 'Planner: reading the request' },
+          { ms: 1200, stage: 'sign-off', text: 'Waiting for sign-off' },
+        ],
+        onopen,
       },
     });
-    expect(container.querySelector('table')).toBeNull();
-    await fireEvent.click(getByRole('button', { name: 'Full provenance' }));
-    expect(container.querySelector('table')).toBeTruthy();
-    await fireEvent.click(getByRole('button', { name: 'Execution timeline' }));
-    expect(container.textContent).toContain('Planner: reading the request');
+    expect(getByRole('tab', { name: /Provenance/ }).getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('table')?.textContent).toContain('82.5 %');
+    await fireEvent.click(getByRole('button', { name: /^View source 1:/ }));
+    expect(onopen).toHaveBeenCalledWith(1);
+    expect(getByRole('tab', { name: /Timeline/ })).toBeTruthy();
+    expect(getByRole('tab', { name: /Sources/ })).toBeTruthy();
+    expect(container.querySelector('[role="tab"][data-value="reasoning"]')).toBeNull();
   });
 });
 

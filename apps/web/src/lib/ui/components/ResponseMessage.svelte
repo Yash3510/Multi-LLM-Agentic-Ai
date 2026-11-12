@@ -14,6 +14,7 @@
   import SourcesBar from './SourcesBar.svelte';
   import ToolGroup from './ToolGroup.svelte';
   import ReceiptStrip from './ReceiptStrip.svelte';
+  import DetailsPanel from './DetailsPanel.svelte';
   import RunErrorCard from './RunErrorCard.svelte';
   import CitationDialog from './CitationDialog.svelte';
   import AuditDialog from './AuditDialog.svelte';
@@ -152,12 +153,12 @@
 
   const receipt = $derived((events ?? []).findLast((event) => event.type === 'receipt'));
   const decision = $derived((events ?? []).findLast((event) => event.type === 'decision'));
-  // Each status with its offset from the run's start, for the execution timeline.
-  const timeline = $derived.by(() => {
+  // Each status with its offset from the run's start, for the details panel's timeline.
+  const steps = $derived.by(() => {
     const start = events?.[0]?.at ?? 0;
     return (events ?? []).flatMap((event) =>
       event.type === 'status'
-        ? [{ at: `+${((event.at - start) / 1000).toFixed(1)}s`, text: event.description }]
+        ? [{ ms: event.at - start, stage: event.stage, text: event.description }]
         : [],
     );
   });
@@ -211,13 +212,21 @@
           cited={sources
             .filter((source) => text.includes(`[${source.index}]`))
             .map((source) => source.title)}
-          {timeline}
           onaudit={() => (auditOpen = true)}
           revision={(events ?? []).findLast((event) => event.type === 'sign-off')?.request.revision}
         />
+        <DetailsPanel
+          folds={receipt.receipt.folds}
+          {sources}
+          {checks}
+          answer={text}
+          {steps}
+          onopen={cite}
+        />
         {#if audit}<AuditDialog bind:open={auditOpen} {...audit} />{/if}
+      {:else if sources.length}
+        <SourcesBar {sources} onopen={cite} />
       {/if}
-      {#if sources.length}<SourcesBar {sources} onopen={cite} />{/if}
       <CitationDialog
         source={sources.find((source) => source.index === citing)}
         bind:open={citationOpen}

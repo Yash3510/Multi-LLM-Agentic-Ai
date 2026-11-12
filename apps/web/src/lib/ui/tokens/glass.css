@@ -1,0 +1,40 @@
+/*
+ * Soft glass (ADR-0043). A surface that floats over content takes the `glass` rule; a surface in
+ * the flow has nothing behind it to blur, so it takes --glass-soft and --glass-edge only. No
+ * component writes its own blur or translucent fill.
+ */
+:root {
+  --glass-fill: color-mix(in srgb, var(--color-surface-raised) 78%, transparent);
+  --glass-soft: color-mix(in srgb, var(--color-surface-sunken) 55%, var(--color-surface-raised));
+  --glass-edge: inset 0 1px 0 rgb(255 255 255 / 0.75);
+  --glass-blur: blur(20px) saturate(1.4);
+}
+
+@media not print {
+  [data-theme='dark'] {
+    --glass-fill: color-mix(in srgb, var(--color-surface-raised) 72%, transparent);
+    --glass-soft: color-mix(in srgb, var(--color-surface-raised) 55%, var(--color-surface-page));
+    --glass-edge: inset 0 1px 0 rgb(255 255 255 / 0.06);
+  }
+}
+
+.glass {
+  background-color: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+/* Opaque where blur is missing or the person asks for less transparency. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background-color: var(--color-surface-raised);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background-color: var(--color-surface-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
