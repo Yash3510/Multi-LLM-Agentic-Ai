@@ -12,10 +12,21 @@ SECRET = "x" * 40
 @pytest.fixture
 def env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> pytest.MonkeyPatch:
     monkeypatch.chdir(tmp_path)  # an empty folder, so no stray .env file is picked up
-    for name in [n for n in os.environ if n.startswith("FOURCE_")]:
-        monkeypatch.delenv(name)  # nor anything already set in the developer's shell
+    for name in [n for n in os.environ if n.upper().startswith("FOURCE_")]:
+        monkeypatch.delenv(name)  # nor anything set in the developer's shell, in any letter case
     monkeypatch.setenv("FOURCE_SECRET_KEY", SECRET)
     return monkeypatch
+
+
+@pytest.fixture
+def lower_case_storage(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("fource_storage", "s3")  # set before `env` runs, as a shell export would be
+
+
+def test_the_environment_fixture_clears_lower_case_names_too(
+    lower_case_storage: None, env: pytest.MonkeyPatch
+) -> None:
+    assert Settings().storage == "local"  # settings read names case-insensitively
 
 
 def test_zero_setup_defaults(env: pytest.MonkeyPatch) -> None:
