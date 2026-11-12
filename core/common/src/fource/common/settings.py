@@ -17,9 +17,9 @@ _HOST = re.compile(r"((?!-)[a-z0-9-]{1,63}(?<!-)\.)*(?!-)[a-z0-9-]{1,63}(?<!-)\.
 def _plain_http_url(value: str, *, path_allowed: bool) -> bool:
     """http:// or https:// with a host and an optional port (and path, if allowed); never a
     user, password, query or fragment, which would hide credentials or change the request.
-    Only printable ASCII: urlsplit strips control characters and folds look-alike letters, so
-    the value it parses would not be the value that was set."""
-    if not (value.isascii() and value.isprintable()) or "?" in value or "#" in value:
+    Only printable ASCII with no space: urlsplit strips control characters and leading spaces
+    and folds look-alike letters, so the value it parses would not be the value that was set."""
+    if not (value.isascii() and value.isprintable()) or any(c in value for c in " ?#"):
         return False
     try:
         parts = urlsplit(value)
