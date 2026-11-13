@@ -40,10 +40,11 @@
   <div class="row">
     <span class="label">CHALLENGER · try {revision.try}</span>
     <span class="text">
-      {#if passed}<span class="tick" aria-hidden="true"><Icon name="check" size={12} /></span>Passed
-        the revised draft.{:else}<span class="cross" aria-hidden="true"
-          ><Icon name="x" size={12} /></span
-        >Failed the revised draft too; the reviewer saw that before deciding.{/if}
+      <span class={passed ? 'tick' : 'cross'} aria-hidden="true">
+        <Icon name={passed ? 'check' : 'x'} size={12} />
+      </span>{passed
+        ? 'Passed the revised draft.'
+        : 'Failed the revised draft too; the reviewer saw that before deciding.'}
     </span>
   </div>
   {#if others.length}

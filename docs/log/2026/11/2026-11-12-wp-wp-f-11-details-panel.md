@@ -184,7 +184,7 @@ Checked afterwards on `/c/c-demo`: in dark the row hover and tint resolve to 9 %
 
 **Files:** in `apps/web/src/lib/ui/components`: `RevisionCard.svelte`, `SignOffPanel.svelte`.
 
-**How it was verified:** in `apps/web`: `npx vitest run` (550 passed, 91 files), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui` (no findings), `npx prettier --check src/lib/ui` (formatted), `npx playwright test` (8 passed), `npm run build` (exit 0). A revised run on `/c/c-0142` was read before and after in light, and after in dark.
+**How it was verified:** in `apps/web`: `npx vitest run` (550 passed, 91 files), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui` (no findings), `npx prettier --check src/lib/ui` (formatted), `npx playwright test` (8 passed), `npm run build` (exit 0). A revised run on `/c/c-0142` was read before and after in light, and after in dark. The first commit (`bb3b032`) was pushed with one failing test (`revision.test.ts`: the formatter had split "Passed the revised draft." across two lines); the next commit keeps the sentence in one string, and the results above are from after that fix.
 
 **Decisions:** none. No new package.
 
