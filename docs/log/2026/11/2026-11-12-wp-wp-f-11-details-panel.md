@@ -191,3 +191,20 @@ Checked afterwards on `/c/c-demo`: in dark the row hover and tint resolve to 9 %
 **Docs updated:** this log.
 
 **Known limits:** Unverified: a fail or review check in the sign-off panel (the fake source has only passing checks), and a revision that still fails.
+
+## 2026-11-13: fields, sign-off draft, home Recent, admin Models and Analytics, phone width
+
+**What changed:** Placeholder text is the muted ink in every field, and Bio no longer has a gap inside it. The sign-off draft is styled like the answer and has dark rules. The home page shows the three newest chats under Recent, beside the suggestions. Admin Models is one outlined list; Analytics puts its chart and tables in outlined boxes. At phone width the answer is centred (the mark sits beside the name), the chat title clears the sidebar's corner button, provenance rows stack, the theme choice fits its labels, the settings tab strip fades at its end, and the open sidebar dims the page and closes on a tap outside.
+
+**Why:** the frontend owner found dark placeholder text that read as typed values, asked for the same care on every surface, and found the phone chat off-centre: the avatar gutter took 54 px on the left and nothing on the right.
+
+**Files:** in `apps/web/src`: `routes/+page.svelte`, `lib/i18n/messages/en.json`, `lib/i18n/messages/hi.json`, and in `lib/ui/components`: `SignOffPanel.svelte`, `AdminModels.svelte`, `AdminAnalytics.svelte`, `ResponseMessage.svelte`, `TopBar.svelte`, `DetailsPanel.svelte`, `SettingsDialog.svelte`, `Sidebar.svelte`, `settings-page.css`, plus the field styles in the first commit (`6f27cad`).
+
+**How it was verified:** in `apps/web`: `npx vitest run` (550 passed, 91 files), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui` (no findings), `npx prettier --check src/lib/ui` (formatted), `npx playwright test` (8 passed), `npm run build` (exit 0). Home, sign-off, Models, Analytics and, at 390 px, chat, sidebar and settings were read from screenshots in light and dark. The sidebar scrim first failed `shell.test.ts` (two buttons named Close sidebar); it is now hidden from assistive tech and the test passes unchanged.
+
+**Decisions:** [ADR-0041](../../../adr/0041-exact-match-look.md) amendment updated. The home page reuses the sidebar's `formatAgo`. No new package.
+
+**Docs updated:** `docs/adr/0041-exact-match-look.md`, `docs/state.md`.
+
+**Known limits:** At 390 px the stage rail's CHALLENGER label touches YOU (the rail was left untouched on purpose). The jump-to-bottom button still floats over content. Only General has the on-change save bar. Unverified: a tap on the sidebar scrim (checked by screenshot only), right-to-left layout at phone width, and widths between 390 px and 768 px.
+

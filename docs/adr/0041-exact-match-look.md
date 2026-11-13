@@ -100,9 +100,13 @@ The frontend owner reviewed the settings dialog, which matched the running app, 
 - **Interface, Audio, Notifications and Data Controls use the same outlined groups** as General. They keep their always-visible Save.
 - **Icons stay at the regular weight at every size.** A bolder weight at 16 px and below was mocked up and the owner chose regular.
 
-Account, Keyboard, Personalization and Usage are grouped the same way (2026-11-13); an Account field is one surface, with no second edge inside it. Archived Chats is a list page with nothing to group. The admin pages are grouped too (2026-11-13): a value, a field or a switch is one cell of its group, and Connections groups each provider. Models and Analytics are a list and charts and keep the running app's layout.
+Account, Keyboard, Personalization and Usage are grouped the same way (2026-11-13); an Account field is one surface, with no second edge inside it. Archived Chats is a list page with nothing to group. The admin pages are grouped too (2026-11-13): a value, a field or a switch is one cell of its group, and Connections groups each provider. Models is one outlined list and Analytics puts its chart and each table in an outlined box (2026-11-13).
 
 In an answer (2026-11-13) the tool line is a small grey fold-out with the tool name in mono and a grey tick (a failed call stays red), a citation is a thin outlined tag with no fill, and a table is one outlined box with a tinted header in sentence case.
+
+Also on 2026-11-13: placeholder text uses the muted ink in every field. The sign-off draft reads like the answer (outlined table, soft-rectangle tags) and has its own dark rules, so it no longer shows light paper in dark. The home page lists the three newest chats, titled Recent, beside the suggestions; the column is absent when there are no chats.
+
+At phone width (below 48 rem) the answer's mark sits beside the name instead of in a 54 px gutter, so the answer has the same margin on both sides. The top bar starts clear of the sidebar's corner button, a provenance row stacks its figure, source and passage when the panel is narrower than 440 px, the settings tab strip fades at its end, a four-way choice uses tighter segments, and the open sidebar dims the page and closes on a tap outside it. The stage rail is unchanged.
 
 ## Status
 
