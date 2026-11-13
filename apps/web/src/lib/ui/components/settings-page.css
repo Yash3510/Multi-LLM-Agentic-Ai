@@ -96,13 +96,13 @@
   background-color: color-mix(in srgb, var(--color-gray-50) 40%, transparent);
   color: var(--color-gray-700);
   font-size: var(--text-caption);
-  line-height: 14px;
+  line-height: 18px;
   resize: none;
   transition: border-color 150ms;
 }
 
 .settings-page .area::placeholder {
-  color: var(--color-gray-300);
+  color: var(--color-gray-500);
 }
 
 .settings-page .area:focus {
@@ -114,10 +114,6 @@
   border-color: rgb(255 255 255 / 0.04);
   background-color: rgb(255 255 255 / 0.03);
   color: var(--color-gray-300);
-}
-
-[data-theme='dark'] .settings-page .area::placeholder {
-  color: var(--color-gray-700);
 }
 
 .settings-page .quiet {
@@ -214,15 +210,11 @@
 }
 
 .settings-page .search input::placeholder {
-  color: var(--color-gray-300);
+  color: var(--color-gray-500);
 }
 
 [data-theme='dark'] .settings-page .search input {
   color: var(--color-gray-300);
-}
-
-[data-theme='dark'] .settings-page .search input::placeholder {
-  color: var(--color-gray-700);
 }
 
 .settings-page .clear {

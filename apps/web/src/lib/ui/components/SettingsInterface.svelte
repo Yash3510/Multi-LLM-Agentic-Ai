@@ -280,7 +280,7 @@
   }
 
   .font input::placeholder {
-    color: var(--color-gray-300);
+    color: var(--color-gray-500);
   }
 
   .font input:focus {

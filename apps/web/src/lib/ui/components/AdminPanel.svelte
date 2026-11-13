@@ -640,7 +640,7 @@
 
   .input::placeholder,
   .secret input::placeholder {
-    color: var(--color-gray-300);
+    color: var(--color-gray-500);
   }
 
   .input:focus,
@@ -653,10 +653,6 @@
     border-color: rgb(255 255 255 / 0.04);
     background-color: rgb(255 255 255 / 0.03);
     color: var(--color-gray-300);
-  }
-
-  :global([data-theme='dark']) :is(.input, .secret input)::placeholder {
-    color: var(--color-gray-700);
   }
 
   .secret {

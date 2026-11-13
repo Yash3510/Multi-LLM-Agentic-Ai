@@ -485,7 +485,7 @@
   }
 
   .input::placeholder {
-    color: var(--color-gray-300);
+    color: var(--color-gray-500);
   }
 
   .input:focus {
@@ -500,18 +500,15 @@
     color-scheme: dark;
   }
 
-  :global([data-theme='dark']) .input::placeholder {
-    color: var(--color-gray-700);
-  }
-
   .custom {
     margin-block-start: 4px;
   }
 
-  /* The running app's text area is inline, leaving a line's descender space under it. */
+  /* The shell draws the edge, so the text area sits flush inside it with room above and below. */
   .bio {
     min-block-size: 60px;
-    margin-block-end: 7px;
+    padding-block: 9px;
+    line-height: 18px;
   }
 
   .variables-head {
