@@ -11,6 +11,7 @@ names none of them itself. To see whether a word is refused, hash it the same wa
 """
 
 import hashlib
+import os
 import re
 import sys
 from collections.abc import Collection
@@ -43,8 +44,13 @@ REFUSED = frozenset(
 )
 # Refused when a number follows (a step of a plan, such as "<word> 12b").
 NUMBERED = frozenset({"0ebb429fa86d481c2630fac53db1c91cffed5d4d41d1021c179444eb67e7ee0b"})
-# Two words that start an attribution line.
-OPENINGS = frozenset({"2e8aae79d9566c6391cbf216d0b40760bde9bd51a6c5b0b970a248f679cd718f"})
+# Two words that start an attribution line (the subject, or a line after a blank line).
+OPENINGS = frozenset(
+    {
+        "2e8aae79d9566c6391cbf216d0b40760bde9bd51a6c5b0b970a248f679cd718f",
+        "8316b399af66208937f9fe28d70a160fa0d26060ab53df53cb5ab55c10eb4cfe",
+    }
+)
 # Two-word phrases in which a refused word is plain English or a database term.
 ALLOWED = frozenset(
     {
@@ -62,8 +68,13 @@ def digest(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def kept_lines(message: str) -> list[str]:
-    """What git keeps of a message: no comment lines, nothing below the scissors line."""
+def kept_lines(message: str, keep_comments: bool = False, /) -> list[str]:
+    """What git keeps of a message: no comment lines, nothing below the scissors line.
+
+    With `keep_comments` every line is kept: when no editor opens (`-m`, `-F`), git does not
+    strip `#` lines or cut at the scissors line, so a refused word there would be stored."""
+    if keep_comments:
+        return message.splitlines()
     kept: list[str] = []
     for line in message.splitlines():
         if line.rstrip() == SCISSORS:
@@ -81,16 +92,20 @@ def _allowed(words: list[str], at: int, allowed: Collection[str]) -> bool:
 
 def check_line(
     line: str,
+    opens: bool = True,
+    /,
     *,
     refused: Collection[str] = REFUSED,
     numbered: Collection[str] = NUMBERED,
     openings: Collection[str] = OPENINGS,
     allowed: Collection[str] = ALLOWED,
 ) -> list[str]:
-    """The refused words of one line, as written there (lower case)."""
+    """The refused words of one line, as written there (lower case). An attribution opening
+    counts only where `opens` (the subject, or the first line of a paragraph): inside a
+    wrapped sentence the same two words are ordinary English."""
     words = WORD.findall(line.lower())
     found: list[str] = []
-    if len(words) > 1 and digest(f"{words[0]} {words[1]}") in openings:
+    if opens and len(words) > 1 and digest(f"{words[0]} {words[1]}") in openings:
         found.append(f"{words[0]} {words[1]}")
     for at, word in enumerate(words):
         if digest(word) in refused and not _allowed(words, at, allowed):
@@ -100,13 +115,19 @@ def check_line(
     return found
 
 
-def check_message(message: str, terms: list[str], **lists: Collection[str]) -> list[str]:
-    """Every problem with a commit message, one line each; `lists` replaces the digests
-    (tests use their own, so that they name no refused word either)."""
-    lines = kept_lines(message)
+def check_message(
+    message: str, terms: list[str], keep_comments: bool = False, /, **lists: Collection[str]
+) -> list[str]:
+    """Every problem with a commit message, one line each; `keep_comments` is true when git
+    keeps the `#` lines; `lists` replaces the digests (tests use their own, so that they
+    name no refused word either)."""
+    lines = kept_lines(message, keep_comments)
     problems = neutrality_check.find_terms("commit message", "\n".join(lines), terms)
     for number, line in enumerate(lines, start=1):
-        problems += [f"commit message:{number}: '{word}'" for word in check_line(line, **lists)]
+        opens = number == 1 or not lines[number - 2].strip()
+        problems += [
+            f"commit message:{number}: '{word}'" for word in check_line(line, opens, **lists)
+        ]
     return problems
 
 
@@ -115,7 +136,9 @@ def main(argv: list[str]) -> int:
         print(__doc__)
         return 2
     terms = neutrality_check.load_terms(neutrality_check.TERMS_FILE.read_text(encoding="utf-8"))
-    problems = check_message(Path(argv[0]).read_text(encoding="utf-8"), terms)
+    # Git runs the hook with GIT_EDITOR=":" when no editor opens, and keeps '#' lines then.
+    keep_comments = os.environ.get("GIT_EDITOR") == ":"
+    problems = check_message(Path(argv[0]).read_text(encoding="utf-8"), terms, keep_comments)
     for problem in problems:
         print(problem)
     if problems:
