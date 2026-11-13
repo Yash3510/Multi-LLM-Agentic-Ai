@@ -1,0 +1,178 @@
+/* The admin dialogs' shared pieces (admin look §6): the header row (M1), the primary pill
+   (M2), plain fields with dividers (M3) and the secret field with show and hide (S8). Every
+   admin dialog card carries .admin-dialog. */
+.admin-dialog {
+  margin: auto;
+  max-inline-size: 100%;
+  border: 1px solid var(--color-white);
+  border-radius: 20px;
+  background-color: var(--color-white);
+}
+
+[data-theme='dark'] .admin-dialog {
+  border-color: var(--color-gray-850);
+  background-color: var(--color-gray-900);
+  color: var(--color-gray-200);
+}
+
+.admin-dialog.small {
+  inline-size: 480px;
+}
+
+.admin-dialog.medium {
+  inline-size: 672px;
+}
+
+.admin-dialog .head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 4px;
+}
+
+[data-theme='dark'] .admin-dialog .head {
+  color: var(--color-gray-300);
+}
+
+.admin-dialog .title {
+  font-size: var(--text-ui);
+  font-weight: var(--font-weight-medium);
+  line-height: 20px;
+}
+
+.admin-dialog .close {
+  display: grid;
+  padding: 4px;
+  border-radius: 8px;
+  color: var(--color-gray-500);
+  transition:
+    background-color 150ms,
+    color 150ms;
+}
+
+.admin-dialog .close:hover {
+  background-color: var(--color-gray-50);
+  color: var(--color-gray-700);
+}
+
+[data-theme='dark'] .admin-dialog .close {
+  color: var(--color-gray-400);
+}
+
+[data-theme='dark'] .admin-dialog .close:hover {
+  background-color: var(--color-gray-800);
+  color: var(--color-gray-200);
+}
+
+.admin-dialog .label {
+  display: block;
+  margin-block-end: 4px;
+  color: var(--color-gray-500);
+  font-size: var(--text-caption);
+  line-height: 16px;
+}
+
+.admin-dialog .plain {
+  inline-size: 100%;
+  background: transparent;
+  color: inherit;
+  font-size: var(--text-ui);
+  line-height: 20px;
+}
+
+.admin-dialog .plain:focus {
+  outline: none;
+}
+
+.admin-dialog .plain::placeholder {
+  color: var(--color-gray-400);
+}
+
+.admin-dialog .plain:disabled {
+  color: var(--color-gray-500);
+}
+
+.admin-dialog select.plain {
+  appearance: none;
+  text-transform: capitalize;
+}
+
+.admin-dialog .select {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.admin-dialog .select > svg {
+  position: absolute;
+  inset-inline-end: 4px;
+  pointer-events: none;
+}
+
+.admin-dialog .divider {
+  block-size: 1px;
+  margin-block: 10px;
+  background-color: color-mix(in srgb, var(--color-gray-100) 30%, transparent);
+}
+
+[data-theme='dark'] .admin-dialog .divider {
+  background-color: color-mix(in srgb, var(--color-gray-850) 30%, transparent);
+}
+
+.admin-dialog .secret {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-dialog .secret button {
+  display: grid;
+}
+
+.admin-dialog .footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-block-start: 12px;
+}
+
+.admin-dialog .pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-black);
+  color: var(--color-white);
+  font-size: var(--text-ui);
+  line-height: 20px;
+  white-space: nowrap;
+  transition: background-color 150ms;
+}
+
+.admin-dialog .pill:hover {
+  background-color: var(--color-gray-900);
+}
+
+.admin-dialog .pill:disabled {
+  cursor: not-allowed;
+}
+
+[data-theme='dark'] .admin-dialog .pill {
+  background-color: var(--color-white);
+  color: var(--color-black);
+}
+
+[data-theme='dark'] .admin-dialog .pill:hover {
+  background-color: var(--color-gray-100);
+}
+
+.admin-dialog .problem {
+  margin-block-start: 8px;
+  color: var(--color-red-600);
+  font-size: var(--text-caption);
+}
+
+.admin-dialog :is(.close, .pill, .secret button):focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: -2px;
+}

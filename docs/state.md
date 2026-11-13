@@ -3,7 +3,7 @@ title: State
 type: state
 status: active
 owner: R1
-updated: 2026-11-08
+
 tags: [4ce, state]
 ---
 
@@ -42,12 +42,13 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 **Known limits:** PostgreSQL from a Windows host isn't exercised in CI (production runs on Linux). Intel Macs build `cryptography` and `argon2-cffi-bindings` from source, because the lock has macOS arm64 wheels only. The ledger's limits (the table owner between checkpoints, no key rotation, SQLite's `INSERT OR REPLACE`) are on the [ledger page](architecture/ledger.md#known-limits).
 
-**The frontend is on hold in this stream.** Pranay, the frontend owner, develops `apps/web` separately; the [frontend page](architecture/frontend.md) has everything needed to do that independently. The backend's API is the contract between the two: the frontend codes against its OpenAPI document (ADR-0035 §4).
+**The frontend is on hold in this stream.** Pranay, the frontend owner, develops `apps/web` separately; the [frontend page](architecture/frontend.md) has everything needed to do that independently. The backend's API is the contract between the two: the frontend codes against its OpenAPI document (ADR-0035 §4). On `wp/WP-F-09-design-system`, `apps/web` matches the current app's look ([ADR-0041](adr/0041-exact-match-look.md), proposed) for the entry, workspace, user settings and admin areas, all on the fake data source ([log](log/2026/11/2026-11-03-wp-wp-f-09-design-system.md#2026-11-10-user-settings-and-admin-areas)); channels and notes, then calendar, automations and playground, come next.
 
 ## Open questions
 
+- **ADR-0041** (exact-match look and its premium-components amendment) waits on R1.
 - **ADR-0035 and ADR-0036** (frontend foundations; MPL-2.0 build tools) wait on R1 and R4, before `apps/web` and the npm side of the licence gate land on `4ce-core`.
-- **The proposed ADRs** 0009, 0010, 0014, 0015, 0018, 0023, 0026, 0029, 0031, 0032, 0035, 0036, 0037, 0038, 0039 and 0040 need their owners' acceptance.
+- **The proposed ADRs** 0009, 0010, 0014, 0015, 0018, 0023, 0026, 0029, 0031, 0032, 0035, 0036, 0037, 0038, 0039, 0040 and 0041 need their owners' acceptance.
 - **Decided on 2026-10-26 by the project lead for slice 3:** (1) the sign-in rate limit fails closed (503 when it can't be checked); (2) behind a proxy that isn't configured, every client shares one count, accepted; (3) a Redis job in CI, a change AGENTS.md §3 reserves for humans, approved; (4) agents may run throwaway PostgreSQL and Redis containers on private ports for local tests, never the shared services.
 - **Decided on 2026-10-24 by the project lead (no ledger question is open):** an unknown sign-in email is kept only as a keyed hash ([ADR-0039](adr/0039-every-action-writes-a-ledger-entry.md)); a scheduled job may sign checkpoints (built: the worker does when `FOURCE_LEDGER_CHECKPOINT_MINUTES` is set), and people can still run `ledger checkpoint` ([ADR-0014](adr/0014-ledger-with-signed-checkpoints.md)).
 - **ADR-0025:** MinIO's patch source; options in [MinIO patch source](research/minio-patch-source.md).

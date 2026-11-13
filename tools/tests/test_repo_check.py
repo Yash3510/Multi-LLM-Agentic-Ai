@@ -276,3 +276,83 @@ def test_empty_and_whitespace_only_commits_are_rejected(tmp_path: Path) -> None:
     assert not any("feat: real change" in p for p in problems)
     # Indentation is meaning in Python and YAML, so changing it is never "whitespace only".
     assert not any("return after the loop" in p for p in problems)
+
+
+WEB = "apps/web"
+WEB_BASE = [f"{WEB}/README.md", f"{WEB}/src/lib/format.test.ts"]
+
+
+def test_svelte_components_are_pascal_case_and_routes_keep_sveltekit_names() -> None:
+    good = [
+        f"{WEB}/src/lib/ui/components/StatusMark.svelte",
+        f"{WEB}/src/lib/ui/components/FieldHarness.test.svelte",
+        f"{WEB}/src/lib/ui/components/StatusMark.test.ts",
+        f"{WEB}/src/routes/+page.svelte",
+        f"{WEB}/src/routes/+layout.ts",
+        f"{WEB}/src/routes/ui/+layout.svelte",
+        f"{WEB}/src/routes/api/+server.ts",
+        "tools/design-lint/fixtures/good/Clean.svelte",
+    ]
+    assert repo_check.check_paths([*WEB_BASE, *good]) == []
+    bad = [
+        f"{WEB}/src/lib/ui/components/statusMark.svelte",
+        f"{WEB}/src/lib/ui/components/Status_Mark.svelte",
+        f"{WEB}/src/lib/ui/Format.ts",
+        f"{WEB}/src/routes/+weird.svelte",
+        "core/rules/src/fource/rules/Panel.svelte.py",
+    ]
+    problems = repo_check.check_paths([*WEB_BASE, *bad])
+    for path in bad:
+        assert flagged(problems, path), path
+
+
+def test_route_parameter_folders_are_allowed_only_under_web_routes() -> None:
+    good = [
+        f"{WEB}/src/routes/chat/[id]/+page.svelte",
+        f"{WEB}/src/routes/runs/[runId]/audit/+page.svelte",
+    ]
+    assert repo_check.check_paths([*WEB_BASE, *good]) == []
+    bad = [
+        f"{WEB}/src/lib/[id]/thing.ts",
+        f"{WEB}/src/routes/[run id]/+page.svelte",
+        f"{WEB}/src/routes/[...rest]/+page.svelte",
+        "docs/[id]/notes.md",
+    ]
+    problems = repo_check.check_paths([*WEB_BASE, *bad])
+    for path in bad:
+        assert flagged(problems, path), path
+
+
+def test_the_web_app_may_keep_its_formatter_config_and_message_project() -> None:
+    allowed = [
+        f"{WEB}/.prettierrc",
+        f"{WEB}/.prettierignore",
+        f"{WEB}/project.inlang/settings.json",
+    ]
+    assert repo_check.check_paths([*WEB_BASE, *allowed]) == []
+    problems = repo_check.check_paths(
+        [
+            *WEB_BASE,
+            f"{WEB}/.cursorrules",
+            "core/rules/.prettierrc",
+            "core/rules/project.inlang/x.json",
+        ]
+    )
+    assert flagged(problems, f"{WEB}/.cursorrules")
+    assert flagged(problems, "core/rules/.prettierrc")
+    assert flagged(problems, "core/rules/project.inlang/x.json")
+
+
+def test_colocated_and_browser_tests_count_for_the_web_app() -> None:
+    assert not any(
+        "has no tests" in p
+        for p in repo_check.check_paths([f"{WEB}/README.md", f"{WEB}/src/lib/ui/Icon.test.ts"])
+    )
+    assert not any(
+        "has no tests" in p
+        for p in repo_check.check_paths([f"{WEB}/README.md", f"{WEB}/e2e/ui.spec.ts"])
+    )
+    assert any(
+        "has no tests" in p
+        for p in repo_check.check_paths([f"{WEB}/README.md", f"{WEB}/src/app.html"])
+    )

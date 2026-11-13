@@ -1,0 +1,164 @@
+/* The admin tables (admin look §13b, §14): the search toolbar, the uppercase sortable header
+   with its reserved caret, and hoverable 12 px rows. Every table page sits in .admin-table. */
+.admin-table .toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  block-size: 32px;
+  background-color: var(--color-white);
+  font-size: var(--text-ui);
+}
+
+[data-theme='dark'] .admin-table .toolbar {
+  background-color: var(--color-gray-900);
+}
+
+.admin-table .search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.admin-table .search > svg {
+  flex-shrink: 0;
+  margin-inline: 4px 12px;
+}
+
+.admin-table .search input {
+  inline-size: 100%;
+  padding-block: 4px;
+  padding-inline-end: 16px;
+  background: transparent;
+  color: inherit;
+  font-size: var(--text-ui);
+}
+
+.admin-table .search input:focus {
+  outline: none;
+}
+
+.admin-table .search input::placeholder {
+  color: var(--color-gray-400);
+}
+
+.admin-table .clear {
+  display: grid;
+  margin-inline-start: 6px;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+}
+
+.admin-table .clear:hover {
+  background-color: var(--color-gray-100);
+}
+
+.admin-table .scroller {
+  max-inline-size: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+.admin-table table {
+  inline-size: 100%;
+  color: var(--color-gray-500);
+  font-size: var(--text-ui);
+  text-align: start;
+}
+
+[data-theme='dark'] .admin-table table {
+  color: var(--color-gray-400);
+}
+
+.admin-table thead {
+  border-block-end: 1.5px solid var(--color-gray-50);
+  color: var(--color-gray-800);
+  font-size: var(--text-caption);
+  text-transform: uppercase;
+}
+
+[data-theme='dark'] .admin-table thead {
+  border-color: color-mix(in srgb, var(--color-gray-850) 30%, transparent);
+  color: var(--color-gray-200);
+}
+
+.admin-table th {
+  padding: 8px 10px;
+  font-weight: 400;
+  text-align: start;
+  user-select: none;
+}
+
+.admin-table th.end {
+  text-align: end;
+}
+
+.admin-table th button {
+  display: flex;
+  inline-size: 100%;
+  align-items: center;
+  gap: 6px;
+  line-height: 16px;
+  text-transform: inherit;
+}
+
+.admin-table th.end button {
+  justify-content: flex-end;
+}
+
+.admin-table .caret {
+  display: inline-flex;
+}
+
+.admin-table .caret.hidden {
+  visibility: hidden;
+}
+
+.admin-table tbody tr {
+  cursor: pointer;
+  transition: background-color 150ms;
+}
+
+.admin-table tbody tr:hover {
+  background-color: var(--color-gray-50);
+}
+
+[data-theme='dark'] .admin-table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--color-gray-850) 50%, transparent);
+}
+
+.admin-table td {
+  font-size: var(--text-caption);
+}
+
+.admin-table .hint {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-block-start: 6px;
+  color: var(--color-gray-500);
+  font-size: var(--text-caption);
+}
+
+.admin-table .undo {
+  display: flex;
+  gap: 8px;
+  margin-block: 4px;
+  color: var(--color-gray-500);
+  font-size: var(--text-caption);
+}
+
+.admin-table .undo button {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.admin-table :is(.clear, th button, .undo button):focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: -2px;
+}

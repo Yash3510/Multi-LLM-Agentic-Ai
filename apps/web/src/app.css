@@ -1,0 +1,261 @@
+@import 'tailwindcss';
+@import './lib/ui/tokens/index.css';
+
+/*
+ * Fonts: self-hosted, the same on every host, nothing system-first. Each face only downloads when
+ * its unicode-range is on the page. Inter is clamped to 400-600, the only weights the type steps
+ * use, so a stray bolder request renders at 600 rather than 700.
+ */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 600;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Latin Extended also carries the rupee sign. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 600;
+  src: url('@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+/*
+ * Devanagari only: Hindi pages download it, English pages never do. The metrics are overridden to
+ * Inter's (x-height 0.546 em, ascent 0.969 em, descent 0.241 em, measured from both files), so a
+ * line that mixes the two scripts keeps one baseline and one line box. size-adjust also scales the
+ * overrides, hence 95.12% = 0.969 / 1.0185.
+ */
+@font-face {
+  font-family: 'Noto Sans Devanagari';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 600;
+  src: url('@fontsource-variable/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-wght-normal.woff2')
+    format('woff2');
+  unicode-range:
+    U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+20B9, U+20F0, U+25CC, U+A830-A839, U+A8E0-A8FF,
+    U+11B00-11B09;
+  size-adjust: 101.85%;
+  ascent-override: 95.12%;
+  descent-override: 23.68%;
+  line-gap-override: 0%;
+}
+
+/* IBM Plex Mono for hashes, ids, commands and code, at the same three weights as Inter. */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2') format('woff2');
+}
+
+@layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  /* The measured body: black on white, and its own off-ramp ground and ink in dark. */
+  html {
+    word-break: break-word;
+  }
+
+  body {
+    background-color: var(--color-surface-page);
+    color: var(--ref-black);
+    font-size: var(--text-ui);
+    line-height: var(--text-ui--line-height);
+  }
+
+  [data-theme='dark'] body {
+    background-color: var(--body-dark-ground);
+    color: var(--body-dark-ink);
+  }
+
+  /* Preflight's bolder would ask for 700; the type scale stops at 600. */
+  b,
+  strong {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  /*
+   * Keyboard focus (ADR-0041 amendment): a soft blue glow that follows the control's curve, never
+   * a hard ring. Text fields draw their own glow on the box.
+   */
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  :is(
+    input:not([type='checkbox'], [type='radio'], [type='range']),
+    textarea,
+    [contenteditable='true']
+  ):focus-visible {
+    box-shadow: none;
+  }
+
+  /* Forced colours drop shadows, so keyboard focus falls back to a system outline there. */
+  @media (forced-colors: active) {
+    :focus-visible {
+      outline: 2px solid Highlight;
+    }
+  }
+
+  /*
+   * Indian scripts: uppercase and letter-spacing both break conjuncts, so neither applies, whatever
+   * a component asks for (hence !important); and every type step gets 0.15 more line height. Each
+   * message sets its own lang, so a Latin label inside Hindi text keeps its own rules.
+   */
+  [lang] {
+    --script-leading: 0;
+  }
+
+  :is(
+    :lang(as),
+    :lang(bn),
+    :lang(brx),
+    :lang(doi),
+    :lang(gu),
+    :lang(hi),
+    :lang(kn),
+    :lang(kok),
+    :lang(mai),
+    :lang(ml),
+    :lang(mni),
+    :lang(mr),
+    :lang(ne),
+    :lang(or),
+    :lang(pa),
+    :lang(sa),
+    :lang(sat),
+    :lang(ta),
+    :lang(te)
+  ) {
+    --script-leading: 0.15;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+  }
+
+  /*
+   * Reduced motion, from the user's setting (data-motion) or the system's: nothing moves or scales,
+   * and loops stop on their still frame, so a component's resting style must be that frame. Colour
+   * and opacity may still change, within the 120 ms durations motion.css sets. Svelte transitions
+   * run through the Web Animations API, outside this rule; motion.svelte.ts reduces those.
+   */
+  [data-motion='reduce'],
+  [data-motion='reduce'] *,
+  [data-motion='reduce'] ::before,
+  [data-motion='reduce'] ::after {
+    animation: none !important;
+    transition-property:
+      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow, visibility !important;
+    scroll-behavior: auto !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation: none !important;
+      transition-property:
+        color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+        opacity, box-shadow, visibility !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Tabular, lining figures for numbers in the UI. Prose keeps Inter's proportional default. */
+@utility tabular {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Kept for callers that ask for an inward ring; inward is now the default. */
+@utility focus-inset {
+  --focus-offset: -2px;
+}
+
+/*
+ * Print: records on A4 portrait, black on white with 1 px rules, no fills, shadows or animation.
+ * Dark values are screen-only (dark.css), so paper starts from light and these finish the job.
+ */
+@media print {
+  @page {
+    size: A4 portrait;
+  }
+
+  @layer theme {
+    :root {
+      /* The pre-paint script sets color-scheme inline; paper is always light. */
+      color-scheme: light !important;
+
+      --color-surface-page: var(--ref-white);
+      --color-surface-raised: var(--ref-white);
+      --color-surface-sunken: var(--ref-white);
+      --color-surface-hover: var(--ref-white);
+      --color-accent-soft: var(--ref-white);
+      --color-ok-soft: var(--ref-white);
+      --color-caution-soft: var(--ref-white);
+      --color-stop-soft: var(--ref-white);
+
+      --color-ink-1: var(--ref-black);
+      --color-ink-2: var(--ref-black);
+      --color-ink-3: var(--ref-black);
+      --color-line-1: var(--ref-black);
+      --color-line-2: var(--ref-black);
+      --color-line-control: var(--ref-black);
+      --color-accent: var(--ref-black);
+      --color-ok: var(--ref-black);
+      --color-ok-mark: var(--ref-black);
+      --color-caution: var(--ref-black);
+      --color-caution-mark: var(--ref-black);
+      --color-stop: var(--ref-black);
+      --color-stop-mark: var(--ref-black);
+    }
+  }
+
+  *,
+  ::before,
+  ::after {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Below 768 px the sidebar button sits in the top corner (Sidebar.svelte), so each page's top bar
+   starts after it, as in the running app. */
+@media (max-width: 47.99rem) {
+  [data-page-bar] {
+    margin-inline-start: 30px;
+  }
+}

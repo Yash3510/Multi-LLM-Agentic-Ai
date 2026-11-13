@@ -1,0 +1,117 @@
+// Answer markdown to safe HTML (chat-messages look §5): marked parses GitHub-flavoured markdown,
+// DOMPurify removes anything that could run (scripts, event handlers, javascript: links). Links
+// open in a new tab without handing over the opener.
+import DOMPurify from 'dompurify';
+import { Marked, type TokenizerAndRendererExtension } from 'marked';
+import type { Source } from '$lib/data';
+
+// The sources of the answer being rendered; set per call, read by the citation extension.
+let current: Source[] = [];
+
+/** A chip's label (own-4ce look S14): over 30 characters, the first 15, dots, the last 10. */
+export const chipLabel = (title: string) =>
+  title.length > 30 ? `${title.slice(0, 15)}...${title.slice(-10)}` : title;
+
+const escape = (text: string) =>
+  text.replace(
+    /[&<>"]/g,
+    (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char] ?? char,
+  );
+
+// [n] becomes an evidence chip for source n, outside code and only when that source exists.
+const citation: TokenizerAndRendererExtension = {
+  name: 'citation',
+  level: 'inline',
+  start: (src) => src.match(/\[\d+\]/)?.index,
+  tokenizer(src) {
+    const match = /^\[(\d+)\](?!\()/.exec(src);
+    const source = match && current.find((item) => item.index === Number(match[1]));
+    if (match && source) return { type: 'citation', raw: match[0], source };
+    return undefined;
+  },
+  renderer(token) {
+    const source: Source = token.source;
+    const name = escape(source.title);
+    return `<button type="button" class="chip" data-source="${source.index}" title="View source: ${name}" aria-label="View source: ${name}">${escape(chipLabel(source.title))}</button>`;
+  },
+};
+
+const marked = new Marked({ gfm: true, breaks: false, extensions: [citation] });
+
+const purify = DOMPurify();
+purify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A' && node.hasAttribute('href')) {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
+
+declare const safe: unique symbol;
+/** HTML that came out of DOMPurify. Only this module can make one, so only sanitised HTML can be
+ * written to the page through `safeHtml`. */
+export type SafeHtml = string & { readonly [safe]: true };
+
+export function renderMarkdown(markdown: string, sources: Source[] = []): SafeHtml {
+  current = sources;
+  const clean = purify.sanitize(marked.parse(markdown, { async: false }), {
+    USE_PROFILES: { html: true },
+  });
+  // The one place the brand is applied: the string has just come out of DOMPurify.
+  return clean as SafeHtml;
+}
+
+/** Writes sanitised HTML into an element (a Svelte attachment), in place of {@html}, which the
+ * lint rejects for any string: here the type guarantees the string was sanitised. */
+export const safeHtml = (html: SafeHtml) => (node: HTMLElement) => {
+  node.innerHTML = html;
+};
+
+/** Calls `open` with the source number when an evidence chip inside the element is pressed. */
+export const onChip = (open: (index: number) => void) => (node: HTMLElement) => {
+  const press = (event: Event) => {
+    const chip = event.target instanceof Element ? event.target.closest('.chip') : null;
+    if (chip) open(Number(chip.getAttribute('data-source')));
+  };
+  node.addEventListener('click', press);
+  return () => node.removeEventListener('click', press);
+};
+
+const words = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}%.]+/gu, ' ')
+    .trim();
+
+/**
+ * Marks what changed since the last try in rendered markdown (own-4ce features F33): each block
+ * holding an added line (found by its first nine words) gets `data-changed`, and the line it
+ * replaced goes before it with `data-was`, its citation markers stripped. A change found in no
+ * block is left out rather than pinned to the wrong one.
+ */
+export const markChanges =
+  (changes: { removed?: string; added?: string }[], on: boolean) => (node: HTMLElement) => {
+    if (!on) return;
+    const marked: Element[] = [];
+    const inserted: Element[] = [];
+    const blocks = [...node.querySelectorAll('p, li, td, h1, h2, h3, h4')];
+    for (const change of changes) {
+      if (!change.added) continue;
+      const key = words(change.added).split(' ').slice(0, 9).join(' ');
+      const block = blocks.find((item) => words(item.textContent ?? '').includes(key));
+      if (!block) continue;
+      block.setAttribute('data-changed', '');
+      marked.push(block);
+      if (change.removed) {
+        const was = document.createElement(block.tagName === 'LI' ? 'li' : 'p');
+        was.setAttribute('data-was', '');
+        was.textContent = change.removed.replace(/\s*\[\d+\]/g, '');
+        block.before(was);
+        inserted.push(was);
+      }
+    }
+    marked[0]?.scrollIntoView?.({ block: 'nearest' });
+    return () => {
+      marked.forEach((block) => block.removeAttribute('data-changed'));
+      inserted.forEach((was) => was.remove());
+    };
+  };

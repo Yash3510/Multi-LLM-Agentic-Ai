@@ -28,3 +28,15 @@ __pycache__/
 !.obsidian/app.json
 !.obsidian/core-plugins.json
 !.obsidian/templates.json
+
+# Web app: test output and generated sources (rebuilt by npm scripts)
+coverage/
+test-results/
+playwright-report/
+apps/web/src/lib/ui/icons/generated/
+apps/web/src/lib/i18n/generated/
+*.inlang/*
+!*.inlang/settings.json
+
+# OS files
+.DS_Store

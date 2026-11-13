@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>4CE</title>
+    <script>
+      // Runs before first paint so the page never flashes the wrong theme, moves when it should
+      // not, or reflows to another density. lib/ui/theme, motion and density keep these attributes
+      // in step afterwards and read the same keys the same way.
+      (function () {
+        var root = document.documentElement;
+        var theme = 'system';
+        var motion = 'system';
+        var density = 'default';
+        try {
+          theme = localStorage.getItem('4ce.theme') || theme;
+          motion = localStorage.getItem('4ce.motion') || motion;
+          density = localStorage.getItem('4ce.density') || density;
+        } catch (e) {
+          // Storage can be blocked; fall back to the system settings.
+        }
+        if (theme === 'oled-dark') {
+          root.setAttribute('data-oled', '');
+          theme = 'dark';
+        }
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        root.setAttribute('data-theme', theme);
+        root.style.colorScheme = theme;
+        if (motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          root.setAttribute('data-motion', 'reduce');
+        }
+        if (density !== 'comfortable' && density !== 'compact') density = 'default';
+        root.setAttribute('data-density', density);
+      })();
+    </script>
+    <style>
+      /* Fix the cascade layers' order before any stylesheet loads. The dev server can inject a
+         component stylesheet ahead of app.css, which would otherwise rank the components layer
+         below Tailwind's base reset and drop every shared button, menu and surface style. */
+      @layer properties, theme, base, components, utilities;
+
+      /* The splash (entry look E0). It paints before any stylesheet loads, so its grounds name
+         the token values themselves: --ref-white and --ref-gray-900. The brand-kit mark sits
+         where the running app draws it, 86 px tall at 44 % of the viewport plus 5 px. */
+      html:has(#splash) {
+        overflow-y: hidden;
+      }
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background-color: #ffffff;
+      }
+      [data-theme='dark'] #splash {
+        background-color: #161616;
+      }
+      [data-oled] #splash {
+        background-color: #000000;
+      }
+      #splash img {
+        position: absolute;
+        inset-block-start: calc(44% + 5px);
+        inset-inline-start: 50%;
+        block-size: 86px;
+        inline-size: auto;
+        translate: -50% 0;
+      }
+      #splash .dark,
+      [data-theme='dark'] #splash .light {
+        display: none;
+      }
+      [data-theme='dark'] #splash .dark {
+        display: block;
+      }
+    </style>
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+    <div id="splash" aria-hidden="true">
+      <img class="light" src="%sveltekit.assets%/brand/4ce-logomark-ink.svg" alt="" />
+      <img class="dark" src="%sveltekit.assets%/brand/4ce-logomark-white.svg" alt="" />
+    </div>
+  </body>
+</html>

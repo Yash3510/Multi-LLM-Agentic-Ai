@@ -3,7 +3,7 @@ title: Repository layout and working rules
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-03
+updated: 2026-11-04
 covers:
   - justfile
   - pyproject.toml
@@ -81,8 +81,11 @@ import-linter enforces these as contracts in `pyproject.toml` (`just imports`). 
 | Folders | kebab-case (Python package folders inside `src/` are snake_case) | `finance-expenses/`, `third-party/` |
 | Python modules | snake_case | `fource/rules/engine.py` |
 | Python classes, functions | PascalCase, snake_case | `RulePack`, `evaluate_band()` |
-| Svelte components | PascalCase | `SignOffPanel.svelte` |
-| TypeScript modules | camelCase | `trustView.ts` |
+| Svelte components | PascalCase (a component's test beside it: `Name.test.ts`; a test harness: `Name.test.svelte`) | `SignOffPanel.svelte` |
+| SvelteKit route files | the framework's names | `+page.svelte`, `+layout.ts`, `+server.ts` |
+| SvelteKit route parameter folders, under `apps/web/src/routes/` only | one identifier in brackets | `chat/[id]/`, `runs/[runId]/` |
+| Web app config | `.prettierrc`, `.prettierignore` and `project.inlang/`, in `apps/web/` only | |
+| TypeScript modules | kebab-case (the repo check has never accepted camelCase) | `trust-view.ts`, `theme.svelte.ts` |
 | Pack ids and pack file names | kebab-case | `industrial-energy`, `sop-mec-014.json` |
 | Ids inside packs | snake_case, namespaced by pack | `industrial-energy/seal_leak` |
 | ADRs | `NNNN-kebab-title.md` | `0018-sector-neutral-core.md` |
@@ -117,7 +120,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 
 - Secrets, keys, certificates and `.env` files. Only `.env.example` is committed.
 - Model weights, and customer data of any kind, even anonymised.
-- Build outputs (`node_modules/`, `.venv/`, `.svelte-kit/`, `build/`, `dist/`, `__pycache__/`) and generated artefacts (SBOMs, notices bundles, API clients, coverage reports).
+- Build outputs (`node_modules/`, `.venv/`, `.svelte-kit/`, `build/`, `dist/`, `__pycache__/`) and generated artefacts (SBOMs, notices bundles, API clients, coverage reports, and `apps/web`'s generated icon and message modules and test results).
 - Logs, caches, local databases and uploaded files.
 - Obsidian per-person files: `.obsidian/workspace*.json`, caches, plugin state.
 - Tool-specific agent instruction or configuration files. [`AGENTS.md`](../../AGENTS.md) files are the only agent instructions committed.

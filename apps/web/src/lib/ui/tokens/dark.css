@@ -1,0 +1,74 @@
+/*
+ * Dark theme: the same roles with the measured dark values (ADR-0041). Utilities can also use the
+ * dark: variant (theme.css), as the area tables are written that way. Screen only, so paper always
+ * prints from the light values (print rules are in app.css).
+ */
+@layer theme {
+  @media not print {
+    [data-theme='dark'] {
+      color-scheme: dark;
+
+      --color-surface-page: var(--ref-gray-900);
+      --color-surface-raised: var(--ref-gray-850);
+      --color-surface-sunken: var(--ref-gray-950);
+      --color-surface-hover: var(--ref-gray-800);
+      --color-line-1: var(--ref-gray-800);
+      --color-line-2: var(--ref-gray-700);
+      --color-line-control: var(--ref-gray-600);
+
+      --color-ink-1: var(--ref-white);
+      --color-ink-2: var(--ref-gray-300);
+      --color-ink-3: var(--ref-gray-400);
+      --color-ink-disabled: var(--ref-gray-600);
+      --color-intro-ink: var(--ref-white);
+      --color-intro-ground: var(--ref-gray-900);
+      --color-mark-tile: var(--ref-night);
+      --color-select-chevron: var(--ref-slate);
+
+      --color-solid: var(--ref-white);
+      --color-on-solid: var(--ref-black);
+      --color-solid-hover: var(--ref-gray-100);
+      --color-tint: color-mix(in srgb, var(--ref-white) 6%, transparent);
+      --color-prose: oklch(0.872 0.01 258.338);
+      --color-row-hover: var(--ref-gray-900);
+      --color-row-current: color-mix(in srgb, var(--ref-white) 4.5%, transparent);
+      --color-hair: color-mix(in srgb, var(--ref-white) 10%, transparent);
+      --color-track: color-mix(in srgb, var(--ref-white) 6%, transparent);
+      --depth-near: rgb(0 0 0 / 0.3);
+      --depth-far: rgb(0 0 0 / 0.6);
+      --focus-glow: color-mix(in srgb, var(--ref-blue-500) 30%, transparent);
+
+      --color-accent: var(--ref-violet-caret-dark);
+      --color-accent-head: var(--ref-violet-lit-dark);
+      --color-accent-tail: var(--ref-violet-dot-dark);
+      --color-accent-soft: color-mix(in srgb, var(--ref-violet-dot-dark) 12%, transparent);
+      --color-focus: var(--ref-blue-500);
+      --color-checked: var(--ref-blue-600);
+
+      --color-ok: var(--ref-green-ok-dark);
+      --color-ok-mark: var(--ref-green-mark);
+      --color-ok-soft: color-mix(in srgb, var(--ref-green-mark) 20%, transparent);
+      --color-caution: var(--ref-yellow-caution-dark);
+      --color-caution-mark: var(--ref-yellow-mark);
+      --color-caution-soft: color-mix(in srgb, var(--ref-yellow-mark) 20%, transparent);
+      --color-stop: var(--ref-red-stop-dark);
+      --color-stop-mark: var(--ref-red-mark);
+      --color-role-admin: var(--ref-role-admin-dark);
+      --color-role-user: var(--ref-role-user-dark);
+      --color-chart-won: var(--ref-chart-won);
+      --color-chart-lost: var(--ref-chart-lost);
+      --color-stop-soft: color-mix(in srgb, var(--ref-red-mark) 20%, transparent);
+
+      --color-scrim: color-mix(in srgb, var(--ref-black) 60%, transparent);
+    }
+
+    /* OLED Dark (chat-composer look §9.3, entry look 0.4): the darkest greys go to near black
+       at their source, so every role built on them follows. */
+    [data-theme='dark'][data-oled] {
+      --ref-gray-800: #101010;
+      --ref-gray-850: #050505;
+      --ref-gray-900: #000000;
+      --ref-gray-950: #000000;
+    }
+  }
+}

@@ -39,6 +39,7 @@ The project's memory: what 4CE does, why it is built this way, what changed and 
 | [API](architecture/api.md) | architecture | active |
 | [Frontend](architecture/frontend.md) | architecture | planned |
 | [Design system](architecture/design-system.md) | architecture | planned |
+| [Web screens](architecture/web-screens.md) | architecture | planned |
 | [Decision records](adr/README.md) | index | active |
 | [Work log](log/README.md) | index | active |
 | [History](history/README.md) | index | active |

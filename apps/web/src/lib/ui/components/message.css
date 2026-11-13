@@ -1,0 +1,81 @@
+/*
+ * The parts both message kinds share (chat-messages look §1, §2.4, §3.6): the centred row and the
+ * small icon actions that appear on hover. Measured values; muted grey that turns ink on the
+ * faint fill.
+ *
+ * The layer order is stated first: this file can load before the app stylesheet, and a layer
+ * named first would otherwise rank below Tailwind's base reset.
+ */
+@layer theme, base, components, utilities;
+
+@layer components {
+  [data-message-row] {
+    display: flex;
+    flex-direction: column;
+    inline-size: 100%;
+    max-inline-size: 928px;
+    margin-inline: auto;
+    margin-block-end: var(--spacing-3);
+    padding-inline: 14px;
+  }
+
+  [data-message-actions] {
+    display: flex;
+    align-items: center;
+    color: var(--color-gray-600);
+  }
+
+  :where([data-theme='dark']) [data-message-actions] {
+    color: var(--color-gray-500);
+  }
+
+  [data-message-action] {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    padding: 6px;
+    border-radius: 8px;
+    color: inherit;
+    transition:
+      background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+      color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  [data-message-action]:hover {
+    background-color: rgb(0 0 0 / 0.05);
+    color: var(--color-black);
+  }
+
+  :where([data-theme='dark']) [data-message-action]:hover {
+    background-color: rgb(255 255 255 / 0.05);
+    color: var(--color-white);
+  }
+
+  [data-message-action]:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  /* Hidden until the row is hovered or focused; the last answer keeps its actions (not its time). */
+  [data-message-row]:not([data-actions-shown]) [data-message-action],
+  [data-message-time] {
+    opacity: 0;
+  }
+
+  [data-message-row]:is(:hover, :focus-within) :is([data-message-action], [data-message-time]) {
+    opacity: 1;
+  }
+
+  [data-message-time] {
+    margin-inline: var(--spacing-1);
+    color: var(--color-gray-400);
+    font-size: var(--text-micro);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  :where([data-theme='dark']) [data-message-time] {
+    color: var(--color-gray-600);
+  }
+}

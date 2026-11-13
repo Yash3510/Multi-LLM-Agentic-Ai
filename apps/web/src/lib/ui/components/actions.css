@@ -1,0 +1,211 @@
+/*
+ * The look of every action, drawn once: Button, IconButton and TextButton (ActionBase sets
+ * data-action, data-variant and data-size on the button) and Link (data-link). Values are the
+ * measured ones (ADR-0041; chat-composer look header, layout look §5.4, chat-messages look §2.4).
+ * [data-preview] shows a state without interaction, for /ui. In the components layer, so a utility
+ * class on an instance (w-full, say) still wins.
+ */
+@layer components {
+  [data-action] {
+    /* Tier-3 aliases, pointing only at roles and depth tokens. */
+    --action-fill: transparent;
+    --action-ink: inherit;
+    --action-depth: var(--shadow-e0);
+    --action-hover-fill: var(--color-tint);
+    --action-hover-ink: var(--action-ink);
+    --action-hover-depth: var(--action-depth);
+    --action-gap: var(--spacing-1_5);
+    --action-radius: var(--radius-control);
+
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    gap: var(--action-gap);
+    border: 0;
+    border-radius: var(--action-radius);
+    background-color: var(--action-fill);
+    box-shadow: var(--action-depth);
+    color: var(--action-ink);
+    font-size: 13.5px;
+    line-height: var(--text-ui--line-height);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    touch-action: manipulation;
+    transition-property: transform, background-color, box-shadow, color, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Buttons: a 32 px soft rectangle, 10 px radius (ADR-0041 amendment). */
+  [data-action='button'] {
+    min-height: 32px;
+    padding-inline: 14px;
+  }
+
+  [data-action='button'][data-size='small'] {
+    min-height: 28px;
+    padding-inline: 10px;
+    font-size: var(--text-small);
+  }
+
+  [data-action='button'][data-lead] {
+    padding-inline-start: 12px;
+  }
+
+  /* The loading ring's room, half on each side of the label so it stays centred. */
+  [data-action] [data-reserve] {
+    padding-inline: calc((var(--spacing-4) + var(--action-gap)) / 2);
+  }
+
+  [data-action='icon'] {
+    inline-size: 32px;
+    block-size: 32px;
+    padding: 0;
+    --action-ink: var(--color-ink-2);
+    --action-hover-ink: var(--color-ink-1);
+  }
+
+  [data-action='icon'][data-size='small'] {
+    inline-size: 28px;
+    block-size: 28px;
+  }
+
+  /* Text buttons read as text: muted, darkening on hover, no fill or depth. */
+  [data-action='text'] {
+    --action-ink: var(--color-ink-3);
+    --action-hover-fill: transparent;
+    --action-hover-ink: var(--color-ink-1);
+    --action-gap: var(--spacing-1);
+    padding: 0;
+    border-radius: var(--radius-tight);
+    font-size: var(--text-caption);
+    font-weight: var(--font-weight-normal);
+    line-height: var(--text-caption--line-height);
+  }
+
+  /* The solid button: black with a faint inner top highlight and a contact shadow (white in dark,
+     with the highlight turned to a faint bottom shade). Decision and primary share it. */
+  [data-action]:is([data-variant='decision'], [data-variant='primary']) {
+    --action-fill: var(--color-solid);
+    --action-ink: var(--color-on-solid);
+    --action-hover-fill: var(--color-solid-hover);
+    --action-depth: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 1px 2px rgb(0 0 0 / 0.18);
+    --action-hover-depth: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 2px 6px rgb(0 0 0 / 0.18);
+  }
+
+  :where([data-theme='dark'])
+    [data-action]:is([data-variant='decision'], [data-variant='primary']) {
+    --action-depth: inset 0 -1px 0 rgb(0 0 0 / 0.12), 0 1px 2px rgb(0 0 0 / 0.4);
+    --action-hover-depth: inset 0 -1px 0 rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.45);
+  }
+
+  /* The raised button: a hairline edge instead of a border, a breath more depth on hover. */
+  [data-action]:is([data-variant='secondary'], [data-variant='danger']) {
+    --action-fill: var(--color-surface-raised);
+    --action-ink: var(--color-ink-1);
+    --action-hover-fill: var(--color-surface-page);
+    --action-depth: var(--shadow-hairline);
+    --action-hover-depth: 0 0 0 0.5px var(--color-hair), 0 2px 6px var(--depth-near);
+  }
+
+  [data-action][data-variant='danger'] {
+    --action-ink: var(--color-stop);
+    --action-hover-fill: var(--color-stop-soft);
+  }
+
+  [data-action][data-variant='quiet'] {
+    --action-ink: var(--color-ink-2);
+    --action-hover-ink: var(--color-ink-1);
+  }
+
+  /* Quiet icon buttons (sidebar, top bar, row actions): a muted grey that darkens to ink on a soft
+     tint, flat, as the running app and Takeoff draw them. Gray-600 / gray-400 keep the glyph above
+     3:1 on its ground (ADR-0041 amendment). */
+  [data-action='icon'][data-variant='quiet'] {
+    --action-ink: var(--color-gray-600);
+    --action-hover-fill: var(--color-tint);
+    --action-hover-depth: var(--shadow-e0);
+  }
+
+  :where([data-theme='dark']) [data-action='icon'][data-variant='quiet'] {
+    --action-ink: var(--color-gray-400);
+  }
+
+  [data-action]:not(
+      :disabled,
+      [aria-disabled='true'],
+      [aria-busy='true'],
+      [aria-pressed='true']
+    ):is(:hover, [data-preview='hover']) {
+    background-color: var(--action-hover-fill);
+    box-shadow: var(--action-hover-depth);
+    color: var(--action-hover-ink);
+  }
+
+  /* A press settles the button to 98%: a mechanical click, no colour jump. */
+  [data-action]:not(:disabled, [aria-disabled='true'], [aria-busy='true']):is(
+      :active,
+      [data-preview='active']
+    ) {
+    transform: scale(0.98);
+  }
+
+  /* Keyboard focus: the soft glow, laid over the button's own depth. */
+  [data-action]:is(:focus-visible, [data-preview='focus']),
+  [data-link]:is(:focus-visible, [data-preview='focus']) {
+    outline: none;
+    box-shadow: var(--action-depth), var(--shadow-focus);
+  }
+
+  /* Selected: a raised thumb on the track, never a ring. */
+  [data-action][aria-pressed='true'] {
+    background-color: var(--color-surface-raised);
+    box-shadow: var(--shadow-hairline);
+    color: var(--color-ink-1);
+  }
+
+  [data-action]:is(:disabled, [aria-disabled='true']) {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  [data-action][aria-busy='true'] {
+    cursor: progress;
+  }
+
+  @media (forced-colors: active) {
+    [data-action][aria-pressed='true'] {
+      border-color: Highlight;
+    }
+
+    [data-action]:is(:disabled, [aria-disabled='true']) {
+      color: GrayText;
+    }
+  }
+
+  /* Links: answer links are underlined in the text colour. */
+  [data-link] {
+    border-radius: var(--radius-tight);
+    color: inherit;
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+  }
+
+  [data-link]:is(:hover, [data-preview='hover'], [data-preview='active']) {
+    color: var(--color-ink-1);
+  }
+
+  [data-link][aria-current]:not([aria-current='false']) {
+    background-color: var(--color-tint);
+    color: var(--color-ink-1);
+  }
+
+  [data-link] svg {
+    display: inline;
+    vertical-align: -0.125em;
+  }
+}
