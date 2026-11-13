@@ -140,12 +140,14 @@
     padding-inline: 2px;
     border: 1px solid color-mix(in srgb, var(--color-gray-100) 30%, transparent);
     border-radius: var(--radius-composer);
-    background-color: color-mix(in srgb, var(--color-white) 5%, transparent);
+    background-color: var(--glass-fill);
     box-shadow:
+      var(--glass-edge),
       0 0 0 1px rgb(0 0 0 / 0.04),
       0 1px 2px -1px rgb(16 24 40 / 0.06),
       0 12px 32px -14px rgb(16 24 40 / 0.2);
-    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     transition:
       border-color 300ms ease-out,
       box-shadow 300ms ease-out;
@@ -158,6 +160,7 @@
   .box:focus-within {
     border-color: var(--color-gray-100);
     box-shadow:
+      var(--glass-edge),
       0 0 0 1px rgb(0 0 0 / 0.08),
       0 1px 3px -1px rgb(16 24 40 / 0.08),
       0 20px 48px -18px rgb(16 24 40 / 0.28);
@@ -165,8 +168,8 @@
 
   :global([data-theme='dark']) .box {
     border-color: color-mix(in srgb, var(--color-gray-850) 30%, transparent);
-    background-color: color-mix(in srgb, var(--color-gray-500) 5%, transparent);
     box-shadow:
+      var(--glass-edge),
       0 0 0 1px rgb(255 255 255 / 0.06),
       0 1px 2px -1px rgb(16 24 40 / 0.06),
       0 12px 32px -14px rgb(16 24 40 / 0.2);
@@ -254,6 +257,23 @@
     background-color: var(--color-gray-800);
   }
 
+  /* Tools, dictation and the model also darken their ink under the pointer, as on the running app. */
+  :is(.chip, .end .round):hover {
+    color: var(--color-gray-900);
+  }
+
+  .model:hover {
+    color: var(--color-gray-700);
+  }
+
+  :global([data-theme='dark']) :is(.chip, .end .round):hover {
+    color: var(--color-white);
+  }
+
+  :global([data-theme='dark']) .model:hover {
+    color: var(--color-gray-200);
+  }
+
   .divider {
     align-self: center;
     inline-size: 1px;
@@ -307,6 +327,8 @@
   }
 
   .action {
+    /* 200 ms, as measured on the running app's voice button. */
+    --interact-duration: 200ms;
     position: relative;
     background-color: var(--color-solid);
     color: var(--color-on-solid);

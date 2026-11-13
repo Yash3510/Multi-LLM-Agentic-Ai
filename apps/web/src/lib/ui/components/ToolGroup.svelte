@@ -1,7 +1,7 @@
 <script lang="ts">
-  // A run's tool calls as one fold-out (chat-messages look §5.5): a leading status (a travelling light while
-  // a call runs, an emerald tick when all are done, a red cross on failure), the label and a
-  // summary, then each call's input and output when opened.
+  // A run's tool calls as one quiet fold-out line: a leading status (a travelling light while a
+  // call runs, a grey tick when all are done, a red cross on failure), the tool names in mono and
+  // a summary, then each call's input and output when opened.
   import Wire from './Wire.svelte';
   import type { ToolCall } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
@@ -32,9 +32,9 @@
       {#if status === 'running'}
         <Wire width={14} />
       {:else if status === 'failed'}
-        <Icon name="tools-failed" size={16} />
+        <Icon name="tools-failed" size={14} />
       {:else}
-        <Icon name="tools-done" size={16} />
+        <Icon name="tools-done" size={14} />
       {/if}
     </span>
     <span class="text">
@@ -61,17 +61,18 @@
 <style>
   .group {
     inline-size: 100%;
-    margin-block-end: var(--spacing-1);
+    margin-block-end: 6px;
   }
 
+  /* As wide as its text, so the caret sits beside the summary and not at the far edge. */
   .toggle {
     display: flex;
     align-items: center;
-    gap: 6px;
-    inline-size: 100%;
-    padding-block: 2px;
-    color: var(--color-gray-500);
-    font-size: var(--text-body);
+    gap: 7px;
+    max-inline-size: 100%;
+    padding-block: 3px;
+    color: var(--color-ink-3);
+    font-size: var(--text-caption);
     text-align: start;
     transition: color 150ms;
   }
@@ -95,20 +96,16 @@
   }
 
   .toggle[data-state='done'] .lead {
-    color: var(--color-emerald-500);
+    color: var(--color-ink-3);
   }
 
   .toggle[data-state='failed'] .lead {
     color: var(--color-red-500);
   }
 
-  :global([data-theme='dark']) .toggle[data-state='done'] .lead {
-    color: var(--color-emerald-400);
-  }
-
   .text {
     display: flex;
-    flex: 1;
+    flex: 0 1 auto;
     gap: 6px;
     min-inline-size: 0;
     overflow: hidden;
@@ -116,11 +113,9 @@
   }
 
   .label {
-    color: var(--color-gray-600);
-  }
-
-  :global([data-theme='dark']) .label {
-    color: var(--color-gray-300);
+    color: var(--color-ink-2);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
   }
 
   /* While a call runs the label shimmers (chat-messages look §5.5). */
@@ -139,13 +134,13 @@
 
   .summary {
     overflow: hidden;
-    color: var(--color-gray-400);
+    color: var(--color-ink-3);
     text-overflow: ellipsis;
   }
 
   .caret {
     display: inline-flex;
-    color: var(--color-gray-400);
+    color: var(--color-ink-3);
   }
 
   .calls {

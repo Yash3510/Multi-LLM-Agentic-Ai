@@ -8,15 +8,17 @@
  * floating layer over all of them (60), so a menu or a tooltip opened inside a dialog shows on top.
  */
 @layer components {
-  /* e2: popovers and menus (ADR-0041 amendment). A 12 px radius and hairline depth, no border.
+  /* e2: popovers and menus (ADR-0041 amendment). Glass fill and blur (ADR-0043), no border.
      Opens and closes in 200 ms on the expo curve, scaling from 0.96 at the edge nearest its
      trigger, the same both ways (ADR-0042). */
   [data-surface='float'] {
     z-index: 60;
     border: 0;
     border-radius: var(--radius-menu);
-    background-color: var(--color-surface-raised);
-    box-shadow: var(--shadow-e2);
+    background-color: var(--glass-fill);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-e2), var(--glass-edge);
     color: var(--color-ink-1);
     /* A menu grows from the edge nearest its trigger (ADR-0042); the library names that point. */
     transform-origin: var(--bits-floating-transform-origin, top center);
@@ -104,15 +106,17 @@
     flex-direction: column;
     min-block-size: 0;
     border-radius: var(--radius-panel);
-    background-color: var(--color-surface-raised);
-    box-shadow: var(--shadow-e3);
+    background-color: var(--glass-fill);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-e3), var(--glass-edge);
     color: var(--color-ink-1);
     outline: 1px solid transparent;
     overflow: hidden;
   }
 
   [data-surface='panel']:focus-visible {
-    box-shadow: var(--shadow-e3), var(--shadow-focus);
+    box-shadow: var(--shadow-e3), var(--glass-edge), var(--shadow-focus);
   }
 
   /*
@@ -221,7 +225,8 @@
 @layer components {
   /*
    * Cards in the flow (ADR-0041 amendment): a 20 px radius, raised fill and hairline depth, no
-   * border. An interactive card lifts to e1 on hover and settles to 99% while pressed.
+   * border. An interactive card lifts to e1 on hover, rising 1 px in 200 ms as the running app's
+   * cards do (ADR-0042), and settles to 99% while pressed.
    */
   [data-surface='card'] {
     --card-fill: var(--color-surface-raised);
@@ -243,8 +248,17 @@
   }
 
   [data-surface='card'][data-interactive] {
+    --interact-duration: 200ms;
     cursor: pointer;
     touch-action: manipulation;
+  }
+
+  :root:not([data-motion='reduce'])
+    [data-surface='card'][data-interactive]:not([data-disabled], [aria-busy='true']):is(
+      :hover,
+      [data-preview='hover']
+    ) {
+    translate: 0 -1px;
   }
 
   [data-surface='card'][data-interactive]:not([data-disabled], [aria-busy='true']):is(

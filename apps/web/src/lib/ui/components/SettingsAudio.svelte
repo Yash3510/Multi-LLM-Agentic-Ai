@@ -65,10 +65,11 @@
 
 <div class="settings-page">
   <h2>Audio</h2>
+  <p class="lede">Speech-to-text, text-to-speech and voice.</p>
   <div class="body">
     <section>
       <h3>STT Settings</h3>
-      <div class="rows">
+      <div class="rows grouped">
         <div class="block">
           <div class="row">
             <span>Speech-to-Text Engine</span>
@@ -109,7 +110,7 @@
     </section>
     <section>
       <h3>TTS Settings</h3>
-      <div class="rows">
+      <div class="rows grouped">
         <div class="block">
           <div class="row">
             <span>Text-to-Speech Engine</span>
@@ -181,7 +182,7 @@
   }
 
   .field::placeholder {
-    color: var(--color-gray-300);
+    color: var(--color-gray-500);
   }
 
   .field:focus {
@@ -193,10 +194,6 @@
     border-color: rgb(255 255 255 / 0.04);
     background-color: rgb(255 255 255 / 0.03);
     color: var(--color-gray-300);
-  }
-
-  :global([data-theme='dark']) .field::placeholder {
-    color: var(--color-gray-700);
   }
 
   :global([data-theme='dark']) .field:focus {

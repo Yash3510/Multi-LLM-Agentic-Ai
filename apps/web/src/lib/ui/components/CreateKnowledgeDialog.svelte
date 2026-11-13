@@ -168,11 +168,7 @@
   }
 
   :is(input, textarea)::placeholder {
-    color: var(--color-gray-300);
-  }
-
-  :global([data-theme='dark']) :is(input, textarea)::placeholder {
-    color: var(--color-gray-700);
+    color: var(--color-gray-500);
   }
 
   /* 8 px in the look, 9 px as the running app measures (its select sits 20 px under the text). */

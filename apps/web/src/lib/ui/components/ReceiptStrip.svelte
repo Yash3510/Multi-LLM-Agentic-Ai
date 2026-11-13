@@ -1,13 +1,10 @@
 <script lang="ts">
   // The receipt under a released answer (own-4ce look S7, features F36-F37): labels saying how
   // the answer was produced, the fingerprint (click to copy) and the audit record, then what was
-  // checked, then the folds: full provenance, each agent's output and the execution timeline.
-  import { foldTitle } from '$lib/ui/fold-title';
+  // checked. The provenance, each agent's output and the timeline are in DetailsPanel.
   import type { Receipt, Revision, SignOffRequest } from '$lib/data';
-  import Expand from './Expand.svelte';
   import RevisionCard from './RevisionCard.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
-  import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
   import { COPY_HOLD_MS, writeClipboard } from './clipboard';
 
   type Props = {
@@ -16,35 +13,20 @@
     releasedAt?: Date;
     /** The names of the sources the answer cites, for the Grounded label's hover. */
     cited?: string[];
-    /** The run's status events with their offset from the start. */
-    timeline?: { at: string; text: string }[];
     /** Opens the audit record. */
     onaudit?: () => void;
     /** What changed on a later try, shown above the checks. */
     revision?: Revision;
   };
 
-  let {
-    receipt,
-    checks,
-    releasedAt,
-    cited = [],
-    timeline = [],
-    onaudit,
-    revision,
-  }: Props = $props();
+  let { receipt, checks, releasedAt, cited = [], onaudit, revision }: Props = $props();
 
-  let open = $state<Record<string, boolean>>({});
   const reservations = $derived(checks.filter((check) => check.verdict === 'review').length);
   const clock = new Intl.DateTimeFormat('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
   });
-  const folds = $derived([
-    ...(receipt.folds ?? []),
-    ...(timeline.length ? [{ title: 'Execution timeline', body: '' }] : []),
-  ]);
 
   let copied = $state(false);
   const passed = $derived(checks.every((check) => check.verdict !== 'fail'));
@@ -119,38 +101,6 @@
       </ul>
     </div>
   {/if}
-  {#each folds as fold (fold.title)}
-    {@const title = foldTitle(fold.title)}
-    <div class="fold">
-      <button
-        type="button"
-        class="fold-toggle"
-        aria-expanded={open[fold.title] ?? false}
-        onclick={() => (open[fold.title] = !open[fold.title])}
-      >
-        <span>{title.text}</span>
-        {#if title.verdict}<span class="verdict" data-verdict={title.verdict}>{title.verdict}</span
-          >{/if}
-        {#if title.model}<span class="model">{title.model}</span>{/if}
-        <span class="caret" data-open={open[fold.title] ? '' : undefined}
-          ><Icon name="sort-caret-down" size={12} /></span
-        >
-      </button>
-      {#if open[fold.title]}
-        <Expand>
-          {#if fold.title === 'Execution timeline'}
-            <ol class="timeline">
-              {#each timeline as step, index (index)}
-                <li><span class="offset">{step.at}</span>{step.text}</li>
-              {/each}
-            </ol>
-          {:else}
-            <div class="fold-body" {@attach safeHtml(renderMarkdown(fold.body))}></div>
-          {/if}
-        </Expand>
-      {/if}
-    </div>
-  {/each}
 </div>
 
 <style>
@@ -175,6 +125,42 @@
     color: var(--color-gray-600);
     font-size: var(--text-micro);
     line-height: 16px;
+  }
+
+  /* On a run answered here the labels arrive one after another, 40 ms apart. */
+  :global([data-fresh]) .label {
+    animation: label-in var(--duration-calm) var(--ease-out) both;
+  }
+
+  :global([data-fresh]) .label:nth-child(2) {
+    animation-delay: 40ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(3) {
+    animation-delay: 80ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(4) {
+    animation-delay: 120ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(5) {
+    animation-delay: 160ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(n + 6) {
+    animation-delay: 200ms;
+  }
+
+  :global([data-fresh]) .checks {
+    animation: label-in var(--duration-calm) var(--ease-out) 200ms both;
+  }
+
+  @keyframes label-in {
+    from {
+      opacity: 0;
+      translate: 0 6px;
+    }
   }
 
   .label b {
@@ -216,15 +202,17 @@
     border-style: dashed;
   }
 
-  .fingerprint {
+  :is(.fingerprint, .audit) {
     transition:
-      border-color 150ms,
-      color 150ms;
+      background-color var(--duration-interact) var(--ease-standard),
+      border-color var(--duration-interact) var(--ease-standard),
+      color var(--duration-interact) var(--ease-standard);
   }
 
   .fingerprint:hover {
-    border-color: var(--color-gray-300);
-    color: var(--color-gray-900);
+    border-color: var(--color-line-2);
+    background-color: var(--color-surface-hover);
+    color: var(--color-ink-1);
   }
 
   .fingerprint code {
@@ -298,140 +286,6 @@
 
   .text {
     flex: 1;
-  }
-
-  /* Folds (chat-messages look §5.5): 13.5 px muted toggles with a caret that turns. */
-  /* Polish pass (WP-F-10): one row rhythm with hairlines, a touch more contrast, the model in
-     Plex Mono and the verdict in its colour. */
-  .fold {
-    border-block-start: 1px solid var(--color-gray-50);
-  }
-
-  /* The wire (ADR-0042): an opened row draws the stage rail's finished rule over its hairline. */
-  .fold {
-    position: relative;
-  }
-
-  .fold:has(> .fold-toggle[aria-expanded='true'])::before {
-    position: absolute;
-    inset: -1px 0 auto;
-    block-size: 1px;
-    background-color: var(--color-ink-1);
-    transform-origin: left center;
-    animation: wire-draw var(--duration-slow) var(--ease-expo) both;
-    content: '';
-  }
-
-  @keyframes wire-draw {
-    from {
-      scale: 0 1;
-    }
-  }
-
-  .fold-toggle[aria-expanded='true'] > span:first-child {
-    color: var(--color-ink-1);
-  }
-
-  .fold:first-of-type {
-    margin-block-start: 6px;
-  }
-
-  :global([data-theme='dark']) .fold {
-    border-color: var(--color-gray-850);
-  }
-
-  .fold-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    min-block-size: 34px;
-    color: var(--color-gray-600);
-    font-size: var(--text-small);
-    transition: color 150ms;
-  }
-
-  .model {
-    color: var(--color-gray-500);
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-  }
-
-  .verdict {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.06em;
-  }
-
-  .verdict[data-verdict='PASS'] {
-    color: var(--color-ok);
-  }
-
-  .verdict[data-verdict='FAIL'] {
-    color: var(--color-stop);
-  }
-
-  .caret {
-    color: var(--color-gray-400);
-  }
-
-  .fold-toggle:hover {
-    color: var(--color-gray-900);
-  }
-
-  :global([data-theme='dark']) .fold-toggle {
-    color: var(--color-gray-400);
-  }
-
-  :global([data-theme='dark']) .fold-toggle:hover {
-    color: var(--color-gray-100);
-  }
-
-  .fold-toggle:focus-visible {
-    outline: none;
-    box-shadow: var(--shadow-focus);
-  }
-
-  .caret {
-    display: inline-flex;
-    transition: rotate var(--duration-calm) var(--ease-expo);
-  }
-
-  .caret[data-open] {
-    rotate: 180deg;
-  }
-
-  .fold-body,
-  .timeline {
-    margin-block-end: 6px;
-    color: var(--color-prose);
-    font-size: var(--text-ui);
-    line-height: 1.625;
-  }
-
-  .fold-body :global(table) {
-    border-collapse: collapse;
-    font-size: var(--text-small);
-  }
-
-  .fold-body :global(:is(th, td)) {
-    padding: var(--spacing-1) var(--spacing-3);
-    border-block-end: 1px solid var(--color-line-1);
-    text-align: start;
-  }
-
-  .timeline {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: var(--text-small);
-  }
-
-  .offset {
-    display: inline-block;
-    min-inline-size: 4.5em;
-    color: var(--color-gray-500);
-    font-family: var(--font-mono);
-    font-size: var(--text-caption);
   }
 
   .by {

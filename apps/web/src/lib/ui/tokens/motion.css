@@ -4,6 +4,8 @@
  */
 @theme static {
   --duration-instant: 100ms;
+  /* Hover, press and focus: 150 ms in and out, as measured on the running app (ADR-0042). */
+  --duration-interact: 150ms;
   --duration-quick: 160ms;
   --duration-base: 240ms;
   --duration-calm: 360ms;
@@ -20,6 +22,8 @@
 
   --ease-*: initial;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* The curve of every hover, press and focus change. */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --ease-cubic-out: cubic-bezier(0.33, 1, 0.68, 1);
@@ -73,6 +77,7 @@
  */
 @layer theme {
   [data-motion='reduce'] {
+    --duration-interact: 120ms;
     --duration-quick: 120ms;
     --duration-base: 120ms;
     --duration-calm: 120ms;
