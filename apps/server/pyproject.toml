@@ -12,6 +12,7 @@ dependencies = [
     "fource-jobs",
     "fource-ledger",
     "fource-live",
+    "fource-storage",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -32,3 +33,4 @@ fource-identity = { workspace = true }
 fource-jobs = { workspace = true }
 fource-ledger = { workspace = true }
 fource-live = { workspace = true }
+fource-storage = { workspace = true }

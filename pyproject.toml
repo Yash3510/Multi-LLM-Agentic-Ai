@@ -87,6 +87,7 @@ name = "The server sits above the core packages; core never imports it"
 type = "layers"
 layers = [
     "fource.server",
+    "fource.storage",
     "fource.identity",
     "fource.jobs",
     "fource.live",
@@ -140,7 +141,14 @@ source_modules = [
     "fource.ledger",
     "fource.jobs",
     "fource.identity",
+    "fource.storage",
     "fource.server",
 ]
 forbidden_modules = ["redis"]
 allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Only the public API of fource.storage is imported from outside it"
+type = "protected"
+protected_modules = ["fource.storage.*"]
+allowed_importers = ["fource.storage"]
