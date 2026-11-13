@@ -383,6 +383,14 @@
     scrollbar-width: none;
   }
 
+  /* As a strip the list scrolls sideways, and fades at the end to show there is more. */
+  @media (max-width: 47.99rem) {
+    .tabs {
+      padding-inline-end: 28px;
+      mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+    }
+  }
+
   /* The list fades out at the foot where it scrolls; the padding keeps the last tab clear of it. */
   @media (min-width: 48rem) {
     .tabs {

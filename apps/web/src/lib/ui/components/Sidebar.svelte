@@ -189,6 +189,17 @@
     </div>
   {/if}
 </nav>
+{#if open}
+  <!-- At phone width the open sidebar floats over the page; this dims the rest and closes it on
+       a tap. Hidden from assistive tech: the panel's own close button is the named control. -->
+  <button
+    type="button"
+    class="scrim"
+    aria-hidden="true"
+    tabindex="-1"
+    onclick={() => (open = false)}
+  ></button>
+{/if}
 
 <style>
   .sidebar {
@@ -445,7 +456,19 @@
 
   /* Below 768 px the running app drops the rail for a lone sidebar button in the corner, and
      the open sidebar lies over the page instead of pushing it. */
+  .scrim {
+    display: none;
+  }
+
   @media (max-width: 47.99rem) {
+    .scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      display: block;
+      background-color: var(--color-scrim);
+    }
+
     /* Raised over the sticky top bar (z-index 30) so the corner button can be tapped. */
     .sidebar:not([data-open]) {
       position: relative;

@@ -48,6 +48,13 @@
     backdrop-filter: var(--glass-blur);
   }
 
+  /* At phone width the sidebar's corner button floats over the bar's start. */
+  @media (max-width: 47.99rem) {
+    .bar {
+      padding-inline-start: 44px;
+    }
+  }
+
   .title {
     display: flex;
     flex: 1;

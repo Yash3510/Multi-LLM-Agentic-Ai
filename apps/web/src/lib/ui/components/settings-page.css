@@ -455,3 +455,11 @@
   margin: 0;
   padding: 10px 14px;
 }
+
+/* At phone width a four-way choice, such as the theme, only fits with tighter segments. */
+@media (max-width: 47.99rem) {
+  .settings-page .item .segment {
+    gap: 4px;
+    padding-inline: 6px;
+  }
+}

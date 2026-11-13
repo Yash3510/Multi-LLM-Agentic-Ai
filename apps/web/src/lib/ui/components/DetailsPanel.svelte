@@ -494,6 +494,33 @@
     text-align: end;
   }
 
+  /* Too narrow for three columns: each figure stacks over its source and passage. */
+  @container (max-width: 440px) {
+    thead {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+
+    tr {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding-block: var(--spacing-2);
+    }
+
+    tr + tr {
+      border-block-start: 1px solid var(--color-line-1);
+    }
+
+    td {
+      padding: 0;
+      border: 0;
+    }
+  }
+
   @container (max-width: 560px) {
     .span {
       grid-template-columns: 52px 88px minmax(0, 1fr) 40px;

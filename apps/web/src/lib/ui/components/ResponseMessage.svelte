@@ -287,6 +287,32 @@
     padding-inline-start: var(--spacing-1);
   }
 
+  /* At phone width the mark sits beside the name, so the answer keeps the same margin on both
+     sides instead of losing 54 px to an avatar gutter. */
+  @media (max-width: 47.99rem) {
+    .response {
+      position: relative;
+    }
+
+    .avatar {
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline-start: 0;
+      inline-size: 24px;
+      block-size: 24px;
+      margin: 0;
+      scale: 0.8;
+    }
+
+    .column {
+      padding-inline-start: 0;
+    }
+
+    .name {
+      padding-inline-start: 32px;
+    }
+  }
+
   .name {
     color: var(--color-black);
     font-size: var(--text-body);
