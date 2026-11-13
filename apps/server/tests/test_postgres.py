@@ -1002,3 +1002,56 @@ async def test_the_listener_connects_again_after_its_backend_is_terminated(
     finally:
         stop.set()
         await asyncio.wait_for(listener, 10)
+
+
+def test_stored_files_are_under_forced_row_level_security_without_delete(
+    postgres: tuple[str, str],
+) -> None:
+    owner, _ = postgres
+    upgrade(owner)
+    downgrade(owner, "0005")
+    upgrade(owner)
+    with connect(owner) as connection:
+        flags = connection.execute(
+            text(
+                "SELECT relrowsecurity, relforcerowsecurity FROM pg_class"
+                " WHERE relname = 'stored_files'"
+            )
+        ).one()
+        granted = connection.execute(
+            text(
+                "SELECT privilege_type FROM information_schema.role_table_grants"
+                " WHERE table_name = 'stored_files' AND grantee = 'fource_app'"
+            )
+        ).scalars()
+        privileges = set(granted)
+    assert tuple(flags) == (True, True)
+    assert privileges == {"SELECT", "INSERT", "UPDATE"}  # a record outlives its bytes
+
+
+async def test_the_app_role_cannot_reach_or_delete_another_organisations_files(
+    postgres: tuple[str, str], orgs: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    insert = text(
+        "INSERT INTO stored_files (id, org_id, created_at, name, content_type, size, sha256,"
+        " created_by) VALUES (:id, :org, now(), 'a.txt', 'text/plain', 1, :sha, 'system')"
+    )
+    with connect(postgres[1]) as connection:
+        set_org(connection, orgs[1])
+        connection.execute(insert, {"id": new_id(), "org": orgs[1], "sha": "0" * 64})
+        connection.commit()
+        with pytest.raises(DBAPIError, match="permission denied"):
+            connection.execute(text("DELETE FROM stored_files"))
+        connection.rollback()
+        set_org(connection, orgs[0])
+        assert connection.execute(text("SELECT count(*) FROM stored_files")).scalar() == 0
+        with pytest.raises(DBAPIError, match="row-level security"):
+            connection.execute(insert, {"id": new_id(), "org": orgs[1], "sha": "0" * 64})
+        connection.rollback()
+        set_org(connection, orgs[0])  # again: the rollback above undid it
+        changed = connection.execute(
+            text("UPDATE stored_files SET deleted_by = 'system' WHERE org_id = :org"),
+            {"org": orgs[1]},
+        )
+        assert changed.rowcount == 0  # the other organisation's record is not even visible
+        connection.rollback()
