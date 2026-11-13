@@ -304,14 +304,22 @@
 
   /* Tables and lists in the draft read as in the answer. */
   .draft-text :global(table) {
-    margin-block: var(--spacing-2);
-    border-collapse: collapse;
+    margin-block: 10px 6px;
+    overflow: hidden;
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-control);
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: var(--text-small);
   }
 
   .draft-text :global(:is(th, td)) {
-    padding: var(--spacing-1) var(--spacing-3);
+    padding: 6px 14px;
     border-block-end: 1px solid var(--color-line-1);
+  }
+
+  .draft-text :global(tr:last-child > td) {
+    border-block-end: 0;
   }
 
   .draft-text :global(:is(th, td):not([align])) {
@@ -319,7 +327,14 @@
   }
 
   .draft-text :global(th) {
+    background-color: var(--glass-soft);
+    color: var(--color-ink-3);
+    font-size: var(--text-caption);
     font-weight: var(--font-weight-medium);
+  }
+
+  .draft-text :global(td) {
+    font-variant-numeric: tabular-nums;
   }
 
   .draft-text :global(ul) {
@@ -328,10 +343,11 @@
   }
 
   .draft-text :global(.chip) {
-    padding: 1px 6px;
-    border: 1px solid var(--color-gray-200);
-    border-radius: var(--radius-pill);
-    background-color: var(--color-gray-50);
+    margin-inline: 3px 1px;
+    padding: 0 5px;
+    border: 1px solid var(--color-line-1);
+    border-radius: 5px;
+    color: var(--color-ink-2);
     font-size: 0.66rem;
     font-style: normal;
     font-weight: var(--font-weight-medium);
@@ -483,7 +499,7 @@
     margin-inline: -6px;
     padding: 6px 4px;
     border-radius: 8px;
-    color: var(--color-gray-700);
+    color: var(--color-ink-1);
     line-height: 1.45;
     transition: background-color 150ms;
   }
@@ -504,7 +520,7 @@
 
   .by {
     display: block;
-    color: var(--color-gray-500);
+    color: var(--color-ink-3);
     font-size: var(--text-tag);
     letter-spacing: 0.04em;
   }
@@ -525,6 +541,7 @@
 
   .source-name {
     flex: 1;
+    color: var(--color-ink-1);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -642,6 +659,115 @@
 
   .hint[data-refused] {
     color: var(--color-amber-700);
+  }
+
+  /* Dark: the draft and its controls sit on the card's own surface instead of light paper. */
+  :global([data-theme='dark']) :is(.body, .side) {
+    border-color: var(--color-line-1);
+  }
+
+  :global([data-theme='dark']) .draft {
+    background-color: var(--glass-soft);
+    color: var(--color-ink-1);
+  }
+
+  :global([data-theme='dark']) .verdict {
+    background-color: rgb(245 158 11 / 0.14);
+    color: var(--color-amber-400);
+  }
+
+  :global([data-theme='dark']) .verdict[data-passed] {
+    background-color: rgb(16 185 129 / 0.14);
+    color: var(--color-emerald-400);
+  }
+
+  :global([data-theme='dark']) .drafted code {
+    background-color: var(--color-gray-800);
+  }
+
+  :global([data-theme='dark']) :is(.drafted, .taken, .source, .hint, .tag, .section) {
+    color: var(--color-ink-3);
+  }
+
+  :global([data-theme='dark']) .hint[data-refused] {
+    color: var(--color-amber-400);
+  }
+
+  :global([data-theme='dark']) .changes-toggle {
+    border-color: var(--color-line-1);
+    color: var(--color-ink-2);
+  }
+
+  :global([data-theme='dark']) .changes-toggle:is(:hover, [aria-pressed='true']) {
+    border-color: var(--color-ink-1);
+    color: var(--color-ink-1);
+  }
+
+  :global([data-theme='dark']) .changes {
+    background-color: rgb(245 158 11 / 0.12);
+    color: var(--color-amber-400);
+  }
+
+  :global([data-theme='dark']) .draft-text :global(.chip[data-open]) {
+    border-color: var(--color-ink-3);
+    color: var(--color-ink-1);
+  }
+
+  :global([data-theme='dark']) .draft-text :global(.passage-card) {
+    border-color: var(--color-line-1);
+    background-color: var(--color-gray-900);
+  }
+
+  :global([data-theme='dark']) .draft-text :global(.passage-head b) {
+    color: var(--color-ink-1);
+  }
+
+  :global([data-theme='dark']) .draft-text :global(.passage-card p) {
+    color: var(--color-ink-2);
+  }
+
+  :global([data-theme='dark']) .draft-text :global([data-was]) {
+    color: var(--color-red-400);
+  }
+
+  :global([data-theme='dark']) .check:hover,
+  :global([data-theme='dark']) .withhold:hover {
+    background-color: var(--glass-soft);
+  }
+
+  :global([data-theme='dark']) .source[data-cited] {
+    color: var(--color-ink-1);
+  }
+
+  :global([data-theme='dark']) .field {
+    border-color: var(--color-line-1);
+    background-color: var(--glass-soft);
+    color: var(--color-ink-1);
+  }
+
+  :global([data-theme='dark']) .field:focus {
+    border-color: var(--color-ink-1);
+    background-color: transparent;
+    box-shadow: 0 0 0 4px rgb(255 255 255 / 0.06);
+  }
+
+  :global([data-theme='dark']) .withhold {
+    border-color: var(--color-line-1);
+    color: var(--color-ink-2);
+  }
+
+  :global([data-theme='dark']) .approve {
+    background-color: var(--color-gray-800);
+    color: var(--color-ink-3);
+  }
+
+  :global([data-theme='dark']) .approve[data-ready] {
+    background-color: var(--color-white);
+    color: var(--color-gray-900);
+  }
+
+  :global([data-theme='dark']) .approve[data-ready]:hover {
+    background-color: var(--color-gray-200);
   }
 
   @keyframes dock {
