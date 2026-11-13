@@ -175,3 +175,19 @@ Checked afterwards on `/c/c-demo`: in dark the row hover and tint resolve to 9 %
 **Docs updated:** `docs/adr/0041-exact-match-look.md`, `docs/state.md`.
 
 **Known limits:** Admin Models and Analytics are unchanged. Admin pages have no description line under the title (the copy needs the owner's wording). Only General has the on-change save bar. Unverified: phone width, the admin pages in dark, a failed tool call, and a wide or multi-row table.
+
+## 2026-11-13: icons for verdict marks
+
+**What changed:** The sign-off panel's check marks are the `verdict-pass`, `verdict-fail` and `verdict-review` icons, and the revision card's cross and tick are the `x` and `check` icons, in place of typed `✓ ✕ ! ?` characters. Colours are unchanged.
+
+**Why:** typed characters took their weight and alignment from the text font and did not match the icons used elsewhere; the frontend owner approved the preview.
+
+**Files:** in `apps/web/src/lib/ui/components`: `RevisionCard.svelte`, `SignOffPanel.svelte`.
+
+**How it was verified:** in `apps/web`: `npx vitest run` (550 passed, 91 files), `npm run lint:design` (clean), `npx svelte-check --threshold error` (0 errors), `npx eslint src/lib/ui` (no findings), `npx prettier --check src/lib/ui` (formatted), `npx playwright test` (8 passed), `npm run build` (exit 0). A revised run on `/c/c-0142` was read before and after in light, and after in dark.
+
+**Decisions:** none. No new package.
+
+**Docs updated:** this log.
+
+**Known limits:** Unverified: a fail or review check in the sign-off panel (the fake source has only passing checks), and a revision that still fails.
