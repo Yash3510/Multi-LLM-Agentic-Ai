@@ -139,7 +139,14 @@
             onmouseleave={() => highlight()}
           >
             <span class="mark" data-verdict={check.verdict} aria-hidden="true">
-              {check.verdict === 'pass' ? '✓' : check.verdict === 'fail' ? '!' : '?'}
+              <Icon
+                name={check.verdict === 'pass'
+                  ? 'verdict-pass'
+                  : check.verdict === 'fail'
+                    ? 'verdict-fail'
+                    : 'verdict-review'}
+                size={14}
+              />
             </span>
             <span>
               {check.label}
@@ -486,8 +493,8 @@
   }
 
   .mark {
-    font-size: var(--text-caption);
-    font-weight: var(--font-weight-semibold);
+    display: inline-flex;
+    padding-block-start: 2px;
     color: var(--color-amber-600);
   }
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   // What changed on a later try (own-4ce look S8, features F38): the objection from the previous
   // try, the Author's fixes, and how the Challenger judged the revised draft.
+  import Icon from '$lib/ui/icons/Icon.svelte';
   import type { Revision } from '$lib/data';
 
   let { revision, passed }: { revision: Revision; passed: boolean } = $props();
@@ -21,7 +22,10 @@
   {#each revision.objections as objection (objection.text)}
     <div class="row">
       <span class="label">{objection.by.toUpperCase()} · try {revision.try - 1}</span>
-      <span class="text"><span class="cross">✕</span>{objection.text}</span>
+      <span class="text"
+        ><span class="cross" aria-hidden="true"><Icon name="x" size={12} /></span
+        >{objection.text}</span
+      >
     </div>
   {/each}
   <div class="row">
@@ -36,8 +40,9 @@
   <div class="row">
     <span class="label">CHALLENGER · try {revision.try}</span>
     <span class="text">
-      {#if passed}<span class="tick">✓</span>Passed the revised draft.{:else}<span class="cross"
-          >✕</span
+      {#if passed}<span class="tick" aria-hidden="true"><Icon name="check" size={12} /></span>Passed
+        the revised draft.{:else}<span class="cross" aria-hidden="true"
+          ><Icon name="x" size={12} /></span
         >Failed the revised draft too; the reviewer saw that before deciding.{/if}
     </span>
   </div>
@@ -133,8 +138,9 @@
 
   .cross,
   .tick {
-    margin-inline-end: var(--spacing-1);
-    font-weight: var(--font-weight-semibold);
+    display: inline-flex;
+    margin-inline-end: 5px;
+    vertical-align: -1px;
   }
 
   .cross {
