@@ -11,9 +11,10 @@ from fource.identity import RevokedToken, User
 from fource.jobs import Job
 from fource.ledger import LedgerEntry, LedgerHead
 from fource.server.loops import asyncio_loop_factory
+from fource.storage import StoredFile
 
 # Each model imported here puts its table on Base.metadata.
-MODELS = (Org, User, RevokedToken, LedgerEntry, LedgerHead, Job)
+MODELS = (Org, User, RevokedToken, LedgerEntry, LedgerHead, Job, StoredFile)
 
 
 def _run(connection: Connection) -> None:
