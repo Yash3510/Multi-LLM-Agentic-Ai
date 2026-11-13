@@ -157,6 +157,7 @@
   "composer_send": "Send",
   "composer_model": "Selected model: {model}",
   "home_suggested": "Suggested",
+  "home_recent": "Recent",
   "egress_stale_label": "Egress: not observed. Open the Sovereignty page.",
   "egress_external": "external",
   "egress_stale": "egress not observed",
