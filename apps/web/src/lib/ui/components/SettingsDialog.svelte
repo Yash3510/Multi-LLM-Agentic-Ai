@@ -7,6 +7,7 @@
   import type { IconName } from '$lib/ui/icons/generated/icons';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { ADMIN_GROUPS, PANELS, type PanelId } from '$lib/ui/admin-panels';
+  import { glide } from '$lib/ui/glide';
   import AdminAnalytics from './AdminAnalytics.svelte';
   import AdminConnections from './AdminConnections.svelte';
   import AdminModels from './AdminModels.svelte';
@@ -21,6 +22,7 @@
   import SettingsNotifications from './SettingsNotifications.svelte';
   import SettingsPersonalization from './SettingsPersonalization.svelte';
   import SettingsUsage from './SettingsUsage.svelte';
+  import './glide.css';
   import './modal.css';
 
   type Props = {
@@ -116,7 +118,7 @@
             <span class="sr-only">Search</span>
             <input bind:value={query} placeholder="Search" />
           </label>
-          <div class="tabs">
+          <div class="tabs" {@attach glide({ active: '.tab[aria-current]', hover: '.tab' })}>
             {#if shown.length}
               <span class="caption first">Personal</span>
               {#each shown as group, index (group.caption)}
@@ -268,8 +270,8 @@
     align-items: center;
     gap: 6px;
     block-size: 28px;
-    padding-inline: 8px;
-    border-radius: 8px;
+    padding-inline: 10px;
+    border-radius: var(--radius-pill);
     font-size: var(--text-caption);
     line-height: 16px;
     text-align: start;
@@ -305,9 +307,11 @@
     gap: 6px;
     block-size: 28px;
     margin: 4px 4px 2px;
-    padding-inline: 8px;
-    border-radius: 8px;
-    background-color: color-mix(in srgb, var(--color-gray-50) 70%, transparent);
+    padding-inline: 12px;
+    border-radius: var(--radius-pill);
+    background-color: transparent;
+    background-image: var(--field-inset-fill);
+    box-shadow: var(--field-inset-edge);
     font-size: var(--text-caption);
   }
 
@@ -422,8 +426,29 @@
 
   .tab[aria-current] {
     background-color: var(--color-gray-50);
+    box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.07);
     color: var(--color-gray-900);
     font-weight: var(--font-weight-medium);
+  }
+
+  /* With the sliding highlight attached, the marker paints the fill the open tab used to. */
+  .tabs {
+    --glide-fill: var(--color-gray-50);
+    --glide-edge: 0 0 0 0.5px rgb(0 0 0 / 0.07);
+    --glide-hover-fill: color-mix(in srgb, var(--color-gray-50) 55%, transparent);
+  }
+
+  :global([data-theme='dark']) .tabs {
+    --glide-fill: rgb(255 255 255 / 0.04);
+    --glide-edge: none;
+    --glide-hover-fill: rgb(255 255 255 / 0.025);
+  }
+
+  @media (forced-colors: none) {
+    .tabs:global([data-glide-host]) .tab[aria-current] {
+      background-color: transparent;
+      box-shadow: none;
+    }
   }
 
   :global([data-theme='dark']) .tab:hover {

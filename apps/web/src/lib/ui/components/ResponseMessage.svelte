@@ -6,6 +6,7 @@
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { toIntlLocale } from '$lib/ui/format';
   import { onChip, renderMarkdown, safeHtml } from '$lib/ui/markdown';
+  import { arrive } from '$lib/ui/arrive';
   import { writeClipboard } from './clipboard';
   import Logomark from './Logomark.svelte';
   import StageRail from './StageRail.svelte';
@@ -199,6 +200,7 @@
           data-typing={typing ? '' : undefined}
           {@attach safeHtml(html)}
           {@attach onChip(cite)}
+          {@attach arrive()}
         ></div>
       {/if}
       {#if receipt && decision?.outcome === 'released'}
@@ -367,8 +369,21 @@
     text-align: start;
   }
 
+  /* Table headers speak in the stage names' quiet caps; figures line up down a column. */
   .body :global(th) {
+    color: var(--color-gray-600);
+    font-size: var(--text-tag);
     font-weight: var(--font-weight-medium);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  :global([data-theme='dark']) .body :global(th) {
+    color: var(--color-ink-3);
+  }
+
+  .body :global(td) {
+    font-variant-numeric: tabular-nums;
   }
 
   .body :global(pre) {
@@ -420,6 +435,17 @@
     border-radius: var(--radius-tight);
     background-color: var(--color-gray-50);
     font-size: 0.9em;
+  }
+
+  /* A block written while the answer streams fades in (arrive.ts); saved answers do not. */
+  .body > :global([data-arrive]) {
+    animation: arrive var(--duration-calm) var(--ease-out) both;
+  }
+
+  @keyframes arrive {
+    from {
+      opacity: 0;
+    }
   }
 
   /* The typing caret at the end of the text while it streams (chat-messages look §3.4). */

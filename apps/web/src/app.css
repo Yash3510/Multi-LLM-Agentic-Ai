@@ -165,6 +165,59 @@
   }
 
   /*
+   * One feel for everything the pointer can use (ADR-0042): a hover arrives at once and leaves
+   * softly, and a press settles the control a little. :where keeps the selector at zero
+   * specificity, so the reduced-motion rule below still wins. The declarations are important
+   * because component styles are unlayered and would otherwise keep their own timings.
+   */
+  :where(
+    button,
+    a,
+    summary,
+    [role='button'],
+    [role='tab'],
+    [role='menuitem'],
+    [role='option'],
+    [data-menu-row],
+    [data-list-row]
+  ) {
+    transition-property:
+      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow, visibility, transform, translate, rotate, scale !important;
+    transition-duration: var(--duration-base) !important;
+    transition-timing-function: var(--ease-out) !important;
+  }
+
+  :where(
+    button,
+    a,
+    summary,
+    [role='button'],
+    [role='tab'],
+    [role='menuitem'],
+    [role='option'],
+    [data-menu-row],
+    [data-list-row]
+  ):is(:hover, :active, :focus-visible) {
+    transition-duration: var(--duration-instant) !important;
+  }
+
+  :where(button, summary, [role='button']):active:not(:disabled, [aria-disabled='true']) {
+    scale: var(--press-scale);
+  }
+
+  /* Wide rows move less: the same 4 % on a full-width row would read as a jump. */
+  :where(
+      [role='tab'],
+      [role='menuitem'],
+      [role='option'],
+      [data-menu-row],
+      [data-list-row]
+    ):active:not(:disabled, [aria-disabled='true']) {
+    scale: var(--press-scale-row);
+  }
+
+  /*
    * Reduced motion, from the user's setting (data-motion) or the system's: nothing moves or scales,
    * and loops stop on their still frame, so a component's resting style must be that frame. Colour
    * and opacity may still change, within the 120 ms durations motion.css sets. Svelte transitions
@@ -257,5 +310,30 @@
 @media (max-width: 47.99rem) {
   [data-page-bar] {
     margin-inline-start: 30px;
+  }
+}
+
+/* Route crossfade (ADR-0042): the page fades, the rest of the window (the sidebar) stays still. */
+[data-routing] #main {
+  view-transition-name: page;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(page),
+::view-transition-old(page),
+::view-transition-new(page) {
+  animation-duration: var(--duration-base);
+  animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(page),
+  ::view-transition-old(page),
+  ::view-transition-new(page) {
+    animation-duration: 120ms;
   }
 }

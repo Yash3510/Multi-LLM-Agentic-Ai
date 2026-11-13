@@ -358,10 +358,12 @@
   .text {
     color: var(--color-gray-500);
     font-size: 13px;
+    border-radius: var(--radius-pill);
+    box-shadow: 0 0 0 1px var(--color-gray-200);
   }
   .create {
     padding: 4px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius-pill);
     background-color: var(--color-gray-50);
     box-shadow: 0 0 0 1px var(--color-gray-200);
     font-size: var(--text-caption);
@@ -592,12 +594,12 @@
 
   .caret {
     padding: 2px;
-    border-radius: 4px;
+    border-radius: var(--radius-pill);
   }
 
   .text {
-    padding: 4px 8px;
-    border-radius: 8px;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
   }
 
   :is(.caret, .mini-day:not(.today)):hover {

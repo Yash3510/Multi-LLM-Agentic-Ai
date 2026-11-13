@@ -18,6 +18,8 @@
     /** An answer is streaming: the round action becomes Stop. */
     busy?: boolean;
     onstop?: () => void;
+    /** Shown in the empty box with a Tab key cap; Tab takes it (the Accept shortcut). */
+    suggestion?: string;
   };
 
   let {
@@ -28,7 +30,9 @@
     value = $bindable(''),
     busy = false,
     onstop,
+    suggestion,
   }: Props = $props();
+  const offering = $derived(Boolean(suggestion) && value.length === 0);
   const ready = $derived(value.trim().length > 0);
 
   // One button wears three faces (voice, send, stop) and crossfades between them; on send the
@@ -50,6 +54,11 @@
   }
 
   function keydown(event: KeyboardEvent) {
+    if (event.key === 'Tab' && !event.shiftKey && offering && suggestion) {
+      event.preventDefault();
+      value = suggestion;
+      return;
+    }
     if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
     event.preventDefault();
     send();
@@ -58,8 +67,14 @@
 
 <div class="box">
   <div class="editor">
-    <textarea bind:value aria-label={m.composer_label()} {placeholder} rows="1" onkeydown={keydown}
-    ></textarea>
+    <textarea
+      bind:value
+      aria-label={m.composer_label()}
+      placeholder={offering ? suggestion : placeholder}
+      aria-keyshortcuts={offering ? 'Tab' : undefined}
+      rows="1"
+      onkeydown={keydown}></textarea>
+    {#if offering}<kbd class="tab-cap" aria-hidden="true">Tab</kbd>{/if}
   </div>
   <div class="controls">
     <div class="start">
@@ -118,12 +133,13 @@
 
 <style>
   .box {
+    position: relative;
     display: flex;
     flex-direction: column;
     inline-size: 100%;
     padding-inline: 2px;
     border: 1px solid color-mix(in srgb, var(--color-gray-100) 30%, transparent);
-    border-radius: 20px;
+    border-radius: var(--radius-composer);
     background-color: color-mix(in srgb, var(--color-white) 5%, transparent);
     box-shadow:
       0 0 0 1px rgb(0 0 0 / 0.04),
@@ -267,6 +283,22 @@
     border-radius: var(--radius-pill);
     color: var(--color-ink-3);
     font-size: var(--text-small);
+  }
+
+  /* The Tab key cap beside a suggestion (polish pass, WP-F-10). */
+  .tab-cap {
+    position: absolute;
+    inset-block-start: 14px;
+    inset-inline-end: 16px;
+    padding: 0 7px;
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-pill);
+    color: var(--color-gray-500);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 17px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
 
   .brand {

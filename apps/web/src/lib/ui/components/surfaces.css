@@ -9,30 +9,29 @@
  */
 @layer components {
   /* e2: popovers and menus (ADR-0041 amendment). A 12 px radius and hairline depth, no border.
-     Opens and closes as the running app's menus do: 200 ms on a cubic ease-out, dropping 8 px
-     from above (whichever side it opens on) and scaling from 0.95, the same both ways (common
-     look, Motion). */
+     Opens and closes in 200 ms on the expo curve, scaling from 0.96 at the edge nearest its
+     trigger, the same both ways (ADR-0042). */
   [data-surface='float'] {
     z-index: 60;
     border: 0;
-    border-radius: var(--radius-inset);
+    border-radius: var(--radius-menu);
     background-color: var(--color-surface-raised);
     box-shadow: var(--shadow-e2);
     color: var(--color-ink-1);
-    transition-property: opacity, translate, scale;
+    /* A menu grows from the edge nearest its trigger (ADR-0042); the library names that point. */
+    transform-origin: var(--bits-floating-transform-origin, top center);
+    transition-property: opacity, scale;
     transition-duration: var(--duration-menu);
-    transition-timing-function: var(--ease-cubic-out);
+    transition-timing-function: var(--ease-expo);
   }
 
   [data-surface='float']:is([data-starting-style], [data-ending-style]) {
     opacity: 0;
-    translate: 0 -8px;
-    scale: 0.95;
+    scale: 0.96;
   }
 
   /* Reduced motion: a crossfade only. */
   [data-motion='reduce'] [data-surface='float']:is([data-starting-style], [data-ending-style]) {
-    translate: none;
     scale: none;
   }
 
@@ -160,18 +159,18 @@
     border-end-end-radius: 0;
   }
 
-  /* Dialogs and sheets arrive like the running app's modals: 200 ms on a cubic ease-out, 8 px of
-     travel and a scale from 0.95. They leave at once, as there. */
+  /* Dialogs and sheets arrive in 200 ms on the expo curve, with 8 px of travel and a scale from
+     0.96 (ADR-0042). They leave at once, as in the running app. */
   :is([data-placement='center'], [data-placement='bottom']) {
     transition-property: opacity, translate, scale;
     transition-duration: var(--duration-menu);
-    transition-timing-function: var(--ease-cubic-out);
+    transition-timing-function: var(--ease-expo);
   }
 
   :is([data-placement='center'], [data-placement='bottom'])[data-starting-style] {
     opacity: 0;
     translate: 0 -8px;
-    scale: 0.95;
+    scale: 0.96;
   }
 
   [data-motion='reduce']

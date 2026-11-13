@@ -350,6 +350,12 @@
     line-height: 1.25;
   }
 
+  /* A stage's time is a machine value, so it is set in mono. */
+  .time {
+    font-family: var(--font-mono);
+    letter-spacing: 0;
+  }
+
   :global([data-theme='dark']) :is(.time, .note) {
     opacity: 0.75;
   }

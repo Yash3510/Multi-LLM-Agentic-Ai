@@ -1,6 +1,6 @@
 /*
- * Motion: named durations and easings only. No overshoot and no springs. motion.svelte.ts mirrors
- * these values for Svelte transitions, and motion.test.ts checks that the two agree.
+ * Motion: named durations and easings only. One spring, for position only, at most 3 % over
+ * (ADR-0042); every other curve stays within 0 to 1. motion.svelte.ts mirrors these values for Svelte transitions, and motion.test.ts checks that the two agree.
  */
 @theme static {
   --duration-instant: 100ms;
@@ -14,11 +14,45 @@
   /* Menus, selects and dialogs arrive in 200 ms on a cubic ease-out, as in the running app. */
   --duration-menu: 200ms;
 
+  /* How far a pressed control settles. 0.96 is the lowest any element may scale. */
+  --press-scale: 0.96;
+  --press-scale-row: 0.99;
+
   --ease-*: initial;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --ease-cubic-out: cubic-bezier(0.33, 1, 0.68, 1);
+  /* Things the user moves directly: fast away, slow to rest. */
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  /* A highlight sliding between two resting places, and nothing else. Never scale or opacity. */
+  --ease-spring: linear(
+    0,
+    0.0827 4.2%,
+    0.2594 8.3%,
+    0.4563 12.5%,
+    0.634 16.7%,
+    0.776 20.8%,
+    0.8792 25%,
+    0.9481 29.2%,
+    0.9898 33.3%,
+    1.0119 37.5%,
+    1.021 41.7%,
+    1.0224 45.8%,
+    1.0198 50%,
+    1.0156 54.2%,
+    1.0112 58.3%,
+    1.0074 62.5%,
+    1.0044 66.7%,
+    1.0023 70.8%,
+    1.0009 75%,
+    1.0001 79.2%,
+    0.9997 83.3%,
+    0.9995 87.5%,
+    0.9995 91.7%,
+    0.9996 95.8%,
+    1
+  );
 
   /* Bare transition utilities use the measured default: 150 ms on the standard curve (ADR-0041). */
   --default-transition-duration: 150ms;
@@ -45,5 +79,7 @@
     --duration-slow: 120ms;
     --duration-deliberate: 120ms;
     --duration-menu: 120ms;
+    --press-scale: 1;
+    --press-scale-row: 1;
   }
 }

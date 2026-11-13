@@ -1,7 +1,9 @@
 <script lang="ts">
-  // The sources under an answer (chat-messages look §7.1): a pill that counts them and opens the
-  // list, each with its citation number.
+  // The sources under an answer (chat-messages look §7.1): a row that counts them and opens the
+  // list, each with its citation number. It lines up with the provenance rows above it.
   import type { Source } from '$lib/data';
+  import Icon from '$lib/ui/icons/Icon.svelte';
+  import Expand from './Expand.svelte';
 
   let { sources, onopen }: { sources: Source[]; onopen?: (index: number) => void } = $props();
 
@@ -17,24 +19,30 @@
     aria-expanded={open}
     onclick={() => (open = !open)}
   >
-    {count === 1 ? '1 Source' : `${count} Sources`}
+    <span class="n">{count}</span>
+    {count === 1 ? 'Source' : 'Sources'}
+    <span class="caret" data-open={open ? '' : undefined}
+      ><Icon name="sort-caret-down" size={12} /></span
+    >
   </button>
   {#if open}
-    <ul class="list">
-      {#each sources as source (source.index)}
-        <li>
-          <button
-            type="button"
-            class="item"
-            aria-label="View source: {source.title}"
-            onclick={() => onopen?.(source.index)}
-          >
-            <span class="badge">{source.index}</span>
-            <span class="title">{source.title}</span>
-          </button>
-        </li>
-      {/each}
-    </ul>
+    <Expand>
+      <ul class="list">
+        {#each sources as source (source.index)}
+          <li>
+            <button
+              type="button"
+              class="item"
+              aria-label="View source: {source.title}"
+              onclick={() => onopen?.(source.index)}
+            >
+              <span class="badge">{source.index}</span>
+              <span class="title">{source.title}</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    </Expand>
   {/if}
 </div>
 
@@ -42,35 +50,52 @@
   .bar {
     display: flex;
     flex-direction: column;
-    margin-inline: -2px;
-    padding-block: var(--spacing-1);
+    border-block-start: 1px solid var(--color-gray-50);
   }
 
+  :global([data-theme='dark']) .bar {
+    border-color: var(--color-gray-850);
+  }
+
+  /* Polish pass (WP-F-10): a row like the provenance folds above, a hairline over it, the count
+     in Plex Mono and the same caret. */
   .toggle {
     align-self: flex-start;
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-1);
-    block-size: 32px;
-    padding-inline: 14px;
-    border: 1px solid color-mix(in srgb, var(--color-gray-50) 30%, transparent);
-    border-radius: var(--radius-pill);
+    gap: 7px;
+    min-block-size: 34px;
     color: var(--color-gray-600);
-    font-size: var(--text-caption);
-    transition: background-color 150ms;
+    font-size: var(--text-small);
+    transition: color 150ms;
   }
 
   .toggle:hover {
-    background-color: var(--color-gray-100);
+    color: var(--color-gray-900);
+  }
+
+  .n {
+    color: var(--color-gray-900);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+
+  .caret {
+    display: inline-flex;
+    color: var(--color-gray-400);
+    transition: rotate var(--duration-calm) var(--ease-expo);
+  }
+
+  .caret[data-open] {
+    rotate: 180deg;
   }
 
   :global([data-theme='dark']) .toggle {
-    border-color: color-mix(in srgb, var(--color-gray-850) 30%, transparent);
     color: var(--color-gray-300);
   }
 
-  :global([data-theme='dark']) .toggle:hover {
-    background-color: var(--color-gray-800);
+  :global([data-theme='dark']) :is(.toggle:hover, .n) {
+    color: var(--color-gray-100);
   }
 
   .list {

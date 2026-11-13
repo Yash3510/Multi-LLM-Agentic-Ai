@@ -2,7 +2,9 @@
   // The receipt under a released answer (own-4ce look S7, features F36-F37): labels saying how
   // the answer was produced, the fingerprint (click to copy) and the audit record, then what was
   // checked, then the folds: full provenance, each agent's output and the execution timeline.
+  import { foldTitle } from '$lib/ui/fold-title';
   import type { Receipt, Revision, SignOffRequest } from '$lib/data';
+  import Expand from './Expand.svelte';
   import RevisionCard from './RevisionCard.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
@@ -57,7 +59,7 @@
 
 <div class="receipt" role="group" aria-label="How this answer was produced">
   <div class="labels">
-    <span class="label"><b>Local</b> {receipt.model}</span>
+    <span class="label" data-label="model"><b>Local</b> {receipt.model}</span>
     {#if receipt.sources > 0}
       <span
         class="label"
@@ -118,6 +120,7 @@
     </div>
   {/if}
   {#each folds as fold (fold.title)}
+    {@const title = foldTitle(fold.title)}
     <div class="fold">
       <button
         type="button"
@@ -125,21 +128,26 @@
         aria-expanded={open[fold.title] ?? false}
         onclick={() => (open[fold.title] = !open[fold.title])}
       >
-        {fold.title}
+        <span>{title.text}</span>
+        {#if title.verdict}<span class="verdict" data-verdict={title.verdict}>{title.verdict}</span
+          >{/if}
+        {#if title.model}<span class="model">{title.model}</span>{/if}
         <span class="caret" data-open={open[fold.title] ? '' : undefined}
           ><Icon name="sort-caret-down" size={12} /></span
         >
       </button>
       {#if open[fold.title]}
-        {#if fold.title === 'Execution timeline'}
-          <ol class="timeline">
-            {#each timeline as step, index (index)}
-              <li><span class="offset">{step.at}</span>{step.text}</li>
-            {/each}
-          </ol>
-        {:else}
-          <div class="fold-body" {@attach safeHtml(renderMarkdown(fold.body))}></div>
-        {/if}
+        <Expand>
+          {#if fold.title === 'Execution timeline'}
+            <ol class="timeline">
+              {#each timeline as step, index (index)}
+                <li><span class="offset">{step.at}</span>{step.text}</li>
+              {/each}
+            </ol>
+          {:else}
+            <div class="fold-body" {@attach safeHtml(renderMarkdown(fold.body))}></div>
+          {/if}
+        </Expand>
       {/if}
     </div>
   {/each}
@@ -173,6 +181,15 @@
     font-weight: var(--font-weight-medium);
   }
 
+  /* The model is a machine value, so it is set in mono; its "Local" stays in the text face. */
+  .label[data-label='model'] {
+    font-family: var(--font-mono);
+  }
+
+  .label[data-label='model'] b {
+    font-family: var(--font-sans);
+  }
+
   :global([data-theme='dark']) .label {
     border-color: var(--color-gray-800);
     background-color: var(--color-gray-900);
@@ -182,6 +199,12 @@
   .label[data-tone='good'] {
     border-color: var(--color-emerald-200);
     color: var(--color-emerald-800);
+  }
+
+  /* Dark: the verdict green that passes AA on the dark ground (polish pass, WP-F-10). */
+  :global([data-theme='dark']) .label[data-tone='good'] {
+    border-color: color-mix(in srgb, var(--color-ok) 35%, transparent);
+    color: var(--color-ok);
   }
 
   .label[data-tone='warn'] {
@@ -228,7 +251,7 @@
     margin-block-start: 10px;
     padding: var(--spacing-2) var(--spacing-3);
     border: 1px solid var(--color-gray-100);
-    border-radius: 16px;
+    border-radius: var(--radius-checks);
   }
 
   :global([data-theme='dark']) .checks {
@@ -278,18 +301,77 @@
   }
 
   /* Folds (chat-messages look §5.5): 13.5 px muted toggles with a caret that turns. */
+  /* Polish pass (WP-F-10): one row rhythm with hairlines, a touch more contrast, the model in
+     Plex Mono and the verdict in its colour. */
   .fold {
+    border-block-start: 1px solid var(--color-gray-50);
+  }
+
+  /* The wire (ADR-0042): an opened row draws the stage rail's finished rule over its hairline. */
+  .fold {
+    position: relative;
+  }
+
+  .fold:has(> .fold-toggle[aria-expanded='true'])::before {
+    position: absolute;
+    inset: -1px 0 auto;
+    block-size: 1px;
+    background-color: var(--color-ink-1);
+    transform-origin: left center;
+    animation: wire-draw var(--duration-slow) var(--ease-expo) both;
+    content: '';
+  }
+
+  @keyframes wire-draw {
+    from {
+      scale: 0 1;
+    }
+  }
+
+  .fold-toggle[aria-expanded='true'] > span:first-child {
+    color: var(--color-ink-1);
+  }
+
+  .fold:first-of-type {
     margin-block-start: 6px;
+  }
+
+  :global([data-theme='dark']) .fold {
+    border-color: var(--color-gray-850);
   }
 
   .fold-toggle {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-1);
-    padding-block: 3px;
-    color: var(--color-gray-500);
-    font-size: 13.5px;
+    gap: 7px;
+    min-block-size: 34px;
+    color: var(--color-gray-600);
+    font-size: var(--text-small);
     transition: color 150ms;
+  }
+
+  .model {
+    color: var(--color-gray-500);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+
+  .verdict {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+  }
+
+  .verdict[data-verdict='PASS'] {
+    color: var(--color-ok);
+  }
+
+  .verdict[data-verdict='FAIL'] {
+    color: var(--color-stop);
+  }
+
+  .caret {
+    color: var(--color-gray-400);
   }
 
   .fold-toggle:hover {
@@ -311,7 +393,7 @@
 
   .caret {
     display: inline-flex;
-    transition: rotate 300ms;
+    transition: rotate var(--duration-calm) var(--ease-expo);
   }
 
   .caret[data-open] {

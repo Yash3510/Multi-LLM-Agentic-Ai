@@ -2,6 +2,7 @@
   // The model editor (workspace look §3, features F34 to F54): the identity block, model params,
   // prompt suggestions, the knowledge, tool and skill pickers, the capability checklists, Save and
   // the JSON preview. The rules live in model-editor.ts; this file is the look.
+  import Wire from './Wire.svelte';
   import { Popover } from 'bits-ui';
   import { resolve } from '$app/paths';
   import type { ModelRecord, WorkspaceItem } from '$lib/data';
@@ -447,7 +448,7 @@
       <div class="save-row">
         <button class="save" type="submit" disabled={saving}>
           <span>Save & Create</span>
-          {#if saving}<span class="spinner" aria-hidden="true"></span>{/if}
+          {#if saving}<Wire />{/if}
         </button>
       </div>
 
@@ -1178,21 +1179,6 @@
 
   :global([data-theme='dark']) .save:hover {
     background-color: var(--color-gray-100);
-  }
-
-  .spinner {
-    inline-size: 16px;
-    block-size: 16px;
-    border: 2px solid color-mix(in srgb, currentcolor 25%, transparent);
-    border-block-start-color: currentcolor;
-    border-radius: var(--radius-pill);
-    animation: spin 0.75s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      rotate: 1turn;
-    }
   }
 
   .json {

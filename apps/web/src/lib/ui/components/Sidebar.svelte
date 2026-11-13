@@ -307,7 +307,7 @@
     gap: var(--spacing-2);
     inline-size: 100%;
     padding: 6px var(--spacing-2);
-    border-radius: var(--radius-inset);
+    border-radius: var(--radius-row);
     color: var(--color-ink-2);
     text-align: start;
     text-decoration: none;
@@ -328,6 +328,7 @@
 
   .row[data-current] {
     background-color: var(--color-row-current);
+    box-shadow: 0 0 0 0.5px var(--color-hair);
   }
 
   :is(.row, .logo, .name, .closer, .rail-open, .rail-link, .rail-user):focus-visible {

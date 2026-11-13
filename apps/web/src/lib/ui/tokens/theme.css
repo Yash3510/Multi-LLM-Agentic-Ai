@@ -188,5 +188,17 @@
     --depth-far: rgb(0 0 0 / 0.1);
     --focus-edge: color-mix(in srgb, var(--ref-blue-500) 50%, transparent);
     --focus-glow: color-mix(in srgb, var(--ref-blue-500) 22%, transparent);
+
+    /* The polish pass (WP-F-10): softer, rounder surfaces. Menus and the composer take larger
+       corners, rows inside menus and lists 12, icon tiles 10; buttons, filters and fields go full
+       pill (--radius-pill). */
+    --radius-menu: 18px;
+    --radius-row: 12px;
+    --radius-tile: 10px;
+    --radius-composer: 28px;
+    --radius-checks: 18px;
+    /* Search fields: a flat tint and a hairline ring; no depth. */
+    --field-inset-fill: linear-gradient(rgb(0 0 0 / 0.025), rgb(0 0 0 / 0.025));
+    --field-inset-edge: inset 0 0 0 0.5px rgb(0 0 0 / 0.07);
   }
 }

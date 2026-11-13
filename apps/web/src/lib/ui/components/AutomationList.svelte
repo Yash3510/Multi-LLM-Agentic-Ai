@@ -232,6 +232,10 @@
     gap: 12px;
     padding-inline-start: 4px;
     min-inline-size: 0;
+    border-radius: var(--radius-pill);
+    padding-inline: 12px;
+    background-image: var(--field-inset-fill);
+    box-shadow: var(--field-inset-edge);
   }
   .search input {
     inline-size: 100%;

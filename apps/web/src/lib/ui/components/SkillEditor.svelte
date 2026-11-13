@@ -2,6 +2,7 @@
   // A skill (workspace look §7.2, F105): name, id and description over the markdown
   // instructions. Creating, the id follows the name and empty fields fill from front matter;
   // editing keeps the id and stays on the page after saving.
+  import Wire from './Wire.svelte';
   import { untrack } from 'svelte';
   import { resolve } from '$app/paths';
   import type { DataSource, Skill } from '$lib/data';
@@ -135,7 +136,7 @@
     <div class="footer">
       <button type="submit" class="save" disabled={saving}>
         {editing ? 'Save' : 'Save & Create'}
-        {#if saving}<span class="spinner" aria-hidden="true"></span>{/if}
+        {#if saving}<Wire />{/if}
       </button>
     </div>
   {/if}
@@ -364,21 +365,6 @@
 
   :global([data-theme='dark']) .save:hover {
     background-color: var(--color-white);
-  }
-
-  .spinner {
-    inline-size: 12px;
-    block-size: 12px;
-    border: 2px solid color-mix(in srgb, currentcolor 25%, transparent);
-    border-block-start-color: currentcolor;
-    border-radius: var(--radius-pill);
-    animation: spin 0.75s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      rotate: 1turn;
-    }
   }
 
   :is(.back, .access, .save):focus-visible {

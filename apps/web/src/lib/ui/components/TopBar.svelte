@@ -42,13 +42,17 @@
     align-items: center;
     gap: var(--spacing-1);
     padding: 2px var(--spacing-1) var(--spacing-1) 6px;
-    /* A soft fade so content scrolls away under the bar. */
-    background: linear-gradient(
-      to bottom,
-      var(--color-surface-page),
-      color-mix(in srgb, var(--color-surface-page) 95%, transparent) 50%,
-      transparent
-    );
+    background-color: var(--color-surface-page);
+  }
+
+  /* The bar is solid, so text never shows through the title; content dissolves into it below. */
+  .bar::after {
+    content: '';
+    position: absolute;
+    inset: 100% 0 auto;
+    block-size: 28px;
+    background: linear-gradient(to bottom, var(--color-surface-page), transparent);
+    pointer-events: none;
   }
 
   .title {

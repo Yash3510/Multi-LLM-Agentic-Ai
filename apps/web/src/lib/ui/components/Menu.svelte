@@ -9,6 +9,7 @@
   import { DropdownMenu } from 'bits-ui';
   import { tick, type Snippet } from 'svelte';
   import type { IconName } from '$lib/ui/icons/generated/icons';
+  import { glide } from '$lib/ui/glide';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import type { ActionSize } from './ActionBase.svelte';
   import Kbd from './Kbd.svelte';
@@ -23,6 +24,7 @@
     type MenuEntry,
   } from './menu-model';
   import './actions.css';
+  import './glide.css';
   import './menu.css';
   import './surfaces.css';
 
@@ -260,6 +262,7 @@
             data-menu
             data-surface="float"
             data-keyboard={keyboard || undefined}
+            {@attach glide({ active: '[data-menu-row][data-highlighted]' })}
           >
             {#if parent}
               <DropdownMenu.Item textValue={parent.label} closeOnSelect={false} onSelect={back}>
