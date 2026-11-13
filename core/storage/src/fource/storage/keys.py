@@ -1,4 +1,4 @@
-"""Where a stored file's bytes live: a key built from ids only (ADR-0041)."""
+"""Where a stored file's bytes live: a key built from ids only (ADR-0043)."""
 
 import uuid
 from dataclasses import dataclass

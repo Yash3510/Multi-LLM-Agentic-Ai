@@ -1,4 +1,4 @@
-"""Files per organisation: the storage interface, its adapters and the records (ADR-0041)."""
+"""Files per organisation: the storage interface, its adapters and the records (ADR-0043)."""
 
 from fource.storage.errors import (
     BlobMissing,

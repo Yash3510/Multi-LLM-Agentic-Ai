@@ -1,4 +1,4 @@
-"""Create the records of stored files, confined to their organisation (ADR-0041)."""
+"""Create the records of stored files, confined to their organisation (ADR-0043)."""
 
 import sqlalchemy as sa
 from alembic import op
@@ -28,7 +28,7 @@ def upgrade() -> None:
         sa.CheckConstraint("size >= 0", name="stored_files_size"),
     )
     if op.get_bind().dialect.name == "postgresql":
-        # No DELETE: a record outlives its bytes (ADR-0041).
+        # No DELETE: a record outlives its bytes (ADR-0043).
         for statement in org_isolation_sql("stored_files", ("SELECT", "INSERT", "UPDATE")):
             op.execute(statement)
 

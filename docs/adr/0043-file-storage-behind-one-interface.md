@@ -3,15 +3,15 @@ title: "File storage behind one interface"
 type: adr
 status: planned
 owner: R1
-updated: 2026-11-11
+updated: 2026-11-13
 covers: []
 tags: [4ce, adr]
-number: 41
+number: 43
 decision_status: proposed
 superseded_by: null
 ---
 
-# ADR-0041: File storage behind one interface
+# ADR-0043: File storage behind one interface
 
 ## Context
 
