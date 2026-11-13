@@ -1,16 +1,18 @@
 <script lang="ts">
   // New chat (chat-composer look §3.1-3.2): the top bar, then a centred column with the logomark,
-  // the composer, and the suggestions beside the newest chats. Sending waits on the chat API (WP-RT-01); suggestions are
-  // stand-ins until packs supply them.
+  // the composer, and the suggestions beside the newest chats. Sending waits on the chat API
+  // (WP-RT-01); suggestions are stand-ins until packs supply them.
   import { resolve } from '$app/paths';
   import { m } from '$lib/i18n/generated/messages.js';
+  import { getLocale } from '$lib/i18n/generated/runtime.js';
   import Composer from '$lib/ui/components/Composer.svelte';
   import EgressIndicator from '$lib/ui/components/EgressIndicator.svelte';
   import IconButton from '$lib/ui/components/IconButton.svelte';
   import Logomark from '$lib/ui/components/Logomark.svelte';
   import TopBar from '$lib/ui/components/TopBar.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
-  import { longDate, shortAgo } from '$lib/ui/ago';
+  import { longDate } from '$lib/ui/ago';
+  import { formatAgo, toIntlLocale } from '$lib/ui/format';
   import { fade } from '$lib/ui/motion.svelte';
   import type { LayoutData } from './$types';
 
@@ -21,6 +23,8 @@
   ];
 
   let { data }: { data: LayoutData } = $props();
+
+  const locale = toIntlLocale(getLocale());
 
   // The layout lists chats newest first.
   const recent = $derived(data.chats.slice(0, 3));
@@ -74,7 +78,7 @@
               <a class="card recent" href={resolve('/c/[id]', { id: chat.id })}>
                 <span class="title">{chat.title}</span>
                 <time datetime={chat.updated.toISOString()} title={longDate.format(chat.updated)}>
-                  {shortAgo(chat.updated)}
+                  {formatAgo(chat.updated, { locale })}
                 </time>
               </a>
             </li>

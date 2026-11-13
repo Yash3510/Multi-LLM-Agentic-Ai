@@ -25,24 +25,6 @@ export function ago(when: Date, now = new Date()) {
   return `${words(seconds)} ago`;
 }
 
-/** [upper bound in seconds, seconds per unit, suffix] for the compact age beside a title. */
-const SHORT: [number, number, string][] = [
-  [HOUR, MINUTE, 'm'],
-  [DAY, HOUR, 'h'],
-  [7 * DAY, DAY, 'd'],
-  [30 * DAY, 7 * DAY, 'w'],
-  [365 * DAY, 30 * DAY, 'mo'],
-  [Infinity, 365 * DAY, 'y'],
-];
-
-/** A compact age that never rounds up: "now" under a minute, then 5m, 2h, 4d, 3w, 5mo, 2y. */
-export function shortAgo(when: Date, now = new Date()) {
-  const seconds = (now.getTime() - when.getTime()) / 1000;
-  if (seconds < MINUTE) return 'now';
-  const [, unit, suffix] = SHORT.find(([limit]) => seconds < limit) ?? SHORT[SHORT.length - 1];
-  return `${Math.floor(seconds / unit)}${suffix}`;
-}
-
 /** The full date, for the tooltip on a relative time. */
 export const longDate = new Intl.DateTimeFormat('en', { dateStyle: 'full', timeStyle: 'short' });
 
