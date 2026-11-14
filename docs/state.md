@@ -3,7 +3,7 @@ title: State
 type: state
 status: active
 owner: R1
-
+updated: 2026-11-13
 tags: [4ce, state]
 ---
 
@@ -30,7 +30,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 ## In progress
 
-**Backend slice 4, file storage and the model gateway, is under way** (WP-F-08, WP-MD-01). Built so far: a commit-message check that refuses sector terms, tool names and attribution, and words about how the work was organised ([repository](architecture/repository.md)), and slice 3's follow-ups (networks of prefix length 0 refused in `--forwarded-allow-ips`, the same-host TLS proxy note, FAT and exFAT in the checkpoint limit).
+**Backend slice 4, file storage and the model gateway, is under way** (WP-F-08, WP-MD-01). Built so far: a commit-message check that refuses sector terms, tool names and attribution, and words about how the work was organised ([repository](architecture/repository.md)), and slice 3's follow-ups (networks of prefix length 0 refused in `--forwarded-allow-ips`, the same-host TLS proxy note, FAT and exFAT in the checkpoint limit). Since then: the storage settings (`FOURCE_STORAGE`, the file size limit and the checked S3 settings) and the `stored_files` table with migration `0006`.
 
 **Backend slice 3, the job queue and Redis, is built** (WP-F-07, WP-F-11): the `core/jobs` and `core/live` packages, migration `0005`, `fource-server worker` and `just worker`, scheduled ledger checkpoints, the sign-in rate limit per client address (429, or 503 when it can't be checked) with its `identity.signin.throttled` ledger entry, Redis in `/api/health`, and a Redis job in CI. The [log entry](log/2026/10/2026-10-31-wp-f-07-jobs-and-redis.md) has the commands and results. After pulling, run `just migrate` (migration `0005`). Set `FOURCE_REDIS_URL` when more than one process runs; behind a proxy, start Uvicorn with `--forwarded-allow-ips`, or every client shares one sign-in count. A TLS proxy on the same host now needs `--forwarded-allow-ips 127.0.0.1`, or session cookies lose `Secure`.
 
