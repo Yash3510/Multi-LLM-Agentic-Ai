@@ -86,7 +86,8 @@ WEB_APP = "apps/web/"
 WEB_DOTFILES = {".prettierrc", ".prettierignore"}
 WEB_FOLDERS = {"project.inlang"}
 # A SvelteKit route parameter, e.g. routes/chat/[id]: one plain identifier in brackets, and only
-# under the web app's routes (owner OK, 2026-11-04). Rest and optional parameters are not needed yet.
+# under the web app's routes (owner OK, 2026-11-04). Rest and optional parameters are not needed
+# yet.
 WEB_ROUTES = WEB_APP + "src/routes/"
 ROUTE_PARAMETER = re.compile(r"\[[A-Za-z][A-Za-z0-9]*\]")
 
