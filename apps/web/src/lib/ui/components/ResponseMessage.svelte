@@ -1,11 +1,13 @@
 <script lang="ts">
   // An answer (chat-messages look §3.1, §3.4, §3.6): the 4CE mark in a 40 px slot, the agent's
   // name, the body in 15 px prose (markdown, sanitised), and the action bar.
+  import { untrack } from 'svelte';
   import { m } from '$lib/i18n/generated/messages.js';
   import { getLocale } from '$lib/i18n/generated/runtime.js';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { toIntlLocale } from '$lib/ui/format';
   import { onChip, renderMarkdown, safeHtml } from '$lib/ui/markdown';
+  import { arrive } from '$lib/ui/arrive';
   import { writeClipboard } from './clipboard';
   import Logomark from './Logomark.svelte';
   import StageRail from './StageRail.svelte';
@@ -13,6 +15,7 @@
   import SourcesBar from './SourcesBar.svelte';
   import ToolGroup from './ToolGroup.svelte';
   import ReceiptStrip from './ReceiptStrip.svelte';
+  import DetailsPanel from './DetailsPanel.svelte';
   import RunErrorCard from './RunErrorCard.svelte';
   import CitationDialog from './CitationDialog.svelte';
   import AuditDialog from './AuditDialog.svelte';
@@ -50,6 +53,10 @@
     finished = true,
     onretry,
   }: Props = $props();
+
+  // Answered in this visit: the row, then its labels and details, arrive in turn. A saved answer
+  // mounts finished and stays at rest.
+  const fresh = untrack(() => !finished);
 
   const ACTIONS = [
     { name: 'rename', label: m.message_edit() },
@@ -151,12 +158,12 @@
 
   const receipt = $derived((events ?? []).findLast((event) => event.type === 'receipt'));
   const decision = $derived((events ?? []).findLast((event) => event.type === 'decision'));
-  // Each status with its offset from the run's start, for the execution timeline.
-  const timeline = $derived.by(() => {
+  // Each status with its offset from the run's start, for the details panel's timeline.
+  const steps = $derived.by(() => {
     const start = events?.[0]?.at ?? 0;
     return (events ?? []).flatMap((event) =>
       event.type === 'status'
-        ? [{ at: `+${((event.at - start) / 1000).toFixed(1)}s`, text: event.description }]
+        ? [{ ms: event.at - start, stage: event.stage, text: event.description }]
         : [],
     );
   });
@@ -175,7 +182,11 @@
   });
 </script>
 
-<div data-message-row data-actions-shown={last ? '' : undefined}>
+<div
+  data-message-row
+  data-actions-shown={last ? '' : undefined}
+  data-fresh={fresh ? '' : undefined}
+>
   <div class="response">
     <div class="avatar"><Logomark size={30} /></div>
     <div class="column">
@@ -199,6 +210,7 @@
           data-typing={typing ? '' : undefined}
           {@attach safeHtml(html)}
           {@attach onChip(cite)}
+          {@attach arrive()}
         ></div>
       {/if}
       {#if receipt && decision?.outcome === 'released'}
@@ -209,13 +221,21 @@
           cited={sources
             .filter((source) => text.includes(`[${source.index}]`))
             .map((source) => source.title)}
-          {timeline}
           onaudit={() => (auditOpen = true)}
           revision={(events ?? []).findLast((event) => event.type === 'sign-off')?.request.revision}
         />
+        <DetailsPanel
+          folds={receipt.receipt.folds}
+          {sources}
+          {checks}
+          answer={text}
+          {steps}
+          onopen={cite}
+        />
         {#if audit}<AuditDialog bind:open={auditOpen} {...audit} />{/if}
+      {:else if sources.length}
+        <SourcesBar {sources} onopen={cite} />
       {/if}
-      {#if sources.length}<SourcesBar {sources} onopen={cite} />{/if}
       <CitationDialog
         source={sources.find((source) => source.index === citing)}
         bind:open={citationOpen}
@@ -265,6 +285,32 @@
     flex: auto;
     inline-size: 0;
     padding-inline-start: var(--spacing-1);
+  }
+
+  /* At phone width the mark sits beside the name, so the answer keeps the same margin on both
+     sides instead of losing 54 px to an avatar gutter. */
+  @media (max-width: 47.99rem) {
+    .response {
+      position: relative;
+    }
+
+    .avatar {
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline-start: 0;
+      inline-size: 24px;
+      block-size: 24px;
+      margin: 0;
+      scale: 0.8;
+    }
+
+    .column {
+      padding-inline-start: 0;
+    }
+
+    .name {
+      padding-inline-start: 32px;
+    }
   }
 
   .name {
@@ -349,17 +395,27 @@
   }
 
   .body :global(strong) {
-    font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-medium);
   }
 
+  /* A table is one outlined box, like a settings group. */
   .body :global(table) {
-    border-collapse: collapse;
+    margin-block: 10px 6px;
+    overflow: hidden;
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-control);
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: var(--text-small);
   }
 
   .body :global(:is(th, td)) {
-    padding: var(--spacing-1) var(--spacing-3);
+    padding: 6px 14px;
     border-block-end: 1px solid var(--color-line-1);
+  }
+
+  .body :global(tr:last-child > td) {
+    border-block-end: 0;
   }
 
   /* Columns marked right-aligned in the markdown (numbers) keep their align attribute. */
@@ -367,8 +423,17 @@
     text-align: start;
   }
 
+  /* A quiet header row on a soft ground; figures line up down a column. */
   .body :global(th) {
+    background-color: var(--glass-soft);
+    color: var(--color-ink-3);
+    font-size: var(--text-caption);
     font-weight: var(--font-weight-medium);
+  }
+
+  .body :global(td) {
+    color: var(--color-ink-1);
+    font-variant-numeric: tabular-nums;
   }
 
   .body :global(pre) {
@@ -385,34 +450,26 @@
     display: inline-flex;
     align-items: center;
     max-inline-size: 16rem;
-    margin-inline: 1px;
-    padding: 1px 6px;
+    margin-inline: 3px 1px;
+    padding: 0 5px;
     overflow: hidden;
-    border: 1px solid var(--color-gray-200);
-    border-radius: var(--radius-pill);
-    background-color: var(--color-gray-50);
-    color: var(--color-gray-700);
-    font-size: 0.66rem;
+    border: 1px solid var(--color-line-1);
+    border-radius: 5px;
+    color: var(--color-ink-2);
+    font-size: 11px;
     font-style: normal;
     font-weight: var(--font-weight-medium);
-    line-height: 1.35;
+    line-height: 16px;
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: baseline;
-    translate: 0 1px;
+    translate: 0 -1px;
     cursor: pointer;
   }
 
   .body :global(.chip:hover) {
-    border-color: var(--color-gray-300);
-    background-color: var(--color-gray-100);
-    color: var(--color-gray-900);
-  }
-
-  :global([data-theme='dark']) .body :global(.chip) {
-    border-color: var(--color-gray-700);
-    background-color: var(--color-gray-850);
-    color: var(--color-gray-200);
+    background-color: var(--glass-soft);
+    color: var(--color-ink-1);
   }
 
   .body :global(:not(pre) > code) {
@@ -420,6 +477,17 @@
     border-radius: var(--radius-tight);
     background-color: var(--color-gray-50);
     font-size: 0.9em;
+  }
+
+  /* A block written while the answer streams fades in (arrive.ts); saved answers do not. */
+  .body > :global([data-arrive]) {
+    animation: arrive var(--duration-calm) var(--ease-out) both;
+  }
+
+  @keyframes arrive {
+    from {
+      opacity: 0;
+    }
   }
 
   /* The typing caret at the end of the text while it streams (chat-messages look §3.4). */

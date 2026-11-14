@@ -1,5 +1,6 @@
 // Toasts: short confirmations in the top-right corner, as the running app shows them ("Settings
-// saved successfully!"). Each closes itself after four seconds or on its close button.
+// saved successfully!"). Each closes itself after four seconds or on its close button, and waits
+// while the pointer or keyboard focus is on it so it can be read.
 export type ToastKind = 'success' | 'error' | 'info';
 
 interface Toast {
@@ -19,6 +20,19 @@ export function dismiss(id: number) {
   clearTimeout(timers[id]);
   delete timers[id];
   toasts.list = toasts.list.filter((one) => one.id !== id);
+}
+
+/** Stops the countdown while someone is reading the toast. */
+export function hold(id: number) {
+  clearTimeout(timers[id]);
+  delete timers[id];
+}
+
+/** Starts the full countdown again after a hold. */
+export function release(id: number) {
+  if (!toasts.list.some((one) => one.id === id)) return;
+  clearTimeout(timers[id]);
+  timers[id] = setTimeout(() => dismiss(id), SHOW_MS);
 }
 
 export function toast(message: string, kind: ToastKind = 'success'): number {

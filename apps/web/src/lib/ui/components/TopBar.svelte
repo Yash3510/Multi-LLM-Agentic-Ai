@@ -42,13 +42,17 @@
     align-items: center;
     gap: var(--spacing-1);
     padding: 2px var(--spacing-1) var(--spacing-1) 6px;
-    /* A soft fade so content scrolls away under the bar. */
-    background: linear-gradient(
-      to bottom,
-      var(--color-surface-page),
-      color-mix(in srgb, var(--color-surface-page) 95%, transparent) 50%,
-      transparent
-    );
+    /* Glass (ADR-0043): content blurs under the bar, so text never reads through the title. */
+    background-color: var(--glass-page);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+
+  /* At phone width the sidebar's corner button floats over the bar's start. */
+  @media (max-width: 47.99rem) {
+    .bar {
+      padding-inline-start: 44px;
+    }
   }
 
   .title {

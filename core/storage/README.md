@@ -2,7 +2,7 @@
 
 Files per organisation (master plan §6.3, §7.24): the storage interface, a local-filesystem adapter and an S3 adapter for MinIO, and the `stored_files` records that every read and delete goes through. Keys are ids, never names; every write is hashed and recorded in the ledger; deleting keeps the record and erases the bytes.
 
-**Owner:** R1 · **Decisions:** [ADR-0043](../../docs/adr/0043-file-storage-behind-one-interface.md)
+**Owner:** R1 · **Decisions:** [ADR-0044](../../docs/adr/0044-file-storage-behind-one-interface.md)
 
 ## Public API
 

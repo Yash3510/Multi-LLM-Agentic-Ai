@@ -50,11 +50,11 @@
   --color-solid: var(--ref-black);
   --color-on-solid: var(--ref-white);
   --color-solid-hover: var(--ref-gray-950);
-  --color-tint: color-mix(in srgb, var(--ref-black) 4.5%, transparent);
+  --color-tint: color-mix(in srgb, var(--ref-black) 6.5%, transparent);
   /* Measured on the running app: answer prose ink (its prose style's grey, slightly blue), and the
      list row's hover and open fills. */
   --color-prose: oklch(0.373 0.034 259.733);
-  --color-row-hover: var(--ref-gray-100);
+  --color-row-hover: color-mix(in srgb, var(--ref-black) 6.5%, transparent);
   --color-row-current: color-mix(in srgb, var(--ref-black) 3.5%, transparent);
   /* The hairline edge and the faint track of a segmented control or switch. */
   --color-hair: color-mix(in srgb, var(--ref-black) 10%, transparent);
@@ -114,9 +114,9 @@
 
   /* Named radii (ADR-0041 amendment): buttons a 10 px soft rectangle, fields and menus 12, cards
      and dialogs 20. Full pills are kept for status chips only. */
-  --radius-panel: 20px;
+  --radius-panel: 24px;
   --radius-card: 20px;
-  --radius-inset: 12px;
+  --radius-inset: 14px;
   --radius-control: 10px;
   --radius-tight: 6px;
   --radius-tag: 7px;
@@ -188,5 +188,17 @@
     --depth-far: rgb(0 0 0 / 0.1);
     --focus-edge: color-mix(in srgb, var(--ref-blue-500) 50%, transparent);
     --focus-glow: color-mix(in srgb, var(--ref-blue-500) 22%, transparent);
+
+    /* The polish pass (WP-F-10): softer, rounder surfaces. Menus and the composer take larger
+       corners, rows inside menus and lists 12, icon tiles 10; buttons, filters and fields go full
+       pill (--radius-pill). */
+    --radius-menu: 18px;
+    --radius-row: 12px;
+    --radius-tile: 10px;
+    --radius-composer: 28px;
+    --radius-checks: 18px;
+    /* Search fields: a flat tint and a hairline ring; no depth. */
+    --field-inset-fill: linear-gradient(rgb(0 0 0 / 0.025), rgb(0 0 0 / 0.025));
+    --field-inset-edge: inset 0 0 0 0.5px rgb(0 0 0 / 0.07);
   }
 }

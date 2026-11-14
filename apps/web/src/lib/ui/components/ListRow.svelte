@@ -56,7 +56,7 @@
     /* 11 px sides and no gap: the run marker's 20 px slot lines titles up at 37 px (measured). */
     gap: 0;
     padding: 6px 11px;
-    border-radius: var(--radius-inset);
+    border-radius: var(--radius-row);
     font-size: var(--text-small);
     line-height: var(--text-small--line-height);
   }
@@ -85,6 +85,7 @@
 
   [data-list-row][data-current] {
     background-color: var(--color-row-current);
+    box-shadow: 0 0 0 0.5px var(--color-hair);
   }
 
   [data-list-row]:focus-visible {

@@ -8,9 +8,10 @@
   import { writeClipboard } from './clipboard';
   import './message.css';
 
-  type Props = { text: string; at: Date };
+  /** `fresh`: sent in this visit, so it rises in; a saved message is already at rest. */
+  type Props = { text: string; at: Date; fresh?: boolean };
 
-  let { text, at }: Props = $props();
+  let { text, at, fresh = false }: Props = $props();
 
   const short = new Intl.DateTimeFormat(toIntlLocale(getLocale()), {
     month: 'short',
@@ -20,7 +21,7 @@
   });
 </script>
 
-<div data-message-row>
+<div data-message-row data-fresh={fresh ? '' : undefined}>
   <div class="bubble-row"><div class="bubble">{text}</div></div>
   <div class="actions" data-message-actions>
     <time data-message-time datetime={at.toISOString()}>{short.format(at)}</time>
@@ -65,9 +66,9 @@
     border-radius: 20px;
     background-color: var(--color-gray-50);
     color: var(--color-ink-1);
-    /* Measured on the running app: 16 / 24 px in the bubble. */
-    font-size: 16px;
-    line-height: 24px;
+    /* The same size and weight as the reply, so a sent message reads as plain text. */
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

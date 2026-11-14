@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Read from disk: Vitest does not process CSS, so a ?raw import comes back empty.
 const motionCss = readFileSync(join(import.meta.dirname, 'tokens/motion.css'), 'utf8');
+const appCss = readFileSync(join(import.meta.dirname, '../../app.css'), 'utf8');
 
 const REDUCE = '(prefers-reduced-motion: reduce)';
 const root = document.documentElement;
@@ -44,6 +45,39 @@ describe('motion tokens', () => {
     expect(motionCss).toContain(`--ease-exit: ${EASE.exit};`);
     expect(motionCss).toContain(`--ease-cubic-out: ${EASE.cubicOut};`);
     expect(DURATION.menu).toBe(200);
+  });
+
+  it('adds the expo arrival curve and one spring, mirrored in CSS (ADR-0042)', async () => {
+    const { EASE } = await load();
+    expect(motionCss).toContain(`--ease-expo: ${EASE.expo};`);
+    // The formatter wraps the long value, so the spring is compared with whitespace removed.
+    const bare = (text: string) => text.replaceAll(/\s+/g, '');
+    expect(bare(motionCss)).toContain(bare(`--ease-spring: ${EASE.spring};`));
+  });
+
+  it('times hover, press and focus at 150 ms on the standard curve, the same in and out (ADR-0042)', async () => {
+    const { DURATION, EASE } = await load();
+    expect(DURATION.interact).toBe(150);
+    expect(DURATION.instant).toBe(100);
+    expect(motionCss).toContain(`--ease-standard: ${EASE.standard};`);
+    expect(appCss).toContain(
+      'transition-duration: var(--interact-duration, var(--duration-interact)) !important;',
+    );
+    expect(appCss).toContain('transition-timing-function: var(--ease-standard) !important;');
+    // No slower leave: the old rule held a hover for 240 ms on the way out.
+    expect(appCss).not.toContain('transition-duration: var(--duration-base) !important;');
+  });
+
+  it('keeps the spring gentle: it peaks at 3 % or less and settles at 1', async () => {
+    const { EASE } = await load();
+    const stops = EASE.spring
+      .slice('linear('.length, -1)
+      .split(', ')
+      .map((stop) => Number.parseFloat(stop));
+    expect(stops[0]).toBe(0);
+    expect(stops.at(-1)).toBe(1);
+    expect(Math.max(...stops)).toBeGreaterThan(1);
+    expect(Math.max(...stops)).toBeLessThanOrEqual(1.03);
   });
 });
 

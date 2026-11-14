@@ -70,11 +70,13 @@
   }
 </script>
 
-{#snippet row(label: string, note: string, action: string, onclick?: () => void)}
+{#snippet row(label: string, note: string, action: string, onclick?: () => void, danger = false)}
   <div class="block">
     <div class="row tall">
       <span>{label}</span>
-      <button type="button" class="quiet" disabled={!onclick} {onclick}>{action}</button>
+      <button type="button" class={['quiet', { danger }]} disabled={!onclick} {onclick}
+        >{action}</button
+      >
     </div>
     <p class="note">{note}</p>
   </div>
@@ -82,6 +84,7 @@
 
 <div class="settings-page">
   <h2>Data Controls</h2>
+  <p class="lede">Import, export, archive or delete your chats, and manage uploaded files.</p>
   <input
     bind:this={picker}
     type="file"
@@ -93,7 +96,7 @@
   <div class="body">
     <section>
       <h3>Chats</h3>
-      <div class="rows">
+      <div class="rows grouped">
         {@render row('Import Chats', 'Import chat history from a JSON export file.', 'Import', () =>
           picker?.click(),
         )}
@@ -115,13 +118,14 @@
           'Permanently delete every chat after confirmation.',
           'Delete All',
           () => (confirming = 'delete'),
+          true,
         )}
       </div>
       <p class="notice" role="status">{notice}</p>
     </section>
     <section>
       <h3>Files</h3>
-      <div class="rows">
+      <div class="rows grouped">
         {@render row('Manage Files', 'Open the file manager for uploaded files.', 'Manage')}
       </div>
     </section>
@@ -141,11 +145,6 @@
     margin-block-start: 10px;
     color: var(--color-gray-500);
     font-size: var(--text-caption);
-  }
-
-  /* The running app draws the actions 1 px below the row's centre. */
-  .quiet {
-    padding-block-start: 2px;
   }
 
   .quiet:disabled {

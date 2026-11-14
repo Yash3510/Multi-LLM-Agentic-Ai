@@ -2,6 +2,7 @@
 // a scripted answer replayed with realistic pacing. Nothing leaves the browser. The content is
 // sector-neutral (rules R2 to R6, ids like CASE-0142).
 import type {
+  Receipt,
   Chat,
   ChatSummary,
   DataSource,
@@ -243,7 +244,76 @@ function failing(): Step[] {
   ];
 }
 
-function closing(outcome: 'released' | 'withheld', by: string): Step[] {
+type Folds = NonNullable<Receipt['folds']>;
+
+const FOLDS: Folds = [
+  {
+    title: 'Full provenance',
+    body: '| Figure | Source |\n| --- | --- |\n| 82.5 % | [2] |\n| 85 % limit | [1] |',
+  },
+  {
+    title: 'Analyst — analysis · qwen/qwen3-8b',
+    body: 'The second batch report gives a ratio of 82.5 % [2]; rule R2 sets the limit at 85 % [1]. The first batch has no ratio, so it is not assessed.',
+  },
+  {
+    title: 'Challenger — verification — PASS · qwen/qwen3-1.7b',
+    body: 'Every figure in the answer appears in the source it cites.',
+  },
+];
+
+/** Every agent's output and a second try, so the details panel has each tab full. */
+const DEMO_FOLDS: Folds = [
+  {
+    title: 'Full provenance',
+    body: '| Figure | Source |\n| --- | --- |\n| 82.5 % | [2] |\n| 85 % limit | [1] |\n| First batch: no ratio | [3] |',
+  },
+  {
+    title: 'Planner — plan · qwen/qwen3-8b',
+    body: 'Find rule R2 and its limit, read both batch reports for CASE-0142, compare, then have the answer checked.',
+  },
+  {
+    title: 'Reader — retrieval · qwen/qwen3-8b',
+    body: 'Three passages: the rule [1], the second batch report [2] and the first batch report [3].',
+  },
+  FOLDS[1]!,
+  {
+    title: 'Author — draft · qwen/qwen3-8b',
+    body: 'First draft said "about 83 %". Second draft gives the exact reading, 82.5 %, and the limit it is compared with.',
+  },
+  {
+    title: 'Challenger — verification, try 1 — FAIL · qwen/qwen3-1.7b',
+    body: 'The ratio is rounded without saying so.',
+  },
+  {
+    title: 'Challenger — verification, try 2 — PASS · qwen/qwen3-1.7b',
+    body: 'Every figure in the answer appears in the source it cites.',
+  },
+];
+
+/** The replanned run with a third source, which the answer does not cite. */
+function demo(): Step[] {
+  const run = replanned();
+  const analyst = run.findIndex(
+    (step) => step.event.type === 'status' && step.event.stage === 'analyst',
+  );
+  return [
+    ...run.slice(0, analyst),
+    {
+      after: 100,
+      event: {
+        type: 'source',
+        source: {
+          index: 3,
+          title: 'CASE-0142 first batch report',
+          passage: 'Ratio: not measured.',
+        },
+      },
+    },
+    ...run.slice(analyst),
+  ];
+}
+
+function closing(outcome: 'released' | 'withheld', by: string, folds = FOLDS, sources = 2): Step[] {
   return [
     { after: 300, event: { type: 'decision', outcome, by } },
     {
@@ -254,23 +324,10 @@ function closing(outcome: 'released' | 'withheld', by: string): Step[] {
           fingerprint: '0604685d984d94b44870bea051662d5c981671e220f8073eae5ab3c26543b5f7',
           model: 'qwen/qwen3-8b',
           seconds: 9.4,
-          sources: 2,
+          sources,
           signedBy: by,
           externalCalls: 0,
-          folds: [
-            {
-              title: 'Full provenance',
-              body: '| Figure | Source |\n| --- | --- |\n| 82.5 % | [2] |\n| 85 % limit | [1] |',
-            },
-            {
-              title: 'Analyst — analysis · qwen/qwen3-8b',
-              body: 'The second batch report gives a ratio of 82.5 % [2]; rule R2 sets the limit at 85 % [1]. The first batch has no ratio, so it is not assessed.',
-            },
-            {
-              title: 'Challenger — verification — PASS · qwen/qwen3-1.7b',
-              body: 'Every figure in the answer appears in the source it cites.',
-            },
-          ],
+          folds,
         },
       },
     },
@@ -279,12 +336,21 @@ function closing(outcome: 'released' | 'withheld', by: string): Step[] {
 }
 
 /** A finished, released run stored with a chat, as a reloaded chat would come back. */
-function storedRun(id: string, question: string, at: Date) {
+function storedRun(
+  id: string,
+  question: string,
+  at: Date,
+  run = script(),
+  folds = FOLDS,
+  sources = 2,
+) {
   let time = at.getTime();
-  const events: StreamEvent[] = [...script(), ...closing('released', 'Asha Rao')].map((step) => {
-    time += step.after;
-    return { ...step.event, at: time };
-  });
+  const events: StreamEvent[] = [...run, ...closing('released', 'Asha Rao', folds, sources)].map(
+    (step) => {
+      time += step.after;
+      return { ...step.event, at: time };
+    },
+  );
   const text = events.flatMap((event) => (event.type === 'delta' ? [event.text] : [])).join('');
   return [
     { id: `${id}-q`, role: 'user' as const, text: question, at },
@@ -293,6 +359,20 @@ function storedRun(id: string, question: string, at: Date) {
 }
 
 const CHATS: Chat[] = [
+  {
+    id: 'c-demo',
+    title: 'Details demo: R2 · Ratio for CASE-0142, second try',
+    updated: hoursAgo(1),
+    outcome: 'released',
+    messages: storedRun(
+      'm-demo',
+      'Is R2 · Ratio within the limit for CASE-0142? Check both batches.',
+      hoursAgo(1),
+      demo(),
+      DEMO_FOLDS,
+      3,
+    ),
+  },
   {
     id: 'c-0142',
     title: 'Is R2 · Ratio within the limit for CASE-0142?',

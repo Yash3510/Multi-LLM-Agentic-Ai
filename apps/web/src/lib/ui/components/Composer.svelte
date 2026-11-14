@@ -18,6 +18,8 @@
     /** An answer is streaming: the round action becomes Stop. */
     busy?: boolean;
     onstop?: () => void;
+    /** Shown in the empty box with a Tab key cap; Tab takes it (the Accept shortcut). */
+    suggestion?: string;
   };
 
   let {
@@ -28,7 +30,9 @@
     value = $bindable(''),
     busy = false,
     onstop,
+    suggestion,
   }: Props = $props();
+  const offering = $derived(Boolean(suggestion) && value.length === 0);
   const ready = $derived(value.trim().length > 0);
 
   // One button wears three faces (voice, send, stop) and crossfades between them; on send the
@@ -50,6 +54,11 @@
   }
 
   function keydown(event: KeyboardEvent) {
+    if (event.key === 'Tab' && !event.shiftKey && offering && suggestion) {
+      event.preventDefault();
+      value = suggestion;
+      return;
+    }
     if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
     event.preventDefault();
     send();
@@ -58,8 +67,14 @@
 
 <div class="box">
   <div class="editor">
-    <textarea bind:value aria-label={m.composer_label()} {placeholder} rows="1" onkeydown={keydown}
-    ></textarea>
+    <textarea
+      bind:value
+      aria-label={m.composer_label()}
+      placeholder={offering ? suggestion : placeholder}
+      aria-keyshortcuts={offering ? 'Tab' : undefined}
+      rows="1"
+      onkeydown={keydown}></textarea>
+    {#if offering}<kbd class="tab-cap" aria-hidden="true">Tab</kbd>{/if}
   </div>
   <div class="controls">
     <div class="start">
@@ -118,18 +133,21 @@
 
 <style>
   .box {
+    position: relative;
     display: flex;
     flex-direction: column;
     inline-size: 100%;
     padding-inline: 2px;
     border: 1px solid color-mix(in srgb, var(--color-gray-100) 30%, transparent);
-    border-radius: 20px;
-    background-color: color-mix(in srgb, var(--color-white) 5%, transparent);
+    border-radius: var(--radius-composer);
+    background-color: var(--glass-fill);
     box-shadow:
+      var(--glass-edge),
       0 0 0 1px rgb(0 0 0 / 0.04),
       0 1px 2px -1px rgb(16 24 40 / 0.06),
       0 12px 32px -14px rgb(16 24 40 / 0.2);
-    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     transition:
       border-color 300ms ease-out,
       box-shadow 300ms ease-out;
@@ -142,6 +160,7 @@
   .box:focus-within {
     border-color: var(--color-gray-100);
     box-shadow:
+      var(--glass-edge),
       0 0 0 1px rgb(0 0 0 / 0.08),
       0 1px 3px -1px rgb(16 24 40 / 0.08),
       0 20px 48px -18px rgb(16 24 40 / 0.28);
@@ -149,8 +168,8 @@
 
   :global([data-theme='dark']) .box {
     border-color: color-mix(in srgb, var(--color-gray-850) 30%, transparent);
-    background-color: color-mix(in srgb, var(--color-gray-500) 5%, transparent);
     box-shadow:
+      var(--glass-edge),
       0 0 0 1px rgb(255 255 255 / 0.06),
       0 1px 2px -1px rgb(16 24 40 / 0.06),
       0 12px 32px -14px rgb(16 24 40 / 0.2);
@@ -238,6 +257,23 @@
     background-color: var(--color-gray-800);
   }
 
+  /* Tools, dictation and the model also darken their ink under the pointer, as on the running app. */
+  :is(.chip, .end .round):hover {
+    color: var(--color-gray-900);
+  }
+
+  .model:hover {
+    color: var(--color-gray-700);
+  }
+
+  :global([data-theme='dark']) :is(.chip, .end .round):hover {
+    color: var(--color-white);
+  }
+
+  :global([data-theme='dark']) .model:hover {
+    color: var(--color-gray-200);
+  }
+
   .divider {
     align-self: center;
     inline-size: 1px;
@@ -269,12 +305,30 @@
     font-size: var(--text-small);
   }
 
+  /* The Tab key cap beside a suggestion (polish pass, WP-F-10). */
+  .tab-cap {
+    position: absolute;
+    inset-block-start: 14px;
+    inset-inline-end: 16px;
+    padding: 0 7px;
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-pill);
+    color: var(--color-gray-500);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 17px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
   .brand {
     color: var(--color-ink-1);
     font-weight: var(--font-weight-semibold);
   }
 
   .action {
+    /* 200 ms, as measured on the running app's voice button. */
+    --interact-duration: 200ms;
     position: relative;
     background-color: var(--color-solid);
     color: var(--color-on-solid);

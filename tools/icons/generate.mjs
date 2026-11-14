@@ -1,6 +1,6 @@
 // Icon generator for apps/web (ADR-0041 amendment: Phosphor, as the running app draws it).
 // Source: src/lib/ui/icons/registry.json, our name -> a @phosphor-icons/core glyph and weight
-// (regular unless the running app uses bold in that place). Writes src/lib/ui/icons/generated/
+// (regular unless the running app uses bold in that place; fill for a selected state). Writes src/lib/ui/icons/generated/
 // icons.ts and contact-sheet.html, or exits 1 listing every problem and writing nothing. Paths
 // resolve from this file, so it runs from any directory.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -22,9 +22,11 @@ const PHOSPHOR = dirname(
 // installed version.
 const LICENCE = join(dirname(PHOSPHOR), 'LICENSE');
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const WEIGHTS = ['regular', 'bold'];
+// Fill is the selected state of an icon that has one (ADR-0041 amendment, 2026-11-13).
+const WEIGHTS = ['regular', 'bold', 'fill'];
 
-// Phosphor names a bold file "check-bold.svg"; regular files carry no suffix.
+// Phosphor names a bold file "check-bold.svg" and a filled one "check-fill.svg"; regular files
+// carry no suffix.
 export const phosphorFile = (glyph, weight = 'regular') =>
   join(PHOSPHOR, weight, weight === 'regular' ? `${glyph}.svg` : `${glyph}-${weight}.svg`);
 
@@ -52,7 +54,7 @@ export function checkRegistry(registry, has) {
     const weight = entry?.weight ?? 'regular';
     if (!NAME.test(name)) errors.push(`${name}: names are kebab-case`);
     else if (typeof entry?.phosphor !== 'string') errors.push(`${name}: needs a "phosphor" glyph name`);
-    else if (!WEIGHTS.includes(weight)) errors.push(`${name}: weight is regular or bold`);
+    else if (!WEIGHTS.includes(weight)) errors.push(`${name}: weight is regular, bold or fill`);
     else if (!has(entry.phosphor, weight))
       errors.push(`${name}: @phosphor-icons/core has no ${weight} glyph "${entry.phosphor}"`);
   }

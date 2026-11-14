@@ -1,6 +1,7 @@
 <script lang="ts">
   // The run error card (own-4ce look S6, features F28): a stopped run told plainly, with what
   // went wrong, where, how to fix it, a retry and the server's own words. It replaces the answer.
+  import Wire from './Wire.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { explainRunError } from '$lib/ui/run-error';
   import { COPY_HOLD_MS, writeClipboard } from './clipboard';
@@ -66,7 +67,11 @@
           onretry();
         }}
       >
-        <span class="retry-icon"><Icon name="arrow-clockwise" size={14} /></span>
+        {#if retrying}
+          <Wire width={14} />
+        {:else}
+          <span class="retry-icon"><Icon name="arrow-clockwise" size={14} /></span>
+        {/if}
         {retrying ? 'Trying again' : 'Try again'}
       </button>
     {/if}
@@ -258,10 +263,6 @@
     rotate: -90deg;
   }
 
-  .retry[data-retrying] .retry-icon {
-    animation: spin 1s linear infinite;
-  }
-
   :global([data-theme='dark']) .retry {
     background-color: var(--color-white);
     color: var(--color-gray-900);
@@ -318,16 +319,9 @@
     }
   }
 
-  @keyframes spin {
-    to {
-      rotate: 1turn;
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .card,
-    .detail,
-    .retry[data-retrying] .retry-icon {
+    .detail {
       animation: none;
     }
   }
