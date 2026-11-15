@@ -7,7 +7,7 @@ from fource.db import Base, OrgScoped, UtcDateTime
 
 
 class StoredFile(OrgScoped, Base):
-    """The record of one stored file (ADR-0043). Never deleted: deleting a file marks it, and
+    """The record of one stored file (ADR-0044). Never deleted: deleting a file marks it, and
     erasing its bytes marks it again. The app role has no DELETE on this table."""
 
     __tablename__ = "stored_files"

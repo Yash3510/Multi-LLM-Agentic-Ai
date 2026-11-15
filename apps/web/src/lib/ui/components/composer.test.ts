@@ -55,4 +55,28 @@ describe('Composer while an answer streams', () => {
     await fireEvent.click(getByRole('button', { name: 'Stop' }));
     expect(onstop).toHaveBeenCalledOnce();
   });
+  it('offers a suggestion in the empty box and takes it on Tab', async () => {
+    const view = render(Composer, {
+      onsend: vi.fn(),
+      model: 'Planner',
+      tools: 7,
+      suggestion: 'Check a threshold against R2 · Ratio',
+    });
+    const box = view.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
+    expect(box.placeholder).toBe('Check a threshold against R2 · Ratio');
+    expect(view.getByText('Tab')).toBeTruthy();
+    await fireEvent.keyDown(box, { key: 'Tab' });
+    expect(box.value).toBe('Check a threshold against R2 · Ratio');
+    expect(view.queryByText('Tab')).toBeNull();
+  });
+
+  it('lets Tab move focus as usual once there is text', async () => {
+    const view = render(Composer, { onsend: vi.fn(), model: 'Planner', tools: 7, suggestion: 'x' });
+    const box = view.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
+    await fireEvent.input(box, { target: { value: 'mine' } });
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    box.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false);
+    expect(box.value).toBe('mine');
+  });
 });

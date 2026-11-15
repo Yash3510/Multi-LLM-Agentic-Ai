@@ -263,7 +263,8 @@
 
 <style>
   /* Measured against the running app: title 10 px above Model Defaults, a 32 px toolbar with
-     14 px search text and 13 px menus, and 28 px rows 9 px apart. */
+     14 px search text and 13 px menus. The rows are one outlined group with hairlines between
+     them, like the settings groups. */
   .models h2 {
     margin-block-end: 10px;
   }
@@ -291,7 +292,11 @@
   .list {
     display: flex;
     flex-direction: column;
-    gap: 9px;
+    overflow: hidden;
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-inset);
+    background-color: var(--glass-soft);
+    box-shadow: var(--glass-edge);
   }
 
   :global(.model-more),
@@ -343,7 +348,11 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    min-block-size: 28px;
+    padding: 5px 12px;
+  }
+
+  .list li + li {
+    border-block-start: 1px solid var(--color-line-1);
   }
 
   .list li.hidden .name {

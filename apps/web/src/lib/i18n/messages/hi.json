@@ -46,6 +46,7 @@
   "composer_send": "भेजें",
   "composer_model": "चुना गया मॉडल: {model}",
   "home_suggested": "सुझाव",
+  "home_recent": "हाल के",
   "egress_stale_label": "बाहरी कनेक्शन: नहीं देखे गए। सॉवरेनटी पेज खोलें।",
   "egress_external": "बाहरी",
   "egress_stale": "बाहरी कनेक्शन नहीं देखे गए",

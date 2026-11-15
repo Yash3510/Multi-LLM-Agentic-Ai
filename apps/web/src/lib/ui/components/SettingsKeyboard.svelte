@@ -73,18 +73,21 @@
       }}>Reset Defaults</button
     >
   </div>
-  <div class="enable">
-    <div class="row">
-      <span>Enable Keyboard Shortcuts</span>
-      <Switch
-        on={enabled}
-        onchange={async (on) => {
-          enabled = on;
-          await source.saveUserSettings({ ui: { shortcutsEnabled: on } });
-        }}
-      />
+  <p class="lede">Turn shortcuts on or off, and click a key to rebind it.</p>
+  <div class="rows grouped enable">
+    <div class="block">
+      <div class="row">
+        <span>Enable Keyboard Shortcuts</span>
+        <Switch
+          on={enabled}
+          onchange={async (on) => {
+            enabled = on;
+            await source.saveUserSettings({ ui: { shortcutsEnabled: on } });
+          }}
+        />
+      </div>
+      <p class="note">When disabled, keyboard shortcuts will not trigger any actions.</p>
     </div>
-    <p class="note">When disabled, keyboard shortcuts will not trigger any actions.</p>
   </div>
   <div class="body">
     <div class="table-head"><span class="command">Command</span><span class="key">Key</span></div>
@@ -134,7 +137,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-block-end: 16px;
+    margin-block-end: 4px;
+    /* Clears the dialog's close button. */
+    padding-inline-end: 32px;
   }
 
   .title-row h2 {
@@ -152,7 +157,7 @@
   .table-head {
     display: flex;
     gap: 8px;
-    padding: 0 4px 4px;
+    padding: 0 14px 4px;
     color: var(--color-gray-400);
     font-size: var(--text-nano);
     line-height: calc(20 / 14);
@@ -176,7 +181,7 @@
   }
 
   .category {
-    padding: 4px 4px 2px;
+    padding: 8px 14px 6px;
     color: var(--color-gray-400);
     font-size: var(--text-caption);
     line-height: 16px;
@@ -191,7 +196,7 @@
     align-items: center;
     gap: 12px;
     min-block-size: 32px;
-    padding: 6px 4px;
+    padding: 6px 14px;
   }
 
   /* Every row carries the 1 px rule inside its 32 px, the first one too (under the caption). */

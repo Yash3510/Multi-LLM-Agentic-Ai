@@ -5,7 +5,9 @@
   import { DropdownMenu } from 'bits-ui';
   import { resolve } from '$app/paths';
   import type { User } from '$lib/data';
+  import { glide } from '$lib/ui/glide';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import './glide.css';
   import './menu.css';
   import './surfaces.css';
 
@@ -45,6 +47,7 @@
     <DropdownMenu.Content
       class="user-menu"
       data-menu
+      {@attach glide({ active: '[data-menu-row][data-highlighted]' })}
       data-surface="float"
       side="top"
       align="start"

@@ -159,6 +159,8 @@
     align-items: center;
     justify-content: space-between;
     margin-block-end: 4px;
+    /* Clear of the panel's close button. */
+    padding-inline-end: 28px;
   }
 
   .head h2 {
@@ -193,14 +195,20 @@
     color: var(--color-gray-300);
   }
 
+  /* The chart and each table are outlined groups, like the settings groups. The line is ink:
+     colour is kept for live work. */
   .chart {
     display: block;
     inline-size: 100%;
     block-size: 180px;
+    padding: 10px 6px 4px;
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-inset);
+    background-color: var(--glass-soft);
   }
 
   .chart polyline {
-    stroke: var(--color-blue-500);
+    stroke: var(--color-ink-1);
     stroke-width: 1.5;
   }
 
@@ -214,6 +222,7 @@
 
   .dates span {
     position: absolute;
+    white-space: nowrap;
     transform: translateX(-50%);
   }
 
@@ -232,10 +241,28 @@
     margin-block-start: 8px;
   }
 
-  @media (min-width: 48rem) {
-    .tables {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+  .tables section + section {
+    margin-block-start: 0;
+  }
+
+  .scroller {
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-inset);
+    background-color: var(--glass-soft);
+  }
+
+  .analytics thead {
+    border-block-end: 0;
+    color: var(--color-ink-3);
+    text-transform: none;
+  }
+
+  th {
+    font-weight: var(--font-weight-medium);
+  }
+
+  td {
+    border-block-start: 1px solid var(--color-line-1);
   }
 
   td {

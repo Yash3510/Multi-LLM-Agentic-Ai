@@ -150,6 +150,10 @@
     align-items: center;
     min-inline-size: 0;
     color: var(--color-gray-700);
+    border-radius: var(--radius-pill);
+    padding-inline: 12px;
+    background-image: var(--field-inset-fill);
+    box-shadow: var(--field-inset-edge);
   }
 
   .search-icon {

@@ -1,7 +1,7 @@
 <script lang="ts">
   // A card in the flow: e0, a line-1 edge on the card radius with the card inset. It becomes one
   // control when it has an href (a link) or an onclick (a button): the whole card is the target, so
-  // it holds no other controls, and it rises to e1 on hover, never moving. A button card holds
+  // it holds no other controls, and it rises to e1 and lifts 1 px on hover (ADR-0042). A button card holds
   // phrasing content only (spans), as any button does.
   //
   // - selected: the card whose detail is open beside it. aria-current on a link, aria-pressed on a

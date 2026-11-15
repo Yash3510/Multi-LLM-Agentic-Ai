@@ -1,11 +1,10 @@
 <script lang="ts">
   // The receipt under a released answer (own-4ce look S7, features F36-F37): labels saying how
   // the answer was produced, the fingerprint (click to copy) and the audit record, then what was
-  // checked, then the folds: full provenance, each agent's output and the execution timeline.
+  // checked. The provenance, each agent's output and the timeline are in DetailsPanel.
   import type { Receipt, Revision, SignOffRequest } from '$lib/data';
   import RevisionCard from './RevisionCard.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
-  import { renderMarkdown, safeHtml } from '$lib/ui/markdown';
   import { COPY_HOLD_MS, writeClipboard } from './clipboard';
 
   type Props = {
@@ -14,35 +13,20 @@
     releasedAt?: Date;
     /** The names of the sources the answer cites, for the Grounded label's hover. */
     cited?: string[];
-    /** The run's status events with their offset from the start. */
-    timeline?: { at: string; text: string }[];
     /** Opens the audit record. */
     onaudit?: () => void;
     /** What changed on a later try, shown above the checks. */
     revision?: Revision;
   };
 
-  let {
-    receipt,
-    checks,
-    releasedAt,
-    cited = [],
-    timeline = [],
-    onaudit,
-    revision,
-  }: Props = $props();
+  let { receipt, checks, releasedAt, cited = [], onaudit, revision }: Props = $props();
 
-  let open = $state<Record<string, boolean>>({});
   const reservations = $derived(checks.filter((check) => check.verdict === 'review').length);
   const clock = new Intl.DateTimeFormat('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
   });
-  const folds = $derived([
-    ...(receipt.folds ?? []),
-    ...(timeline.length ? [{ title: 'Execution timeline', body: '' }] : []),
-  ]);
 
   let copied = $state(false);
   const passed = $derived(checks.every((check) => check.verdict !== 'fail'));
@@ -57,7 +41,7 @@
 
 <div class="receipt" role="group" aria-label="How this answer was produced">
   <div class="labels">
-    <span class="label"><b>Local</b> {receipt.model}</span>
+    <span class="label" data-label="model"><b>Local</b> {receipt.model}</span>
     {#if receipt.sources > 0}
       <span
         class="label"
@@ -117,32 +101,6 @@
       </ul>
     </div>
   {/if}
-  {#each folds as fold (fold.title)}
-    <div class="fold">
-      <button
-        type="button"
-        class="fold-toggle"
-        aria-expanded={open[fold.title] ?? false}
-        onclick={() => (open[fold.title] = !open[fold.title])}
-      >
-        {fold.title}
-        <span class="caret" data-open={open[fold.title] ? '' : undefined}
-          ><Icon name="sort-caret-down" size={12} /></span
-        >
-      </button>
-      {#if open[fold.title]}
-        {#if fold.title === 'Execution timeline'}
-          <ol class="timeline">
-            {#each timeline as step, index (index)}
-              <li><span class="offset">{step.at}</span>{step.text}</li>
-            {/each}
-          </ol>
-        {:else}
-          <div class="fold-body" {@attach safeHtml(renderMarkdown(fold.body))}></div>
-        {/if}
-      {/if}
-    </div>
-  {/each}
 </div>
 
 <style>
@@ -169,8 +127,53 @@
     line-height: 16px;
   }
 
+  /* On a run answered here the labels arrive one after another, 40 ms apart. */
+  :global([data-fresh]) .label {
+    animation: label-in var(--duration-calm) var(--ease-out) both;
+  }
+
+  :global([data-fresh]) .label:nth-child(2) {
+    animation-delay: 40ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(3) {
+    animation-delay: 80ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(4) {
+    animation-delay: 120ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(5) {
+    animation-delay: 160ms;
+  }
+
+  :global([data-fresh]) .label:nth-child(n + 6) {
+    animation-delay: 200ms;
+  }
+
+  :global([data-fresh]) .checks {
+    animation: label-in var(--duration-calm) var(--ease-out) 200ms both;
+  }
+
+  @keyframes label-in {
+    from {
+      opacity: 0;
+      translate: 0 6px;
+    }
+  }
+
   .label b {
     font-weight: var(--font-weight-medium);
+  }
+
+  /* The model is a machine value, so it is set in mono; its "Local" stays in the text face. */
+  .label[data-label='model'] {
+    font-family: var(--font-mono);
+  }
+
+  .label[data-label='model'] b {
+    font-family: var(--font-sans);
   }
 
   :global([data-theme='dark']) .label {
@@ -184,6 +187,12 @@
     color: var(--color-emerald-800);
   }
 
+  /* Dark: the verdict green that passes AA on the dark ground (polish pass, WP-F-10). */
+  :global([data-theme='dark']) .label[data-tone='good'] {
+    border-color: color-mix(in srgb, var(--color-ok) 35%, transparent);
+    color: var(--color-ok);
+  }
+
   .label[data-tone='warn'] {
     border-color: var(--color-amber-200);
     color: var(--color-amber-800);
@@ -193,15 +202,17 @@
     border-style: dashed;
   }
 
-  .fingerprint {
+  :is(.fingerprint, .audit) {
     transition:
-      border-color 150ms,
-      color 150ms;
+      background-color var(--duration-interact) var(--ease-standard),
+      border-color var(--duration-interact) var(--ease-standard),
+      color var(--duration-interact) var(--ease-standard);
   }
 
   .fingerprint:hover {
-    border-color: var(--color-gray-300);
-    color: var(--color-gray-900);
+    border-color: var(--color-line-2);
+    background-color: var(--color-surface-hover);
+    color: var(--color-ink-1);
   }
 
   .fingerprint code {
@@ -228,7 +239,7 @@
     margin-block-start: 10px;
     padding: var(--spacing-2) var(--spacing-3);
     border: 1px solid var(--color-gray-100);
-    border-radius: 16px;
+    border-radius: var(--radius-checks);
   }
 
   :global([data-theme='dark']) .checks {
@@ -275,81 +286,6 @@
 
   .text {
     flex: 1;
-  }
-
-  /* Folds (chat-messages look §5.5): 13.5 px muted toggles with a caret that turns. */
-  .fold {
-    margin-block-start: 6px;
-  }
-
-  .fold-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-1);
-    padding-block: 3px;
-    color: var(--color-gray-500);
-    font-size: 13.5px;
-    transition: color 150ms;
-  }
-
-  .fold-toggle:hover {
-    color: var(--color-gray-900);
-  }
-
-  :global([data-theme='dark']) .fold-toggle {
-    color: var(--color-gray-400);
-  }
-
-  :global([data-theme='dark']) .fold-toggle:hover {
-    color: var(--color-gray-100);
-  }
-
-  .fold-toggle:focus-visible {
-    outline: none;
-    box-shadow: var(--shadow-focus);
-  }
-
-  .caret {
-    display: inline-flex;
-    transition: rotate 300ms;
-  }
-
-  .caret[data-open] {
-    rotate: 180deg;
-  }
-
-  .fold-body,
-  .timeline {
-    margin-block-end: 6px;
-    color: var(--color-prose);
-    font-size: var(--text-ui);
-    line-height: 1.625;
-  }
-
-  .fold-body :global(table) {
-    border-collapse: collapse;
-    font-size: var(--text-small);
-  }
-
-  .fold-body :global(:is(th, td)) {
-    padding: var(--spacing-1) var(--spacing-3);
-    border-block-end: 1px solid var(--color-line-1);
-    text-align: start;
-  }
-
-  .timeline {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: var(--text-small);
-  }
-
-  .offset {
-    display: inline-block;
-    min-inline-size: 4.5em;
-    color: var(--color-gray-500);
-    font-family: var(--font-mono);
-    font-size: var(--text-caption);
   }
 
   .by {

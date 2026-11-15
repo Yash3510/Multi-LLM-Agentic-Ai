@@ -143,12 +143,17 @@
               </time>
             {/if}
           </ListRow>
-          {#if page.url.pathname === `/c/${row.id}`}
-            <!-- The open chat shows its menu button in place of the time (layout look §4.4). -->
-            <button type="button" class="row-more" aria-label="Chat Menu" title="More">
-              <Icon name="row-more" size={14} />
-            </button>
-          {/if}
+          <!-- The menu button takes the time's place on the open chat (layout look §4.4), and on
+               any row under the pointer or holding focus, as on the running app. -->
+          <button
+            type="button"
+            class="row-more"
+            data-current={page.url.pathname === `/c/${row.id}` ? '' : undefined}
+            aria-label="Chat Menu"
+            title="More"
+          >
+            <Icon name="row-more" size={14} />
+          </button>
         </div>
       {/each}
     </div>
@@ -228,7 +233,8 @@
     block-size: 28px;
     border-radius: 8px;
     color: var(--color-gray-300);
-    transition: color 100ms;
+    /* 100 ms, as measured on the running app's section buttons. */
+    --interact-duration: var(--duration-instant);
   }
 
   .section-action:hover {
@@ -282,6 +288,18 @@
     color: var(--color-ink-2);
   }
 
+  .row-wrap:not(:hover, :focus-within) .row-more:not([data-current]) {
+    opacity: 0;
+  }
+
+  .row-more:hover {
+    color: var(--color-ink-1);
+  }
+
+  .row-wrap:is(:hover, :focus-within) .ago {
+    opacity: 0;
+  }
+
   .row-more:focus-visible {
     outline: none;
     box-shadow: var(--shadow-focus);
@@ -298,5 +316,6 @@
     padding-inline-start: var(--spacing-2);
     color: var(--color-ink-3);
     font-size: var(--text-nano);
+    transition: opacity var(--duration-interact) var(--ease-standard);
   }
 </style>

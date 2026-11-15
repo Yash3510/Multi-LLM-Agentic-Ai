@@ -221,7 +221,7 @@
   }
   .soft {
     padding: 6px 14px;
-    border-radius: 8px;
+    border-radius: var(--radius-pill);
     background-color: var(--color-gray-50);
   }
   :global([data-theme='dark']) .soft {

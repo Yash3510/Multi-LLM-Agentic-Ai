@@ -113,7 +113,7 @@
   }
 
   :is(.title, .text)::placeholder {
-    color: var(--color-gray-300);
+    color: var(--color-gray-500);
   }
 
   :global([data-theme='dark']) :is(.title, .text)::placeholder {

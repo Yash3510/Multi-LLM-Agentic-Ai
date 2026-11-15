@@ -88,6 +88,7 @@
 
 <div class="settings-page">
   <h2>Usage</h2>
+  <p class="lede">Your tokens, models, tools and activity.</p>
   {#if failed}
     <p class="failed">Failed to load usage</p>
   {:else if usage}
@@ -160,7 +161,7 @@
       {#if usage.totals.messages || usage.totals.lifetimeTokens}
         <section>
           <h3>Activity insights</h3>
-          <div class="rows">
+          <div class="rows grouped">
             {#each [['Models', String(usage.totals.modelsUsed)], ['Average tokens per chat', compact(usage.insights.averageTokensPerChat)], ['Average messages per active day', String(usage.insights.averageMessagesPerActiveDay)], ['User messages', `${usage.totals.userMessages} · ${usage.insights.userMessageShare}%`], ['Assistant messages', `${usage.totals.assistantMessages} · ${usage.insights.assistantMessageShare}%`], ['Total chats', String(usage.totals.totalChats)]] as [label, value] (label)}
               <div class="row">
                 <span>{label}</span><span class="strut"><span class="figure">{value}</span></span>
@@ -170,7 +171,7 @@
         </section>
         <section>
           <h3>Top models</h3>
-          <div class="rows">
+          <div class="rows grouped">
             {#each usage.topModels as model (model.id)}
               <div class="row">
                 <span>{name(model.id)}</span>
@@ -187,7 +188,7 @@
         {#if usage.topTools.length}
           <section>
             <h3>Most used tools</h3>
-            <div class="rows">
+            <div class="rows grouped">
               {#each usage.topTools as tool (tool.name)}
                 <div class="row">
                   <span>{tool.name}</span><span class="strut"

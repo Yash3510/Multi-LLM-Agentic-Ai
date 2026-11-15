@@ -1,0 +1,52 @@
+/*
+ * The sliding highlight (glide.ts, ADR-0042). The marker sits behind the rows and moves on the one
+ * spring; its size settles on the expo curve, because a spring may only time position. A host sets
+ * --glide-fill, --glide-edge and --glide-hover-fill to the fills its rows used to paint themselves.
+ */
+[data-glide-host] {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-glide] {
+  position: absolute;
+  inset-block-start: 0;
+  left: 0;
+  z-index: -1;
+  inline-size: var(--glide-w, 0);
+  block-size: var(--glide-h, 0);
+  translate: var(--glide-x, 0) var(--glide-y, 0);
+  opacity: 0;
+  pointer-events: none;
+  /* Browsers without linear() keep this first declaration. */
+  transition:
+    translate var(--duration-calm) var(--ease-expo),
+    inline-size var(--duration-calm) var(--ease-expo),
+    block-size var(--duration-calm) var(--ease-expo),
+    opacity var(--duration-quick) var(--ease-out);
+  transition:
+    translate var(--duration-calm) var(--ease-spring),
+    inline-size var(--duration-calm) var(--ease-expo),
+    block-size var(--duration-calm) var(--ease-expo),
+    opacity var(--duration-quick) var(--ease-out);
+}
+
+[data-glide][data-on] {
+  opacity: 1;
+}
+
+[data-glide='active'] {
+  background-color: var(--glide-fill, transparent);
+  box-shadow: var(--glide-edge, none);
+}
+
+[data-glide='hover'] {
+  background-color: var(--glide-hover-fill, transparent);
+}
+
+/* Forced colours repaint fills, so the rows keep their own highlight there. */
+@media (forced-colors: active) {
+  [data-glide] {
+    display: none;
+  }
+}

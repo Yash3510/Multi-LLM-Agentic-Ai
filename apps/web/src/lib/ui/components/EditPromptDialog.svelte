@@ -1,6 +1,7 @@
 <script lang="ts">
   // Edit prompt (workspace look §6.3, F97): the live text to change, an optional commit message,
   // and whether the new version goes live. Saving adds a version.
+  import Wire from './Wire.svelte';
   import { Dialog } from 'bits-ui';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import './modal.css';
@@ -66,7 +67,7 @@
           </label>
           <button type="submit" class="save" disabled={saving}>
             Save
-            {#if saving}<span class="spinner" aria-hidden="true"></span>{/if}
+            {#if saving}<Wire />{/if}
           </button>
         </div>
       </form>
@@ -201,22 +202,6 @@
   :global([data-theme='dark']) .save {
     background-color: var(--color-white);
     color: var(--color-black);
-  }
-
-  .spinner {
-    inline-size: 16px;
-    block-size: 16px;
-    margin-inline-start: 6px;
-    border: 2px solid color-mix(in srgb, currentcolor 25%, transparent);
-    border-block-start-color: currentcolor;
-    border-radius: var(--radius-pill);
-    animation: spin 0.75s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      rotate: 1turn;
-    }
   }
 
   :global(.edit-close:focus-visible),

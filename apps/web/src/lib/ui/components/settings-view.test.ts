@@ -1,6 +1,7 @@
 import { fireEvent, render, waitFor, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeSource } from '$lib/data/fake';
+import { theme } from '$lib/ui/theme.svelte';
 import SettingsDialog from './SettingsDialog.svelte';
 
 const setup = () => {
@@ -44,14 +45,14 @@ describe('settings dialog (chat-composer F91)', () => {
       within(nav)
         .getAllByRole('button')
         .map((b) => b.textContent?.trim()),
-    ).toEqual(['Back', 'Audio']);
+    ).toEqual(['Audio']);
     await fireEvent.input(await findByPlaceholderText('Search'), { target: { value: 'zzz' } });
     expect(await findByText('No matches')).toBeTruthy();
   });
 
-  it('closes from Back', async () => {
+  it('closes from the close button', async () => {
     const { findByRole, onclose } = setup();
-    await fireEvent.click(await findByRole('button', { name: 'Back' }));
+    await fireEvent.click(await findByRole('button', { name: 'Close' }));
     expect(onclose).toHaveBeenCalled();
   });
 });
@@ -62,7 +63,7 @@ describe('general settings (F92)', () => {
     await fireEvent.input(await findByPlaceholderText('Enter system prompt here'), {
       target: { value: 'Be brief.' },
     });
-    await fireEvent.click(getByRole('button', { name: 'Show' }));
+    await fireEvent.click(getByRole('button', { name: 'Model parameters' }));
     const temperature = getByText('Temperature').closest('[data-param]') as HTMLElement;
     await fireEvent.click(within(temperature).getByRole('button', { name: 'Default' }));
     await fireEvent.click(getByRole('button', { name: 'Save' }));
@@ -74,15 +75,31 @@ describe('general settings (F92)', () => {
     );
   });
 
-  it('offers the themes, OLED Dark included', async () => {
+  it('offers the themes as one strip, OLED included, and applies a choice at once', async () => {
     const { findByRole } = setup();
-    const theme = await findByRole('combobox', { name: 'Theme' });
-    expect([...(theme as HTMLSelectElement).options].map((o) => o.value)).toEqual([
-      'system',
-      'dark',
-      'oled-dark',
-      'light',
-    ]);
+    const strip = await findByRole('radiogroup', { name: 'Theme' });
+    expect(
+      within(strip)
+        .getAllByRole('radio')
+        .map((one) => one.textContent?.trim()),
+    ).toEqual(['System', 'Light', 'Dark', 'OLED']);
+    await fireEvent.click(within(strip).getByRole('radio', { name: 'OLED' }));
+    expect(theme.choice).toBe('oled-dark');
+    theme.choice = 'system';
+  });
+
+  it('shows the save bar only while something is unsaved, and Reset puts it back', async () => {
+    const { findByPlaceholderText, getByRole, queryByRole, findByRole } = setup();
+    const prompt = (await findByPlaceholderText('Enter system prompt here')) as HTMLTextAreaElement;
+    expect(queryByRole('button', { name: 'Save' })).toBeNull();
+    await fireEvent.input(prompt, { target: { value: 'Be brief.' } });
+    expect(await findByRole('button', { name: 'Save' })).toBeTruthy();
+    await fireEvent.click(getByRole('button', { name: 'Reset' }));
+    await waitFor(() => expect(queryByRole('button', { name: 'Save' })).toBeNull());
+    expect(prompt.value).toBe('');
+    await fireEvent.input(prompt, { target: { value: 'Be brief.' } });
+    await fireEvent.click(await findByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(queryByRole('button', { name: 'Save' })).toBeNull());
   });
 });
 

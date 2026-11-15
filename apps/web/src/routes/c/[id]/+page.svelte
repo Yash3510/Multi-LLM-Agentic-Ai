@@ -131,7 +131,11 @@
   <div class="thread">
     {#each messages as message, index (index)}
       {#if message.role === 'user'}
-        <UserMessage text={message.text} at={message.at} />
+        <UserMessage
+          text={message.text}
+          at={message.at}
+          fresh={index >= data.chat.messages.length}
+        />
       {:else}
         <ResponseMessage
           model="4CE / Planner"

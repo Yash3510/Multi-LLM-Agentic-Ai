@@ -206,6 +206,11 @@ def test_commit_subjects_are_conventional() -> None:
     assert repo_check.check_subject("feature(rules): unknown type") != []
 
 
+def test_formatting_only_commits_may_use_the_style_type() -> None:
+    assert repo_check.check_subject("style(web): format the details mapper") == []
+    assert repo_check.check_subject("styles(web): unknown type") != []
+
+
 def test_git_default_revert_subjects_are_accepted() -> None:
     assert repo_check.check_subject('Revert "feat(rules): add authority rule type"') == []
 

@@ -89,8 +89,10 @@
     max-width: var(--bits-floating-available-width);
     max-height: min(var(--bits-floating-available-height), calc(var(--spacing-12) * 6));
     border-radius: var(--radius-inset);
-    background-color: var(--color-surface-raised);
-    box-shadow: var(--shadow-e2);
+    background-color: var(--glass-fill);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-e2), var(--glass-edge);
     color: var(--color-ink-1);
     overflow: hidden;
     transition-property: opacity, transform;

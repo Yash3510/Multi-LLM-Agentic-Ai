@@ -168,8 +168,8 @@
     color: var(--color-ink-2);
     cursor: pointer;
     transition-property: background-color, color;
-    transition-duration: var(--duration-quick);
-    transition-timing-function: var(--ease-out);
+    transition-duration: var(--duration-interact);
+    transition-timing-function: var(--ease-standard);
   }
 
   .copy:hover,

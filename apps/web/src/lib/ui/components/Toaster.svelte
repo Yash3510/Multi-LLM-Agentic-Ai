@@ -1,24 +1,31 @@
 <script lang="ts">
-  // The toasts (common look, Motion): top right, sliding down into place with a fade and fading
-  // away; success in green, errors in red, each with a close button.
+  // The toasts: top right, sliding down into place with a fade and fading away. One quiet glass
+  // surface for every kind; the icon alone carries the colour (green done, red failed, ink note).
+  // A toast waits while the pointer or focus is on it.
   import { fade, rise } from '$lib/ui/motion.svelte';
-  import { dismiss, toasts } from '$lib/ui/toast.svelte';
+  import { dismiss, hold, release, toasts } from '$lib/ui/toast.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
 </script>
 
 <ol class="toaster" aria-live="polite">
   {#each toasts.list as one (one.id)}
     <li
-      class="toast"
+      class="toast glass"
       data-kind={one.kind}
       role={one.kind === 'error' ? 'alert' : 'status'}
       in:rise={{ y: -8, duration: 400 }}
       out:fade={{ duration: 200 }}
+      onpointerenter={() => hold(one.id)}
+      onpointerleave={() => release(one.id)}
+      onfocusin={() => hold(one.id)}
+      onfocusout={() => release(one.id)}
     >
-      <Icon
-        name={one.kind === 'error' ? 'warning' : one.kind === 'info' ? 'info' : 'check'}
-        size={16}
-      />
+      <span class="sign"
+        ><Icon
+          name={one.kind === 'error' ? 'warning' : one.kind === 'info' ? 'info' : 'verdict-pass'}
+          size={18}
+        /></span
+      >
       <span class="message">{one.message}</span>
       <button type="button" class="close" aria-label="Close" onclick={() => dismiss(one.id)}
         ><Icon name="x" size={12} /></button
@@ -42,34 +49,39 @@
 
   .toast {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 14px 16px;
-    border: 1px solid color-mix(in srgb, var(--color-ok-mark) 30%, transparent);
-    border-radius: 8px;
-    background-color: color-mix(in srgb, var(--color-ok-mark) 8%, var(--color-surface-raised));
-    box-shadow: 0 4px 12px rgb(0 0 0 / 0.1);
-    color: var(--color-ok);
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 10px 12px 14px;
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-notice);
+    box-shadow: var(--shadow-e2), var(--glass-edge);
+    color: var(--color-ink-1);
     font-size: 13px;
-    line-height: 18px;
+    line-height: 20px;
     pointer-events: auto;
   }
 
-  .toast[data-kind='error'] {
-    border-color: color-mix(in srgb, var(--color-stop) 30%, transparent);
-    background-color: color-mix(in srgb, var(--color-stop) 8%, var(--color-surface-raised));
+  /* One line of text tall, so the icon sits on the first line of a wrapped message. */
+  .sign {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    block-size: 20px;
+    color: var(--color-ok);
+  }
+
+  .toast[data-kind='error'] .sign {
     color: var(--color-stop);
   }
 
-  .toast[data-kind='info'] {
-    border-color: var(--color-line-1);
-    background-color: var(--color-surface-raised);
-    color: var(--color-ink-1);
+  .toast[data-kind='info'] .sign {
+    color: var(--color-ink-2);
   }
 
   .message {
     flex: 1;
     min-inline-size: 0;
+    overflow-wrap: anywhere;
   }
 
   .close {
@@ -79,13 +91,15 @@
     inline-size: 20px;
     block-size: 20px;
     border-radius: var(--radius-pill);
-    color: inherit;
-    opacity: 0.6;
-    transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--color-ink-3);
+    transition:
+      color var(--duration-interact) var(--ease-standard),
+      background-color var(--duration-interact) var(--ease-standard);
   }
 
   .close:hover {
-    opacity: 1;
+    background-color: var(--color-tint);
+    color: var(--color-ink-1);
   }
 
   .close:focus-visible {

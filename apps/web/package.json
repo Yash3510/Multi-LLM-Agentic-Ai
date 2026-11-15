@@ -16,7 +16,7 @@
     "preview": "vite preview",
     "precheck": "npm run icons && npm run i18n",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "lint": "eslint . && prettier --check .",
+    "lint": "svelte-kit sync && eslint . && prettier --check .",
     "format": "prettier --write .",
     "pretest": "npm run icons && npm run i18n",
     "test": "vitest run",

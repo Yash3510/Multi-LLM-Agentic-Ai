@@ -326,6 +326,10 @@
     flex: 1;
     align-items: center;
     min-inline-size: 0;
+    border-radius: var(--radius-pill);
+    padding-inline: 12px;
+    background-image: var(--field-inset-fill);
+    box-shadow: var(--field-inset-edge);
   }
 
   .search > :global(svg) {
@@ -372,7 +376,7 @@
     flex-shrink: 0;
     margin-inline-start: 4px;
     padding: 4px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius-pill);
     background-color: var(--color-gray-50);
     box-shadow: 0 0 0 1px var(--color-gray-200);
     color: var(--color-gray-900);

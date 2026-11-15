@@ -125,11 +125,7 @@
   }
 
   input::placeholder {
-    color: var(--color-gray-300);
-  }
-
-  :global([data-theme='dark']) input::placeholder {
-    color: var(--color-gray-700);
+    color: var(--color-gray-500);
   }
 
   .problem {

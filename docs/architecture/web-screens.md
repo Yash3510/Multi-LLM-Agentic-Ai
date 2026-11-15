@@ -3,7 +3,7 @@ title: Web screens
 type: architecture
 status: planned
 owner: R3
-updated: 2026-10-08
+updated: 2026-11-11
 covers:
   - apps/web/src/routes/
 tags: [4ce, architecture, frontend]
@@ -67,6 +67,7 @@ A screen that cannot reach a state says so with "n/a".
 
 These are 4CE's own components, rebuilt from their behaviour on the new tokens (ADR-0035 §14). Screens below refer to them by name. Base components (buttons, fields, menus, dialogs, `DataTable`, the command palette) are in the design system.
 
+- **Provenance rows.** Under an answer, the folds (full provenance, each role's note, the execution timeline) and the sources row share one row rhythm with hairlines; a fold's model is set in Plex Mono and its verdict in its colour (polish pass, WP-F-10).
 - **Stage rail.** A line of nodes for the run's workflow, in the order the pack's workflow sets (§7.11).
   - The moving light hands over from one node to the next (`handover`); the current node shows the working dots; a finished node's ring closes (`deliberate`).
   - The human gate is ink, never violet.

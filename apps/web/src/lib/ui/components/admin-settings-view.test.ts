@@ -3,13 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { createFakeSource } from '$lib/data/fake';
 import SettingsDialog from './SettingsDialog.svelte';
 
-const open = async (tab: string, nth = 0) => {
+const open = async (tab: string) => {
   const source = createFakeSource({ pace: 0 });
   const view = render(SettingsDialog, {
     props: { open: true, source, admin: true, onclose: vi.fn() },
   });
   const nav = await view.findByRole('navigation', { name: 'Settings' });
-  await fireEvent.click(within(nav).getAllByRole('button', { name: tab })[nth]);
+  await fireEvent.click(within(nav).getByRole('radio', { name: 'Admin' }));
+  await fireEvent.click(within(nav).getByRole('button', { name: tab }));
   return { source, ...view };
 };
 
@@ -30,7 +31,7 @@ describe('admin settings tabs (admin look §18)', () => {
   });
 
   it('saves the general panel, with sub-settings following their switch', async () => {
-    const { findByRole, getByRole, queryByText, findByText, source } = await open('General', 1);
+    const { findByRole, getByRole, queryByText, findByText, source } = await open('General');
     await findByRole('heading', { name: 'General', level: 2 });
     expect(queryByText('Model Response Mode')).toBeNull();
     await fireEvent.click(getByRole('switch', { name: 'Channels' }));
@@ -104,7 +105,7 @@ describe('admin models and analytics (admin look §17, §23)', () => {
 
 describe('admin settings leftovers', () => {
   it('adds a banner and a default interface setting in General', async () => {
-    const { findByRole, getByRole, source, findByText } = await open('General', 1);
+    const { findByRole, getByRole, source, findByText } = await open('General');
     await findByRole('heading', { name: 'General', level: 2 });
     await fireEvent.click(getByRole('button', { name: 'Add banner' }));
     await fireEvent.input(getByRole('textbox', { name: 'Banner text' }), {

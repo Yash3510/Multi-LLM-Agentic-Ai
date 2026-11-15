@@ -1,6 +1,7 @@
 <script lang="ts">
   // Create a knowledge base (workspace look §4.4, F65): a name, what it is for, and who can use
   // it. A missing field is said once and nothing typed is lost.
+  import Wire from './Wire.svelte';
   import { Dialog } from 'bits-ui';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import AccessPanel from './AccessPanel.svelte';
@@ -75,7 +76,7 @@
             <button type="button" class="cancel" onclick={onclose}>Cancel</button>
             <button type="submit" class="create" disabled={saving}>
               Create Knowledge
-              {#if saving}<span class="spinner" aria-hidden="true"></span>{/if}
+              {#if saving}<Wire />{/if}
             </button>
           </div>
         </form>
@@ -167,11 +168,7 @@
   }
 
   :is(input, textarea)::placeholder {
-    color: var(--color-gray-300);
-  }
-
-  :global([data-theme='dark']) :is(input, textarea)::placeholder {
-    color: var(--color-gray-700);
+    color: var(--color-gray-500);
   }
 
   /* 8 px in the look, 9 px as the running app measures (its select sits 20 px under the text). */
@@ -235,20 +232,5 @@
 
   :global([data-theme='dark']) .create:hover {
     background-color: var(--color-gray-100);
-  }
-
-  .spinner {
-    inline-size: 16px;
-    block-size: 16px;
-    border: 2px solid color-mix(in srgb, currentcolor 25%, transparent);
-    border-block-start-color: currentcolor;
-    border-radius: var(--radius-pill);
-    animation: spin 0.75s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      rotate: 1turn;
-    }
   }
 </style>

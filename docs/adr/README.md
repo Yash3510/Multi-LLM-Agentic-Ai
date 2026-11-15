@@ -3,7 +3,7 @@ title: Architecture decision records
 type: index
 status: active
 owner: R1
-updated: 2026-11-13
+updated: 2026-11-14
 covers:
   - docs/adr/
 tags: [4ce, adr]
@@ -34,5 +34,7 @@ Numbers 0009 to 0034 are reserved by the master plan (§15) for the decisions it
 | [0039](0039-every-action-writes-a-ledger-entry.md) | Every action writes a ledger entry | proposed |
 | [0040](0040-job-queue-on-postgresql.md) | Job queue on PostgreSQL | proposed |
 | [0041](0041-exact-match-look.md) | Exact-match look | proposed |
-| [0043](0043-file-storage-behind-one-interface.md) | File storage behind one interface | proposed |
+| [0042](0042-motion-language.md) | Motion language | proposed |
+| [0043](0043-soft-glass-surfaces.md) | Soft glass surfaces | proposed |
+| [0044](0044-file-storage-behind-one-interface.md) | File storage behind one interface | proposed |
 

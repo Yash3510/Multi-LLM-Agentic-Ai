@@ -22,12 +22,13 @@ describe('readPhosphor', () => {
 
 describe('checkRegistry', () => {
   it('reports bad names, weights, missing glyphs and malformed entries', () => {
-    const has = (glyph, weight) => glyph === 'check' && weight !== 'fill';
+    const has = (glyph) => glyph === 'check';
     expect(
       checkRegistry(
         {
           ok: { phosphor: 'check' },
           bold: { phosphor: 'check', weight: 'bold' },
+          filled: { phosphor: 'check', weight: 'fill' },
           Bad: { phosphor: 'check' },
           gone: { phosphor: 'nope' },
           heavy: { phosphor: 'check', weight: 'duotone' },
@@ -38,7 +39,7 @@ describe('checkRegistry', () => {
     ).toEqual([
       'Bad: names are kebab-case',
       'gone: @phosphor-icons/core has no regular glyph "nope"',
-      'heavy: weight is regular or bold',
+      'heavy: weight is regular, bold or fill',
       'odd: needs a "phosphor" glyph name',
     ]);
   });

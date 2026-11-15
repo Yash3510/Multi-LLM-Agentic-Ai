@@ -189,6 +189,17 @@
     </div>
   {/if}
 </nav>
+{#if open}
+  <!-- At phone width the open sidebar floats over the page; this dims the rest and closes it on
+       a tap. Hidden from assistive tech: the panel's own close button is the named control. -->
+  <button
+    type="button"
+    class="scrim"
+    aria-hidden="true"
+    tabindex="-1"
+    onclick={() => (open = false)}
+  ></button>
+{/if}
 
 <style>
   .sidebar {
@@ -307,13 +318,13 @@
     gap: var(--spacing-2);
     inline-size: 100%;
     padding: 6px var(--spacing-2);
-    border-radius: var(--radius-inset);
+    border-radius: var(--radius-row);
     color: var(--color-ink-2);
     text-align: start;
     text-decoration: none;
     transition:
-      background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
-      color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      background-color var(--duration-interact) var(--ease-standard),
+      color var(--duration-interact) var(--ease-standard);
   }
 
   .glyph {
@@ -328,6 +339,7 @@
 
   .row[data-current] {
     background-color: var(--color-row-current);
+    box-shadow: 0 0 0 0.5px var(--color-hair);
   }
 
   :is(.row, .logo, .name, .closer, .rail-open, .rail-link, .rail-user):focus-visible {
@@ -444,7 +456,19 @@
 
   /* Below 768 px the running app drops the rail for a lone sidebar button in the corner, and
      the open sidebar lies over the page instead of pushing it. */
+  .scrim {
+    display: none;
+  }
+
   @media (max-width: 47.99rem) {
+    .scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      display: block;
+      background-color: var(--color-scrim);
+    }
+
     /* Raised over the sticky top bar (z-index 30) so the corner button can be tapped. */
     .sidebar:not([data-open]) {
       position: relative;

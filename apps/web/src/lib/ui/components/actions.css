@@ -41,7 +41,9 @@
   }
 
   /* Buttons: a 32 px soft rectangle, 10 px radius (ADR-0041 amendment). */
+  /* Buttons: a 32 px full pill (polish pass, WP-F-10). */
   [data-action='button'] {
+    --action-radius: var(--radius-pill);
     min-height: 32px;
     padding-inline: 14px;
   }
@@ -62,6 +64,7 @@
   }
 
   [data-action='icon'] {
+    --action-radius: var(--radius-tile);
     inline-size: 32px;
     block-size: 32px;
     padding: 0;
@@ -125,10 +128,11 @@
   /* Quiet icon buttons (sidebar, top bar, row actions): a muted grey that darkens to ink on a soft
      tint, flat, as the running app and Takeoff draw them. Gray-600 / gray-400 keep the glyph above
      3:1 on its ground (ADR-0041 amendment). */
+  /* Hovered, a quiet icon button sits on a white tile with a hairline edge, flat (polish pass). */
   [data-action='icon'][data-variant='quiet'] {
     --action-ink: var(--color-gray-600);
-    --action-hover-fill: var(--color-tint);
-    --action-hover-depth: var(--shadow-e0);
+    --action-hover-fill: var(--color-surface-raised);
+    --action-hover-depth: 0 0 0 1px var(--color-line-1);
   }
 
   :where([data-theme='dark']) [data-action='icon'][data-variant='quiet'] {
@@ -146,12 +150,12 @@
     color: var(--action-hover-ink);
   }
 
-  /* A press settles the button to 98%: a mechanical click, no colour jump. */
+  /* A press settles the button: a mechanical click, no colour jump. */
   [data-action]:not(:disabled, [aria-disabled='true'], [aria-busy='true']):is(
       :active,
       [data-preview='active']
     ) {
-    transform: scale(0.98);
+    scale: var(--press-scale);
   }
 
   /* Keyboard focus: the soft glow, laid over the button's own depth. */
