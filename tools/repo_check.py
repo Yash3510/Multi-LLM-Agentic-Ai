@@ -117,7 +117,8 @@ MAX_BYTES = 1_000_000
 PACK_MANIFEST = re.compile(r"packs/[^/]+/[^/]+/pack\.yaml")
 
 COMMIT_SUBJECT = re.compile(
-    r"(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\([a-z0-9][a-z0-9-]*\))?!?: \S.*"
+    r"(feat|fix|docs|style|test|refactor|perf|build|ci|chore|revert)"
+    r"(\([a-z0-9][a-z0-9-]*\))?!?: \S.*"
     r'|Revert ".+"'  # what git revert writes
 )
 
