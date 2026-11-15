@@ -38,6 +38,8 @@ test('icons fit their buttons on /ui', async ({ page }) => {
 test('icons fit their buttons on the main screens', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('/auth');
+  // Typing before the app has loaded lets the form submit natively and stay on /auth.
+  await page.waitForLoadState('networkidle');
   await page.waitForSelector('input[type="password"]');
   // The demo build runs on the fake source: any account signs in; these are not real credentials.
   const name = page.locator('input[autocomplete="name"]');
