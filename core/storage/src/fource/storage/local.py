@@ -2,6 +2,7 @@
 
 import os
 import secrets
+import stat
 from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,6 +14,7 @@ from fource.storage.base import CHUNK_SIZE
 from fource.storage.errors import BlobMissing, StorageUnavailable
 from fource.storage.keys import BlobKey
 
+_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)  # POSIX: never open through a link
 _BINARY = getattr(os, "O_BINARY", 0)  # Windows: no newline translation
 
 
@@ -28,7 +30,7 @@ async def _io[*Args, Result](function: Callable[[*Args], Result], *args: *Args) 
 
 
 def _create(part: Path) -> BinaryIO:
-    descriptor = os.open(part, os.O_WRONLY | os.O_CREAT | os.O_EXCL | _BINARY, 0o600)
+    descriptor = os.open(part, os.O_WRONLY | os.O_CREAT | os.O_EXCL | _NOFOLLOW | _BINARY, 0o600)
     return os.fdopen(descriptor, "wb")
 
 
@@ -71,7 +73,7 @@ async def _chunks(handle: BinaryIO) -> AsyncIterator[bytes]:
 class LocalBlobs:
     """Each key is the file `<root>/<org hex>/<file hex>`. A write goes to a hidden part file
     beside it (created exclusively, owner-only), is synced, then renamed into place, so a
-    reader sees the whole file or none."""
+    reader sees the whole file or none. An organisation folder that is a link is refused."""
 
     backend = "local"
 
@@ -79,7 +81,15 @@ class LocalBlobs:
         self._root = root
 
     def _folder(self, key: BlobKey) -> Path:
-        return self._root / key.org.hex
+        """The organisation's folder, which must be a real folder: never a link or junction."""
+        folder = self._root / key.org.hex
+        info = os.lstat(folder)  # FileNotFoundError: the caller decides what that means
+        if stat.S_ISLNK(info.st_mode) or folder.is_junction() or not stat.S_ISDIR(info.st_mode):
+            raise StorageUnavailable(
+                "An organisation's folder in the file store is a link or not a folder; "
+                "4CE does not follow it."
+            )
+        return folder
 
     def _ready_folder(self, key: BlobKey) -> Path:
         self._root.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -91,13 +101,22 @@ class LocalBlobs:
 
     def _open(self, key: BlobKey) -> BinaryIO:
         try:
-            descriptor = os.open(self._folder(key) / key.file.hex, os.O_RDONLY | _BINARY)
+            path = self._folder(key) / key.file.hex
+            if stat.S_ISLNK(os.lstat(path).st_mode):
+                raise StorageUnavailable(
+                    "A file in the file store is a link; 4CE does not follow it."
+                )
+            descriptor = os.open(path, os.O_RDONLY | _NOFOLLOW | _BINARY)
         except FileNotFoundError:
             raise BlobMissing() from None
         return os.fdopen(descriptor, "rb")
 
     def _remove(self, key: BlobKey) -> None:
-        (self._folder(key) / key.file.hex).unlink(missing_ok=True)
+        try:
+            folder = self._folder(key)
+        except FileNotFoundError:
+            return
+        (folder / key.file.hex).unlink(missing_ok=True)
 
     async def write(self, key: BlobKey, chunks: AsyncIterable[bytes]) -> None:
         folder = await _io(self._ready_folder, key)
