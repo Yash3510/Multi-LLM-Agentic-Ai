@@ -1,5 +1,6 @@
 import os
 import stat
+import sys
 import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -8,6 +9,10 @@ import anyio
 import pytest
 
 from fource.storage import BlobKey, BlobMissing, LocalBlobs, StorageUnavailable
+
+if sys.platform != "win32":  # Windows has neither module
+    import grp
+    import pwd
 
 pytestmark = pytest.mark.anyio
 ORG = uuid.UUID("0190a0b1-0000-7000-8000-000000000001")
@@ -96,3 +101,78 @@ async def test_ping_fails_when_the_root_cannot_be_a_folder(tmp_path: Path) -> No
     (tmp_path / "taken").write_bytes(b"a file where the folder should be")
     assert not await LocalBlobs(tmp_path / "taken").ping()
     assert await LocalBlobs(tmp_path / "new" / "files").ping()
+
+
+async def test_a_folder_others_may_write_is_refused(tmp_path: Path) -> None:
+    if sys.platform != "win32":  # Windows keeps its own permissions (ADR-0044, point 7)
+        blobs = LocalBlobs(tmp_path / "files")
+        at = BlobKey(ORG, uuid.uuid4())
+        await blobs.write(at, source(b"x"))
+        for folder in (tmp_path / "files" / ORG.hex, tmp_path / "files"):
+            folder.chmod(0o707)  # every account may now add, swap or plant entries
+            with pytest.raises(StorageUnavailable, match="another account"):
+                async with blobs.read(at):
+                    pass
+            with pytest.raises(StorageUnavailable, match="another account"):
+                await blobs.write(BlobKey(ORG, uuid.uuid4()), source(b"y"))
+            folder.chmod(0o700)
+        async with blobs.read(at) as chunks:
+            assert b"".join([chunk async for chunk in chunks]) == b"x"
+
+
+async def test_group_write_passes_only_for_the_owners_private_group(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if sys.platform != "win32":
+        blobs = LocalBlobs(tmp_path / "files")
+        at = BlobKey(ORG, uuid.uuid4())
+        await blobs.write(at, source(b"x"))
+        (tmp_path / "files").chmod(0o770)
+        owner = pwd.getpwuid(os.geteuid()).pw_name
+        group = grp.struct_group(("shared", "x", os.getegid(), [owner, "someone-else"]))
+
+        def shared_group(gid: int) -> grp.struct_group:
+            return group
+
+        monkeypatch.setattr(grp, "getgrgid", shared_group)
+        with pytest.raises(StorageUnavailable, match="another account"):
+            async with blobs.read(at):
+                pass
+        private = grp.struct_group((owner, "x", os.getegid(), []))
+
+        def private_group(gid: int) -> grp.struct_group:
+            return private
+
+        monkeypatch.setattr(grp, "getgrgid", private_group)
+        async with blobs.read(at) as chunks:  # a umask of 002 with a private group is fine
+            assert b"".join([chunk async for chunk in chunks]) == b"x"
+
+
+async def test_a_folder_above_the_store_needs_the_sticky_bit_if_others_may_write(
+    tmp_path: Path,
+) -> None:
+    if sys.platform != "win32":
+        shared = tmp_path / "shared"
+        shared.mkdir()
+        shared.chmod(0o777)  # anyone could move the store away and put their own in its place
+        blobs = LocalBlobs(shared / "files")
+        with pytest.raises(StorageUnavailable, match="another account"):
+            await blobs.write(BlobKey(ORG, uuid.uuid4()), source(b"x"))
+        assert not await blobs.ping()
+        shared.chmod(0o1777)  # sticky, as /tmp: only an entry's owner may move or remove it
+        await blobs.write(BlobKey(ORG, uuid.uuid4()), source(b"x"))
+        assert await blobs.ping()
+
+
+async def test_a_folder_another_account_owns_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if sys.platform != "win32":
+        blobs = LocalBlobs(tmp_path / "files")
+        at = BlobKey(ORG, uuid.uuid4())
+        await blobs.write(at, source(b"x"))
+        me = os.geteuid()
+        monkeypatch.setattr(os, "geteuid", lambda: me + 4242)  # 4CE now runs as someone else
+        with pytest.raises(StorageUnavailable, match="another account"):
+            async with blobs.read(at):
+                pass
