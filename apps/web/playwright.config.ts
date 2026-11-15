@@ -20,7 +20,9 @@ export default defineConfig({
   webServer: {
     // A demo build: until the 4CE API client exists the app runs on the fake data source, which a
     // plain production build refuses (src/lib/data/source.ts).
-    command: `VITE_4CE_DEMO=1 npm run build && npm run preview -- --port ${port} --strictPort`,
+    // VITE_4CE_DEMO goes through env, not a VAR=value prefix, which cmd.exe on Windows can't run.
+    command: `npm run build && npm run preview -- --port ${port} --strictPort`,
+    env: { VITE_4CE_DEMO: '1' },
     port,
     reuseExistingServer: !process.env.CI,
   },
