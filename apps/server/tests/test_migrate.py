@@ -79,3 +79,57 @@ def test_the_ledger_refuses_updates_and_deletes_on_sqlite(tmp_path: Path) -> Non
             connection.execute(statement)
     assert connection.execute("SELECT actor FROM ledger_entries").fetchall() == [("system",)]
     connection.close()
+
+
+def add_file(connection: sqlite3.Connection, size: int = 5) -> None:
+    (org_id,) = connection.execute("SELECT id FROM orgs").fetchone()
+    connection.execute(
+        "INSERT INTO stored_files (id, org_id, created_at, name, content_type, size, sha256,"
+        " created_by) VALUES (?, ?, '2026-11-14 10:22:31', 'notes.txt', 'text/plain', ?, ?,"
+        " 'system')",
+        (uuid.uuid4().hex, org_id, size, "0" * 64),
+    )
+
+
+def test_a_negative_size_is_refused_in_the_migrated_database(tmp_path: Path) -> None:
+    path = tmp_path / "fource.db"
+    upgrade(f"sqlite+aiosqlite:///{path.as_posix()}")
+    connection = sqlite3.connect(path)
+    with pytest.raises(sqlite3.IntegrityError, match="stored_files_size"):
+        add_file(connection, size=-1)
+    connection.close()
+
+
+def test_a_file_record_is_marked_deleted_never_deleted_on_sqlite(tmp_path: Path) -> None:
+    path = tmp_path / "fource.db"
+    url = f"sqlite+aiosqlite:///{path.as_posix()}"
+    upgrade(url)
+    connection = sqlite3.connect(path)
+    add_file(connection)
+    connection.commit()
+    connection.execute("UPDATE stored_files SET deleted_at = '2026-11-14 11:00:00'")
+    connection.commit()
+    with pytest.raises(sqlite3.IntegrityError, match="never deleted"):
+        connection.execute("DELETE FROM stored_files")
+    assert connection.execute("SELECT deleted_at FROM stored_files").fetchall() == [
+        ("2026-11-14 11:00:00",)
+    ]
+    connection.close()
+
+
+def test_the_delete_refusal_goes_with_its_migration_and_returns(tmp_path: Path) -> None:
+    path = tmp_path / "fource.db"
+    url = f"sqlite+aiosqlite:///{path.as_posix()}"
+    upgrade(url)
+    downgrade(url, "0006")
+    connection = sqlite3.connect(path)
+    add_file(connection)
+    connection.execute("DELETE FROM stored_files")  # allowed again below 0007
+    connection.commit()
+    connection.close()
+    upgrade(url)
+    connection = sqlite3.connect(path)
+    add_file(connection)
+    with pytest.raises(sqlite3.IntegrityError, match="never deleted"):
+        connection.execute("DELETE FROM stored_files")
+    connection.close()

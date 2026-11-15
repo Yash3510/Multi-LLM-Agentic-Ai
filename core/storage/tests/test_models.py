@@ -60,6 +60,6 @@ async def test_a_record_belongs_to_one_organisation(
 
 async def test_a_size_below_zero_is_refused(orgs: tuple[Database, uuid.UUID, uuid.UUID]) -> None:
     database, first, _ = orgs
-    with pytest.raises(IntegrityError, match="stored_files_size|CHECK"):
+    with pytest.raises(IntegrityError, match="stored_files_size"):
         async with database.org_session(first) as session:
             session.add(a_file(size=-1))
