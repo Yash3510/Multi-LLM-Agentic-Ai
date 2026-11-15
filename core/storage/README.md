@@ -12,6 +12,9 @@ Files per organisation (master plan §6.3, §7.24): the storage interface, a loc
 | `StoredFile` | The `stored_files` table: name, type, size, SHA-256, who wrote it, and when it was deleted and erased. Rows are never deleted |
 | `StorageUnavailable`, `FileNotFound`, `FileTooLarge`, `FileDamaged` | The errors callers see (503, 404, 413, 500); messages never carry an endpoint, key, path or content |
 | `BlobMissing` | What an adapter raises when a key has no bytes |
+| `Blobs` | The adapter protocol: `write(key, chunks)` stores every chunk or nothing, `read(key)` streams (async context manager; `BlobMissing` when absent), `delete(key)` may repeat, `ping()`, `close()` |
+| `LocalBlobs(root)` | Bytes as files `<root>/<org hex>/<file hex>` (the server uses `<FOURCE_DATA_DIR>/files`): written to an exclusive part file (owner-only on Linux and macOS; on Windows the files take the data folder's permissions, so keep that folder private), synced and renamed into place; organisation folders and files that are links are refused; on Linux and macOS the store is used only when no other account can change its folders or a folder above them (ADR-0044, point 7); blocking calls run in worker threads |
+| `CHUNK_SIZE` | 64 KiB, the size adapters read in |
 
 ## Tests
 
