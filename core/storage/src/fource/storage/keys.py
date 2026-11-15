@@ -12,6 +12,11 @@ class BlobKey:
     org: uuid.UUID
     file: uuid.UUID
 
+    def __post_init__(self) -> None:
+        # Exact type, not isinstance: a subclass can override `hex` to return any text.
+        if type(self.org) is not uuid.UUID or type(self.file) is not uuid.UUID:
+            raise TypeError("A blob key is two UUIDs.")
+
     @property
     def path(self) -> str:
         return f"{self.org.hex}/{self.file.hex}"
