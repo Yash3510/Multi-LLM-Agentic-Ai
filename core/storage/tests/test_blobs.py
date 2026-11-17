@@ -1,6 +1,7 @@
 import uuid
 from collections.abc import AsyncIterator
 
+import anyio
 import pytest
 
 from fource.storage import BlobKey, BlobMissing, Blobs
@@ -65,6 +66,34 @@ async def test_a_failing_source_leaves_nothing(blobs: Blobs) -> None:
         await blobs.write(at, failing_source())
     with pytest.raises(BlobMissing):
         await read_all(blobs, at)
+
+
+async def test_a_failing_source_leaves_an_earlier_blob_untouched(blobs: Blobs) -> None:
+    at = key()
+    await blobs.write(at, source(b"the first version"))
+    with pytest.raises(ValueError, match="broke off"):
+        await blobs.write(at, failing_source())
+    assert await read_all(blobs, at) == b"the first version"
+
+
+async def test_a_blob_still_being_written_is_not_there_yet(blobs: Blobs) -> None:
+    at = key()
+    paused = anyio.Event()
+    resume = anyio.Event()
+
+    async def pausing_source() -> AsyncIterator[bytes]:
+        yield b"first part, "
+        paused.set()  # the first part has been handed over; a reader now must not see it
+        await resume.wait()
+        yield b"second part"
+
+    async with anyio.create_task_group() as tasks:
+        tasks.start_soon(blobs.write, at, pausing_source())
+        await paused.wait()
+        with pytest.raises(BlobMissing):
+            await read_all(blobs, at)
+        resume.set()
+    assert await read_all(blobs, at) == b"first part, second part"
 
 
 async def test_the_same_file_id_in_two_organisations_is_two_blobs(blobs: Blobs) -> None:
