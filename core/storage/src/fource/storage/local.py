@@ -195,17 +195,17 @@ class LocalBlobs:
     async def delete(self, key: BlobKey) -> None:
         await _io(self._remove, key)
 
-    def _prepare_root(self) -> None:
+    def _prepare_root(self) -> bool:
         self._root.mkdir(mode=0o700, parents=True, exist_ok=True)
         _check_private(self._root)
+        return self._root.is_dir() and os.access(self._root, os.W_OK)
 
     async def ping(self) -> bool:
         """True when the root exists (or could be made) as a folder 4CE may write to."""
         try:
-            await anyio.to_thread.run_sync(self._prepare_root)
+            return await anyio.to_thread.run_sync(self._prepare_root)
         except (OSError, StorageUnavailable):
             return False
-        return self._root.is_dir() and os.access(self._root, os.W_OK)
 
     async def close(self) -> None:
         return None
