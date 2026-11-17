@@ -3,7 +3,7 @@ title: Frontend
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-11
+updated: 2026-11-17
 covers:
   - apps/web/
 tags: [4ce, architecture, frontend]
@@ -81,9 +81,60 @@ Point the Vite proxy at `http://127.0.0.1:8000`. To test against PostgreSQL inst
 
 1. **The screen inventory** (ADR-0035's follow-up): every screen the pitch demo and Phase 1 need, which becomes the frontend's work packages.
 2. **WP-F-09:** design tokens, base components and the app shell, with the `/ui` route that shows every component in every state (ADR-0035 §13).
-3. **Sign-in, session and sign-out** against slice 1: the first screens with a real backend.
+3. **Sign-in, session and sign-out** against slice 1: the first screens with a real backend ([WP-UI-06, part 1](#wp-ui-06-part-1-sign-in-session-and-sign-out-against-the-server)).
 4. **WP-UI-01:** chat, cases and the run view with the stage rail. Runs, cases and live events come in later backend slices; until then, MSW fixtures. Propose each endpoint's shape in a PR to this page, so the backend builds what the screens need.
 5. **WP-UI-02** sign-off panel, **WP-UI-03** receipt and provenance, **WP-UI-04** Sovereignty page.
+
+### WP-UI-06, part 1: sign-in, session and sign-out against the server
+
+**In progress.** The first part of [WP-UI-06](web-screens.md#proposed-work-packages), in the master plan's §12 template. The rest of WP-UI-06 (session expiry with the return path, no-access and error pages) needs WP-ID-02 and WP-UI-05, and is written up when it starts.
+
+**Goal:** a person signs in against a real 4CE server, stays signed in across reloads until the token expires, and signs out. Every other screen stays on its stand-in data.
+
+**Interface:**
+
+- `src/lib/data/server.ts`: `serverSession()`, the `DataSource` calls `currentUser`, `signIn`, `signOut`, `setupStatus`, `signUp` and `createFirstAccount` over `fetch`, and `ServerError` (`code`, `status`, `message`).
+- `chooseSource` (`src/lib/data/source.ts`): a demo build (`VITE_4CE_DEMO=1`) stays fake throughout; a dev build takes those calls from the server and everything else from the fake replay; a production build is still refused.
+- `npm run dev` proxies `/api` to `API_TARGET`, by default `http://127.0.0.1:8000` (`just dev`).
+
+**Inputs and outputs:**
+
+- `signIn(email, password)` sends `POST /api/auth/signin` and answers the person: `name` is `display_name` (the email when that is empty), and `role` is `admin` for the Admin role, `user` otherwise.
+- `currentUser()` sends `GET /api/auth/session`: the person on 200, `undefined` on 401 or when no 4CE answer comes back.
+- `signOut()` sends `POST /api/auth/signout` with `X-CSRF-Token` set to the `fource_csrf` cookie's current value. 204 and 401 both mean signed out.
+- An error answer, `{"error": {"code", "message"}}`, becomes a `ServerError` that carries the server's message. Anything else (no answer, or a status without that envelope, such as the dev proxy's 500 while the server is down) becomes `unreachable`: "Can't reach the 4CE server. Check that it's running, then try again."
+- `setupStatus()` answers `{ firstAccount: false }`; `signUp` and `createFirstAccount` refuse, because accounts are made with `fource-server create-user`.
+- When sign-out fails, the shell shows the message as an error toast and stays where it is.
+
+**Acceptance tests:**
+
+- Vitest, with `fetch` stubbed (`server.test.ts`, `source.test.ts`):
+  1. sign-in posts the email and password as JSON and maps the answer; the password is in no answer, storage or URL;
+  2. for `invalid_credentials` (401), `account_locked` (423), `rate_limited` (429) and `rate_limit_unavailable` (503) the error is the server's message, with its code and status;
+  3. a rejected `fetch` and a 500 without the envelope are `unreachable`;
+  4. the session is the person on 200, and `undefined` on 401 or `unreachable`;
+  5. sign-out sends the CSRF cookie's value; 204 and 401 resolve; `csrf_failed` and `unreachable` reject;
+  6. `chooseSource`: demo is fake throughout, dev signs in through the server and keeps the fake rest, production is refused.
+- Playwright (`e2e/sign-in.spec.ts`), through the dev server against `fource-server`, started with `uv run fource-server migrate` and `serve` on a throwaway SQLite database:
+  7. a wrong password shows the server's message, keeps the email and clears the password;
+  8. the right password opens the app, a reload stays signed in, and signing out returns to sign-in, where a reload stays;
+  9. five wrong passwords lock the account, and the sixth attempt says when to try again.
+
+**Ledger:** nothing new; the server already records every sign-in, failure, lockout and sign-out.
+
+**Files:** `src/lib/data/` (`server.ts`, `source.ts` and their tests), `src/lib/ui/components/AppShell.svelte`, `vite.config.ts`, `playwright.config.ts`, `e2e/` and the README, all under `apps/web/`.
+
+**Docs:** this page, the [web data contract](web-data-contract.md), an ADR for connecting screens one at a time, `state.md` and a work-log entry.
+
+**Neutrality:** no sector terms.
+
+**Out of scope:** the generated client (WP-UI-05); the rest of WP-UI-06; roles other than Admin (WP-ID-02); sign-up and the first account, which the server doesn't offer; the server serving the built UI.
+
+**Depends on:** WP-ID-01 and the sign-in rate limit (WP-F-07), both built. No new dependency.
+
+**Reviewer:** R3.
+
+**Size:** one pull request.
 
 ## When `apps/web` lands on `4ce-core`
 
