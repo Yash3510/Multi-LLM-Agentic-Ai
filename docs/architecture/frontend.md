@@ -67,15 +67,16 @@ apps/web/
 
 ## Running the backend locally
 
-Once slice 1 has landed:
+Sign-in, the session and sign-out come from the server in a dev build, so `npm run dev` needs it running:
 
 ```
 just setup                                     # once: Python, packages, git hooks, a .env with fresh secrets
 just dev                                       # the server on http://127.0.0.1:8000, SQLite, no Docker needed
 just create-user you@example.com --role Admin  # once: asks for a password
+just web-dev                                   # the web app on http://localhost:5173, /api sent to the server
 ```
 
-Point the Vite proxy at `http://127.0.0.1:8000`. To test against PostgreSQL instead, run `just services` and set `FOURCE_DATABASE_URL` in `.env` as `.env.example` shows.
+`npm run dev` sends `/api` to `http://127.0.0.1:8000`; set `API_TARGET` to use another server. `VITE_4CE_DEMO=1 npm run dev` runs the fully fake app with no server. To test against PostgreSQL instead, run `just services` and set `FOURCE_DATABASE_URL` in `.env` as `.env.example` shows.
 
 ## What to build, in order
 
@@ -87,7 +88,7 @@ Point the Vite proxy at `http://127.0.0.1:8000`. To test against PostgreSQL inst
 
 ### WP-UI-06, part 1: sign-in, session and sign-out against the server
 
-**In progress.** The first part of [WP-UI-06](web-screens.md#proposed-work-packages), in the master plan's §12 template. The rest of WP-UI-06 (session expiry with the return path, no-access and error pages) needs WP-ID-02 and WP-UI-05, and is written up when it starts.
+**Built** ([log](../log/2026/11/2026-11-17-wp-wp-ui-06-sign-in.md)). The first part of [WP-UI-06](web-screens.md#proposed-work-packages), in the master plan's §12 template. The rest of WP-UI-06 (session expiry with the return path, no-access and error pages) needs WP-ID-02 and WP-UI-05, and is written up when it starts.
 
 **Goal:** a person signs in against a real 4CE server, stays signed in across reloads until the token expires, and signs out. Every other screen stays on its stand-in data.
 
@@ -112,7 +113,7 @@ Point the Vite proxy at `http://127.0.0.1:8000`. To test against PostgreSQL inst
   1. sign-in posts the email and password as JSON and maps the answer; the password is in no answer, storage or URL;
   2. for `invalid_credentials` (401), `account_locked` (423), `rate_limited` (429) and `rate_limit_unavailable` (503) the error is the server's message, with its code and status;
   3. a rejected `fetch` and a 500 without the envelope are `unreachable`;
-  4. the session is the person on 200, and `undefined` on 401 or `unreachable`;
+  4. the session is the person on 200, and `undefined` on 401 or `unreachable`; it asks with a load function's own `fetch` when given one;
   5. sign-out sends the CSRF cookie's value; 204 and 401 resolve; `csrf_failed` and `unreachable` reject;
   6. `chooseSource`: demo is fake throughout, dev signs in through the server and keeps the fake rest, production is refused.
 - Playwright (`e2e/sign-in.spec.ts`), through the dev server against `fource-server`, started with `uv run fource-server migrate` and `serve` on a throwaway SQLite database:
