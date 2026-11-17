@@ -118,6 +118,11 @@ async def test_an_organisation_folder_that_is_a_link_is_refused(tmp_path: Path) 
             async with blobs.read(BlobKey(ORG, uuid.uuid4())):
                 pass
         assert list(elsewhere.iterdir()) == []
+        at = BlobKey(ORG, uuid.uuid4())
+        (elsewhere / at.file.hex).write_bytes(b"not 4CE's")
+        with pytest.raises(StorageUnavailable, match="link"):
+            await blobs.delete(at)
+        assert (elsewhere / at.file.hex).read_bytes() == b"not 4CE's"  # delete did not follow it
 
 
 async def test_a_file_that_is_a_link_is_not_followed(tmp_path: Path) -> None:
@@ -153,6 +158,9 @@ async def test_a_folder_others_may_write_is_refused(tmp_path: Path) -> None:
                     pass
             with pytest.raises(StorageUnavailable, match="another account"):
                 await blobs.write(BlobKey(ORG, uuid.uuid4()), source(b"y"))
+            with pytest.raises(StorageUnavailable, match="another account"):
+                await blobs.delete(at)
+            assert (tmp_path / "files" / at.path).read_bytes() == b"x"  # nothing was removed
             folder.chmod(0o700)
         async with blobs.read(at) as chunks:
             assert b"".join([chunk async for chunk in chunks]) == b"x"
