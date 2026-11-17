@@ -112,6 +112,14 @@ describe('the session on the server', () => {
     expect(await session.currentUser()).toBeUndefined();
     expect(await session.currentUser()).toBeUndefined();
   });
+
+  it("asks with a load function's own fetch when given one", async () => {
+    const global = serve();
+    const load = vi.fn<typeof globalThis.fetch>().mockResolvedValue(answer(200, ADA));
+    expect(await serverSession().currentUser(load)).toMatchObject({ email: ADA.email });
+    expect(load.mock.calls[0][0]).toBe('/api/auth/session');
+    expect(global).not.toHaveBeenCalled();
+  });
 });
 
 describe('signing out on the server', () => {
