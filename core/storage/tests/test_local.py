@@ -66,7 +66,8 @@ async def test_a_file_is_synced_before_it_is_renamed_into_place(
     real_replace = os.replace
 
     def fsync(descriptor: int) -> None:
-        events.append("fsync")
+        is_file = stat.S_ISREG(os.fstat(descriptor).st_mode)
+        events.append("fsync file" if is_file else "fsync folder")
         real_fsync(descriptor)
 
     def replace(source_path: Path, target_path: Path) -> None:
@@ -76,7 +77,7 @@ async def test_a_file_is_synced_before_it_is_renamed_into_place(
     monkeypatch.setattr(os, "fsync", fsync)
     monkeypatch.setattr(os, "replace", replace)
     await LocalBlobs(tmp_path / "files").write(BlobKey(ORG, uuid.uuid4()), source(b"x"))
-    assert events[:2] == ["fsync", "replace"]  # the folder is synced after, on POSIX
+    assert events.index("fsync file") < events.index("replace")  # folders are synced around it
 
 
 async def test_a_file_that_cannot_be_synced_is_not_published(

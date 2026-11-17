@@ -151,6 +151,8 @@ class LocalBlobs:
             (self._root / key.org.hex).mkdir(mode=0o700)
         except FileExistsError:
             pass
+        else:
+            _sync_folder(self._root)  # the new folder's entry lives here: make it durable
         return self._folder(key)
 
     def _open(self, key: BlobKey) -> BinaryIO:
