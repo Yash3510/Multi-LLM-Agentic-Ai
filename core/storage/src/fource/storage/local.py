@@ -31,7 +31,8 @@ _NOT_PRIVATE = (
 
 def _private_group(info: os.stat_result) -> bool:
     """True when the folder's group is its owner's own group with no other members, as
-    Debian and Ubuntu give every user (whose umask is then 002)."""
+    Debian and Ubuntu give every user (whose umask is then 002). A group lists only its
+    supplementary members, so another account whose primary group it is counts as a member."""
     if sys.platform == "win32":
         return False
     try:
@@ -39,7 +40,11 @@ def _private_group(info: os.stat_result) -> bool:
         group = grp.getgrgid(info.st_gid)
     except KeyError:  # an id the system can't name: nothing shows it is private
         return False
-    return group.gr_name == owner and set(group.gr_mem) <= {owner}
+    if group.gr_name != owner or not set(group.gr_mem) <= {owner}:
+        return False
+    return not any(
+        account.pw_gid == info.st_gid and account.pw_name != owner for account in pwd.getpwall()
+    )
 
 
 def _check_private(root: Path, *inside: Path) -> None:
