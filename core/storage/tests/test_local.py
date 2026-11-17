@@ -2,6 +2,7 @@ import os
 import secrets
 import stat
 import sys
+import threading
 import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -325,3 +326,46 @@ async def test_a_part_file_that_already_exists_is_never_overwritten(
     with pytest.raises(StorageUnavailable):
         await blobs.write(at, source(b"mine"))
     assert planted.read_bytes() == b"someone else's"
+
+
+async def test_ping_does_its_file_work_off_the_event_loop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loop_thread = threading.get_ident()
+    calls: list[tuple[str, int]] = []
+    real_is_dir = Path.is_dir
+    real_access = os.access
+
+    def is_dir(self: Path) -> bool:
+        calls.append(("is_dir", threading.get_ident()))
+        return real_is_dir(self)
+
+    def access(path: Path, mode: int) -> bool:
+        calls.append(("access", threading.get_ident()))
+        return real_access(path, mode)
+
+    monkeypatch.setattr(Path, "is_dir", is_dir)
+    monkeypatch.setattr(os, "access", access)
+    assert await LocalBlobs(tmp_path / "files").ping()
+    assert {name for name, _ in calls} == {"is_dir", "access"}
+    assert all(thread != loop_thread for _, thread in calls)  # a slow disk can't stall the loop
+
+
+async def test_a_new_organisation_folder_is_synced_into_the_store_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if os.name == "posix":  # Windows can't open a folder to sync it
+        root = Path(os.path.realpath(tmp_path / "files"))
+        opened: list[Path] = []
+        real_open = os.open
+
+        def opening(path: Path, flags: int, mode: int = 0o777) -> int:
+            opened.append(Path(path))
+            return real_open(path, flags, mode)
+
+        monkeypatch.setattr(os, "open", opening)
+        await LocalBlobs(root).write(BlobKey(ORG, uuid.uuid4()), source(b"x"))
+        # The new folder's entry lives in the store folder; without this sync a power cut after
+        # the write was reported done could lose the folder and the file in it.
+        assert root in opened
+        assert root / ORG.hex in opened
