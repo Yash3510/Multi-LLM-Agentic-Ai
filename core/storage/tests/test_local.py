@@ -1,4 +1,5 @@
 import os
+import secrets
 import stat
 import sys
 import uuid
@@ -102,6 +103,7 @@ async def test_a_written_file_sits_under_its_organisation_and_id(tmp_path: Path)
     assert leftovers(tmp_path / "files") == [at.file.hex]  # no part file stays behind
     if os.name == "posix":  # owner-only, whatever the umask lets through for others
         assert stat.S_IMODE(os.stat(tmp_path / "files").st_mode) == 0o700
+        assert stat.S_IMODE(os.stat(tmp_path / "files" / ORG.hex).st_mode) == 0o700
         assert stat.S_IMODE(os.stat(tmp_path / "files" / at.path).st_mode) == 0o600
 
 
@@ -280,3 +282,46 @@ async def test_each_folder_owner_check_refuses_on_its_own(
         with pytest.raises(StorageUnavailable, match="another account"):
             async with blobs.read(at):
                 pass
+
+
+async def test_an_os_error_never_puts_a_path_into_a_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    blobs = LocalBlobs(tmp_path / "files")
+    at = BlobKey(ORG, uuid.uuid4())
+    await blobs.write(at, source(b"x"))
+    real_open = os.open
+
+    def denied(path: Path, flags: int, mode: int = 0o777) -> int:
+        if Path(path).is_relative_to(tmp_path):  # an error that names the file, as the OS does
+            raise OSError(13, "Permission denied", str(path))
+        return real_open(path, flags, mode)
+
+    monkeypatch.setattr(os, "open", denied)
+    with pytest.raises(StorageUnavailable) as read_error:
+        async with blobs.read(at):
+            pass
+    with pytest.raises(StorageUnavailable) as write_error:
+        await blobs.write(BlobKey(ORG, uuid.uuid4()), source(b"y"))
+    for error in (read_error.value, write_error.value):
+        assert "Permission denied" in str(error)
+        assert str(tmp_path) not in str(error)
+        assert ORG.hex not in str(error)
+
+
+async def test_a_part_file_that_already_exists_is_never_overwritten(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    blobs = LocalBlobs(tmp_path / "files")
+    await blobs.write(BlobKey(ORG, uuid.uuid4()), source(b"x"))  # makes the organisation folder
+    at = BlobKey(ORG, uuid.uuid4())
+    planted = tmp_path / "files" / ORG.hex / f".{at.file.hex}.{'0' * 16}.part"
+    planted.write_bytes(b"someone else's")
+
+    def known_name(nbytes: int | None = None) -> str:
+        return "0" * 16
+
+    monkeypatch.setattr(secrets, "token_hex", known_name)  # the part file's name is now known
+    with pytest.raises(StorageUnavailable):
+        await blobs.write(at, source(b"mine"))
+    assert planted.read_bytes() == b"someone else's"
