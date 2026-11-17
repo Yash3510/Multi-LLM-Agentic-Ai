@@ -1,6 +1,6 @@
-// The one place screens get data from. Today it is the fake replay (dev and demo builds only);
-// the 4CE API client replaces it here, behind the same DataSource contract
-// (docs/architecture/web-data-contract.md).
+// The one place screens get data from. Today it is the fake replay, with sign-in, the session and
+// sign-out from the 4CE server in a dev build (source.ts); the server takes over the rest here,
+// screen by screen, behind the same DataSource contract (docs/architecture/web-data-contract.md).
 import { chooseSource } from './source';
 import type { DataSource } from './types';
 

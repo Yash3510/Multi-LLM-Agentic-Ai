@@ -37,9 +37,11 @@ export default defineConfig({
   // Component tests mount real Svelte components, so they need Svelte's browser build.
   resolve: testing ? { conditions: ['browser'] } : undefined,
   // The repo tools' own tests (tools/*) sit outside this app; only the test run may read them.
+  // Otherwise dev and preview send /api to the 4CE server (`just dev`), so the browser sees one
+  // origin as it will in production (ADR-0035 §2); API_TARGET names another server.
   server: testing
     ? { fs: { allow: [searchForWorkspaceRoot(process.cwd()), '../../tools'] } }
-    : undefined,
+    : { proxy: { '/api': process.env.API_TARGET || 'http://127.0.0.1:8000' } },
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.ts', '../../tools/**/*.test.mjs'],
