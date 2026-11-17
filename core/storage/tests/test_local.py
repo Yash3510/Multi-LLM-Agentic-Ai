@@ -246,3 +246,29 @@ async def test_a_folder_another_account_owns_is_refused(
         with pytest.raises(StorageUnavailable, match="another account"):
             async with blobs.read(at):
                 pass
+
+
+@pytest.mark.parametrize("which", ["organisation", "store", "above"])
+async def test_each_folder_owner_check_refuses_on_its_own(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, which: str
+) -> None:
+    if sys.platform != "win32":
+        root = Path(os.path.realpath(tmp_path / "files"))
+        blobs = LocalBlobs(root)
+        at = BlobKey(ORG, uuid.uuid4())
+        await blobs.write(at, source(b"x"))
+        foreign = {"organisation": root / ORG.hex, "store": root, "above": root.parent}[which]
+        real_lstat = os.lstat
+
+        def lstat(path: Path) -> os.stat_result:
+            info = real_lstat(path)
+            if Path(path) != foreign:
+                return info
+            fields = list(info)
+            fields[stat.ST_UID] = os.geteuid() + 4242  # only this folder is another account's
+            return os.stat_result(fields)
+
+        monkeypatch.setattr(os, "lstat", lstat)
+        with pytest.raises(StorageUnavailable, match="another account"):
+            async with blobs.read(at):
+                pass
