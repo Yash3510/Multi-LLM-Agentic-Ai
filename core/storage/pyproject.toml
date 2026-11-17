@@ -5,6 +5,7 @@ description = "Files per organisation: the storage interface, its local and S3 a
 requires-python = ">=3.12"
 dependencies = [
     "anyio>=4.15.1",
+    "boto3>=1.43.123",
     "fource-common",
     "fource-db",
     "fource-jobs",

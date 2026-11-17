@@ -45,6 +45,18 @@ version = "2026.7.22"
 licence = "MPL-2.0"
 checked = "LICENSE in the wheel's dist-info, 2026-10-17 (the MPL 2.0 notice for the CA bundle); metadata names MPL-2.0 as an SPDX id and again as a classifier text the gate can't match, and the ADR-0037 approval below needs a single value"
 
+[[package]]
+name = "s3transfer"
+version = "0.19.3"
+licence = "Apache-2.0"
+checked = "LICENSE.txt (the Apache 2.0 text) and NOTICE.txt in the wheel's dist-info, 2026-11-17; metadata names 'Apache License 2.0' and the classifier 'Apache Software License', which the gate can't match"
+
+[[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+licence = "Apache-2.0 AND BSD-3-Clause"
+checked = "LICENSE in the wheel's dist-info, 2026-11-17: contributions since 2017-12-01 are under Apache-2.0, and the BSD 3-Clause licence applies to all the code; metadata says only 'Dual License' with two classifiers the gate can't match"
+
 # Review-required licences approved by an ADR. Each passes only for this package and only
 # while its licence stays exactly as written; any other package with the licence still fails.
 
