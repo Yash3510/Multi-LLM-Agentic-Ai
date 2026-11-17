@@ -21,3 +21,7 @@ Files per organisation (master plan §6.3, §7.24): the storage interface, a loc
 ```
 uv run pytest core/storage
 ```
+
+## Known limits
+
+- The private-folder check on Linux and macOS reads the system's accounts with `pwd.getpwall()` to find accounts whose primary group is the store's group (a group lists only its supplementary members). Accounts that come from a directory service such as LDAP may not be listed there, so the check cannot see them; keep the store's folders closed to every account but 4CE's (for example `chmod 700`) on such a machine.
