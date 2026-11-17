@@ -3,7 +3,7 @@ title: Web screens
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-11
+updated: 2026-11-17
 covers:
   - apps/web/src/routes/
 tags: [4ce, architecture, frontend]
@@ -150,6 +150,7 @@ Every route in one table. Details follow, grouped by area. `[id]` segments are o
 - **Components:** logo motion (once), username and password fields with paste and autofill allowed (WCAG 3.3.8), one primary button, inline error.
 - **Data:** a server-side session as an HttpOnly, SameSite=Strict cookie, and the CSRF token for writes (§7.3, ADR-0035 §2). The return path is kept in memory, never in the URL query.
 - **Depends on:** WP-ID-01.
+- **Built so far:** sign-in, staying signed in and sign-out against the server, at `/auth` in the app; wrong details, the lockout and the rate limit show the server's message, and a server out of reach says so ([WP-UI-06, part 1](frontend.md#wp-ui-06-part-1-sign-in-session-and-sign-out-against-the-server)). The return path and session expiry come with the rest of WP-UI-06.
 - **States:**
   - empty: the form.
   - loading: the button keeps its label and gains the six-dot ring.

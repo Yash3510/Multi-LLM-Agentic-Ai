@@ -13,7 +13,7 @@ Node 24 and npm. Run from this folder, or use the matching `just` recipe from th
 | Command               | What it does                                                              |
 | --------------------- | ------------------------------------------------------------------------- |
 | `npm ci`              | Install exactly what `package-lock.json` pins                             |
-| `npm run dev`         | Live-reloading dev server                                                 |
+| `npm run dev`         | Live-reloading dev server; sign-in uses the 4CE server (see below)        |
 | `npm run build`       | Static build into `build/` (with `.br` and `.gz` copies)                  |
 | `npm run preview`     | Serve the production build                                                |
 | `npm run check`       | Types (svelte-check)                                                      |
@@ -21,12 +21,27 @@ Node 24 and npm. Run from this folder, or use the matching `just` recipe from th
 | `npm run format`      | Rewrite files in Prettier style                                           |
 | `npm run lint:design` | Design lint: palette classes, arbitrary values, stray hex, blur and glass |
 | `npm test`            | Unit and component tests (Vitest, jsdom), plus the repo tools' tests      |
-| `npm run e2e`         | Playwright against the production build on port 4310                      |
+| `npm run e2e`         | Playwright: the demo build on 4310, and sign-in against a real server     |
 | `npm run icons`       | Generate the icon components                                              |
 | `npm run i18n`        | Compile the messages with Paraglide                                       |
 
 `dev`, `build`, `check` and `test` run `icons` and `i18n` first, because both outputs are
 generated and never committed. Playwright needs its browser once: `npx playwright install chromium`.
+
+## Builds and the 4CE server
+
+Sign-in, the session and sign-out come from the 4CE server; every other screen is still stand-in
+data ([ADR-0046](../../docs/adr/0046-connect-screens-to-the-server-one-at-a-time.md)).
+
+- **`npm run dev`** sends `/api` to `http://127.0.0.1:8000`, where `just dev` runs the server.
+  Add a user once with `just create-user you@example.com --role Admin`. `API_TARGET` names
+  another server.
+- **`VITE_4CE_DEMO=1`** runs or builds the app on stand-in data throughout, with no server.
+- **A production build** without it refuses to start in the browser until every screen is on
+  the server.
+- **`npm run e2e`** runs the other browser tests on a demo build, and the sign-in tests on the dev
+  server against a throwaway server (`e2e/server.ts`, ports 4311 and 4312), so it needs the
+  Python environment from `just setup`.
 
 ## Where things live
 

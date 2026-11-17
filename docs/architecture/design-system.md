@@ -3,7 +3,7 @@ title: Design system
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-11
+updated: 2026-11-17
 covers:
   - apps/web/src/lib/ui/
 tags: [4ce, architecture, frontend]
@@ -241,6 +241,8 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 | empty              | A static signature icon, a one-line title and one line saying what was checked. At most one action.                         |
 | error / invalid    | `stop` border plus a message with an icon below it, wired up for assistive technology                                       |
 | read-only          | Sunken fill, a copy affordance, and a "sealed" icon on ledger, audit and released items                                     |
+
+**Errors from the server** show the server's own message: on the form that sent the request (sign-in), or as an error toast when there is no form (a failed sign-out, which leaves the person signed in).
 
 **4CE's own states:**
 

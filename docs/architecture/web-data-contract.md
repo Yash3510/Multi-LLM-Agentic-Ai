@@ -3,7 +3,7 @@ title: Web data contract
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-04
+updated: 2026-11-17
 covers:
   - apps/web/src/lib/data/
 tags: [4ce, architecture, frontend]
@@ -11,7 +11,7 @@ tags: [4ce, architecture, frontend]
 
 # Web data contract
 
-What the web app needs from the 4CE backend, as the screens read it. The screens import only `$lib/data` (`apps/web/src/lib/data/`). Today that module returns a **fake source** that replays a scripted answer in the browser, with no network calls. The backend plugs in by implementing the same `DataSource` interface in that one module, without changing a screen. The types in [`types.ts`](../../apps/web/src/lib/data/types.ts) are the source of truth; this page explains them.
+What the web app needs from the 4CE backend, as the screens read it. The screens import only `$lib/data` (`apps/web/src/lib/data/`). Today that module returns a **fake source** that replays a scripted answer in the browser, with no network calls, except that a dev build takes sign-in, the session and sign-out from the 4CE server ([ADR-0046](../adr/0046-connect-screens-to-the-server-one-at-a-time.md)). The backend plugs in by implementing the same `DataSource` interface in that one module, call by call, without changing a screen. The types in [`types.ts`](../../apps/web/src/lib/data/types.ts) are the source of truth; this page explains them.
 
 ## Interface
 
@@ -54,8 +54,8 @@ The `AbortSignal` stops a stream. The person's Stop button and leaving the chat 
 
 | Call | Returns | Used by |
 | --- | --- | --- |
-| `currentUser()` | the signed-in `User` (id, name, email, role `admin`, `user` or `pending`), or `undefined` | every screen, to decide between the app and the sign-in page |
-| `signIn(email, password)` | the `User`; rejects with a plain message when the email or password is wrong | the sign-in page |
+| `currentUser(fetch?)` | the signed-in `User` (id, name, email, role `admin`, `user` or `pending`), or `undefined`; a load function passes its own `fetch` | every screen, to decide between the app and the sign-in page |
+| `signIn(email, password)` | the `User`; rejects with a message to show as it is (wrong details, a lockout, the rate limit, an unreachable server) | the sign-in page |
 | `signUp(name, email, password)` | the new `User`; `pending` when an admin must approve new accounts | the sign-up form |
 | `signOut()` | nothing; the session ends on the server too | the user menu |
 | `setupStatus()` | `{ firstAccount }`: true when the server has no account yet | the sign-in page, to show "get started" instead of sign in |
@@ -63,7 +63,9 @@ The `AbortSignal` stops a stream. The person's Stop button and leaving the chat 
 
 **Passwords.** A password goes from the form straight to the backend call. The web app never logs it, stores it (memory, `localStorage`, `sessionStorage`, cookies), puts it in a URL or query string, or sends it anywhere else. The session itself is the backend's: an HTTP-only cookie is expected, so the web app never holds a token.
 
-**The fake source refuses production.** The fake replay accepts any email and drops the password unread. A production build that would run on it refuses to start (`src/lib/data/source.ts`, tested in `source.test.ts`), unless it was built as a demo with `VITE_4CE_DEMO=1`. The Playwright tests build that way.
+**On the server** (`src/lib/data/server.ts`, a dev build): the three session calls go to `/api/auth/signin`, `/session` and `/signout` ([api](api.md)), with the `fource_csrf` cookie's value as `X-CSRF-Token` on sign-out. `name` is the server's `display_name`, or the email when that is empty; `role` is `admin` for the Admin role and `user` for every other. Every refusal rejects with a `ServerError` carrying the server's `code`, `status` and `message`; a reply without the error envelope (no answer, or the dev proxy's own 500 while the server is down) is `unreachable`. A 401 means signed out, for the session and for sign-out alike. `setupStatus()` answers no first account, and `signUp` and `createFirstAccount` refuse: an administrator adds people with `fource-server create-user`.
+
+**Which builds use what.** A demo build (`VITE_4CE_DEMO=1`) is the fake replay throughout, which accepts any email and drops the password unread; the design-reference browser tests build that way. A dev build is the fake replay with the server's session calls. A production build refuses to start (`src/lib/data/source.ts`, tested in `source.test.ts`) until every call is on the server.
 
 ## Workspace
 
@@ -122,4 +124,4 @@ Events arrive in order. `at` is the server's time in milliseconds.
 
 ## Planned
 
-The 4CE API client, server-sent or WebSocket transport, reconnection with resume from the last event, and paging through the chat list are all planned. None is built.
+The generated API client (WP-UI-05), server-sent or WebSocket transport, reconnection with resume from the last event, and paging through the chat list are all planned. Only the session calls are on the server so far.
