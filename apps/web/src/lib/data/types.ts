@@ -488,8 +488,8 @@ export interface ModelRecord {
 
 /** Where screens get their data. The fake replay implements it now; the API client later. */
 export interface DataSource {
-  /** The person signed in on this device, or undefined. */
-  currentUser(): Promise<User | undefined>;
+  /** The person signed in on this device, or undefined. A load function passes its own fetch. */
+  currentUser(fetch?: typeof globalThis.fetch): Promise<User | undefined>;
   /** The password goes only to the backend: never logged, stored or put in a URL. */
   signIn(email: string, password: string): Promise<User>;
   signUp(name: string, email: string, password: string): Promise<User>;

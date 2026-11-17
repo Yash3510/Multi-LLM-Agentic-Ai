@@ -46,8 +46,8 @@ function refusal(body: unknown): { code: string; message: string } | undefined {
 
 /** Sends one request; anything but a success is thrown as a ServerError. A failure without the
  * envelope (no answer, or a proxy's own error page) didn't come from 4CE, so it is unreachable. */
-async function send(path: string, init?: RequestInit): Promise<Response> {
-  const response = await fetch(path, init).catch(() => undefined);
+async function send(path: string, init?: RequestInit, using = fetch): Promise<Response> {
+  const response = await using(path, init).catch(() => undefined);
   if (response?.ok) return response;
   const refused = refusal(await response?.json().catch(() => undefined));
   if (refused) throw new ServerError(refused.code, refused.message, response?.status);
@@ -69,9 +69,9 @@ export function serverSession(): Pick<
   'currentUser' | 'signIn' | 'signOut' | 'setupStatus' | 'signUp' | 'createFirstAccount'
 > {
   return {
-    async currentUser() {
+    async currentUser(using) {
       try {
-        const user: ServerUser = await (await send('/api/auth/session')).json();
+        const user: ServerUser = await (await send('/api/auth/session', undefined, using)).json();
         return person(user);
       } catch (error) {
         // Signed out, expired or revoked; or no server to ask, where signing in explains why.
