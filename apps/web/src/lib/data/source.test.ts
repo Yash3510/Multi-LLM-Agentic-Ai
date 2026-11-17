@@ -1,11 +1,27 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakeSource } from './fake';
 import { chooseSource } from './source';
 
 describe('chooseSource', () => {
-  it('uses the fake source in dev and in demo builds', () => {
-    expect(() => chooseSource({ production: false, demo: false })).not.toThrow();
-    expect(() => chooseSource({ production: true, demo: true })).not.toThrow();
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('stays on the fake source throughout in a demo build', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    vi.stubGlobal('fetch', fetch);
+    const source = chooseSource({ production: true, demo: true });
+    expect(await source.signIn('asha@example.org', 'x')).toMatchObject({ role: 'admin' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('signs in through the server in a dev build and keeps the fake data for the rest', async () => {
+    const user = { id: 'u-1', email: 'ada@example.com', display_name: 'Ada', roles: [], org: 'x' };
+    const body = JSON.stringify({ user, token: 't', expires_at: '2026-11-17T20:00:00Z' });
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(body));
+    vi.stubGlobal('fetch', fetch);
+    const source = chooseSource({ production: false, demo: false });
+    expect(await source.signIn('ada@example.com', 'x')).toMatchObject({ name: 'Ada' });
+    expect((await source.listChats()).length).toBeGreaterThan(0);
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it('refuses to start a production build on the fake source', () => {
