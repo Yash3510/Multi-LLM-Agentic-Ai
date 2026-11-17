@@ -186,6 +186,38 @@ async def test_group_write_passes_only_for_the_owners_private_group(
             assert b"".join([chunk async for chunk in chunks]) == b"x"
 
 
+async def test_an_account_with_the_group_as_its_primary_group_counts_as_another(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if sys.platform != "win32":
+        blobs = LocalBlobs(tmp_path / "files")
+        at = BlobKey(ORG, uuid.uuid4())
+        await blobs.write(at, source(b"x"))
+        (tmp_path / "files").chmod(0o770)
+        info = os.stat(tmp_path / "files")
+        owner = pwd.getpwuid(os.geteuid()).pw_name
+        private = grp.struct_group((owner, "x", info.st_gid, []))  # no supplementary members
+
+        def private_group(gid: int) -> grp.struct_group:
+            return private
+
+        monkeypatch.setattr(grp, "getgrgid", private_group)
+        async with blobs.read(at) as chunks:  # nobody else is in the group: fine
+            assert b"".join([chunk async for chunk in chunks]) == b"x"
+        accounts = pwd.getpwall()
+        service = pwd.struct_passwd(
+            ("svc", "x", os.geteuid() + 4242, info.st_gid, "", "/nonexistent", "/bin/false")
+        )
+
+        def with_service_account() -> list[pwd.struct_passwd]:
+            return [*accounts, service]  # it is not in gr_mem, yet the group is its own
+
+        monkeypatch.setattr(pwd, "getpwall", with_service_account)
+        with pytest.raises(StorageUnavailable, match="another account"):
+            async with blobs.read(at):
+                pass
+
+
 async def test_a_folder_above_the_store_needs_the_sticky_bit_if_others_may_write(
     tmp_path: Path,
 ) -> None:
