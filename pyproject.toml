@@ -153,3 +153,19 @@ name = "Only the public API of fource.storage is imported from outside it"
 type = "protected"
 protected_modules = ["fource.storage.*"]
 allowed_importers = ["fource.storage"]
+
+[[tool.importlinter.contracts]]
+name = "S3 is reached only through fource.storage"
+type = "forbidden"
+source_modules = [
+    "fource.common",
+    "fource.db",
+    "fource.ledger",
+    "fource.live",
+    "fource.jobs",
+    "fource.identity",
+    "fource.packs",
+    "fource.server",
+]
+forbidden_modules = ["boto3", "botocore", "s3transfer"]
+allow_indirect_imports = true
