@@ -18,6 +18,7 @@
   import StatusDialog from './StatusDialog.svelte';
   import UserMenu from './UserMenu.svelte';
   import { provideOpenSettings } from '$lib/ui/settings-context';
+  import { toast } from '$lib/ui/toast.svelte';
 
   let {
     children,
@@ -172,7 +173,13 @@
     onsettings={() => (settingsOpen = true)}
     onstatus={() => (statusOpen = true)}
     onsignout={async () => {
-      await source.signOut();
+      try {
+        await source.signOut();
+      } catch (error) {
+        // The server still has the session, so say why and stay signed in.
+        toast(error instanceof Error ? error.message : String(error), 'error');
+        return;
+      }
       await goto(resolve('/auth'), { invalidateAll: true });
     }}
   />
