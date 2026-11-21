@@ -4,7 +4,8 @@
 import hashlib
 import re
 import uuid
-from collections.abc import AsyncIterable, AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -15,7 +16,7 @@ from fource.common import new_id
 from fource.db import org_of
 from fource.ledger import EntryType, append
 from fource.storage.base import Blobs
-from fource.storage.errors import FileNotFound, FileTooLarge
+from fource.storage.errors import BlobMissing, FileDamaged, FileNotFound, FileTooLarge
 from fource.storage.keys import BlobKey
 from fource.storage.models import StoredFile
 
@@ -83,6 +84,27 @@ class _Meter:
         return self._digest.hexdigest()
 
 
+class Reading:
+    """One file being read: `file` says what it must be, and iterating yields its bytes and then
+    checks them against `file`. Chunks before a difference are already delivered, so a caller
+    that gets FileDamaged treats the whole read as failed."""
+
+    def __init__(self, file: FileInfo, chunks: AsyncIterator[bytes]) -> None:
+        self.file = file
+        self._chunks = chunks
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        digest, size = hashlib.sha256(), 0
+        async for chunk in self._chunks:
+            size += len(chunk)
+            if size > self.file.size:
+                raise FileDamaged("The stored bytes of this file differ from what was written.")
+            digest.update(chunk)
+            yield chunk
+        if size != self.file.size or digest.hexdigest() != self.file.sha256:
+            raise FileDamaged("The stored bytes of this file differ from what was written.")
+
+
 class Storage:
     """Files per organisation over one adapter (`blobs`): a `stored_files` row and a ledger
     entry for every file, reads checked against them, and keys built from ids only."""
@@ -142,6 +164,15 @@ class Storage:
 
     async def stat(self, session: AsyncSession, file_id: uuid.UUID) -> FileInfo:
         return _info(await self._row(session, file_id))
+
+    @asynccontextmanager
+    async def open(self, session: AsyncSession, file_id: uuid.UUID) -> AsyncGenerator[Reading]:
+        row = await self._row(session, file_id)
+        try:
+            async with self.blobs.read(BlobKey(row.org_id, row.id)) as chunks:
+                yield Reading(_info(row), chunks)
+        except BlobMissing:
+            raise FileDamaged("The bytes of this file are missing from the file store.") from None
 
     async def ping(self) -> bool:
         return await self.blobs.ping()

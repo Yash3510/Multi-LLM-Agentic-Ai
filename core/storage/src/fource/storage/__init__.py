@@ -13,7 +13,7 @@ from fource.storage.errors import (
 from fource.storage.keys import BlobKey
 from fource.storage.local import LocalBlobs
 from fource.storage.models import StoredFile
-from fource.storage.service import FileInfo, Storage
+from fource.storage.service import FileInfo, Reading, Storage
 
 if TYPE_CHECKING:
     from fource.storage.s3 import S3Blobs, make_s3_client
@@ -40,6 +40,7 @@ __all__ = [
     "FileNotFound",
     "FileTooLarge",
     "LocalBlobs",
+    "Reading",
     "S3Blobs",
     "Storage",
     "StorageUnavailable",
