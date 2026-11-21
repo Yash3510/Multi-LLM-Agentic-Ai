@@ -9,6 +9,7 @@ from fource.db import APP_ROLE, Database
 from fource.live import Live, open_live
 from fource.server.errors import install_error_handlers
 from fource.server.routes import auth, health
+from fource.storage import Storage, open_storage
 
 VERSION = "0.1.0"
 
@@ -56,18 +57,21 @@ async def check_database_role(database: Database) -> None:
     refuse_a_bypassing_role(row[0], bypasses=row[1])
 
 
-def create_app(settings: Settings, *, live: Live | None = None) -> FastAPI:
-    """The 4CE API. The engine and the live store (Redis when FOURCE_REDIS_URL is set, else this
-    process's own) are created here and closed on shutdown; tests may pass their own `live`. On
-    PostgreSQL the lifespan connects at start-up to check the role (not a superuser, not
-    BYPASSRLS, not the owner of a table under row-level security), so an unreachable database
-    fails start-up.
+def create_app(
+    settings: Settings, *, live: Live | None = None, storage: Storage | None = None
+) -> FastAPI:
+    """The 4CE API. The engine, the live store (Redis when FOURCE_REDIS_URL is set, else this
+    process's own) and the file store (FOURCE_STORAGE) are created here and closed on shutdown;
+    tests may pass their own `live` and `storage`. On PostgreSQL the lifespan connects at
+    start-up to check the role (not a superuser, not BYPASSRLS, not the owner of a table under
+    row-level security), so an unreachable database fails start-up.
 
     The Swagger and ReDoc pages are off: they load assets from a CDN, and 4CE runs offline.
     """
     database = Database(settings.database_url.get_secret_value())
     redis_url = None if settings.redis_url is None else settings.redis_url.get_secret_value()
     store = live if live is not None else open_live(redis_url)
+    files = storage if storage is not None else open_storage(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
@@ -78,7 +82,10 @@ def create_app(settings: Settings, *, live: Live | None = None) -> FastAPI:
             try:
                 await store.close()
             finally:
-                await database.dispose()
+                try:
+                    await files.close()
+                finally:
+                    await database.dispose()
 
     app = FastAPI(
         title="4CE",
@@ -91,6 +98,7 @@ def create_app(settings: Settings, *, live: Live | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.database = database
     app.state.live = store
+    app.state.storage = files
     install_error_handlers(app)
     app.include_router(health.router)
     app.include_router(auth.router)

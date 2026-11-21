@@ -1,7 +1,8 @@
 """The worker process: `fource-server worker` (master plan §6.2, ADR-0040).
 
-The same code as the server, a different role: it runs queued jobs. Today the only kind is
-the scheduled ledger checkpoint, when FOURCE_LEDGER_CHECKPOINT_MINUTES is set.
+The same code as the server, a different role: it runs queued jobs, erasing the bytes of
+deleted files (storage.erase), and the scheduled ledger checkpoint when
+FOURCE_LEDGER_CHECKPOINT_MINUTES is set.
 """
 
 import asyncio
@@ -20,6 +21,7 @@ from fource.ledger import UnusableKey, load_private_key
 from fource.server.ledger_commands import key_file
 from fource.server.main import UnsafeDatabaseRole, check_database_role
 from fource.server.scheduled import CHECKPOINT, checkpoint_job
+from fource.storage import ERASE, Storage, StoredFile, erase_handler, open_storage
 
 _NOT_SET_UP = "The database isn't set up yet: run `just migrate` first."
 
@@ -71,7 +73,10 @@ async def run_worker(settings: Settings, *, once: bool) -> int:
         return 1
     handlers, recurring = jobs
     database = Database(settings.database_url.get_secret_value())
+    storage: Storage | None = None
     try:
+        storage = open_storage(settings)
+        handlers[ERASE] = erase_handler(storage)
         await check_database_role(database)
         worker = Worker(database, handlers, recurring=recurring)
         # A pass swallows its errors (the worker logs them and carries on), so look at what it
@@ -80,6 +85,7 @@ async def run_worker(settings: Settings, *, once: bool) -> int:
         await database.org_id(settings.org)
         async with database.session() as session:
             await session.scalar(select(Job.id).limit(1))
+            await session.scalar(select(StoredFile.id).limit(1))
         # Before the first pass, which can run long: a SIGTERM then stops the worker cleanly.
         task = asyncio.current_task()
         if task is not None and sys.platform != "win32":  # Windows: Ctrl+C stops at once
@@ -96,7 +102,7 @@ async def run_worker(settings: Settings, *, once: bool) -> int:
                 passes = "organisation pass" if worker.errors == 1 else "organisation passes"
                 print(f"{worker.errors} {passes} failed.")
             return 1 if worker.failed or worker.errors else 0
-        kinds = ", ".join(sorted(handlers)) or "none yet (scheduled checkpoints are off)"
+        kinds = ", ".join(sorted(handlers))
         print(f"The worker is running. Kinds of job: {kinds}. Stop it with Ctrl+C.")
         await worker.run()
         return 0
@@ -107,4 +113,8 @@ async def run_worker(settings: Settings, *, once: bool) -> int:
         print(_NOT_SET_UP if table_missing(error) else f"Database error: {type(error).__name__}.")
         return 1
     finally:
-        await database.dispose()
+        try:
+            if storage is not None:
+                await storage.close()
+        finally:
+            await database.dispose()

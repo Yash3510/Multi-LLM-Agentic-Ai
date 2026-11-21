@@ -18,6 +18,7 @@ from fource.server import ledger_commands
 from fource.server.loops import asyncio_loop_factory, uvicorn_loop
 from fource.server.migrate import migration_url, upgrade
 from fource.server.worker import run_worker
+from fource.storage import StorageUnavailable, open_storage
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -75,6 +76,21 @@ def _every_address(item: str) -> bool:
         return ipaddress.ip_network(item, strict=False).prefixlen == 0
     except ValueError:
         return False  # an address, or a name Uvicorn compares as text
+
+
+async def _ready_bucket(settings: Settings) -> str:
+    """Creates the S3 bucket when it is missing (ADR-0044: only here, never at start-up)."""
+    from fource.storage import S3Blobs  # imports boto3, so only with FOURCE_STORAGE=s3
+
+    storage = open_storage(settings)
+    try:
+        if not isinstance(storage.blobs, S3Blobs):
+            return ""
+        created = await storage.blobs.create_bucket()
+    finally:
+        await storage.close()
+    verb = "Created" if created else "Found"
+    return f"{verb} the bucket {settings.s3_bucket}."
 
 
 def _ledger(settings: Settings, args: argparse.Namespace) -> int:
@@ -159,6 +175,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "migrate":
         upgrade(migration_url(settings))
         print("The database is up to date.")
+        if settings.storage == "s3":
+            try:
+                print(asyncio.run(_ready_bucket(settings), loop_factory=asyncio_loop_factory()))
+            except StorageUnavailable as error:
+                print(error.message)
+                return 1
         return 0
     return asyncio.run(
         _create_user(settings, args.email, args.role, args.name),

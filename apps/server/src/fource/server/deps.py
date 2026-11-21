@@ -9,6 +9,7 @@ from fource.db import Database
 from fource.identity import NotAuthenticated, TokenPayload, User, authenticate, read_token
 from fource.live import Live
 from fource.server.errors import CsrfFailed
+from fource.storage import Storage
 
 TOKEN_COOKIE = "fource_token"
 CSRF_COOKIE = "fource_csrf"
@@ -29,6 +30,11 @@ def database_of(request: Request) -> Database:
 def live_of(request: Request) -> Live:
     live: Live = request.app.state.live
     return live
+
+
+def storage_of(request: Request) -> Storage:
+    storage: Storage = request.app.state.storage
+    return storage
 
 
 def token_of(request: Request) -> str:
