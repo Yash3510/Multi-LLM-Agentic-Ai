@@ -7,6 +7,7 @@ import anyio
 import pytest
 from botocore.response import StreamingBody
 from botocore.stub import Stubber
+from urllib3.exceptions import SSLError
 
 from fource.storage import BlobKey, BlobMissing, S3Blobs, StorageUnavailable, make_s3_client
 
@@ -15,6 +16,13 @@ ENDPOINT = "http://127.0.0.1:9"  # never contacted: the Stubber answers every ca
 SECRET = "stub-secret-value"
 AT = BlobKey(uuid.UUID(int=1), uuid.UUID(int=2))
 WHERE = {"Bucket": "fource", "Key": AT.path}
+
+
+class BrokenTls(io.BytesIO):
+    """A body whose TLS stream fails part way, as urllib3 reports a bad record MAC."""
+
+    def read(self, size: int | None = -1, /) -> bytes:
+        raise SSLError(f"bad record MAC from {ENDPOINT}")
 
 
 @pytest.fixture
@@ -120,6 +128,20 @@ async def test_a_missing_key_is_missing(stubbed: tuple[S3Blobs, Stubber]) -> Non
     with pytest.raises(BlobMissing):
         async with blobs.read(AT):
             pass
+
+
+async def test_a_tls_error_part_way_through_a_body_is_unavailable_and_unnamed(
+    stubbed: tuple[S3Blobs, Stubber], caplog: pytest.LogCaptureFixture
+) -> None:
+    blobs, stubber = stubbed
+    stubber.add_response("get_object", {"Body": StreamingBody(BrokenTls(), 10)}, WHERE)
+    with pytest.raises(StorageUnavailable, match="can't be reached") as refused:
+        async with blobs.read(AT) as chunks:
+            _ = [chunk async for chunk in chunks]
+    shown = refused.value.message + caplog.text
+    assert "SSLError" in caplog.text
+    assert ENDPOINT not in shown and "127.0.0.1" not in shown
+    assert refused.value.__cause__ is None and refused.value.__suppress_context__
 
 
 @pytest.mark.parametrize(
