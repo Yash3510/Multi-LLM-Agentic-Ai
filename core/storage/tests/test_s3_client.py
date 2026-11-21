@@ -238,6 +238,21 @@ def test_a_busy_server_is_asked_as_often_as_the_attempts_say(fake_s3: str) -> No
     assert [path for _, path, _ in _FakeS3.seen] == ["/fource/busy"] * 2
 
 
+def test_a_ca_bundle_from_the_environment_does_not_replace_the_default_trust_store(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The fake server speaks http, where no certificate is checked, so look at what the https
+    # connection pool is told to verify against.
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(tmp_path / "none.pem"))
+    monkeypatch.setenv("AWS_CA_BUNDLE", str(tmp_path / "none.pem"))
+    client = make_s3_client(
+        "https://127.0.0.1:9", access_key="test-key", secret_key="test-secret", region="garage"
+    )
+    endpoint: object = vars(client)["_endpoint"]
+    session: object = vars(endpoint)["http_session"]
+    assert vars(session)["_verify"] is True
+
+
 def test_the_session_reads_no_file_from_the_home_folder(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
