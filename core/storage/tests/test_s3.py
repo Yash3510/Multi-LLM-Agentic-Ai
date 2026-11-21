@@ -1,5 +1,6 @@
 import io
 import socket
+import tracemalloc
 import uuid
 from collections.abc import AsyncIterator, Iterator
 
@@ -115,6 +116,24 @@ async def test_a_refused_part_or_completion_aborts_the_upload(
     stubber.add_response("abort_multipart_upload", {}, upload)
     with pytest.raises(StorageUnavailable):
         await blobs.write(AT, source(b"abcde"))
+
+
+async def test_a_part_is_copied_out_of_the_buffer_once() -> None:
+    part = 4 * 1024 * 1024
+    client = make_s3_client(ENDPOINT, access_key="stub-key", secret_key=SECRET, region="us-east-1")
+    chunk = bytes(part + 1)  # one chunk, so the buffer holds exactly one part and a byte
+    with Stubber(client) as stubber:
+        stubber.add_response("create_multipart_upload", {"UploadId": "u1"})
+        stubber.add_response("upload_part", {"ETag": '"e1"'})
+        stubber.add_response("upload_part", {"ETag": '"e2"'})
+        stubber.add_response("complete_multipart_upload", {})
+        tracemalloc.start()
+        try:
+            await S3Blobs(client, "fource", part_size=part).write(AT, source(chunk))
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+    assert peak < 2.5 * part  # the buffer and the part's bytes; a second copy would reach 3
 
 
 async def test_a_cancelled_upload_is_aborted(stubbed: tuple[S3Blobs, Stubber]) -> None:
