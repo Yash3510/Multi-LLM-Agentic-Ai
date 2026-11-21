@@ -12,7 +12,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
-from botocore.exceptions import ClientError
+from botocore.awsrequest import AWSPreparedRequest
+from botocore.exceptions import ClientError, EndpointConnectionError
 from botocore.loaders import Loader
 from botocore.session import Session
 
@@ -251,6 +252,37 @@ def test_a_ca_bundle_from_the_environment_does_not_replace_the_default_trust_sto
     endpoint: object = vars(client)["_endpoint"]
     session: object = vars(endpoint)["http_session"]
     assert vars(session)["_verify"] is True
+
+
+def test_an_upload_over_tls_is_signed_with_the_sha256_of_its_body() -> None:
+    # Over http botocore signs the payload anyway; over https it sends UNSIGNED-PAYLOAD unless
+    # told otherwise. The requests are looked at just before they are sent, to a port nothing
+    # listens on.
+    closed = socket.socket()
+    closed.bind(("127.0.0.1", 0))
+    port = closed.getsockname()[1]
+    closed.close()
+    digests: list[str] = []
+
+    def look(request: AWSPreparedRequest, **kwargs: object) -> None:
+        digest: object = request.headers["X-Amz-Content-SHA256"]
+        assert isinstance(digest, bytes)
+        digests.append(digest.decode("ascii"))
+
+    client = make_s3_client(
+        f"https://127.0.0.1:{port}",
+        access_key="test-key",
+        secret_key="test-secret",
+        region="garage",
+        attempts=1,
+    )
+    client.meta.events.register("before-send.s3", look)
+    with pytest.raises(EndpointConnectionError):
+        client.put_object(Bucket="fource", Key=KEY, Body=BODY)
+    with pytest.raises(EndpointConnectionError):
+        client.upload_part(Bucket="fource", Key=KEY, PartNumber=1, UploadId="u", Body=BODY)
+
+    assert digests == [hashlib.sha256(BODY).hexdigest()] * 2
 
 
 def test_the_session_reads_no_file_from_the_home_folder(
