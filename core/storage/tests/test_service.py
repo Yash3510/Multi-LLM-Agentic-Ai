@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from fource.db import Database
 from fource.ledger import EntryType, read_entries
 from fource.storage import (
+    FileDamaged,
     FileNotFound,
     FileTooLarge,
     LocalBlobs,
@@ -142,3 +143,49 @@ async def test_a_bad_name_or_type_is_refused_before_any_byte_moves(
                 session, source(b"x"), name=name, content_type=content_type, actor=ACTOR
             )
     assert not (tmp_path / "files").exists()
+
+
+async def test_a_file_comes_back_checked(
+    orgs: tuple[Database, uuid.UUID, uuid.UUID], tmp_path: Path
+) -> None:
+    database, first, second = orgs
+    storage = storage_in(tmp_path)
+    async with database.org_session(first) as session:
+        info = await storage.put(
+            session, source(DATA), name="notes.txt", content_type="text/plain", actor=ACTOR
+        )
+    async with database.org_session(first) as session:
+        async with storage.open(session, info.id) as reading:
+            assert reading.file == info
+            assert b"".join([chunk async for chunk in reading]) == DATA
+    async with database.org_session(second) as session:
+        with pytest.raises(FileNotFound):
+            async with storage.open(session, info.id):
+                pass
+    async with database.session() as session:
+        with pytest.raises(RuntimeError, match="organisation session"):
+            async with storage.open(session, info.id):
+                pass
+
+
+async def test_changed_or_missing_bytes_are_reported_as_damaged(
+    orgs: tuple[Database, uuid.UUID, uuid.UUID], tmp_path: Path
+) -> None:
+    database, first, _ = orgs
+    storage = storage_in(tmp_path)
+    async with database.org_session(first) as session:
+        info = await storage.put(
+            session, source(DATA), name="a", content_type="text/plain", actor=ACTOR
+        )
+    (path,) = await stored_bytes(tmp_path)
+    path.write_bytes(DATA[:-1] + b"!")  # same size, other bytes
+    async with database.org_session(first) as session:
+        with pytest.raises(FileDamaged):
+            async with storage.open(session, info.id) as reading:
+                async for _ in reading:
+                    pass
+    path.unlink()
+    async with database.org_session(first) as session:
+        with pytest.raises(FileDamaged, match="missing"):
+            async with storage.open(session, info.id):
+                pass
