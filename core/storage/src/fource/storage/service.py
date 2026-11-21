@@ -1,0 +1,150 @@
+"""Files per organisation: records, ledger entries and checked reads over an adapter
+(ADR-0044). Every method runs in the caller's organisation session; the caller commits."""
+
+import hashlib
+import re
+import uuid
+from collections.abc import AsyncIterable, AsyncIterator
+from dataclasses import dataclass
+from datetime import datetime
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from fource.common import new_id
+from fource.db import org_of
+from fource.ledger import EntryType, append
+from fource.storage.base import Blobs
+from fource.storage.errors import FileNotFound, FileTooLarge
+from fource.storage.keys import BlobKey
+from fource.storage.models import StoredFile
+
+MAX_NAME_LENGTH = 255
+_TOKEN = r"[a-z0-9][a-z0-9!#$&^_.+-]{0,126}"
+_CONTENT_TYPE = re.compile(f"{_TOKEN}/{_TOKEN}")
+_MIB = 1024 * 1024
+
+
+@dataclass(frozen=True)
+class FileInfo:
+    """What 4CE knows about one stored file. `name` is for people only: it is never part of a
+    path or a key, and never goes into the ledger."""
+
+    id: uuid.UUID
+    name: str
+    content_type: str
+    size: int
+    sha256: str
+    created_at: datetime
+    created_by: str
+
+
+def _info(row: StoredFile) -> FileInfo:
+    return FileInfo(
+        id=row.id,
+        name=row.name,
+        content_type=row.content_type,
+        size=row.size,
+        sha256=row.sha256,
+        created_at=row.created_at,
+        created_by=row.created_by,
+    )
+
+
+def _check(name: str, content_type: str) -> None:
+    if not 0 < len(name) <= MAX_NAME_LENGTH or not name.isprintable():
+        raise ValueError(f"a file name is 1 to {MAX_NAME_LENGTH} printable characters")
+    if not _CONTENT_TYPE.fullmatch(content_type):
+        raise ValueError("a content type is a lower-case type/subtype, such as text/plain")
+
+
+class _Meter:
+    """Counts and hashes the bytes on their way to the adapter, and stops them at the limit
+    (the adapter then discards what it had)."""
+
+    def __init__(self, chunks: AsyncIterable[bytes], limit: int) -> None:
+        self._chunks = chunks
+        self._limit = limit
+        self._digest = hashlib.sha256()
+        self.size = 0
+
+    async def flow(self) -> AsyncIterator[bytes]:
+        async for chunk in self._chunks:
+            self.size += len(chunk)
+            if self.size > self._limit:
+                raise FileTooLarge(
+                    f"A file may be at most {self._limit // _MIB} MiB (FOURCE_STORAGE_MAX_FILE_MB)."
+                )
+            self._digest.update(chunk)
+            yield chunk
+
+    @property
+    def sha256(self) -> str:
+        return self._digest.hexdigest()
+
+
+class Storage:
+    """Files per organisation over one adapter (`blobs`): a `stored_files` row and a ledger
+    entry for every file, reads checked against them, and keys built from ids only."""
+
+    def __init__(self, blobs: Blobs, *, max_bytes: int) -> None:
+        if max_bytes < 1:
+            raise ValueError("max_bytes is a positive number of bytes")
+        self.blobs = blobs
+        self._max_bytes = max_bytes
+
+    async def put(
+        self,
+        session: AsyncSession,
+        chunks: AsyncIterable[bytes],
+        *,
+        name: str,
+        content_type: str,
+        actor: str,
+    ) -> FileInfo:
+        """Streams the bytes into the store, then records the file and a `file.write` entry
+        (its SHA-256, id, size and type; never its name) in the session. Nothing is recorded if
+        the bytes don't arrive whole; if the caller rolls back, the bytes stay unreferenced."""
+        _check(name, content_type)
+        org_id, file_id = org_of(session), new_id()
+        meter = _Meter(chunks, self._max_bytes)
+        await self.blobs.write(BlobKey(org_id, file_id), meter.flow())
+        row = StoredFile(
+            id=file_id,
+            name=name,
+            content_type=content_type,
+            size=meter.size,
+            sha256=meter.sha256,
+            created_by=actor,
+        )
+        session.add(row)
+        await session.flush()
+        await append(
+            session,
+            EntryType.FILE_WRITE,
+            actor=actor,
+            outputs_sha256=meter.sha256,
+            refs={"file": str(file_id), "size": str(meter.size), "content_type": content_type},
+        )
+        return _info(row)
+
+    async def _row(self, session: AsyncSession, file_id: uuid.UUID) -> StoredFile:
+        """The file's row in the session's organisation, if it isn't deleted: another
+        organisation's id finds nothing, which is the boundary (§8.2 rule 10). The filter is
+        explicit, as the ledger's is, so a session without an organisation is refused."""
+        org_id = org_of(session)
+        row = await session.scalar(
+            select(StoredFile).where(StoredFile.id == file_id, StoredFile.org_id == org_id)
+        )
+        if row is None or row.deleted_at is not None:
+            raise FileNotFound("There is no such file.")
+        return row
+
+    async def stat(self, session: AsyncSession, file_id: uuid.UUID) -> FileInfo:
+        return _info(await self._row(session, file_id))
+
+    async def ping(self) -> bool:
+        return await self.blobs.ping()
+
+    async def close(self) -> None:
+        await self.blobs.close()

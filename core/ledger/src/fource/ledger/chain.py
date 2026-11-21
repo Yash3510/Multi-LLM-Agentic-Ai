@@ -40,6 +40,7 @@ class EntryType(StrEnum):
     SIGNIN_THROTTLED = "identity.signin.throttled"
     LOCKOUT = "identity.lockout"
     SIGNOUT = "identity.signout"
+    FILE_WRITE = "file.write"
 
 
 @dataclass(frozen=True)
