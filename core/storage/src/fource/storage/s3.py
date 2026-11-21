@@ -149,17 +149,21 @@ def _refusal(code: str) -> str:
     return "The file store refused the request."
 
 
-async def _call[*Args, Result](function: Callable[[*Args], Result], *args: *Args) -> Result:
+async def _call[*Args, Result](
+    function: Callable[[*Args], Result], *args: *Args, missing_is_absent: bool = False
+) -> Result:
     """One blocking boto3 call in a worker thread, which is never abandoned: anyio waits for
     it with the default `abandon_on_cancel=False` (anyio/to_thread.py:30), shielded from
     cancellation (anyio/_backends/_asyncio.py:2671), so a cancellation that arrives meanwhile
     takes effect when the call returns. botocore's errors become 4CE's; their text names the
-    endpoint, so only the S3 error code is logged."""
+    endpoint, so only the S3 error code is logged. A "not found" answer is BlobMissing only
+    where the caller asks about something that may be absent (a read, a bucket check): for a
+    write it means the store can't be used, as when a proxy answers 404 with no S3 error."""
     try:
         return await anyio.to_thread.run_sync(function, *args)
     except ClientError as error:
         code = error.response.get("Error", {}).get("Code", "unknown")
-        if code in _MISSING:
+        if missing_is_absent and code in _MISSING:
             raise BlobMissing() from None
         _log.warning("The file store refused a request: %s", code)
         raise StorageUnavailable(_refusal(code)) from None
@@ -259,13 +263,13 @@ class S3Blobs:
         with anyio.CancelScope(shield=True):
             try:
                 await _call(abort)
-            except (StorageUnavailable, BlobMissing):
+            except StorageUnavailable:
                 _log.warning("An unfinished multipart upload could not be aborted.")
 
     @asynccontextmanager
     async def read(self, key: BlobKey) -> AsyncGenerator[AsyncIterator[bytes]]:
         get = partial(self._client.get_object, Bucket=self.bucket, Key=key.path)
-        body = (await _call(get))["Body"]
+        body = (await _call(get, missing_is_absent=True))["Body"]
         try:
             yield _chunks(body)
         finally:
@@ -277,7 +281,7 @@ class S3Blobs:
     async def ping(self) -> bool:
         try:
             await _call(partial(self.probe.head_bucket, Bucket=self.bucket))
-        except (StorageUnavailable, BlobMissing):
+        except StorageUnavailable:
             return False
         return True
 
@@ -285,7 +289,8 @@ class S3Blobs:
         """Creates the bucket unless it exists; True when it did. `fource-server migrate` calls
         it, never the server at start-up: a misspelt name must not start an empty store."""
         try:
-            await _call(partial(self._client.head_bucket, Bucket=self.bucket))
+            check = partial(self._client.head_bucket, Bucket=self.bucket)
+            await _call(check, missing_is_absent=True)
             return False
         except BlobMissing:  # HEAD answers a missing bucket with a bare 404
             pass
