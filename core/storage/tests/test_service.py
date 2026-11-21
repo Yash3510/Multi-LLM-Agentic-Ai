@@ -266,3 +266,32 @@ async def test_a_reading_is_read_once(
             with pytest.raises(RuntimeError, match="a Reading is read once"):
                 async for _ in reading:
                     pass
+
+
+@pytest.mark.parametrize(
+    ("max_bytes", "said", "not_said"),
+    [
+        (10, "at most 10 bytes", "0 MiB"),
+        (1_500_000, "at most 1500000 bytes", "1 MiB"),
+        (2 * 1024 * 1024, "at most 2 MiB", "bytes"),
+    ],
+)
+async def test_the_limit_is_named_in_the_unit_that_states_it_exactly(
+    orgs: tuple[Database, uuid.UUID, uuid.UUID],
+    tmp_path: Path,
+    max_bytes: int,
+    said: str,
+    not_said: str,
+) -> None:
+    database, first, _ = orgs
+    with pytest.raises(FileTooLarge) as caught:
+        async with database.org_session(first) as session:
+            await storage_in(tmp_path, max_bytes=max_bytes).put(
+                session,
+                source(b"x" * (max_bytes + 1)),
+                name="a",
+                content_type="text/plain",
+                actor=ACTOR,
+            )
+    assert said in str(caught.value)
+    assert not_said not in str(caught.value)
