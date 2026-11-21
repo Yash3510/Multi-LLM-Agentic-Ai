@@ -2,6 +2,7 @@ import asyncio
 import os
 import signal
 import sys
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ from fource.jobs import Worker
 from fource.server import cli
 from fource.server.migrate import upgrade
 from fource.server.worker import run_worker, stop_handler
+from fource.storage import open_storage
 
 pytestmark = pytest.mark.anyio
 
@@ -82,6 +84,49 @@ def test_the_worker_on_a_database_that_is_not_set_up_says_so(
 ) -> None:
     assert cli.main(["worker", "--once"]) == 1
     assert "just migrate" in capsys.readouterr().out
+
+
+def test_the_worker_on_a_database_migrated_only_to_slice_3_says_so(
+    env: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Before migration 0006 there is no stored_files table, which erasing files needs.
+    upgrade(f"sqlite+aiosqlite:///{env.as_posix()}", "0005")
+    assert cli.main(["worker", "--once"]) == 1
+    assert "just migrate" in capsys.readouterr().out
+
+
+async def _store_then_delete(env: Path) -> Path:
+    settings = Settings()
+    database = Database(settings.database_url.get_secret_value())
+    storage = open_storage(settings)
+    try:
+        org_id = await database.org_id(settings.org)
+        assert org_id is not None
+
+        async def chunks() -> AsyncIterator[bytes]:
+            yield b"erase me"
+
+        async with database.org_session(org_id) as session:
+            info = await storage.put(
+                session, chunks(), name="a", content_type="text/plain", actor="system"
+            )
+        async with database.org_session(org_id) as session:
+            await storage.delete(session, info.id, actor="system")
+        return settings.data_dir / "files" / org_id.hex / info.id.hex
+    finally:
+        await storage.close()
+        await database.dispose()
+
+
+def test_the_worker_erases_the_bytes_of_a_deleted_file(
+    env: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli.main(["migrate"])
+    path = asyncio.run(_store_then_delete(env))
+    assert path.exists()
+    assert cli.main(["worker", "--once"]) == 0
+    assert "Ran 1 job attempt." in capsys.readouterr().out
+    assert not path.exists()
 
 
 def test_the_worker_on_a_database_migrated_only_to_slice_2_says_so(

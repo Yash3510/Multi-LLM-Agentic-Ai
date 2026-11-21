@@ -30,6 +30,7 @@ from fource.live import Hit, Live, LiveUnavailable, MemoryLive, RateLimiter
 from fource.server.errors import CsrfFailed, SetupIncomplete
 from fource.server.main import app_factory, create_app
 from fource.server.migrate import upgrade
+from fource.storage import LocalBlobs, Storage
 
 pytestmark = pytest.mark.anyio
 PASSWORD = "correct horse battery"
@@ -53,7 +54,8 @@ async def get_from(app: FastAPI, path: str, *, raise_exceptions: bool = True) ->
 
 async def test_health_reports_the_database(client: httpx.AsyncClient) -> None:
     response = await client.get("/api/health")
-    expected = {"status": "ok", "database": "ok", "redis": "off"}  # no FOURCE_REDIS_URL
+    # No FOURCE_REDIS_URL; local files under FOURCE_DATA_DIR.
+    expected = {"status": "ok", "database": "ok", "redis": "off", "storage": "ok"}
     assert (response.status_code, response.json()) == (200, expected)
 
 
@@ -65,7 +67,12 @@ async def test_health_reports_an_unreachable_database(settings: Settings) -> Non
         response = await client.get("/api/health")
     await app.state.database.dispose()
     assert response.status_code == 503
-    assert response.json() == {"status": "unavailable", "database": "unavailable", "redis": "off"}
+    assert response.json() == {
+        "status": "unavailable",
+        "database": "unavailable",
+        "redis": "off",
+        "storage": "ok",
+    }
 
 
 async def test_sign_in_sets_both_cookies_and_returns_a_token(client: httpx.AsyncClient) -> None:
@@ -622,5 +629,15 @@ async def test_health_reports_a_configured_redis(
     app = create_app(settings, live=_Store(backend="redis", up=up))
     response = await get_from(app, "/api/health")
     overall = "ok" if up else "unavailable"
-    expected = {"status": overall, "database": "ok", "redis": redis}
+    expected = {"status": overall, "database": "ok", "redis": redis, "storage": "ok"}
     assert (response.status_code, response.json()) == (status, expected)
+
+
+async def test_health_reports_a_file_store_that_cannot_be_used(
+    settings: Settings, tmp_path: Path
+) -> None:
+    (tmp_path / "taken").write_bytes(b"a file where the folder should be")
+    storage = Storage(LocalBlobs(tmp_path / "taken"), max_bytes=1)
+    response = await get_from(create_app(settings, storage=storage), "/api/health")
+    expected = {"status": "unavailable", "database": "ok", "redis": "off", "storage": "unavailable"}
+    assert (response.status_code, response.json()) == (503, expected)

@@ -2,7 +2,10 @@ import asyncio
 import base64
 import json
 import os
+import socket
 import sqlite3
+import subprocess
+import sys
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -792,3 +795,58 @@ def raising(error: Exception) -> Any:
         raise error
 
     return fail
+
+
+@pytest.mark.parametrize(
+    ("exists", "says"), [(False, "Created the bucket"), (True, "Found the bucket")]
+)
+def test_migrate_readies_the_bucket_when_files_go_to_s3(
+    env: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    exists: bool,
+    says: str,
+) -> None:
+    for name, value in {
+        "FOURCE_STORAGE": "s3",
+        "FOURCE_S3_ENDPOINT": "http://127.0.0.1:9",
+        "FOURCE_S3_ACCESS_KEY": "key",
+        "FOURCE_S3_SECRET_KEY": "s3-secret",
+    }.items():
+        monkeypatch.setenv(name, value)
+
+    async def create_bucket(self: object) -> bool:
+        return not exists
+
+    monkeypatch.setattr("fource.storage.s3.S3Blobs.create_bucket", create_bucket)
+    assert cli.main(["migrate"]) == 0
+    printed = capsys.readouterr().out
+    assert f"{says} fource." in printed and "s3-secret" not in printed
+
+
+def test_migrate_says_when_the_file_store_cannot_be_reached(
+    env: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with socket.socket() as closed:
+        closed.bind(("127.0.0.1", 0))
+        endpoint = f"http://127.0.0.1:{closed.getsockname()[1]}"
+    for name, value in {
+        "FOURCE_STORAGE": "s3",
+        "FOURCE_S3_ENDPOINT": endpoint,
+        "FOURCE_S3_ACCESS_KEY": "key",
+        "FOURCE_S3_SECRET_KEY": "s3-secret",
+    }.items():
+        monkeypatch.setenv(name, value)
+    assert cli.main(["migrate"]) == 1
+    printed = capsys.readouterr().out
+    assert "can't be reached" in printed and endpoint not in printed
+
+
+def test_the_command_line_loads_no_boto3_for_local_files(tmp_path: Path) -> None:
+    script = (
+        "import sys\n"
+        "import fource.server.cli\n"
+        "assert 'boto3' not in sys.modules and 'botocore' not in sys.modules\n"
+    )
+    clean = {name: value for name, value in os.environ.items() if not name.startswith("FOURCE_")}
+    subprocess.run([sys.executable, "-c", script], check=True, cwd=tmp_path, env=clean)
