@@ -59,6 +59,11 @@ def _check(name: str, content_type: str) -> None:
         raise ValueError("a content type is a lower-case type/subtype, such as text/plain")
 
 
+def _limit_text(limit: int) -> str:
+    """The limit in MiB when that is exact (open_storage always gives whole MiB), else in bytes."""
+    return f"{limit // _MIB} MiB" if limit % _MIB == 0 else f"{limit} bytes"
+
+
 class _Meter:
     """Counts and hashes the bytes on their way to the adapter, and stops them at the limit
     (the adapter then discards what it had)."""
@@ -73,9 +78,8 @@ class _Meter:
         async for chunk in self._chunks:
             self.size += len(chunk)
             if self.size > self._limit:
-                raise FileTooLarge(
-                    f"A file may be at most {self._limit // _MIB} MiB (FOURCE_STORAGE_MAX_FILE_MB)."
-                )
+                limit = _limit_text(self._limit)
+                raise FileTooLarge(f"A file may be at most {limit} (FOURCE_STORAGE_MAX_FILE_MB).")
             self._digest.update(chunk)
             yield chunk
 
