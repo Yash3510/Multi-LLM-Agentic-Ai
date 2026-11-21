@@ -229,3 +229,23 @@ async def test_changed_or_missing_bytes_are_reported_as_damaged(
         with pytest.raises(FileDamaged, match="missing"):
             async with storage.open(session, info.id):
                 pass
+
+
+async def test_a_blob_longer_than_its_record_stops_at_the_recorded_size(
+    orgs: tuple[Database, uuid.UUID, uuid.UUID], tmp_path: Path
+) -> None:
+    database, first, _ = orgs
+    storage = storage_in(tmp_path)
+    async with database.org_session(first) as session:
+        info = await storage.put(
+            session, source(DATA), name="a", content_type="text/plain", actor=ACTOR
+        )
+    (path,) = await stored_bytes(tmp_path)
+    path.write_bytes(DATA + DATA)  # appended: the same start, then more
+    delivered = 0
+    async with database.org_session(first) as session:
+        with pytest.raises(FileDamaged):
+            async with storage.open(session, info.id) as reading:
+                async for chunk in reading:
+                    delivered += len(chunk)
+    assert delivered <= info.size
