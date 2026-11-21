@@ -1,10 +1,12 @@
 import hashlib
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fource.db import Database
 from fource.ledger import EntryType, read_entries
@@ -106,6 +108,44 @@ async def test_another_organisations_file_is_not_found(
     async with database.org_session(second) as session:
         with pytest.raises(FileNotFound):
             await storage.stat(session, info.id)
+
+
+async def test_the_organisation_filter_holds_without_the_sessions_confinement(
+    orgs: tuple[Database, uuid.UUID, uuid.UUID], tmp_path: Path
+) -> None:
+    # A plain session has no confinement hook (as a Core select would not), so the service's
+    # own filter on organisation is the only thing keeping the other organisation's file out.
+    database, first, second = orgs
+    storage = storage_in(tmp_path)
+    async with database.org_session(first) as session:
+        info = await storage.put(
+            session, source(b"x"), name="a", content_type="text/plain", actor=ACTOR
+        )
+    async with AsyncSession(database.engine, info={"org_id": second}) as session:
+        with pytest.raises(FileNotFound):
+            await storage.stat(session, info.id)
+    async with AsyncSession(database.engine, info={"org_id": first}) as session:
+        assert await storage.stat(session, info.id) == info
+
+
+async def test_a_deleted_file_is_not_found_like_one_that_never_existed(
+    orgs: tuple[Database, uuid.UUID, uuid.UUID], tmp_path: Path
+) -> None:
+    database, first, _ = orgs
+    storage = storage_in(tmp_path)
+    async with database.org_session(first) as session:
+        info = await storage.put(
+            session, source(b"x"), name="a", content_type="text/plain", actor=ACTOR
+        )
+        row = await session.get(StoredFile, info.id)
+        assert row is not None
+        row.deleted_at = datetime.now(UTC)
+    async with database.org_session(first) as session:
+        with pytest.raises(FileNotFound, match="There is no such file."):
+            await storage.stat(session, info.id)
+        with pytest.raises(FileNotFound, match="There is no such file."):
+            async with storage.open(session, info.id):
+                pass
 
 
 async def test_a_session_without_an_organisation_is_refused(
