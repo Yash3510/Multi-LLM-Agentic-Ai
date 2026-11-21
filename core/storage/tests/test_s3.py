@@ -92,6 +92,31 @@ async def test_a_failing_source_aborts_the_upload(stubbed: tuple[S3Blobs, Stubbe
         await blobs.write(AT, failing())
 
 
+@pytest.mark.parametrize("failing", ["upload_part", "complete_multipart_upload"])
+async def test_a_refused_part_or_completion_aborts_the_upload(
+    stubbed: tuple[S3Blobs, Stubber], failing: str
+) -> None:
+    blobs, stubber = stubbed
+    upload = {**WHERE, "UploadId": "u1"}
+    stubber.add_response("create_multipart_upload", {"UploadId": "u1"}, WHERE)
+    first = {**upload, "PartNumber": 1, "Body": b"abcd"}
+    if failing == "upload_part":
+        stubber.add_client_error("upload_part", "InternalError", expected_params=first)
+    else:
+        stubber.add_response("upload_part", {"ETag": '"e1"'}, first)
+        stubber.add_response(
+            "upload_part", {"ETag": '"e2"'}, {**upload, "PartNumber": 2, "Body": b"e"}
+        )
+        parts = [{"ETag": '"e1"', "PartNumber": 1}, {"ETag": '"e2"', "PartNumber": 2}]
+        refused = {**upload, "MultipartUpload": {"Parts": parts}}
+        stubber.add_client_error(
+            "complete_multipart_upload", "InternalError", expected_params=refused
+        )
+    stubber.add_response("abort_multipart_upload", {}, upload)
+    with pytest.raises(StorageUnavailable):
+        await blobs.write(AT, source(b"abcde"))
+
+
 async def test_a_cancelled_upload_is_aborted(stubbed: tuple[S3Blobs, Stubber]) -> None:
     blobs, stubber = stubbed
     stubber.add_response("create_multipart_upload", {"UploadId": "u1"}, WHERE)
