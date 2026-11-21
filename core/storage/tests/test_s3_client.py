@@ -227,6 +227,17 @@ def test_a_busy_server_is_asked_three_times_then_given_up(fake_s3: str) -> None:
     assert [path for _, path, _ in _FakeS3.seen] == ["/fource/busy"] * 3
 
 
+def test_a_busy_server_is_asked_as_often_as_the_attempts_say(fake_s3: str) -> None:
+    # Three is also what botocore's own defaults give, so only another number shows that the
+    # setting reaches botocore.
+    client = make_s3_client(
+        fake_s3, access_key="test-key", secret_key="test-secret", region="garage", attempts=2
+    )
+    with pytest.raises(ClientError):
+        client.head_object(Bucket="fource", Key="busy")
+    assert [path for _, path, _ in _FakeS3.seen] == ["/fource/busy"] * 2
+
+
 def test_the_session_reads_no_file_from_the_home_folder(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
