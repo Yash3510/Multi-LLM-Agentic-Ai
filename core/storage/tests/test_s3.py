@@ -155,6 +155,21 @@ async def test_a_missing_key_is_missing(stubbed: tuple[S3Blobs, Stubber]) -> Non
             pass
 
 
+@pytest.mark.parametrize("operation", ["put_object", "delete_object"])
+async def test_a_bare_404_answering_a_write_is_not_a_missing_blob(
+    stubbed: tuple[S3Blobs, Stubber], operation: str
+) -> None:
+    # A proxy in front of the store can answer 404 with no S3 error body, and botocore reports
+    # Code "404": for a write that is a store that can't be used, not a file that isn't there.
+    blobs, stubber = stubbed
+    stubber.add_client_error(operation, "404", http_status_code=404)
+    with pytest.raises(StorageUnavailable):
+        if operation == "put_object":
+            await blobs.write(AT, source(b"x"))
+        else:
+            await blobs.delete(AT)
+
+
 async def test_a_tls_error_part_way_through_a_body_is_unavailable_and_unnamed(
     stubbed: tuple[S3Blobs, Stubber], caplog: pytest.LogCaptureFixture
 ) -> None:
