@@ -31,6 +31,8 @@ Each organisation has its own chain, counting from 1. An entry holds hashes and 
 | `prev` | The previous entry's hash; 64 zeros for the first |
 | `hash` | SHA-256 of all the fields above |
 
+**File entries.** `file.write` holds the file's plain SHA-256 in `outputs_sha256` and the refs `file` (the file's id), `size` and `content_type`; `file.delete` holds the ref `file` only. A file's name is never in an entry, and erasing the bytes writes none ([file storage](storage.md#keys-records-and-the-ledger)).
+
 `make_entry` accepts exactly one form per value (lower-case UUIDs, the time format above, and so on) and raises `ValueError` for anything else, because a malformed entry is a bug in the code writing it.
 
 **The hash** is SHA-256, in hex, of every field but `hash`, as JSON with sorted keys, no spaces and UTF-8 text. For seq 1, at `2026-11-14T10:22:31.512Z`, org `0192f5a0-0000-7000-8000-000000000001`, type `identity.user.create`, actor `system`, refs `{"user": "0192f5a0-0000-7000-8000-0000000000aa", "roles": "Admin"}`, everything else null and `prev` the 64 zeros, the hash is `29c04f35f9fa3620715310e44047300b908992276697f036c12778ffae208585` (pinned in `core/ledger/tests/test_chain.py`; rerun by hand when this page was written).

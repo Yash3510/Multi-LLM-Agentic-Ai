@@ -3,7 +3,7 @@ title: Architecture overview
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-21
 tags: [4ce, architecture]
 ---
 
@@ -11,7 +11,7 @@ tags: [4ce, architecture]
 
 4CE is a self-hosted engine that turns an organisation's documents and rulebooks into decisions it can sign: grounded in its evidence, checked against its rules, approved by a named person, recorded as proof, and nothing leaves the building.
 
-This page is the map. Each subsystem gets its own canonical page as it is built. Today the repository tooling, `core/common`, `core/db`, `core/identity`, `core/jobs`, `core/ledger`, `core/live`, `apps/server`, the draft specs in `core/packs` and the [bundled services](services.md) exist; everything marked _planned_ is design, not code.
+This page is the map. Each subsystem gets its own canonical page as it is built. Today the repository tooling, `core/common`, `core/db`, `core/identity`, `core/jobs`, `core/ledger`, `core/live`, `core/storage`, `apps/server`, the draft specs in `core/packs` and the [bundled services](services.md) exist; everything marked _planned_ is design, not code.
 
 ## The universal loop
 
@@ -88,7 +88,7 @@ PostgreSQL, Redis, MinIO, Prometheus and Grafana run as unmodified separate serv
 | [`core/live`](live.md) | Live events, cache, locks and rate limits, on Redis or in process | built |
 | [`core/ledger`](ledger.md) | Insert-only chain per organisation, signed checkpoints, verifier; export next | built (chain, checkpoints, verifier) |
 | `core/deliver` | Template engine, docx/xlsx/pptx renderers, fingerprints | _planned_ |
-| `core/storage` | Storage interface; MinIO (S3) and local-filesystem adapters | _planned_ |
+| [`core/storage`](../../core/storage/README.md) | Storage interface; MinIO (S3) and local-filesystem adapters; file records, ledger entries and erasure ([file storage](storage.md)) | built |
 | `core/connectors` | Read-only data-source importers; cloud model connectors (off) | _planned_ |
 | `core/i18n` | Locales, scripts, shared strings | _planned_ |
 | `core/sovereignty` | Egress monitor, surface audit, offline guard, canary | _planned_ |

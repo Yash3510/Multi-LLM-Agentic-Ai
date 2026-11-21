@@ -3,7 +3,7 @@ title: Licences and the licence gate
 type: architecture
 status: active
 owner: R4
-updated: 2026-11-01
+updated: 2026-11-21
 covers:
   - tools/licence_gate.py
   - tools/import_scan.py
@@ -34,7 +34,7 @@ Master plan Appendix A. Changing it is R4's decision, recorded in an ADR; it is 
 2. **Licence gate.** [`tools/licence_gate.py`](../../tools/licence_gate.py) reads the SBOM and fails on any component whose licence isn't allowed anywhere:
    - **Expressions are strict.** Every licence in an `AND` or `OR` expression must be allowed. Electing one option of an `OR` is proposed in [ADR-0036](../adr/0036-mpl-build-tools-and-licence-mapping.md) and waits on R4.
    - **Unclear metadata is read by a person.** Some packages only say "BSD License". Someone reads the package's LICENSE file and records the licence in [`tools/licence-review.toml`](../../tools/licence-review.toml), pinned to that version, so an update is read again.
-   - **Approvals by ADR.** A review-required licence passes only for a package an ADR approved: `[[approved]]` in `tools/licence-review.toml` names the package, its exact licence and the ADR ([ADR-0037](../adr/0037-licence-approvals-for-the-backend-stack.md) approves psycopg, psycopg-binary, certifi and cffi). A changed licence lapses the approval.
+   - **Approvals by ADR.** A review-required licence passes only for a package an ADR approved: `[[approved]]` in `tools/licence-review.toml` names the package, its exact licence and the ADR ([ADR-0037](../adr/0037-licence-approvals-for-the-backend-stack.md) approves psycopg, psycopg-binary, certifi, cffi and, for the CA list it bundles, botocore). A changed licence lapses the approval.
    - **4CE's own packages** (`fource-*`) are skipped, and commercially licensed libraries pass here; the import scan limits where they are used.
 3. **Import scan.** [`tools/import_scan.py`](../../tools/import_scan.py) parses every import in `core/`, `apps/` and `packs/`, finds the package that provides it, and fails if that package is copyleft without a commercial licence. A commercial library may be imported only where its adapter lives; PyMuPDF has no adapter yet, so it may be imported nowhere. An import that no installed package provides also fails.
 
@@ -57,6 +57,18 @@ On 2026-10-25, at commit `88c1cfa`, on Linux, with the ledger added, `just licen
 **Queue and live-state dependencies.** `redis` 8.1.0 (redis-py, the client of the bundled Redis) declares `License-Expression: MIT` and has no runtime dependencies on Python 3.12; it is imported only in `core/live`. `fource-jobs` now depends on `psycopg` directly (for LISTEN), approved by [ADR-0037](../adr/0037-licence-approvals-for-the-backend-stack.md). fakeredis was not added (BSD-3-Clause, but it would bring sortedcontainers, whose metadata says only "Apache 2.0"; [ADR-0026](../adr/0026-redis-for-live-state.md)).
 
 On 2026-10-31, at commit `aab1c6c`, on Linux, with the queue and the live store added, `just licences` checked 66 components and scanned 93 files with no problems, and checked the 5 bundled services.
+
+**Storage dependencies.** `fource-storage` ([file storage](storage.md)) depends on boto3 and urllib3 directly. Installed with them, at the locked versions:
+
+| Package | Version | Licence | Role |
+| --- | --- | --- | --- |
+| boto3, botocore, s3transfer | 1.44.5, 1.44.5, 0.19.3 | Apache-2.0 | The S3 client, imported only in `core/storage` |
+| jmespath, six, urllib3 | 1.1.0, 1.17.0, 2.8.0 | MIT | botocore's runtime dependencies |
+| python-dateutil | 2.9.0.post0 | Apache-2.0 and BSD-3-Clause | botocore's runtime dependency |
+| types-boto3-lite, types-boto3-s3, botocore-stubs, types-s3transfer | 1.44.3, 1.44.0, 1.43.126, 0.19.3 | MIT | Type stubs, development only |
+
+- **Two packages go through [`tools/licence-review.toml`](../../tools/licence-review.toml)**, read from their licence files on 2026-11-17: s3transfer says "Apache License 2.0" with a classifier the gate can't match (its LICENSE.txt is the Apache 2.0 text); python-dateutil says only "Dual License" (its LICENSE puts contributions since 2017-12-01 under Apache-2.0 and all the code under BSD-3-Clause), recorded as `Apache-2.0 AND BSD-3-Clause`.
+- **botocore's CA bundle.** botocore's code is Apache-2.0, but its NOTICE puts the Mozilla CA root certificates it ships, `botocore/cacert.pem`, under MPL-2.0: the same file certifi carries. The project lead approved it on certifi's terms on 2026-11-21 ([ADR-0037](../adr/0037-licence-approvals-for-the-backend-stack.md) point 2): used unmodified, and never read, because botocore uses certifi's copy whenever certifi is installed, as it is in 4CE. `tools/licence-review.toml` records botocore as `Apache-2.0 AND MPL-2.0`, and an `[[approved]]` entry names ADR-0037 for exactly that expression.
 
 ## Decisions
 

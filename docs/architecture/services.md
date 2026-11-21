@@ -3,7 +3,7 @@ title: Bundled services
 type: architecture
 status: active
 owner: R4
-updated: 2026-10-31
+updated: 2026-11-21
 covers:
   - deploy/compose/
   - deploy/config/
@@ -45,6 +45,8 @@ The server uses Redis only when `FOURCE_REDIS_URL` is set (commented out in [`.e
 ## MinIO
 
 MinIO's community edition is archived and publishes source only, so [`minio.dockerfile`](../../deploy/config/minio/minio.dockerfile) builds the last release from its upstream tag, unmodified, and fails if the tag no longer points at the recorded commit. That release gets no security patches: it is for development. The patch source for pilots is ADR-0025's decision; the options are compared in [MinIO patch source](../research/minio-patch-source.md).
+
+4CE uses MinIO when `FOURCE_STORAGE=s3` ([file storage](storage.md)): it keeps one bucket (`FOURCE_S3_BUCKET`, `fource` by default), which `just migrate` creates when it is missing. In development 4CE connects with MinIO's root credentials, because compose gives MinIO `FOURCE_S3_ACCESS_KEY` and `FOURCE_S3_SECRET_KEY` as its root user and password; per-purpose keys and bucket policies are a WP-F-10 follow-up. CI's MinIO job builds this same image and runs `just test-minio` against it.
 
 ## The third-party bundle
 

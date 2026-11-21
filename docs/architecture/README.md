@@ -3,7 +3,7 @@ title: Architecture
 type: index
 status: active
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-21
 tags: [4ce, index, architecture]
 ---
 
@@ -23,6 +23,7 @@ One canonical page per subsystem. Start with the [overview](overview.md).
 | [Ledger](ledger.md) | active |
 | [Jobs](jobs.md) | active |
 | [Live state](live.md) | active |
+| [File storage](storage.md) | active |
 | [API](api.md) | active |
 | [Frontend](frontend.md) | planned |
 | [Design system](design-system.md) | planned |

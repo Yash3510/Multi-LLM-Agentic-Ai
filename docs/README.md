@@ -3,7 +3,7 @@ title: 4CE knowledge base
 type: index
 status: active
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-21
 tags: [4ce, index]
 ---
 
@@ -36,6 +36,7 @@ The project's memory: what 4CE does, why it is built this way, what changed and 
 | [Ledger](architecture/ledger.md) | architecture | active |
 | [Jobs](architecture/jobs.md) | architecture | active |
 | [Live state](architecture/live.md) | architecture | active |
+| [File storage](architecture/storage.md) | architecture | active |
 | [API](architecture/api.md) | architecture | active |
 | [Frontend](architecture/frontend.md) | architecture | planned |
 | [Design system](architecture/design-system.md) | architecture | planned |

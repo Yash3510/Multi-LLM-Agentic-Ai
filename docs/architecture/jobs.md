@@ -30,10 +30,15 @@ How 4CE does work outside a request: a job queue in the database, and the worker
 
 1. **Take.** One statement takes the organisation's oldest due job and holds it for a lease under a fresh holder token, and commits. PostgreSQL skips rows other workers hold (`FOR UPDATE SKIP LOCKED`); SQLite has no row locks, but its write lock lets one worker take a job at a time.
 2. **Run.** The handler runs in the job's organisation session, and the job is marked `done` in the same transaction, only if the holder token still matches. A worker whose lease ran out and whose job another worker took finds no match, and its attempt's writes roll back: a job runs at least once, and its database effects commit at most once.
-3. **Fail.** A failed attempt is queued again after 30 seconds, doubling up to an hour, until `max_attempts` (5); then the job is `failed`. Only a `FourceError`'s message or the error's class name is kept in `last_error`, cut to 1000 characters.
+3. **Fail.** A failed attempt is queued again after 30 seconds, doubling up to an hour, until `max_attempts` (5 unless the job says otherwise, as `storage.erase` does); then the job is `failed`. Only a `FourceError`'s message or the error's class name is kept in `last_error`, cut to 1000 characters.
 4. **Lost workers.** A `running` job whose lease ran out can be taken again; if that would pass `max_attempts`, it fails with "The last attempt did not finish" instead.
 
 A worker visits every organisation in turn. On PostgreSQL it LISTENs on a connection of its own and also polls every 2 seconds; SQLite only polls.
+
+## Kinds
+
+- **`storage.erase`** (always run): deletes the bytes of a deleted file and marks its record erased ([file storage](storage.md#writing-reading-deleting)). Payload `{"file": "<file id>"}`, key `storage.erase:<file id>`, queued by `Storage.delete` in the caller's transaction with 30 attempts (the back-off doubles to an hour, so it keeps trying for about a day), and a lease of 5 minutes, longer than one S3 call with its three attempts, since the worker holds every job for the longest lease it has.
+- **`ledger.checkpoint`** (recurring, only when `FOURCE_LEDGER_CHECKPOINT_MINUTES` is set): below.
 
 ## Recurring and scheduled jobs
 
@@ -47,7 +52,7 @@ A recurring job is an ordinary job with the key `recurring:<kind>`: at the start
 
 ## Known limits
 
-- **No heartbeats:** a handler must finish within its lease (2 minutes for the checkpoint). One that doesn't may run twice; only one run commits, and effects outside the database (files) must be safe to repeat.
+- **No heartbeats:** a handler must finish within its lease. The worker holds every job for the longest lease among its handlers, 5 minutes, because `storage.erase` is always registered (the checkpoint handler asks for 2). One that doesn't may run twice; only one run commits, and effects outside the database (files) must be safe to repeat.
 - **Finished jobs are kept;** there is no pruning and no priority yet.
 - **SQLite:** one worker takes a job at a time, and nothing wakes a worker but its poll.
 - **One query per organisation per pass,** to look for work.
