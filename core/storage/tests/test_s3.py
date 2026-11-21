@@ -285,3 +285,23 @@ async def test_the_bucket_is_created_only_when_missing(stubbed: tuple[S3Blobs, S
     stubber.add_response("head_bucket", {}, {"Bucket": "fource"})
     assert await blobs.create_bucket()
     assert not await blobs.create_bucket()
+
+
+async def test_a_bucket_created_meanwhile_by_us_is_not_an_error(
+    stubbed: tuple[S3Blobs, Stubber],
+) -> None:
+    # Two `migrate` runs at once both see the bucket missing; the second create is refused.
+    blobs, stubber = stubbed
+    stubber.add_client_error("head_bucket", "404", http_status_code=404)
+    stubber.add_client_error("create_bucket", "BucketAlreadyOwnedByYou", http_status_code=409)
+    assert not await blobs.create_bucket()
+
+
+async def test_a_bucket_name_someone_else_holds_is_an_error(
+    stubbed: tuple[S3Blobs, Stubber],
+) -> None:
+    blobs, stubber = stubbed
+    stubber.add_client_error("head_bucket", "404", http_status_code=404)
+    stubber.add_client_error("create_bucket", "BucketAlreadyExists", http_status_code=409)
+    with pytest.raises(StorageUnavailable):
+        await blobs.create_bucket()
