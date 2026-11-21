@@ -194,7 +194,9 @@ async def _chunks(body: StreamingBody) -> AsyncIterator[bytes]:
 class S3Blobs:
     """Each key is the object `<org hex>/<file hex>` in one bucket. Up to `part_size` bytes go
     in one put_object; more go part by part (one part in memory at a time) and the upload is
-    completed only after the last, or aborted on any failure or cancellation. Every body is
+    completed only after the last, or aborted on any failure or cancellation. A cancellation
+    that arrives while the final call (the put or the completion) is in flight takes effect
+    after it, so the new object may already be in place when the write is cancelled. Every body is
     signed with its SHA-256, which the server checks. `ping` asks `probe`, a client of its own
     with short time limits and one attempt, so that health never waits out the data client's
     retries."""
