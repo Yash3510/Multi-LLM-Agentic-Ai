@@ -24,6 +24,8 @@ just ledger checkpoint   # sign the chain head; keep the file it writes somewher
 just ledger verify       # check the chain; exit 0 verified, 1 problems, 2 not everything checked
 ```
 
+`/api/health` also reports `storage` (`ok` or `unavailable`) and answers 503 when the file store is unavailable. The worker always runs `storage.erase`, which deletes the bytes of deleted files. `migrate` creates the S3 bucket when `FOURCE_STORAGE=s3` and it is missing.
+
 The smoke test (`tests/test_smoke.py`) starts the real `fource-server` command on a throwaway SQLite database, so CI proves it runs on Linux, Windows and macOS.
 
 On Windows the server and its commands use a selector event loop, because psycopg's async mode needs one.
