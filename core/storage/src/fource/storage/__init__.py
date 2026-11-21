@@ -15,7 +15,7 @@ from fource.storage.local import LocalBlobs
 from fource.storage.models import StoredFile
 
 if TYPE_CHECKING:
-    from fource.storage.s3 import make_s3_client
+    from fource.storage.s3 import S3Blobs, make_s3_client
 
 
 def __getattr__(name: str) -> object:
@@ -27,7 +27,7 @@ def __getattr__(name: str) -> object:
     raise AttributeError(f"module 'fource.storage' has no attribute {name!r}")
 
 
-_S3_NAMES = ("make_s3_client",)
+_S3_NAMES = ("S3Blobs", "make_s3_client")
 
 __all__ = [
     "CHUNK_SIZE",
@@ -38,6 +38,7 @@ __all__ = [
     "FileNotFound",
     "FileTooLarge",
     "LocalBlobs",
+    "S3Blobs",
     "StorageUnavailable",
     "StoredFile",
     "make_s3_client",

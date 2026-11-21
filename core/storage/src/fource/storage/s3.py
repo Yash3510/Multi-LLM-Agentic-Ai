@@ -7,8 +7,12 @@ checked on 1.44.5 (the locked version) and are listed in docs/architecture/stora
 
 import logging
 import os
+from collections.abc import AsyncIterable, Callable
+from functools import partial
 from typing import TYPE_CHECKING
 
+import anyio
+import anyio.to_thread
 import boto3.session
 import botocore.session
 from botocore.config import Config
@@ -17,11 +21,16 @@ from botocore.configprovider import (
     ConfigChainFactory,
     ConstantProvider,
 )
+from botocore.exceptions import BotoCoreError, ClientError
 from botocore.loaders import Loader
 from botocore.plugin import PluginContext, reset_plugin_context, set_plugin_context
 
+from fource.storage.errors import BlobMissing, StorageUnavailable
+from fource.storage.keys import BlobKey
+
 if TYPE_CHECKING:
     from types_boto3_s3.client import S3Client
+    from types_boto3_s3.type_defs import CompletedPartTypeDef
 
 # botocore logs every request's headers, Authorization included, at DEBUG: keep the whole S3
 # stack above that, whatever level the root logger is given. urllib3's warnings name the host
@@ -29,11 +38,15 @@ if TYPE_CHECKING:
 for _name in ("botocore", "boto3", "s3transfer"):
     logging.getLogger(_name).setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.ERROR)
+_log = logging.getLogger("fource.storage")
 
 CONNECT_SECONDS = 5
 READ_SECONDS = 60
 ATTEMPTS = 3
 POOL_CONNECTIONS = 40  # anyio's default thread limit: a connection for each worker thread
+PART_SIZE = 8 * 1024 * 1024  # S3 wants at least 5 MiB in every part but the last
+_MISSING = frozenset({"NoSuchKey", "NotFound", "404"})
+_CREDENTIALS = frozenset({"AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch"})
 
 
 def _isolated_session() -> botocore.session.Session:
@@ -118,3 +131,114 @@ def make_s3_client(
     finally:
         reset_plugin_context(token)
     return client
+
+
+def _refusal(code: str) -> str:
+    if code in _CREDENTIALS:
+        return (
+            "The file store refused 4CE's credentials: check FOURCE_S3_ACCESS_KEY, "
+            "FOURCE_S3_SECRET_KEY and FOURCE_S3_REGION."
+        )
+    if code == "NoSuchBucket":
+        return "The file store has no bucket FOURCE_S3_BUCKET: run `just migrate` to create it."
+    return "The file store refused the request."
+
+
+async def _call[*Args, Result](function: Callable[[*Args], Result], *args: *Args) -> Result:
+    """One blocking boto3 call in a worker thread, which is never abandoned: anyio waits for
+    it with the default `abandon_on_cancel=False` (anyio/to_thread.py:30), shielded from
+    cancellation (anyio/_backends/_asyncio.py:2671), so a cancellation that arrives meanwhile
+    takes effect when the call returns. botocore's errors become 4CE's; their text names the
+    endpoint, so only the S3 error code is logged."""
+    try:
+        return await anyio.to_thread.run_sync(function, *args)
+    except ClientError as error:
+        code = error.response.get("Error", {}).get("Code", "unknown")
+        if code in _MISSING:
+            raise BlobMissing() from None
+        _log.warning("The file store refused a request: %s", code)
+        raise StorageUnavailable(_refusal(code)) from None
+    except BotoCoreError as error:
+        _log.warning("The file store could not be reached: %s", type(error).__name__)
+        raise StorageUnavailable("The file store can't be reached.") from None
+
+
+class S3Blobs:
+    """Each key is the object `<org hex>/<file hex>` in one bucket. Up to `part_size` bytes go
+    in one put_object; more go part by part (one part in memory at a time) and the upload is
+    completed only after the last, or aborted on any failure or cancellation. Every body is
+    signed with its SHA-256, which the server checks."""
+
+    backend = "s3"
+
+    def __init__(self, client: "S3Client", bucket: str, *, part_size: int = PART_SIZE) -> None:
+        if part_size < 1:
+            raise ValueError("part_size is a positive number of bytes")
+        self._client = client
+        self.bucket = bucket
+        self._part_size = part_size
+
+    async def write(self, key: BlobKey, chunks: AsyncIterable[bytes]) -> None:
+        buffer = bytearray()
+        upload: str | None = None
+        parts: list[CompletedPartTypeDef] = []
+        try:
+            async for chunk in chunks:
+                buffer += chunk
+                while len(buffer) > self._part_size:
+                    if upload is None:
+                        upload = await self._start(key)
+                    part = bytes(buffer[: self._part_size])
+                    parts.append(await self._part(key, upload, len(parts) + 1, part))
+                    del buffer[: self._part_size]
+            if upload is None:
+                put = partial(
+                    self._client.put_object, Bucket=self.bucket, Key=key.path, Body=bytes(buffer)
+                )
+                await _call(put)
+            else:
+                parts.append(await self._part(key, upload, len(parts) + 1, bytes(buffer)))
+                finish = partial(
+                    self._client.complete_multipart_upload,
+                    Bucket=self.bucket,
+                    Key=key.path,
+                    UploadId=upload,
+                    MultipartUpload={"Parts": parts},
+                )
+                await _call(finish)
+        except BaseException:
+            if upload is not None:
+                await self._abort(key, upload)
+            raise
+
+    async def _start(self, key: BlobKey) -> str:
+        start = partial(self._client.create_multipart_upload, Bucket=self.bucket, Key=key.path)
+        return (await _call(start))["UploadId"]
+
+    async def _part(
+        self, key: BlobKey, upload: str, number: int, data: bytes
+    ) -> "CompletedPartTypeDef":
+        send = partial(
+            self._client.upload_part,
+            Bucket=self.bucket,
+            Key=key.path,
+            UploadId=upload,
+            PartNumber=number,
+            Body=data,
+        )
+        return {"ETag": (await _call(send))["ETag"], "PartNumber": number}
+
+    async def _abort(self, key: BlobKey, upload: str) -> None:
+        """Shielded, so it runs even while the write is being cancelled. If it fails, the
+        store keeps the parts until its own clean-up of unfinished uploads."""
+        abort = partial(
+            self._client.abort_multipart_upload, Bucket=self.bucket, Key=key.path, UploadId=upload
+        )
+        with anyio.CancelScope(shield=True):
+            try:
+                await _call(abort)
+            except (StorageUnavailable, BlobMissing):
+                _log.warning("An unfinished multipart upload could not be aborted.")
+
+    async def close(self) -> None:
+        self._client.close()
