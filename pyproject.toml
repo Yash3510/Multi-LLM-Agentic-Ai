@@ -154,6 +154,8 @@ type = "protected"
 protected_modules = ["fource.storage.*"]
 allowed_importers = ["fource.storage"]
 
+# import-linter reads only the packages listed here, not their tests, and a new package is
+# covered only once it is added to this list.
 [[tool.importlinter.contracts]]
 name = "S3 is reached only through fource.storage"
 type = "forbidden"

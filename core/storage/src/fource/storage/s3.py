@@ -1,8 +1,8 @@
 """Bytes in an S3 bucket (MinIO), through boto3 (ADR-0044).
 
-Only this module imports boto3, and only `open_storage` with FOURCE_STORAGE=s3 (or the
-package's lazy exports) imports this module. botocore facts relied on here, as of 1.43.123,
-are listed in docs/architecture/storage.md.
+Only this module imports boto3, and the package imports this module lazily, when one of its S3
+names is used: a deployment without S3 never loads boto3. The botocore facts relied on here were
+checked on 1.44.5 (the locked version) and are listed in docs/architecture/storage.md.
 """
 
 import logging
@@ -37,11 +37,17 @@ POOL_CONNECTIONS = 40  # anyio's default thread limit: a connection for each wor
 
 
 def _isolated_session() -> botocore.session.Session:
-    """A botocore session that takes nothing from the environment or from files: no profile,
-    no ~/.aws config or credentials file, no data path, no service data from ~/.aws/models,
-    no client-side monitoring, no CA bundle, region, retry or endpoint setting. Uses
-    botocore's config_store component, the way botocore's own session code recommends for
-    changing lookups."""
+    """A botocore session whose endpoint, credentials, region, CA bundle, proxy, retries,
+    checksums, service data and plugins come from nothing but 4CE's settings: no profile, no
+    ~/.aws config or credentials file, no data path, no service data from ~/.aws/models, no
+    client-side monitoring. Uses botocore's config_store component, the way botocore's own
+    session code recommends for changing lookups.
+
+    Some variables still reach botocore, though none changes where a request goes or who signs
+    it (checked on botocore 1.44.5): AWS_EXECUTION_ENV adds a user-agent field,
+    AWS_LAMBDA_FUNCTION_NAME with _X_AMZN_TRACE_ID adds a trace header, AWS_BEARER_TOKEN_S3 is
+    loaded although S3 still signs with Signature Version 4, and SSLKEYLOGFILE makes urllib3
+    write TLS keys, as the standard library does."""
     session = botocore.session.Session()
     store = session.get_component("config_store")
     chains = ConfigChainFactory(session=session, environ={})
