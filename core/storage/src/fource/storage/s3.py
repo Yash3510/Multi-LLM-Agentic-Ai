@@ -174,6 +174,18 @@ async def _call[*Args, Result](
         raise StorageUnavailable("The file store can't be reached.") from None
 
 
+def _create_bucket(client: "S3Client", bucket: str) -> bool:
+    """Runs in a worker thread. A bucket that a concurrent run of ours created first is not an
+    error (the store names it BucketAlreadyOwnedByYou); one that another account holds is."""
+    try:
+        client.create_bucket(Bucket=bucket)
+    except ClientError as error:
+        if error.response.get("Error", {}).get("Code") == "BucketAlreadyOwnedByYou":
+            return False
+        raise
+    return True
+
+
 async def _chunks(body: StreamingBody) -> AsyncIterator[bytes]:
     while chunk := await _call(body.read, CHUNK_SIZE):
         yield chunk
@@ -297,8 +309,7 @@ class S3Blobs:
             return False
         except BlobMissing:  # HEAD answers a missing bucket with a bare 404
             pass
-        await _call(partial(self._client.create_bucket, Bucket=self.bucket))
-        return True
+        return await _call(partial(_create_bucket, self._client, self.bucket))
 
     async def close(self) -> None:
         self._client.close()
