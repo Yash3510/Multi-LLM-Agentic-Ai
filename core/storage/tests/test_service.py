@@ -249,3 +249,20 @@ async def test_a_blob_longer_than_its_record_stops_at_the_recorded_size(
                 async for chunk in reading:
                     delivered += len(chunk)
     assert delivered <= info.size
+
+
+async def test_a_reading_is_read_once(
+    orgs: tuple[Database, uuid.UUID, uuid.UUID], tmp_path: Path
+) -> None:
+    database, first, _ = orgs
+    storage = storage_in(tmp_path)
+    async with database.org_session(first) as session:
+        info = await storage.put(
+            session, source(DATA), name="a", content_type="text/plain", actor=ACTOR
+        )
+    async with database.org_session(first) as session:
+        async with storage.open(session, info.id) as reading:
+            assert b"".join([chunk async for chunk in reading]) == DATA
+            with pytest.raises(RuntimeError, match="a Reading is read once"):
+                async for _ in reading:
+                    pass
