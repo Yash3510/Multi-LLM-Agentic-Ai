@@ -7,7 +7,8 @@ checked on 1.44.5 (the locked version) and are listed in docs/architecture/stora
 
 import logging
 import os
-from collections.abc import AsyncIterable, Callable
+from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -24,7 +25,9 @@ from botocore.configprovider import (
 from botocore.exceptions import BotoCoreError, ClientError
 from botocore.loaders import Loader
 from botocore.plugin import PluginContext, reset_plugin_context, set_plugin_context
+from botocore.response import StreamingBody
 
+from fource.storage.base import CHUNK_SIZE
 from fource.storage.errors import BlobMissing, StorageUnavailable
 from fource.storage.keys import BlobKey
 
@@ -45,6 +48,7 @@ READ_SECONDS = 60
 ATTEMPTS = 3
 POOL_CONNECTIONS = 40  # anyio's default thread limit: a connection for each worker thread
 PART_SIZE = 8 * 1024 * 1024  # S3 wants at least 5 MiB in every part but the last
+PROBE_SECONDS = 2  # health asks often: a stopped store must answer within seconds
 _MISSING = frozenset({"NoSuchKey", "NotFound", "404"})
 _CREDENTIALS = frozenset({"AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch"})
 
@@ -163,20 +167,35 @@ async def _call[*Args, Result](function: Callable[[*Args], Result], *args: *Args
         raise StorageUnavailable("The file store can't be reached.") from None
 
 
+async def _chunks(body: StreamingBody) -> AsyncIterator[bytes]:
+    while chunk := await _call(body.read, CHUNK_SIZE):
+        yield chunk
+
+
 class S3Blobs:
     """Each key is the object `<org hex>/<file hex>` in one bucket. Up to `part_size` bytes go
     in one put_object; more go part by part (one part in memory at a time) and the upload is
     completed only after the last, or aborted on any failure or cancellation. Every body is
-    signed with its SHA-256, which the server checks."""
+    signed with its SHA-256, which the server checks. `ping` asks `probe`, a client of its own
+    with short time limits and one attempt, so that health never waits out the data client's
+    retries."""
 
     backend = "s3"
 
-    def __init__(self, client: "S3Client", bucket: str, *, part_size: int = PART_SIZE) -> None:
+    def __init__(
+        self,
+        client: "S3Client",
+        bucket: str,
+        *,
+        part_size: int = PART_SIZE,
+        probe: "S3Client | None" = None,
+    ) -> None:
         if part_size < 1:
             raise ValueError("part_size is a positive number of bytes")
         self._client = client
         self.bucket = bucket
         self._part_size = part_size
+        self.probe = client if probe is None else probe
 
     async def write(self, key: BlobKey, chunks: AsyncIterable[bytes]) -> None:
         buffer = bytearray()
@@ -240,5 +259,37 @@ class S3Blobs:
             except (StorageUnavailable, BlobMissing):
                 _log.warning("An unfinished multipart upload could not be aborted.")
 
+    @asynccontextmanager
+    async def read(self, key: BlobKey) -> AsyncGenerator[AsyncIterator[bytes]]:
+        get = partial(self._client.get_object, Bucket=self.bucket, Key=key.path)
+        body = (await _call(get))["Body"]
+        try:
+            yield _chunks(body)
+        finally:
+            body.close()
+
+    async def delete(self, key: BlobKey) -> None:
+        await _call(partial(self._client.delete_object, Bucket=self.bucket, Key=key.path))
+
+    async def ping(self) -> bool:
+        try:
+            await _call(partial(self.probe.head_bucket, Bucket=self.bucket))
+        except (StorageUnavailable, BlobMissing):
+            return False
+        return True
+
+    async def create_bucket(self) -> bool:
+        """Creates the bucket unless it exists; True when it did. `fource-server migrate` calls
+        it, never the server at start-up: a misspelt name must not start an empty store."""
+        try:
+            await _call(partial(self._client.head_bucket, Bucket=self.bucket))
+            return False
+        except BlobMissing:  # HEAD answers a missing bucket with a bare 404
+            pass
+        await _call(partial(self._client.create_bucket, Bucket=self.bucket))
+        return True
+
     async def close(self) -> None:
         self._client.close()
+        if self.probe is not self._client:
+            self.probe.close()
