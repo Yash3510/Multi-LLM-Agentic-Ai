@@ -214,7 +214,10 @@ class S3Blobs:
                 while len(buffer) > self._part_size:
                     if upload is None:
                         upload = await self._start(key)
-                    part = bytes(buffer[: self._part_size])
+                    # A slice of the bytearray would copy the part once more; the view is
+                    # released before the buffer is resized.
+                    with memoryview(buffer) as view, view[: self._part_size] as piece:
+                        part = bytes(piece)
                     parts.append(await self._part(key, upload, len(parts) + 1, part))
                     del buffer[: self._part_size]
             if upload is None:
