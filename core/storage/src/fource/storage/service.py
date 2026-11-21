@@ -167,7 +167,9 @@ class Storage:
     async def _row(self, session: AsyncSession, file_id: uuid.UUID) -> StoredFile:
         """The file's row in the session's organisation, if it isn't deleted: another
         organisation's id finds nothing, which is the boundary (§8.2 rule 10). The filter is
-        explicit, as the ledger's is, so a session without an organisation is refused."""
+        explicit, as the ledger's is, so a session without an organisation is refused and the
+        boundary does not rest on the session's confinement alone (a test reads through a
+        session that has none)."""
         org_id = org_of(session)
         row = await session.scalar(
             select(StoredFile).where(StoredFile.id == file_id, StoredFile.org_id == org_id)
