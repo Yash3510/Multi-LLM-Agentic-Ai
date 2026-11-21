@@ -1,11 +1,14 @@
+import io
+import socket
 import uuid
 from collections.abc import AsyncIterator, Iterator
 
 import anyio
 import pytest
+from botocore.response import StreamingBody
 from botocore.stub import Stubber
 
-from fource.storage import BlobKey, S3Blobs, make_s3_client
+from fource.storage import BlobKey, BlobMissing, S3Blobs, StorageUnavailable, make_s3_client
 
 pytestmark = pytest.mark.anyio
 ENDPOINT = "http://127.0.0.1:9"  # never contacted: the Stubber answers every call
@@ -98,3 +101,106 @@ async def test_a_cancelled_upload_is_aborted(stubbed: tuple[S3Blobs, Stubber]) -
 
     with anyio.move_on_after(1):  # a slow machine only waits longer
         await blobs.write(AT, slow())
+
+
+async def test_a_read_streams_the_body_and_closes_it(stubbed: tuple[S3Blobs, Stubber]) -> None:
+    blobs, stubber = stubbed
+    data = bytes(range(256)) * 600  # more than one chunk
+    raw = io.BytesIO(data)
+    stubber.add_response("get_object", {"Body": StreamingBody(raw, len(data))}, WHERE)
+    async with blobs.read(AT) as chunks:
+        got = [chunk async for chunk in chunks]
+    assert b"".join(got) == data and len(got) > 1
+    assert raw.closed
+
+
+async def test_a_missing_key_is_missing(stubbed: tuple[S3Blobs, Stubber]) -> None:
+    blobs, stubber = stubbed
+    stubber.add_client_error("get_object", "NoSuchKey", http_status_code=404, expected_params=WHERE)
+    with pytest.raises(BlobMissing):
+        async with blobs.read(AT):
+            pass
+
+
+@pytest.mark.parametrize(
+    ("code", "status", "says"),
+    [
+        ("AccessDenied", 403, "FOURCE_S3_ACCESS_KEY"),
+        ("SignatureDoesNotMatch", 403, "FOURCE_S3_SECRET_KEY"),
+        ("NoSuchBucket", 404, "just migrate"),
+        ("InternalError", 500, "refused the request"),
+    ],
+)
+async def test_refusals_become_storage_unavailable_naming_no_endpoint_or_key(
+    stubbed: tuple[S3Blobs, Stubber],
+    caplog: pytest.LogCaptureFixture,
+    code: str,
+    status: int,
+    says: str,
+) -> None:
+    blobs, stubber = stubbed
+    stubber.add_client_error("put_object", code, f"text naming {ENDPOINT}", http_status_code=status)
+    with pytest.raises(StorageUnavailable) as refused:
+        await blobs.write(AT, source(b"x"))
+    assert says in refused.value.message
+    shown = refused.value.message + caplog.text
+    assert code in caplog.text
+    assert ENDPOINT not in shown and "127.0.0.1" not in shown and SECRET not in shown
+
+
+async def test_an_unreachable_store_is_unavailable_and_unnamed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with socket.socket() as closed:  # a port nothing listens on any more
+        closed.bind(("127.0.0.1", 0))
+        endpoint = f"http://127.0.0.1:{closed.getsockname()[1]}"
+    client = make_s3_client(endpoint, access_key="k", secret_key=SECRET, region="us-east-1")
+    blobs = S3Blobs(client, "fource")
+    with pytest.raises(StorageUnavailable, match="can't be reached") as refused:
+        await blobs.write(AT, source(b"x"))
+    assert not await blobs.ping()
+    shown = refused.value.message + caplog.text
+    assert endpoint not in shown and SECRET not in shown
+    await blobs.close()
+
+
+async def test_delete_and_ping(stubbed: tuple[S3Blobs, Stubber]) -> None:
+    blobs, stubber = stubbed
+    stubber.add_response("delete_object", {}, WHERE)
+    stubber.add_response("head_bucket", {}, {"Bucket": "fource"})
+    stubber.add_client_error("head_bucket", "403", http_status_code=403)
+    await blobs.delete(AT)
+    assert await blobs.ping()
+    assert not await blobs.ping()
+
+
+async def test_ping_asks_its_own_client_once_and_briefly() -> None:
+    data = make_s3_client(ENDPOINT, access_key="stub-key", secret_key=SECRET, region="us-east-1")
+    probe = make_s3_client(
+        ENDPOINT,
+        access_key="stub-key",
+        secret_key=SECRET,
+        region="us-east-1",
+        connect_timeout=2,
+        read_timeout=2,
+        attempts=1,
+    )
+    config = vars(probe.meta.config)  # botocore-stubs declare none of its options
+    assert (config["connect_timeout"], config["read_timeout"], config["retries"]) == (
+        2,
+        2,
+        {"mode": "standard", "total_max_attempts": 1},
+    )
+    with Stubber(data), Stubber(probe) as quick:  # a call on `data` would fail: nothing stubbed
+        quick.add_response("head_bucket", {}, {"Bucket": "fource"})
+        assert await S3Blobs(data, "fource", probe=probe).ping()
+        quick.assert_no_pending_responses()
+
+
+async def test_the_bucket_is_created_only_when_missing(stubbed: tuple[S3Blobs, Stubber]) -> None:
+    blobs, stubber = stubbed
+    stubber.add_client_error("head_bucket", "404", http_status_code=404)
+    stubber.add_response("create_bucket", {}, {"Bucket": "fource"})
+    stubber.add_response("head_bucket", {}, {"Bucket": "fource"})
+    assert await blobs.create_bucket()
+    assert not await blobs.create_bucket()
