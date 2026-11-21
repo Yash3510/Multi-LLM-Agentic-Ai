@@ -20,9 +20,9 @@ setup:
 sync:
     uv run python tools/sync.py
 
-# Every test except the PostgreSQL-only and Redis-only ones
+# Every test except the PostgreSQL-only, Redis-only and MinIO-only ones
 test:
-    uv run pytest -m "not postgres and not redis"
+    uv run pytest -m "not postgres and not redis and not minio"
 
 # The PostgreSQL-only tests; run just services first
 test-postgres:
@@ -31,6 +31,10 @@ test-postgres:
 # The Redis-only tests: FOURCE_TEST_REDIS_URL must name a Redis 8 server they may write to (CI's)
 test-redis:
     uv run pytest -m redis
+
+# The MinIO-only tests: FOURCE_TEST_S3_ENDPOINT, _ACCESS_KEY and _SECRET_KEY must name a MinIO they may write to (CI's)
+test-minio:
+    uv run pytest -m minio
 
 # Formatting, lint and types
 lint:

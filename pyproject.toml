@@ -69,6 +69,7 @@ pythonpath = ["tools"]
 markers = [
     "postgres: needs PostgreSQL 18; run with just test-postgres after just services",
     "redis: needs a Redis 8 server the tests may write to (FOURCE_TEST_REDIS_URL); run with just test-redis",
+    "minio: needs a MinIO the tests may write to (FOURCE_TEST_S3_ENDPOINT, _ACCESS_KEY, _SECRET_KEY); run with just test-minio",
 ]
 
 [[tool.importlinter.contracts]]
