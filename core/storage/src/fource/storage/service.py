@@ -87,20 +87,30 @@ class _Meter:
 class Reading:
     """One file being read: `file` says what it must be, and iterating yields its bytes and then
     checks them against `file`. Chunks before a difference are already delivered, so a caller
-    that gets FileDamaged treats the whole read as failed."""
+    that gets FileDamaged treats the whole read as failed. A Reading is read once."""
 
     def __init__(self, file: FileInfo, chunks: AsyncIterator[bytes]) -> None:
         self.file = file
         self._chunks = chunks
+        self._used = False
 
-    async def __aiter__(self) -> AsyncIterator[bytes]:
+    def __aiter__(self) -> AsyncIterator[bytes]:
+        if self._used:
+            raise RuntimeError("a Reading is read once")
+        self._used = True
+        return self._read()
+
+    async def _read(self) -> AsyncIterator[bytes]:
         digest, size = hashlib.sha256(), 0
         async for chunk in self._chunks:
             size += len(chunk)
+            # Stops a blob longer than its record at the recorded size: the hash below would
+            # catch it too, but only after all of it had gone out.
             if size > self.file.size:
                 raise FileDamaged("The stored bytes of this file differ from what was written.")
             digest.update(chunk)
             yield chunk
+        # The size check is redundant with the hash comparison; it is kept as a cheap guard.
         if size != self.file.size or digest.hexdigest() != self.file.sha256:
             raise FileDamaged("The stored bytes of this file differ from what was written.")
 
