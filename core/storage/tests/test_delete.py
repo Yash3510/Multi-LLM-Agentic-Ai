@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fource.db import Database
 from fource.jobs import Job, Worker
@@ -73,6 +74,7 @@ async def test_a_rolled_back_delete_changes_nothing(
     async with database.org_session(first) as session:
         assert (await storage.stat(session, file_id)).id == file_id
         assert (await session.scalars(select(Job))).all() == []
+        assert [entry.type async for entry in read_entries(session)] == [EntryType.FILE_WRITE]
     assert path.exists()
 
 
@@ -95,16 +97,34 @@ async def test_the_worker_erases_the_bytes_once_and_keeps_the_record(
 async def test_erase_leaves_a_file_that_is_not_deleted_alone(
     orgs: tuple[Database, uuid.UUID, uuid.UUID], tmp_path: Path
 ) -> None:
-    database, first, second = orgs
+    database, first, _ = orgs
     storage, file_id, path = await stored(database, first, tmp_path)
     async with database.org_session(first) as session:
         assert not await storage.erase(session, file_id)
-    async with database.org_session(second) as session:
-        assert not await storage.erase(session, file_id)  # another organisation's id
     async with database.session() as session:
         with pytest.raises(RuntimeError, match="organisation session"):
             await storage.erase(session, file_id)
     assert path.exists()
+
+
+async def test_erase_leaves_another_organisations_deleted_file_alone(
+    orgs: tuple[Database, uuid.UUID, uuid.UUID], tmp_path: Path
+) -> None:
+    database, first, second = orgs
+    storage, file_id, path = await stored(database, first, tmp_path)
+    async with database.org_session(first) as session:
+        await storage.delete(session, file_id, actor=ACTOR)
+    # A deleted file, so only an organisation check can refuse it. The organisation session
+    # already filters its reads, so erase's own filter shows only in a session without that
+    # filter; it must refuse on its own, whatever session it is given.
+    async with database.org_session(second) as session:
+        assert not await storage.erase(session, file_id)
+    async with AsyncSession(database.engine, info={"org_id": second}) as bare:
+        assert not await storage.erase(bare, file_id)
+    assert path.exists()
+    async with database.org_session(first) as session:
+        row = await session.scalar(select(StoredFile).where(StoredFile.id == file_id))
+        assert row is not None and row.erased_at is None
 
 
 async def test_of_two_deletes_at_once_only_the_first_counts(
