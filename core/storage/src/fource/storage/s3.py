@@ -231,6 +231,8 @@ class S3Blobs:
                     with memoryview(buffer) as view, view[: self._part_size] as piece:
                         part = bytes(piece)
                     parts.append(await self._part(key, upload, len(parts) + 1, part))
+                    # The next part is copied while the buffer refills: drop this one first.
+                    del part
                     del buffer[: self._part_size]
             if upload is None:
                 put = partial(
