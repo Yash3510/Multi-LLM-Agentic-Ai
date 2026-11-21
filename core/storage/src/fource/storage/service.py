@@ -7,19 +7,21 @@ import uuid
 from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fource.common import new_id
+from fource.common import new_id, now
 from fource.db import org_of
+from fource.jobs import Handler, HeldJob, enqueue
 from fource.ledger import EntryType, append
 from fource.storage.base import Blobs
 from fource.storage.errors import BlobMissing, FileDamaged, FileNotFound, FileTooLarge
 from fource.storage.keys import BlobKey
 from fource.storage.models import StoredFile
 
+ERASE = "storage.erase"
 MAX_NAME_LENGTH = 255
 _TOKEN = r"[a-z0-9][a-z0-9!#$&^_.+-]{0,126}"
 _CONTENT_TYPE = re.compile(f"{_TOKEN}/{_TOKEN}")
@@ -190,8 +192,58 @@ class Storage:
         except BlobMissing:
             raise FileDamaged("The bytes of this file are missing from the file store.") from None
 
+    async def delete(self, session: AsyncSession, file_id: uuid.UUID, *, actor: str) -> None:
+        """Marks the file deleted, writes `file.delete` and queues `storage.erase`, all in the
+        caller's transaction: reads refuse the file at once, and the worker erases the bytes
+        after the caller commits. A rolled-back delete changes nothing. The record stays: the
+        ledger holds only hashes, so erasing never touches it (ADR-0044)."""
+        # One statement both checks and marks the row: of two deletes at once, the second waits
+        # for the first to commit and then finds nothing, so a file is deleted and recorded once.
+        marked = await session.execute(
+            update(StoredFile)
+            .where(
+                StoredFile.id == file_id,
+                StoredFile.org_id == org_of(session),
+                StoredFile.deleted_at.is_(None),
+            )
+            .values(deleted_at=now(), deleted_by=actor)
+            .returning(StoredFile.id)
+        )
+        if marked.first() is None:
+            raise FileNotFound("There is no such file.")
+        await append(session, EntryType.FILE_DELETE, actor=actor, refs={"file": str(file_id)})
+        # The back-off doubles to an hour, so 30 attempts keep trying for about a day: a store
+        # down for maintenance must not leave the bytes behind for good.
+        await enqueue(
+            session, ERASE, {"file": str(file_id)}, key=f"{ERASE}:{file_id}", max_attempts=30
+        )
+
+    async def erase(self, session: AsyncSession, file_id: uuid.UUID) -> bool:
+        """Deletes the bytes of a deleted file and marks its record erased; False when there
+        was nothing to do, so a repeated job is harmless."""
+        org_id = org_of(session)
+        row = await session.scalar(
+            select(StoredFile).where(StoredFile.id == file_id, StoredFile.org_id == org_id)
+        )
+        if row is None or row.deleted_at is None or row.erased_at is not None:
+            return False
+        await self.blobs.delete(BlobKey(row.org_id, row.id))
+        row.erased_at = now()
+        await session.flush()
+        return True
+
     async def ping(self) -> bool:
         return await self.blobs.ping()
 
     async def close(self) -> None:
         await self.blobs.close()
+
+
+def erase_handler(storage: Storage) -> Handler:
+    """The worker's handler for `storage.erase` jobs (payload: the file's id)."""
+
+    async def run(session: AsyncSession, job: HeldJob) -> None:
+        await storage.erase(session, uuid.UUID(str(job.payload["file"])))
+
+    # Longer than one S3 call with its three attempts (5 s to connect, 60 s to read, each).
+    return Handler(run, lease=timedelta(minutes=5))

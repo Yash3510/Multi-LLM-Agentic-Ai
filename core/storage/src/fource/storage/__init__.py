@@ -14,7 +14,7 @@ from fource.storage.errors import (
 from fource.storage.keys import BlobKey
 from fource.storage.local import LocalBlobs
 from fource.storage.models import StoredFile
-from fource.storage.service import FileInfo, Reading, Storage
+from fource.storage.service import ERASE, FileInfo, Reading, Storage, erase_handler
 
 if TYPE_CHECKING:
     from fource.storage.s3 import S3Blobs, make_s3_client
@@ -67,6 +67,7 @@ def open_storage(settings: Settings) -> Storage:
 
 __all__ = [
     "CHUNK_SIZE",
+    "ERASE",
     "BlobKey",
     "BlobMissing",
     "Blobs",
@@ -81,5 +82,6 @@ __all__ = [
     "StorageUnavailable",
     "StoredFile",
     "make_s3_client",
+    "erase_handler",
     "open_storage",
 ]
