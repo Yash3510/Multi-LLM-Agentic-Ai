@@ -1,17 +1,20 @@
 import hashlib
+import importlib
 import json
 import logging
+import os
 import socket
 import subprocess
 import sys
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
 from botocore.exceptions import ClientError
 from botocore.loaders import Loader
+from botocore.session import Session
 
 from fource.storage import make_s3_client
 
@@ -126,6 +129,23 @@ def test_the_client_talks_only_to_its_endpoint_whatever_the_environment(
         json.dumps({"version": "1.0", "parameters": {}, "rules": [rule]}), encoding="utf-8"
     )
     monkeypatch.setattr(Loader, "CUSTOMER_DATA_PATH", str(tmp_path / "models"))
+    # The files botocore reads by default, from the account's home folder, not from a variable.
+    home = tmp_path / "home"
+    (home / ".aws").mkdir(parents=True)
+    (home / ".aws" / "config").write_text(
+        f"[default]\nendpoint_url = {junk}\nca_bundle = {tmp_path / 'none.pem'}\n"
+        f"sdk_ua_app_id = junk-app-id\ns3 =\n  addressing_style = virtual\n",
+        encoding="utf-8",
+    )
+    (home / ".aws" / "credentials").write_text(
+        "[default]\naws_access_key_id = OTHER-KEY\naws_secret_access_key = other-secret\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    # A runner that sets NO_PROXY for localhost would hide a proxy that is still being used.
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
     plugins: list[object] = []
 
     def load_plugins(client: object, named: object) -> None:
@@ -161,8 +181,15 @@ def test_the_client_talks_only_to_its_endpoint_whatever_the_environment(
     }.items():
         monkeypatch.setenv(name, value)
 
+    # Short timeouts: should the client ever reach the silent proxy, the test fails in seconds
+    # with the assertions below, not after the default 60 s read timeout and its retries.
     client = make_s3_client(
-        fake_s3, access_key="test-key", secret_key="test-secret", region="us-east-1"
+        fake_s3,
+        access_key="test-key",
+        secret_key="test-secret",
+        region="us-east-1",
+        connect_timeout=2,
+        read_timeout=2,
     )
     client.head_bucket(Bucket="fource")
     client.put_object(Bucket="fource", Key=KEY, Body=BODY)
@@ -180,6 +207,7 @@ def test_the_client_talks_only_to_its_endpoint_whatever_the_environment(
         assert headers["host"] == host
         assert headers["authorization"].startswith("AWS4-HMAC-SHA256 Credential=test-key/")
         assert "x-amz-security-token" not in headers
+        assert "junk-app-id" not in headers["user-agent"]
         assert not [name for name in headers if "checksum" in name]
     put = _FakeS3.seen[1][2]
     assert put["x-amz-content-sha256"] == hashlib.sha256(BODY).hexdigest()  # signed payload
@@ -199,10 +227,37 @@ def test_a_busy_server_is_asked_three_times_then_given_up(fake_s3: str) -> None:
     assert [path for _, path, _ in _FakeS3.seen] == ["/fource/busy"] * 3
 
 
+def test_the_session_reads_no_file_from_the_home_folder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Whatever the client is given explicitly hides what a file would add, so look at the
+    # session itself: the files botocore reads by default must not be read.
+    (tmp_path / ".aws").mkdir()
+    (tmp_path / ".aws" / "config").write_text(
+        "[default]\nsdk_ua_app_id = junk-app-id\nmax_attempts = 9\n", encoding="utf-8"
+    )
+    (tmp_path / ".aws" / "credentials").write_text(
+        "[default]\naws_access_key_id = OTHER-KEY\naws_secret_access_key = other-secret\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    for name in ("AWS_CONFIG_FILE", "AWS_SHARED_CREDENTIALS_FILE", "AWS_PROFILE"):
+        monkeypatch.delenv(name, raising=False)
+    module = importlib.import_module("fource.storage.s3")
+    isolated_session: Callable[[], Session] = vars(module)["_isolated_session"]
+    session = isolated_session()
+
+    assert session.get_scoped_config() == {}
+    assert session.get_config_variable("credentials_file") == os.devnull
+
+
 def test_the_s3_stack_never_logs_at_debug() -> None:
     # botocore logs request headers, Authorization included, at DEBUG; urllib3's warnings name
     # the host (a full connection pool, a header it can't parse).
-    logging.getLogger().setLevel(logging.DEBUG)
+    root = logging.getLogger()
+    before = root.level
+    root.setLevel(logging.DEBUG)
     try:
         client = make_s3_client(
             "http://127.0.0.1:9", access_key="k", secret_key="s", region="us-east-1"
@@ -212,7 +267,7 @@ def test_the_s3_stack_never_logs_at_debug() -> None:
         assert not logging.getLogger("urllib3").isEnabledFor(logging.WARNING)
         assert vars(client.meta.config)["max_pool_connections"] == 40  # one per worker thread
     finally:
-        logging.getLogger().setLevel(logging.WARNING)
+        root.setLevel(before)
 
 
 def test_boto3_is_imported_only_when_an_s3_name_is_used() -> None:
