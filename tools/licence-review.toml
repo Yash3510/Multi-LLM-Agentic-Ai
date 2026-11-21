@@ -57,6 +57,12 @@ version = "2.9.0.post0"
 licence = "Apache-2.0 AND BSD-3-Clause"
 checked = "LICENSE in the wheel's dist-info, 2026-11-17: contributions since 2017-12-01 are under Apache-2.0, and the BSD 3-Clause licence applies to all the code; metadata says only 'Dual License' with two classifiers the gate can't match"
 
+[[package]]
+name = "botocore"
+version = "1.44.5"
+licence = "Apache-2.0 AND MPL-2.0"
+checked = "LICENSE.txt and NOTICE in the wheel's dist-info, 2026-11-21: the code is Apache-2.0; NOTICE puts the bundled CA root certificates (botocore/cacert.pem) under MPL-2.0; metadata names only Apache-2.0"
+
 # Review-required licences approved by an ADR. Each passes only for this package and only
 # while its licence stays exactly as written; any other package with the licence still fails.
 
@@ -78,4 +84,9 @@ adr = "ADR-0037"
 [[approved]]
 name = "cffi"
 licence = "MIT-0"
+adr = "ADR-0037"
+
+[[approved]]
+name = "botocore"
+licence = "Apache-2.0 AND MPL-2.0"
 adr = "ADR-0037"

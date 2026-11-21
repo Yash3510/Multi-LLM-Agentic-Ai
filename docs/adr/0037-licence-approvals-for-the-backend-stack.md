@@ -3,7 +3,7 @@ title: "Licence approvals for the backend stack"
 type: adr
 status: implemented
 owner: R4
-updated: 2026-10-17
+updated: 2026-11-21
 covers: []
 tags: [4ce, adr, licences]
 number: 37
@@ -19,12 +19,13 @@ The backend stack the project lead chose on 2026-10-12 brings three licences tha
 
 - **psycopg and psycopg-binary**, the PostgreSQL driver, are LGPL-3.0-only. Appendix A: "review required: only unmodified, as a separate process or dynamic link, and only after an ADR".
 - **certifi**, the certificate bundle httpx loads, is MPL-2.0: the same rule.
+- **botocore**, the S3 client file storage uses (ADR-0044), is Apache-2.0 but ships Mozilla's CA root certificates as `botocore/cacert.pem` under MPL-2.0 (its NOTICE): the same file certifi carries.
 - **cffi**, which argon2-cffi needs, is MIT-0: MIT without even the attribution clause, but not named in Appendix A, so the strict gate stops it.
 
 ## Decision
 
 1. **psycopg and psycopg-binary are approved** under LGPL-3.0-only, used unmodified and loaded as libraries by 4CE's code; never vendored or changed. Their licence text ships with every image and update, and their source is the published PyPI release.
-2. **certifi is approved** under MPL-2.0, used unmodified; its file-level copyleft never reaches 4CE's files.
+2. **certifi is approved** under MPL-2.0, used unmodified; its file-level copyleft never reaches 4CE's files. The same approval covers botocore's copy of that file (the project lead, 2026-11-21): unmodified, and botocore reads certifi's copy whenever certifi is installed, as it is in 4CE.
 3. **cffi is approved** under MIT-0.
 4. **The licence gate enforces approvals per package:** `tools/licence-review.toml` lists each under `[[approved]]` with its exact licence and this ADR. If a package's licence changes, the approval lapses and the gate fails. Any other package with the same licence still fails.
 
