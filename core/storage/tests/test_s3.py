@@ -120,20 +120,28 @@ async def test_a_refused_part_or_completion_aborts_the_upload(
 
 async def test_a_part_is_copied_out_of_the_buffer_once() -> None:
     part = 4 * 1024 * 1024
+    small = 64 * 1024
     client = make_s3_client(ENDPOINT, access_key="stub-key", secret_key=SECRET, region="us-east-1")
-    chunk = bytes(part + 1)  # one chunk, so the buffer holds exactly one part and a byte
+
+    async def chunks() -> AsyncIterator[bytes]:
+        for _ in range(3 * part // small):  # three full parts, in small chunks
+            yield bytes(small)
+        yield b"x"  # and a byte, so a last part follows
+
     with Stubber(client) as stubber:
         stubber.add_response("create_multipart_upload", {"UploadId": "u1"})
-        stubber.add_response("upload_part", {"ETag": '"e1"'})
-        stubber.add_response("upload_part", {"ETag": '"e2"'})
+        for number in range(1, 5):
+            stubber.add_response("upload_part", {"ETag": f'"e{number}"'})
         stubber.add_response("complete_multipart_upload", {})
         tracemalloc.start()
         try:
-            await S3Blobs(client, "fource", part_size=part).write(AT, source(chunk))
+            await S3Blobs(client, "fource", part_size=part).write(AT, chunks())
             peak = tracemalloc.get_traced_memory()[1]
         finally:
             tracemalloc.stop()
-    assert peak < 2.5 * part  # the buffer and the part's bytes; a second copy would reach 3
+    # The buffer and the one part being sent; a part still held while the next is copied, or
+    # a second copy of a part, would reach 3.
+    assert peak < 2.5 * part
 
 
 async def test_a_cancelled_upload_is_aborted(stubbed: tuple[S3Blobs, Stubber]) -> None:
