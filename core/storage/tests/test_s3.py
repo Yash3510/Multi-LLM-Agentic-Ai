@@ -1,3 +1,4 @@
+import inspect
 import io
 import socket
 import tracemalloc
@@ -122,9 +123,19 @@ async def test_a_part_is_copied_out_of_the_buffer_once() -> None:
     part = 4 * 1024 * 1024
     small = 64 * 1024
     client = make_s3_client(ENDPOINT, access_key="stub-key", secret_key=SECRET, region="us-east-1")
+    adapter = tracemalloc.Filter(True, inspect.getfile(S3Blobs))
+    held = 0
+
+    def measure() -> None:
+        # What the adapter itself holds between two chunks. tracemalloc's own peak counts every
+        # thread of the process, so another test's or library's allocations could trip it.
+        nonlocal held
+        mine = tracemalloc.take_snapshot().filter_traces([adapter])
+        held = max(held, sum(stat.size for stat in mine.statistics("filename")))
 
     async def chunks() -> AsyncIterator[bytes]:
         for _ in range(3 * part // small):  # three full parts, in small chunks
+            measure()
             yield bytes(small)
         yield b"x"  # and a byte, so a last part follows
 
@@ -136,12 +147,13 @@ async def test_a_part_is_copied_out_of_the_buffer_once() -> None:
         tracemalloc.start()
         try:
             await S3Blobs(client, "fource", part_size=part).write(AT, chunks())
-            peak = tracemalloc.get_traced_memory()[1]
         finally:
             tracemalloc.stop()
-    # The buffer and the one part being sent; a part still held while the next is copied, or
-    # a second copy of a part, would reach 3.
-    assert peak < 2.5 * part
+    # Between chunks the adapter holds its buffer, which fills to a part and a chunk, and nothing
+    # else: a part still held after its send would add a second part there. The next copy out of
+    # the buffer adds one part to what is held, so the peak is held plus a part: about 2 parts
+    # (the buffer and the part being sent); a part kept alive or a second copy would reach 3.
+    assert 0 < held and held + part < 2.5 * part
 
 
 async def test_a_cancelled_upload_is_aborted(stubbed: tuple[S3Blobs, Stubber]) -> None:
