@@ -105,3 +105,24 @@ async def test_erase_leaves_a_file_that_is_not_deleted_alone(
         with pytest.raises(RuntimeError, match="organisation session"):
             await storage.erase(session, file_id)
     assert path.exists()
+
+
+async def test_of_two_deletes_at_once_only_the_first_counts(
+    orgs: tuple[Database, uuid.UUID, uuid.UUID], tmp_path: Path
+) -> None:
+    database, first, _ = orgs
+    storage, file_id, _ = await stored(database, first, tmp_path)
+    with pytest.raises(FileNotFound):
+        async with database.org_session(first) as late:
+            # This session read the file before the other delete committed, as a second delete
+            # running at the same time does.
+            seen = await late.scalar(select(StoredFile).where(StoredFile.id == file_id))
+            assert seen is not None and seen.deleted_at is None
+            async with database.org_session(first) as session:
+                await storage.delete(session, file_id, actor="system")
+            await storage.delete(late, file_id, actor=ACTOR)
+    async with database.org_session(first) as session:
+        row = await session.scalar(select(StoredFile).where(StoredFile.id == file_id))
+        entries = [entry async for entry in read_entries(session)]
+    assert row is not None and row.deleted_by == "system"  # the first delete's
+    assert [entry.type for entry in entries] == [EntryType.FILE_WRITE, EntryType.FILE_DELETE]
