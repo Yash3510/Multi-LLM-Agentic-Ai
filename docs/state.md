@@ -3,7 +3,7 @@ title: State
 type: state
 status: active
 owner: R1
-updated: 2026-11-17
+updated: 2026-11-21
 tags: [4ce, state]
 ---
 
@@ -24,13 +24,14 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 - **[`core/ledger`](../core/ledger/README.md):** one insert-only hash chain per organisation; user creation, sign-in (every outcome) and sign-out write entries; `just ledger checkpoint` signs the head with the installation's Ed25519 key, `just ledger verify` finds edits, deletions, reordering and cut tails ([ledger](architecture/ledger.md), ADR-0014, ADR-0039).
 - **[`core/jobs`](../core/jobs/README.md):** a job queue per organisation in the database, `fource-server worker`, and scheduled ledger checkpoints when `FOURCE_LEDGER_CHECKPOINT_MINUTES` is set ([jobs](architecture/jobs.md), ADR-0040).
 - **[`core/live`](../core/live/README.md):** live events, cache, locks and the sign-in rate limit, on Redis or in process ([live state](architecture/live.md), ADR-0026).
-- **[`apps/server`](../apps/server/README.md):** the health (with Redis), sign-in (rate-limited per client address), session and sign-out endpoints, with CSRF protection and one error envelope.
+- **[`core/storage`](../core/storage/README.md):** files per organisation on a local folder or MinIO through boto3, records under row-level security, `file.write` and `file.delete` ledger entries, reads checked against their record, and the bytes of a deleted file erased by the worker ([file storage](architecture/storage.md), ADR-0044).
+- **[`apps/server`](../apps/server/README.md):** the health (with Redis and the file store), sign-in (rate-limited per client address), session and sign-out endpoints, with CSRF protection and one error envelope.
 - **The server:** sign-in, session and sign-out over the API on SQLite or PostgreSQL ([api](architecture/api.md)); `just dev` runs it.
 - **The knowledge base:** this index, the templates, the shared Obsidian settings and 16 proposed ADRs.
 
 ## In progress
 
-**Backend slice 4, file storage and the model gateway, is under way** (WP-F-08, WP-MD-01). Built so far: a commit-message check that refuses sector terms, tool names and attribution, and words about how the work was organised ([repository](architecture/repository.md)), and slice 3's follow-ups (networks of prefix length 0 refused in `--forwarded-allow-ips`, the same-host TLS proxy note, FAT and exFAT in the checkpoint limit). Since then: the storage settings (`FOURCE_STORAGE`, the file size limit and the checked S3 settings) and the `stored_files` table with migration `0006`.
+**Backend slice 4's file-storage half is built** (WP-F-08): the `core/storage` package, migrations `0006` (the `stored_files` records) and `0007` (SQLite refuses deleting one), `storage.erase` in the worker, the file store in `/api/health`, `fource-server migrate` creating the S3 bucket, and a MinIO job in CI. The [log entry](log/2026/11/2026-11-21-wp-f-08-file-storage.md) has the commands and results. After pulling, run `just migrate` (migrations `0006` and `0007`); `.env` gains `FOURCE_STORAGE=local` (new installs get it from `just setup`; an existing `.env` keeps working on local files); with `FOURCE_STORAGE=s3`, `just migrate` also creates the bucket. The slice also brought a commit-message check that refuses sector terms, tool names and attribution, and words about how the work was organised ([repository](architecture/repository.md)), and slice 3's follow-ups (networks of prefix length 0 refused in `--forwarded-allow-ips`, the same-host TLS proxy note, FAT and exFAT in the checkpoint limit). The model gateway (WP-MD-01) comes after the accounts work.
 
 **Backend slice 3, the job queue and Redis, is built** (WP-F-07, WP-F-11): the `core/jobs` and `core/live` packages, migration `0005`, `fource-server worker` and `just worker`, scheduled ledger checkpoints, the sign-in rate limit per client address (429, or 503 when it can't be checked) with its `identity.signin.throttled` ledger entry, Redis in `/api/health`, and a Redis job in CI. The [log entry](log/2026/10/2026-10-31-wp-f-07-jobs-and-redis.md) has the commands and results. After pulling, run `just migrate` (migration `0005`). Set `FOURCE_REDIS_URL` when more than one process runs; behind a proxy, start Uvicorn with `--forwarded-allow-ips`, or every client shares one sign-in count. A TLS proxy on the same host now needs `--forwarded-allow-ips 127.0.0.1`, or session cookies lose `Secure`.
 
@@ -50,7 +51,8 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 - **ADR-0041** (exact-match look and its premium-components amendment) waits on R1.
 - **ADR-0035 and ADR-0036** (frontend foundations; MPL-2.0 build tools) wait on R1 and R4, before `apps/web` and the npm side of the licence gate land on `4ce-core`.
-- **The proposed ADRs** 0009, 0010, 0014, 0015, 0018, 0023, 0026, 0029, 0031, 0032, 0035, 0036, 0037, 0038, 0039, 0040, 0041 and 0046 need their owners' acceptance.
+- **The proposed ADRs** 0009, 0010, 0014, 0015, 0018, 0023, 0026, 0029, 0031, 0032, 0035, 0036, 0037, 0038, 0039, 0040, 0041, 0044 and 0046 need their owners' acceptance.
+- **Decided by the project lead for file storage (ADR-0044, proposed):** on 2026-11-02, boto3 as the S3 client, a MinIO job in CI (the one CI change of WP-F-08), MinIO's image built once on vps, and no `file.erase` ledger entry; on 2026-11-11, the folder rule (option A: the local store refuses folders another account can change), and on 2026-11-14 a SQLite trigger refusing `DELETE` on `stored_files` (migration `0007`); on 2026-11-21, botocore's bundled CA list approved on certifi's terms ([ADR-0037](adr/0037-licence-approvals-for-the-backend-stack.md)).
 - **Decided on 2026-10-26 by the project lead for slice 3:** (1) the sign-in rate limit fails closed (503 when it can't be checked); (2) behind a proxy that isn't configured, every client shares one count, accepted; (3) a Redis job in CI, a change AGENTS.md §3 reserves for humans, approved; (4) agents may run throwaway PostgreSQL and Redis containers on private ports for local tests, never the shared services.
 - **Decided on 2026-10-24 by the project lead (no ledger question is open):** an unknown sign-in email is kept only as a keyed hash ([ADR-0039](adr/0039-every-action-writes-a-ledger-entry.md)); a scheduled job may sign checkpoints (built: the worker does when `FOURCE_LEDGER_CHECKPOINT_MINUTES` is set), and people can still run `ledger checkpoint` ([ADR-0014](adr/0014-ledger-with-signed-checkpoints.md)).
 - **ADR-0025:** MinIO's patch source; options in [MinIO patch source](research/minio-patch-source.md).
@@ -60,6 +62,6 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 ## Next up
 
-1. **Storage (WP-F-08)** and **the model gateway (WP-MD-01).**
-2. **The pack loader (WP-PK-02),** then **route guards per role (WP-ID-02)** and **the domain model (WP-DM-01),** which depend on it.
+1. **The accounts backend (WP-ID-02, part 1),** once the project lead approves its design; then **the model gateway (WP-MD-01),** then **ingest (WP-KN-01),** which now has storage and the job queue.
+2. **The pack loader (WP-PK-02),** then the rest of **route guards per role (WP-ID-02)** and **the domain model (WP-DM-01),** which depend on it.
 3. **Licence gate (R4):** prefer a package's SPDX `License` field over its classifiers; until then certifi and httpx are approved as pinned exact versions.

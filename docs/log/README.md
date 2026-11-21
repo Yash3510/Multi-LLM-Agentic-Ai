@@ -3,7 +3,7 @@ title: Work log
 type: index
 status: active
 owner: R1
-updated: 2026-11-17
+updated: 2026-11-21
 tags: [4ce, index, log]
 ---
 
@@ -13,6 +13,7 @@ One entry per PR, newest first, named `YYYY/MM/YYYY-MM-DD-<branch-name>.md` and 
 
 | Date | Entry | Work package |
 | --- | --- | --- |
+| 2026-11-21 | [File storage](2026/11/2026-11-21-wp-f-08-file-storage.md) | WP-F-08 |
 | 2026-11-17 | [apps/web: sign-in against the server](2026/11/2026-11-17-wp-wp-ui-06-sign-in.md) | WP-UI-06 (part 1) |
 | 2026-11-03 | [apps/web design system on the measured look](2026/11/2026-11-03-wp-wp-f-09-design-system.md) | WP-F-09 |
 | 2026-10-31 | [The job queue and Redis](2026/10/2026-10-31-wp-f-07-jobs-and-redis.md) | WP-F-07, WP-F-11 |
