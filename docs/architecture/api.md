@@ -3,7 +3,7 @@ title: API
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-03
+updated: 2026-11-21
 covers:
   - apps/server/src/fource/server/
 tags: [4ce, architecture, server, security]
@@ -19,7 +19,7 @@ The canonical contract between the 4CE server and its clients, the web UI first.
 
 | Method and path | Needs | Body or answer |
 | --- | --- | --- |
-| `GET /api/health` | nothing | `{"status": "ok", "database": "ok", "redis": "off"}`; 503 when the database is down or a configured Redis can't be reached |
+| `GET /api/health` | nothing | `{"status": "ok", "database": "ok", "redis": "off", "storage": "ok"}`; 503 when the database is down, a configured Redis can't be reached or the file store is unavailable ([ADR-0044](../adr/0044-file-storage-behind-one-interface.md)) |
 | `POST /api/auth/signin` | nothing | sends `{"email", "password"}`; answers `{"user", "token", "expires_at"}` and sets two cookies |
 | `GET /api/auth/session` | signed in | `{"id", "email", "display_name", "roles", "org"}` |
 | `POST /api/auth/signout` | signed in, plus the CSRF header | ends the sign-in and clears the cookies |

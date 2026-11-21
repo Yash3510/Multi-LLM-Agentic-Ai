@@ -24,7 +24,7 @@ Each organisation has its own chain, counting from 1. An entry holds hashes and 
 | `at` | UTC time with milliseconds: `2026-11-14T10:22:31.512Z` |
 | `org` | The organisation's id |
 | `run`, `case` | The run and case it belongs to, or null (runs and cases come later) |
-| `type` | One of `EntryType`: `checkpoint`, the five identity types of [ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md), `identity.signin.throttled` ([ADR-0026](../adr/0026-redis-for-live-state.md)) and `file.write` ([ADR-0044](../adr/0044-file-storage-behind-one-interface.md)) |
+| `type` | One of `EntryType`: `checkpoint`, the five identity types of [ADR-0039](../adr/0039-every-action-writes-a-ledger-entry.md), `identity.signin.throttled` ([ADR-0026](../adr/0026-redis-for-live-state.md)) and `file.write` and `file.delete` ([ADR-0044](../adr/0044-file-storage-behind-one-interface.md)) |
 | `actor` | `system`, `anonymous` or `user:<id>` |
 | `inputs_sha256`, `outputs_sha256` | SHA-256 (64 hex digits) of what went in and came out, or null. Today three entries set one: two keyed hashes (a failed sign-in with an unknown email and `identity.signin.throttled`, the client address; see [identity](identity.md#ledger)) and `file.write`, whose `outputs_sha256` is the plain SHA-256 of the file's content |
 | `refs` | Short named strings (names in lower snake case, values printable text of up to 1000 characters): ids, reasons, times |

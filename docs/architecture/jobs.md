@@ -3,7 +3,7 @@ title: Jobs
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-01
+updated: 2026-11-21
 covers:
   - core/jobs/
   - apps/server/src/fource/server/worker.py
@@ -43,7 +43,7 @@ A recurring job is an ordinary job with the key `recurring:<kind>`: at the start
 
 ## The worker command
 
-`fource-server worker [--once]` (`just worker`) checks its database role as the server does and refuses a superuser, a `BYPASSRLS` role or a table owner ([database](database.md#row-level-security)), loads the signing key if checkpoints are on (and refuses to start without a usable one), then runs until stopped. `--once` runs the jobs that are due and exits, printing how many attempts it made; it exits 1 when any attempt or any organisation's pass failed, so cron and scripts can tell. The first SIGINT or SIGTERM lets the running job finish; a second stops at once. On Windows, Ctrl+C stops at once. A database that isn't migrated says to run `just migrate`.
+`fource-server worker [--once]` (`just worker`) checks its database role as the server does and refuses a superuser, a `BYPASSRLS` role or a table owner ([database](database.md#row-level-security)), opens the file store (`FOURCE_STORAGE`) and always runs `storage.erase` jobs, which delete the bytes of deleted files (5 minutes of lease, 30 attempts; [ADR-0044](../adr/0044-file-storage-behind-one-interface.md)), loads the signing key if checkpoints are on (and refuses to start without a usable one), then runs until stopped. `--once` runs the jobs that are due and exits, printing how many attempts it made; it exits 1 when any attempt or any organisation's pass failed, so cron and scripts can tell. The first SIGINT or SIGTERM lets the running job finish; a second stops at once. On Windows, Ctrl+C stops at once. A database that isn't migrated says to run `just migrate`.
 
 ## Known limits
 
