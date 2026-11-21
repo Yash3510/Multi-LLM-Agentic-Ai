@@ -26,6 +26,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from botocore.loaders import Loader
 from botocore.plugin import PluginContext, reset_plugin_context, set_plugin_context
 from botocore.response import StreamingBody
+from urllib3.exceptions import HTTPError
 
 from fource.storage.base import CHUNK_SIZE
 from fource.storage.errors import BlobMissing, StorageUnavailable
@@ -162,7 +163,9 @@ async def _call[*Args, Result](function: Callable[[*Args], Result], *args: *Args
             raise BlobMissing() from None
         _log.warning("The file store refused a request: %s", code)
         raise StorageUnavailable(_refusal(code)) from None
-    except BotoCoreError as error:
+    except (BotoCoreError, HTTPError) as error:
+        # urllib3's own errors (a TLS failure part way through a body) pass StreamingBody.read
+        # unwrapped: botocore converts only a read timeout and a protocol error there.
         _log.warning("The file store could not be reached: %s", type(error).__name__)
         raise StorageUnavailable("The file store can't be reached.") from None
 
