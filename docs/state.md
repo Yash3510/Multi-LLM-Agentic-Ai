@@ -3,7 +3,7 @@ title: State
 type: state
 status: active
 owner: R1
-updated: 2026-11-21
+updated: 2026-11-22
 tags: [4ce, state]
 ---
 
@@ -27,7 +27,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 - **[`core/storage`](../core/storage/README.md):** files per organisation on a local folder or MinIO through boto3, records under row-level security, `file.write` and `file.delete` ledger entries, reads checked against their record, and the bytes of a deleted file erased by the worker ([file storage](architecture/storage.md), ADR-0044).
 - **[`apps/server`](../apps/server/README.md):** the health (with Redis and the file store), sign-in (rate-limited per client address), session and sign-out endpoints, with CSRF protection and one error envelope.
 - **The server:** sign-in, session and sign-out over the API on SQLite or PostgreSQL ([api](architecture/api.md)); `just dev` runs it.
-- **The knowledge base:** this index, the templates, the shared Obsidian settings and 16 proposed ADRs.
+- **The knowledge base:** this index, the templates, the shared Obsidian settings and 21 proposed ADRs.
 
 ## In progress
 
@@ -51,7 +51,7 @@ Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-A
 
 - **ADR-0041** (exact-match look and its premium-components amendment) waits on R1.
 - **ADR-0035 and ADR-0036** (frontend foundations; MPL-2.0 build tools) wait on R1 and R4, before `apps/web` and the npm side of the licence gate land on `4ce-core`.
-- **The proposed ADRs** 0009, 0010, 0014, 0015, 0018, 0023, 0026, 0029, 0031, 0032, 0035, 0036, 0037, 0038, 0039, 0040, 0041, 0044 and 0046 need their owners' acceptance.
+- **The proposed ADRs** 0009, 0010, 0014, 0015, 0018, 0023, 0026, 0029, 0031, 0032, 0035, 0036, 0037, 0038, 0039, 0040, 0041, 0042, 0043, 0044 and 0046 need their owners' acceptance.
 - **Decided by the project lead for file storage (ADR-0044, proposed):** on 2026-11-02, boto3 as the S3 client, a MinIO job in CI (the one CI change of WP-F-08), MinIO's image built once on vps, and no `file.erase` ledger entry; on 2026-11-11, the folder rule (option A: the local store refuses folders another account can change), and on 2026-11-14 a SQLite trigger refusing `DELETE` on `stored_files` (migration `0007`); on 2026-11-21, botocore's bundled CA list approved on certifi's terms ([ADR-0037](adr/0037-licence-approvals-for-the-backend-stack.md)).
 - **Decided on 2026-10-26 by the project lead for slice 3:** (1) the sign-in rate limit fails closed (503 when it can't be checked); (2) behind a proxy that isn't configured, every client shares one count, accepted; (3) a Redis job in CI, a change AGENTS.md §3 reserves for humans, approved; (4) agents may run throwaway PostgreSQL and Redis containers on private ports for local tests, never the shared services.
 - **Decided on 2026-10-24 by the project lead (no ledger question is open):** an unknown sign-in email is kept only as a keyed hash ([ADR-0039](adr/0039-every-action-writes-a-ledger-entry.md)); a scheduled job may sign checkpoints (built: the worker does when `FOURCE_LEDGER_CHECKPOINT_MINUTES` is set), and people can still run `ledger checkpoint` ([ADR-0014](adr/0014-ledger-with-signed-checkpoints.md)).
