@@ -75,8 +75,12 @@ On `vps` (Debian, Python 3.12.15, 2 cores), 2026-11-21, at `b4f3487` (the docs c
 7. **botocore facts:** each file and line on the page was read in botocore 1.44.5. Run on that version with a client from `make_s3_client`: `AWS_EXECUTION_ENV` appears in the user agent as `exec-env/<value>`, `AWS_LAMBDA_FUNCTION_NAME` with `_X_AMZN_TRACE_ID` adds the `X-Amzn-Trace-Id` header, and `AWS_BEARER_TOKEN_S3` leaves the request signed with `AWS4-HMAC-SHA256`.
 8. **CI on GitHub:**
    - The first run with the MinIO job: `44930492356` (pushed at `10e51b3`).
-   - PLACEHOLDER, filled in by the lead after the run: the CI run id of the last push, every job's result (the three `just check` systems, PostgreSQL, Redis, MinIO) and the MinIO job's count (12 expected, as item 4).
-9. **Not run:** the full `just check` (its web steps); the `docker build` of the MinIO image and the CI-specific steps (port 9000 and the readiness loop), which only CI runs; PostgreSQL from a Windows host (not exercised anywhere); a MinIO over HTTPS with a private CA (not supported).
+   - Its results:
+     - `just check` on ubuntu-latest and on macos-latest: green, 807 passed and 97 deselected.
+     - PostgreSQL tests: 44 passed. Redis tests: 41 passed.
+     - MinIO tests: 12 passed and 892 deselected. The runner built the image from its tag, MinIO answered on 127.0.0.1:9000, and the readiness loop held.
+     - `just check` on windows-latest: its Python tests passed (807 passed, 97 deselected). It then failed only in the web app's browser test `e2e/sign-in.spec.ts`, where a signed-out visit to `/` doesn't reach the sign-in page on Windows. That test has failed the same way since the web app's sign-in work of 2026-11-17 (`31b8e9c`), before any storage commit of that day. It is the web app's to fix and lies outside file storage.
+9. **Not run:** the full `just check` (its web steps); the `docker build` of the MinIO image on vps (the image was already there; CI built it from its tag, item 8); PostgreSQL from a Windows host (not exercised anywhere); a MinIO over HTTPS with a private CA (not supported).
 
 ## Decisions
 
