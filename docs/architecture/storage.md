@@ -3,7 +3,7 @@ title: File storage
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-21
+updated: 2026-11-22
 covers:
   - core/storage/
 tags: [4ce, architecture, storage, security]
@@ -28,7 +28,7 @@ How 4CE keeps files: originals, renders, deliverables, index snapshots. The code
 | `FOURCE_S3_BUCKET` | `fource` | 3 to 63 lower-case letters, digits and hyphens, starting and ending with a letter or digit |
 | `FOURCE_S3_REGION` | `us-east-1` | 1 to 32 lower-case letters, digits and hyphens, not all digits |
 
-`Settings` refuses `FOURCE_STORAGE=s3` when the endpoint or either key is missing or blank. `fource-server migrate` creates the bucket when `FOURCE_STORAGE=s3` and it is missing (`Created the bucket …` or `Found the bucket …`); the server never creates it, so a misspelt name can't start an empty store. `/api/health` reports `"storage": "ok"` or `"unavailable"` and answers 503 when it is unavailable ([API](api.md#endpoints)): the local store is `ok` when its folder exists (or can be made) and is writable, the S3 store when a `HEAD` on the bucket succeeds.
+`Settings` refuses `FOURCE_STORAGE=s3` when the endpoint or either key is missing or blank. `fource-server migrate` creates the bucket when `FOURCE_STORAGE=s3` and it is missing (`Created the bucket …` or `Found the bucket …`); the server never creates it, so a misspelt name can't start an empty store. `/api/health` reports `"storage": "ok"` or `"unavailable"` and answers 503 when it is unavailable ([API](api.md#endpoints)): the local store is `ok` when its folder exists (or can be made), is writable and, on Linux and macOS, no other account can change it ([Writing](#writing-reading-deleting)), the S3 store when a `HEAD` on the bucket succeeds.
 
 ## Keys, records and the ledger
 
