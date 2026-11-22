@@ -3,7 +3,7 @@ title: Licences and the licence gate
 type: architecture
 status: active
 owner: R4
-updated: 2026-11-21
+updated: 2026-11-22
 covers:
   - tools/licence_gate.py
   - tools/import_scan.py
@@ -67,7 +67,7 @@ On 2026-10-31, at commit `aab1c6c`, on Linux, with the queue and the live store 
 | python-dateutil | 2.9.0.post0 | Apache-2.0 and BSD-3-Clause | botocore's runtime dependency |
 | types-boto3-lite, types-boto3-s3, botocore-stubs, types-s3transfer | 1.44.3, 1.44.0, 1.43.126, 0.19.3 | MIT | Type stubs, development only |
 
-- **Two packages go through [`tools/licence-review.toml`](../../tools/licence-review.toml)**, read from their licence files on 2026-11-17: s3transfer says "Apache License 2.0" with a classifier the gate can't match (its LICENSE.txt is the Apache 2.0 text); python-dateutil says only "Dual License" (its LICENSE puts contributions since 2017-12-01 under Apache-2.0 and all the code under BSD-3-Clause), recorded as `Apache-2.0 AND BSD-3-Clause`.
+- **Three packages go through [`tools/licence-review.toml`](../../tools/licence-review.toml)**: s3transfer and python-dateutil, read from their licence files on 2026-11-17, and botocore, read on 2026-11-21 (below, with its approval). s3transfer says "Apache License 2.0" with a classifier the gate can't match (its LICENSE.txt is the Apache 2.0 text); python-dateutil says only "Dual License" (its LICENSE puts contributions since 2017-12-01 under Apache-2.0 and all the code under BSD-3-Clause), recorded as `Apache-2.0 AND BSD-3-Clause`.
 - **botocore's CA bundle.** botocore's code is Apache-2.0, but its NOTICE puts the Mozilla CA root certificates it ships, `botocore/cacert.pem`, under MPL-2.0: the same file certifi carries. The project lead approved it on certifi's terms on 2026-11-21 ([ADR-0037](../adr/0037-licence-approvals-for-the-backend-stack.md) point 2): used unmodified, and never read, because botocore uses certifi's copy whenever certifi is installed, as it is in 4CE. `tools/licence-review.toml` records botocore as `Apache-2.0 AND MPL-2.0`, and an `[[approved]]` entry names ADR-0037 for exactly that expression.
 
 ## Decisions
