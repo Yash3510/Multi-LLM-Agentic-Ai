@@ -3,7 +3,7 @@ title: "File storage"
 type: log
 status: implemented
 owner: R1
-updated: 2026-11-21
+updated: 2026-11-22
 date: 2026-11-21
 branch: 4ce-core
 pr: null
@@ -30,7 +30,7 @@ tags: [4ce, log, storage, security]
 - **Server:** health reports `storage` (`ok` or `unavailable`, 503 when unavailable); `fource-server migrate` creates the bucket with `FOURCE_STORAGE=s3` (`Created the bucket …` or `Found the bucket …`); `fource-server worker` always runs `storage.erase` and opens the store before it checks its database role; a database from before `0006` is refused with the "run `just migrate`" message.
 - **Commit-message check** (`tools/commit_words.py`, the commit-msg hook): refuses sector terms, tool names, attribution and words about how the work was organised, with the fix for the `#` lines git keeps ([repository](../../../architecture/repository.md)).
 - **CI:** a `minio` job builds the image compose uses and runs `just test-minio`. It is the one CI change of this work package, approved by the project lead on 2026-11-02 (AGENTS.md §3 reserves CI changes for humans).
-- **Commits:** from `9c332e4` (the end of slice 3) to `10e51b3` (the trunk before this entry), 114 non-merge commits touch the storage, ledger, settings, database, jobs, server, tools and workflow paths, ADR-0044 and ADR-0037, `pyproject.toml`, `uv.lock` and `.env.example`; 73 of them touch `core/storage`, 14 `apps/server`, 8 `core/common`. The count includes the commit-message check and slice 3's follow-ups.
+- **Commits:** from `9c332e4` (the end of slice 3) to `10e51b3` (the trunk before this entry), 114 non-merge commits touch the storage, ledger, settings, database, jobs, server, tools and workflow paths, ADR-0044 and ADR-0037, `pyproject.toml`, `uv.lock` and `.env.example`; 73 of them touch `core/storage`, 14 `apps/server`, 8 `core/common`. The count also includes work that is not file storage: the commit-message check, slice 3's follow-ups, the web app's tooling (`97ab5a4` icons, `cb3a466` design-lint, `767d5bd` notices) and two CI changes (`44e14e1` Node 24, `7a39730` Playwright).
 
 ## Why
 
@@ -61,6 +61,7 @@ On `vps` (Debian, Python 3.12.15, 2 cores), 2026-11-21, at `b4f3487` (the docs c
 
 1. **Ruff, pyright, contracts:** `uv run ruff check --no-cache .`: `All checks passed!`; `uv run ruff format --no-cache --check .`: `225 files already formatted`; `uv run pyright`: `0 errors, 0 warnings, 0 informations`; `just imports`: `Contracts: 14 kept, 0 broken.` (including "Only the public API of fource.storage is imported from outside it" and "S3 is reached only through fource.storage").
 2. **Instead of `just check`** (its web steps belong to the web app, and are not run here), the recipes as separate commands: `just lint imports repo-check neutrality && just docs && just licences secrets test`: exit 0. Repo and neutrality checks clean; `just docs` clean (no `--base`, so the work-log, drift and ADR rules were skipped); `78 components checked`, `114 files scanned`, `5 bundled services checked`; gitleaks over the branch history passed; `807 passed, 97 deselected in 123.62s`. The 97 are the 44 PostgreSQL, 41 Redis and 12 MinIO tests. Collected without them: `core/storage` 97, `core/ledger` 126, `core/jobs` 64, `core/live` 64, `core/db` 30, `core/identity` 59, `core/common` 59, `core/packs` 16, `apps/server` 171, `tools` 121.
+   Afterwards `uv run python tools/docs_check.py --base 10e51b3` (the work-log, drift and ADR rules that a run without `--base` skips) exited 0.
 3. **PostgreSQL on a throwaway container** (`postgres:18.6-alpine` by digest, `127.0.0.1:55432`, throwaway passwords in the environment; the shared `services-postgres-1` was never touched): `FOURCE_TEST_POSTGRES_PORT=55432 … uv run pytest -m postgres -q`: `44 passed, 860 deselected in 116.50s`, with the two `stored_files` tests (forced row-level security without `DELETE`; the app role cannot reach or delete another organisation's files). Both were seen failing before migration `0006` existed (`relation "stored_files" does not exist`, 2 failed) when they were written. The container was removed.
 4. **MinIO on a throwaway container** (the existing image `fource/minio:RELEASE.2025-10-15T17-29-55Z`, never rebuilt, `127.0.0.1:59000`): `just test-minio` with the three `FOURCE_TEST_S3_*` variables: `12 passed, 892 deselected in 11.14s` (the nine blob-contract tests in `test_blobs.py`, three in `test_minio.py`, among them the server refusing a body changed after signing). The MinIO tests could not be seen failing for a behaviour first on vps's SQLite run: without a server they fail by design (`3 failed, 9 errors`, never skipped), and with one they passed the first time.
 5. **`migrate` creates the bucket** (same container; an empty folder so no `.env` applied; `FOURCE_STORAGE=s3`, bucket `fource-done-when`), run twice:
@@ -79,7 +80,7 @@ On `vps` (Debian, Python 3.12.15, 2 cores), 2026-11-21, at `b4f3487` (the docs c
      - `just check` on ubuntu-latest and on macos-latest: green, 807 passed and 97 deselected.
      - PostgreSQL tests: 44 passed. Redis tests: 41 passed.
      - MinIO tests: 12 passed and 892 deselected. The runner built the image from its tag, MinIO answered on 127.0.0.1:9000, and the readiness loop held.
-     - `just check` on windows-latest: its Python tests passed (807 passed, 97 deselected). It then failed only in the web app's browser test `e2e/sign-in.spec.ts`, where a signed-out visit to `/` doesn't reach the sign-in page on Windows. That test has failed the same way since the web app's sign-in work of 2026-11-17 (`31b8e9c`), before any storage commit of that day. It is the web app's to fix and lies outside file storage.
+     - `just check` on windows-latest: its Python tests passed (807 passed, 97 deselected). It then failed only in the web app's browser test `e2e/sign-in.spec.ts`, where a signed-out visit to `/` doesn't reach the sign-in page on Windows. That test fails intermittently, not every time: `just check` on windows-latest failed in runs `44118127681` (`31b8e9c`, the web app's sign-in work of 2026-11-17), `44169536634`, `44873838477`, `44902836991` and `44930492356`, and passed in `44929129393` at `322f075`, the run just before. The Python tests passed in `44930492356`. The flaky test is the web app's to fix and lies outside file storage; a Windows red is not known to be safe to ignore.
 9. **Not run:** the full `just check` (its web steps); the `docker build` of the MinIO image on vps (the image was already there; CI built it from its tag, item 8); PostgreSQL from a Windows host (not exercised anywhere); a MinIO over HTTPS with a private CA (not supported).
 
 ## Decisions
@@ -100,7 +101,7 @@ Runtime (installed everywhere, used only for `FOURCE_STORAGE=s3`): boto3 1.44.5,
 
 ## Docs updated
 
-`docs/architecture/storage.md` (new), `api.md` (the storage settings, health's `storage`, the four errors, `migrate` and the bucket, the worker and `storage.erase`), `database.md` (`0006`, `0007`, the worker's refusal before `0006`), `ledger.md` (`file.write`, `file.delete`), `jobs.md` (`storage.erase`), `services.md` (MinIO), `licences.md` (the S3 packages, the entries and botocore's CA bundle), `repository.md` (the layers, the S3 contract, `just test-minio`, `just test`), `overview.md`, `architecture/README.md`, `docs/README.md`, `core/storage/README.md` and `docs/state.md`.
+`docs/architecture/storage.md` (new), `api.md` (the storage settings, health's `storage`, the four errors, `migrate` and the bucket, the worker and `storage.erase`), `database.md` (`0006`, `0007`, the worker's refusal before `0006`), `ledger.md` (`file.write`, `file.delete`), `jobs.md` (`storage.erase`), `services.md` (MinIO), `licences.md` (the S3 packages, the entries and botocore's CA bundle), `repository.md` (the layers, the S3 contract, `just test-minio`, `just test`), `overview.md`, `architecture/README.md`, `docs/README.md`, `core/storage/README.md`, `docs/state.md` and `docs/log/README.md` (this entry's row).
 
 ## Known limits and follow-ups
 
