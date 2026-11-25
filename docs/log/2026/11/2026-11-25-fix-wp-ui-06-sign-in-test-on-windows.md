@@ -46,7 +46,19 @@ On macOS (arm64), Node 24.21.0, in the worktree used for WP-UI-05, on this branc
 - With the hook, the same command: 2 passed (the first test in 2.7 s, as on a warm server).
 - Without the plugin, `npx playwright test e2e/sign-in.spec.ts --project=server --reporter=list`: 2 passed (1.5 s and 0.9 s); and the locked-account test alone (`--grep locked`): 1 passed, so the hook also covers it when it runs first.
 
-**Every check:** the results are added below once run on this branch.
+**Every check,** each `just check` recipe's commands run directly (`just` isn't installed here):
+
+| Recipe | Commands | Result |
+| --- | --- | --- |
+| `lint` | `uv run ruff format --check .`, `uv run ruff check .`, `uv run pyright` | 227 files already formatted; all checks passed; 0 errors, 0 warnings |
+| `imports` | `uv run lint-imports` | 14 contracts kept, 0 broken |
+| `repo-check`, `neutrality` | `uv run python tools/repo_check.py`, `tools/neutrality_check.py` | exit 0, nothing reported |
+| `docs` | `uv run python tools/docs_check.py`, and with `--base origin/4ce-core` | exit 0 both times |
+| `licences` | `tools/sbom.py`, `licence_gate.py build/sbom/python.cdx.json`, `import_scan.py …`, `licence_gate.py --bundle` | 78 components checked; 114 files scanned; 5 bundled services checked |
+| `test` | `uv run pytest -m "not postgres and not redis and not minio"` | 807 passed, 97 deselected, 34.5 s |
+| `web-lint` | `npm --prefix apps/web run lint`, `run lint:design`, `run check` | ESLint and Prettier clean; design lint clean; svelte-check 1447 files, 0 errors, 0 warnings |
+| `web-test` | `npm --prefix apps/web test`, `npm --prefix apps/web exec -- vitest run --root . --dir tools` | 92 files, 563 tests passed; 3 files, 16 tests passed |
+| `web-e2e` | `npm --prefix apps/web run e2e` | 10 passed in 21.9 s, the 2 sign-in tests on the `server` project among them |
 
 **Not run:** `just secrets` (gitleaks isn't installed here). Windows itself: CI's Windows job on this pull request is the first run there.
 
