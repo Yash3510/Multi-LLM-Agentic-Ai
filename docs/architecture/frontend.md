@@ -3,7 +3,7 @@ title: Frontend
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-25
+updated: 2026-11-26
 covers:
   - apps/web/
 tags: [4ce, architecture, frontend]
@@ -190,7 +190,7 @@ just web-dev                                   # the web app on http://localhost
 
 ### WP-UI-01, part 1: the run view
 
-**In progress** on `wp/WP-UI-01-run-view`, stacked on WP-UI-05, part 1. The run view part of [WP-UI-01](web-screens.md#proposed-work-packages), in the master plan's §12 template; cases are part 2. It runs on the fake source until the server serves runs (WP-RT-01).
+**Built, in draft PR 8** ([log](../log/2026/11/2026-11-26-wp-wp-ui-01-run-view.md)), stacked on WP-UI-05, part 1. The run view part of [WP-UI-01](web-screens.md#proposed-work-packages), in the master plan's §12 template; cases are part 2. It runs on the fake source until the server serves runs (WP-RT-01).
 
 **Goal:** one run in full at `/runs/[runId]`: where it is, what each stage did, what was checked, and its receipt once released. It reads the same run the chat follows, by id, and follows it from the last event it has, through a dropped connection (ADR-0035 §3).
 
@@ -202,6 +202,8 @@ just web-dev                                   # the web app on http://localhost
 - `StageRail`: given `onselect`, its nodes become tabs that open a stage's detail, for any reached node, live or finished. ←/→, Home and End move between them, and Enter opens one. Without `onselect` (the chat) nothing changes.
 - `StatusLine`: `reconnecting` reads "Connection lost. Reconnecting…" on a live run; `href` adds a link to the run view.
 - `ReceiptStrip` shows its Audit button only when given `onaudit`: the run view's audit sheet comes with WP-UI-03.
+- `AnswerBody`: the answer's prose and its styles, moved out of `ResponseMessage` unchanged, so the run view shows the Author's draft as the chat shows an answer.
+- The fake keeps a question asked in a chat with it, and `getChat` gives each answer as far as its run has got. The chat opened again follows a live answer after its last event, so leaving it for the run view loses nothing (planned for WP-UI-02, brought forward because the run view's link needs it).
 - No new endpoint. The run view reads `GET /api/runs/{run_id}` and the run's events, and cancels with `POST /api/runs/{run_id}/cancel`, as proposed in [WP-UI-05, part 1](#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event).
 
 **Inputs and outputs:**
@@ -210,7 +212,7 @@ just web-dev                                   # the web app on http://localhost
 - A stage's detail shows its lines, with a second try marked as one; the Analyst's tool calls and sources (the Reader's included); the Author's draft; the Challenger's lines and the checks with their verdicts; and at Sign-off, who decided and when, or that it is waiting. A node not reached opens nothing.
 - Cancel ends the run `stopped`, in the run view and in the chat.
 - A dropped connection: the status line says "Connection lost. Reconnecting…" until the follow resumes, in the run view and in the chat. No event is missed or repeated.
-- Each answer in the chat that has a run links to its run view.
+- Each answer in the chat that has a run links to its run view, and the chat opened again shows the question asked there and follows its answer on.
 - A run that stopped with an error shows the run error card, without a retry: retrying belongs to the chat.
 
 **Acceptance tests:**
@@ -219,14 +221,17 @@ just web-dev                                   # the web app on http://localhost
   1. `stageDetails`: the normal run gives the Planner its line, the Analyst the Reader's search with its tool call and both sources, the Author the answer's text and the Challenger its two lines. The replanned run marks the second try's Analyst, Author and Challenger lines as try 2, and gives the Challenger the replan line;
   2. `watchRun` calls `onreconnecting(true)` when a follow ends early and `onreconnecting(false)` when it follows again, once each for the dropping run, and never for a run whose connection holds;
   3. `StageRail` with `onselect` draws tabs, the selected one `aria-selected`; a click selects; ←/→ move across the reached nodes and Enter selects; a node not reached is disabled;
-  4. `StatusLine` with `reconnecting` replaces the live line and announces it.
+  4. `StatusLine` with `reconnecting` replaces the live line and announces it; with `runId` it links to the run view;
+  5. the fake keeps a question asked in a chat with it, its answer as far as the run has got, and another source keeps its own chats;
+  6. `ReceiptStrip` without `onaudit` has no Audit button.
 - Playwright (`e2e/run-view.spec.ts`, on the demo build):
-  5. the stored run `run-0142` shows the rail released and the receipt; the Analyst's tab shows the search and the sources; → then Enter opens the Author's draft;
-  6. a question asked in the chat links to its run view, which follows the run live, and Cancel stops it.
+  7. the stored run `run-0142` shows the rail released and the receipt; the Analyst's tab shows the search and the sources; → then Enter opens the Author's draft;
+  8. a question asked in the chat links to its run view, which follows the run live; Cancel stops it, and the chat opened again shows it stopped;
+  9. an unknown run id is not found.
 
 **Ledger:** nothing new; the fake writes no ledger entries.
 
-**Files:** `src/routes/runs/[runId]/`, `src/lib/data/` (`stages.ts`, `runs.ts` and their tests), `src/lib/ui/components/` (`StageRail.svelte`, `StatusLine.svelte`, `ResponseMessage.svelte`, `ReceiptStrip.svelte` and their tests), `src/routes/c/[id]/+page.svelte` and `e2e/run-view.spec.ts`, all under `apps/web/`.
+**Files:** `src/routes/runs/[runId]/`, `src/lib/data/` (`stages.ts`, `runs.ts`, `fake.ts` and their tests), `src/lib/ui/components/` (`StageRail.svelte`, `StatusLine.svelte`, `AnswerBody.svelte`, `ResponseMessage.svelte`, `ReceiptStrip.svelte` and their tests), `src/routes/c/[id]/+page.svelte` and `e2e/run-view.spec.ts`, all under `apps/web/`.
 
 **Docs:** this page, the [web data contract](web-data-contract.md), [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
 
