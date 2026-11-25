@@ -71,6 +71,7 @@ describe('fake source', () => {
     const id = await source.ask('c-0142', 'Is R2 within the limit?');
     const all = await toSignOff(source.followRun(id, 0));
     expect(await toSignOff(source.followRun(id, 5))).toEqual(all.slice(5));
+    expect(await toSignOff(source.followRun(id, -1))).toEqual(all);
   });
 
   it('cancels a live run with stopped, and nothing comes after it', async () => {
@@ -130,6 +131,8 @@ describe('fake source', () => {
       expect(run?.events.map((event) => event.seq)).toEqual(numbered(run?.events ?? []));
     }
     expect(await source.getRun('nope')).toBeUndefined();
+    // Following a run that doesn't exist fails, so a watcher doesn't wait for it forever.
+    await expect(collect(source.followRun('nope', 0))).rejects.toThrow();
   });
 });
 
