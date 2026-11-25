@@ -68,7 +68,7 @@
     const following = new AbortController();
     controller = following;
     try {
-      for await (const event of watchRun(source, runId, 0, following.signal)) {
+      for await (const event of watchRun(source, runId, 0, { signal: following.signal })) {
         answer.events?.push(event);
         if (event.type === 'delta') answer.text += event.text;
         if (ends(event)) answer.finished = true;

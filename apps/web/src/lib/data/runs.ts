@@ -20,16 +20,24 @@ export const sleep = (ms: number, signal?: AbortSignal) =>
     signal?.addEventListener('abort', done, { once: true });
   });
 
+export interface Watch {
+  /** Stops following; the run carries on. */
+  signal?: AbortSignal;
+  /** How long to wait before following again after a dropped connection. */
+  retryMs?: number;
+  /** Told true when a dropped connection starts reconnecting, and false when it follows again. */
+  onreconnecting?: (reconnecting: boolean) => void;
+}
+
 /**
  * Follows a run to its end. When the connection drops it waits `retryMs`, then follows again
- * after the last event it saw. Aborting the signal stops following; the run carries on.
+ * after the last event it saw.
  */
 export async function* watchRun(
   source: Pick<DataSource, 'followRun'>,
   id: string,
   after: number,
-  signal?: AbortSignal,
-  retryMs = 1000,
+  { signal, retryMs = 1000, onreconnecting }: Watch = {},
 ): AsyncGenerator<RunEvent> {
   let seen = after;
   while (!signal?.aborted) {
@@ -38,6 +46,9 @@ export async function* watchRun(
       yield event;
       if (ends(event)) return;
     }
+    if (signal?.aborted) return;
+    onreconnecting?.(true);
     await sleep(retryMs, signal);
+    onreconnecting?.(false);
   }
 }
