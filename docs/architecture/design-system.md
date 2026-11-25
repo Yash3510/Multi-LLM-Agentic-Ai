@@ -3,7 +3,7 @@ title: Design system
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-17
+updated: 2026-11-25
 covers:
   - apps/web/src/lib/ui/
 tags: [4ce, architecture, frontend]
@@ -248,6 +248,8 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 
 - **Working:** violet dots and the light pass.
 - **Decided:** an ink ring with a tick for released, or a dash for withheld.
+
+**Rail labels** are the plan's role names, uppercase in `micro` type: PLANNER, ANALYST, AUTHOR, CHALLENGER and SIGN-OFF. Reader's work shows in the status line. The audit record's decision row is labelled Sign-off too.
 
 **Skeletons:**
 
