@@ -94,7 +94,8 @@
   const meta = $derived(
     [
       view.note ?? STATES[view.state],
-      view.ms > 0 ? formatStageTime(view.ms) : '',
+      // A working stage's time runs on the rail; the detail gives it once the stage is done.
+      view.ms > 0 && view.state !== 'active' ? formatStageTime(view.ms) : '',
       view.passes > 1 ? `ran ${view.passes} times` : '',
     ]
       .filter(Boolean)
@@ -227,7 +228,7 @@
             </p>
           {:else if request && !finished}
             <p>
-              Waiting for sign-off: nothing is released until a person approves it.
+              Nothing is released until a person approves it.
               <Link href={`/c/${data.run.chatId}`}>Review it in the conversation</Link>
             </p>
           {/if}
