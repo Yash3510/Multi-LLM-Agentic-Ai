@@ -134,6 +134,23 @@ describe('fake source', () => {
     // Following a run that doesn't exist fails, so a watcher doesn't wait for it forever.
     await expect(collect(source.followRun('nope', 0))).rejects.toThrow();
   });
+
+  it('keeps a question asked in a chat with it, its answer as far as the run has got', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const before = (await source.getChat('c-0143'))?.messages.length ?? 0;
+    const id = await source.ask('c-0143', 'Is R2 within the limit?');
+    await toSignOff(source.followRun(id, 0));
+    const messages = (await source.getChat('c-0143'))?.messages ?? [];
+    expect(messages).toHaveLength(before + 2);
+    expect(messages.at(-2)).toMatchObject({ role: 'user', text: 'Is R2 within the limit?' });
+    const answer = messages.at(-1);
+    expect(answer).toMatchObject({ role: 'response', runId: id, finished: false });
+    expect(answer?.events?.at(-1)?.type).toBe('sign-off');
+    expect(answer?.text).toContain('82.5 %');
+    // Another source keeps its own chats.
+    const other = await createFakeSource({ pace: 0 }).getChat('c-0143');
+    expect(other?.messages).toHaveLength(before);
+  });
 });
 
 describe('fake workspace', () => {
