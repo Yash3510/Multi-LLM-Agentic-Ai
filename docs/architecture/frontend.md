@@ -3,7 +3,7 @@ title: Frontend
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-17
+updated: 2026-11-25
 covers:
   - apps/web/
 tags: [4ce, architecture, frontend]
@@ -83,8 +83,9 @@ just web-dev                                   # the web app on http://localhost
 1. **The screen inventory** (ADR-0035's follow-up): every screen the pitch demo and Phase 1 need, which becomes the frontend's work packages.
 2. **WP-F-09:** design tokens, base components and the app shell, with the `/ui` route that shows every component in every state (ADR-0035 §13).
 3. **Sign-in, session and sign-out** against slice 1: the first screens with a real backend ([WP-UI-06, part 1](#wp-ui-06-part-1-sign-in-session-and-sign-out-against-the-server)).
-4. **WP-UI-01:** chat, cases and the run view with the stage rail. Runs, cases and live events come in later backend slices; until then, MSW fixtures. Propose each endpoint's shape in a PR to this page, so the backend builds what the screens need.
-5. **WP-UI-02** sign-off panel, **WP-UI-03** receipt and provenance, **WP-UI-04** Sovereignty page.
+4. **Runs in the fake source:** ids, numbered events and following from the last event, so every run screen reads one run ([WP-UI-05, part 1](#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event)).
+5. **WP-UI-01:** chat, cases and the run view with the stage rail. Runs, cases and live events come in later backend slices; until then, the fake source ([web data contract](web-data-contract.md)). Propose each endpoint's shape in a PR to this page, so the backend builds what the screens need.
+6. **WP-UI-02** sign-off panel, **WP-UI-03** receipt and provenance, **WP-UI-04** Sovereignty page.
 
 ### WP-UI-06, part 1: sign-in, session and sign-out against the server
 
@@ -132,6 +133,56 @@ just web-dev                                   # the web app on http://localhost
 **Out of scope:** the generated client (WP-UI-05); the rest of WP-UI-06; roles other than Admin (WP-ID-02); sign-up and the first account, which the server doesn't offer; the server serving the built UI.
 
 **Depends on:** WP-ID-01 and the sign-in rate limit (WP-F-07), both built. No new dependency.
+
+**Reviewer:** R3.
+
+**Size:** one pull request.
+
+### WP-UI-05, part 1: runs in the fake source, followed from the last event
+
+**In progress.** The first part of [WP-UI-05](web-screens.md#proposed-work-packages), in the master plan's §12 template. The generated client and the live-event transport wait for the server's run endpoints (WP-RT-01). Until then the fake source is the stand-in, with no MSW ([ADR-0046](../adr/0046-connect-screens-to-the-server-one-at-a-time.md)).
+
+**Goal:** a run has an id and numbered events. A screen can read it as it stands and follow it from the last event it saw, so the chat, the run view, the sign-off page, the receipt and the audit sheet all show the same run (ADR-0035 §3).
+
+**Interface:**
+
+- `src/lib/data/types.ts`: `Run` (id, chat, question, events, finished) and `RunEvent`, a `StreamEvent` with its `seq`, counted from 1 in each run. A response `Message` carries its `runId`.
+- `DataSource`: `ask(chatId, question)` starts a run and returns its id; `getRun(id)`; `followRun(id, after, signal?)`; `cancelRun(id)`; `decide(runId, outcome)`.
+- `src/lib/data/runs.ts`: `watchRun(source, id, after, signal?)` follows a run to its end and, when the connection drops, follows again after the last event it saw.
+- Proposed endpoints for WP-RT-01: `POST /api/chats/{chat_id}/runs` with the question, answering the run's id; `GET /api/runs/{run_id}`; `POST /api/runs/{run_id}/cancel`; `POST /api/runs/{run_id}/decision` with the outcome; and the run's events on the one WebSocket as `{run, seq, ...}`, from a given `after`.
+
+**Inputs and outputs:**
+
+- `followRun` yields the events after `after`, then each new one as it happens, and ends when the run ends (`done`, `stopped` or `error`) or the signal aborts. It stays open while the run waits for sign-off.
+- A follow can end before the run does: the connection dropped. Following again after the last `seq` seen gives the rest, with no gap and no repeat.
+- `cancelRun` ends a live run with `stopped`. Aborting a follow only stops listening; the run carries on.
+- `decide` records the decision as the signed-in person's, so a screen never names who decided. Followers then get `decision`, `receipt` and `done`.
+- The fake's scripted runs play at real pace: the full chain to sign-off; a Challenger FAIL and a replan (a question about rounding); an error at the Analyst (a question about the server being down); a connection that drops once at the Analyst (a question about the connection dropping). The stored chats' runs are `run-demo` and `run-0142`.
+- The chat (`/c/[id]`) follows its run: Stop cancels it, leaving the chat stops following, and a dropped connection resumes after a second.
+
+**Acceptance tests:**
+
+- Vitest (`fake.test.ts`, `runs.test.ts`):
+  1. a run streams through the chain in time order to sign-off, its events numbered 1, 2, 3 and on, with no gap;
+  2. after `decide`, a follower gets `decision`, `receipt` and `done` with the signed-in person's name, and `getRun` shows the run finished;
+  3. following after `seq` n gives exactly the events after n;
+  4. `cancelRun` ends a live run with `stopped`, and nothing comes after it;
+  5. aborting a follow stops it, and the run carries on to sign-off;
+  6. the dropping run's first follow ends early, and `watchRun` carries on after the last event, with no gap and no repeat, to the end;
+  7. the stored chats' runs are found by id, finished, with their messages' events.
+- Playwright (`e2e/chat.spec.ts`, on the demo build): a question whose connection drops still reaches sign-off, and typing `approve` releases it with a receipt.
+
+**Ledger:** nothing new; the fake writes no ledger entries.
+
+**Files:** `src/lib/data/` (`types.ts`, `fake.ts`, `runs.ts` and their tests), `src/routes/c/[id]/+page.svelte` and `e2e/chat.spec.ts`, all under `apps/web/`.
+
+**Docs:** this page, the [web data contract](web-data-contract.md), [web screens](web-screens.md), an amendment to ADR-0046, `state.md` and a work-log entry.
+
+**Neutrality:** no sector terms.
+
+**Out of scope:** the generated client and the WebSocket (the rest of WP-UI-05, after WP-RT-01); the run view and every other new screen (WP-UI-01 onwards); MSW; any new dependency.
+
+**Depends on:** nothing built yet on the server; WP-RT-01 for the server side.
 
 **Reviewer:** R3.
 
