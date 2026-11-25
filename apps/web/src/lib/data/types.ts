@@ -64,8 +64,10 @@ export interface Message {
   role: 'user' | 'response';
   text: string;
   at: Date;
-  /** Status events of the run that produced a response, in arrival order. */
-  events?: StreamEvent[];
+  /** The run that produced a response. */
+  runId?: string;
+  /** The events of the run that produced a response, in order. */
+  events?: RunEvent[];
   /** The response is complete (streamed to the end, stopped or failed). */
   finished?: boolean;
   /** A direct reply (no agent chain): its status line and the model that answered. */
@@ -91,6 +93,19 @@ export type StreamEvent =
   | { type: 'done'; at: number }
   | { type: 'stopped'; at: number }
   | { type: 'error'; at: number; message: string; advice?: string };
+
+/** An event in its place in its run: `seq` counts from 1 in each run (ADR-0035 §3). */
+export type RunEvent = StreamEvent & { seq: number };
+
+/** A run as the run store keeps it: everything that has happened so far, in order. */
+export interface Run {
+  id: string;
+  chatId: string;
+  question: string;
+  events: RunEvent[];
+  /** It ended (`done`, `stopped` or `error`); nothing more will happen. */
+  finished: boolean;
+}
 
 /** The signed-in person. `pending` accounts wait for an admin to approve them. */
 export interface User {
@@ -750,13 +765,18 @@ export interface DataSource {
   /** Creates a custom model; rejects when the id is taken. */
   saveModel(model: ModelRecord): Promise<WorkspaceModel>;
   getChat(id: string): Promise<Chat | undefined>;
-  /** Asks a question in a chat and yields the answer's events as they arrive. */
-  ask(chatId: string, question: string, signal?: AbortSignal): AsyncIterable<StreamEvent>;
-  /** Records the person's sign-off decision and yields the rest of the run. */
-  decide(
-    chatId: string,
-    outcome: 'released' | 'withheld',
-    by: string,
-    signal?: AbortSignal,
-  ): AsyncIterable<StreamEvent>;
+  /** Asks a question in a chat: starts a run and returns its id. */
+  ask(chatId: string, question: string): Promise<string>;
+  /** A run as it stands, or undefined. */
+  getRun(id: string): Promise<Run | undefined>;
+  /**
+   * The run's events after `after`, then each new one as it happens, until the run ends or the
+   * signal aborts. Ending before the run does means the connection dropped (see `watchRun`).
+   * Rejects for a run that doesn't exist.
+   */
+  followRun(id: string, after: number, signal?: AbortSignal): AsyncIterable<RunEvent>;
+  /** Ends a live run with `stopped`. */
+  cancelRun(id: string): Promise<void>;
+  /** Records the signed-in person's decision on a run waiting for sign-off; rejects otherwise. */
+  decide(runId: string, outcome: 'released' | 'withheld'): Promise<void>;
 }

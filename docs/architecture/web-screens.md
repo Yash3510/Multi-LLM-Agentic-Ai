@@ -3,7 +3,7 @@ title: Web screens
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-17
+updated: 2026-11-25
 covers:
   - apps/web/src/routes/
 tags: [4ce, architecture, frontend]
@@ -11,7 +11,7 @@ tags: [4ce, architecture, frontend]
 
 # Web screens
 
-The inventory of every screen in `apps/web`: what it is for, who uses it, what it is built from, what data it needs, which backend work it waits on, its states, and when it ships. This is step 2 of the frontend plan. It builds on [ADR-0035](../adr/0035-frontend-foundations.md) and uses the components, tokens and states of the [design system](design-system.md). Everything here is **planned**: no screen exists yet.
+The inventory of every screen in `apps/web`: what it is for, who uses it, what it is built from, what data it needs, which backend work it waits on, its states, and when it ships. This is step 2 of the frontend plan. It builds on [ADR-0035](../adr/0035-frontend-foundations.md) and uses the components, tokens and states of the [design system](design-system.md). Everything here is **planned**, except what a screen lists as built so far.
 
 Section numbers (§) refer to the master plan (v3.8). Work package ids (WP) are the plan's §12 ids; new ones are proposed at the end.
 
@@ -237,6 +237,7 @@ Every route in one table. Details follow, grouped by area. `[id]` segments are o
   - live: an answer streaming; a run moving along its rail.
   - decided: a run released or withheld, shown by its node glyph and a link to the receipt.
 - **Milestone:** M1. **Demo step:** 2, 3, 4. **Tablet:** yes, for review.
+- **Built so far:** the conversation lives at `/c/[id]`. Each answer follows its run by id on the fake source ([WP-UI-05, part 1](frontend.md#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event)): Stop cancels the run, leaving the chat only stops following, and a dropped connection resumes from the last event.
 
 ### `/runs/[runId]`: Run view
 

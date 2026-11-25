@@ -21,14 +21,14 @@ const finishedRun: StreamEvent[] = [
 ];
 
 describe('StageRail', () => {
-  it('is an agent-chain list of the five nodes, the gate shown as YOU', () => {
+  it('is an agent-chain list of the five nodes, the gate named SIGN-OFF as the plan names it', () => {
     const { getByRole, getAllByRole } = render(StageRail, {
       props: { events: finishedRun, finished: true },
     });
     expect(getByRole('list', { name: 'Agent chain' })).toBeTruthy();
     expect(
       getAllByRole('listitem').map((item) => item.querySelector('.name')?.textContent?.trim()),
-    ).toEqual(['PLANNER', 'ANALYST', 'AUTHOR', 'CHALLENGER', 'YOU']);
+    ).toEqual(['PLANNER', 'ANALYST', 'AUTHOR', 'CHALLENGER', 'SIGN-OFF']);
   });
 
   it('shows each stage time and the person waiting at sign-off', () => {

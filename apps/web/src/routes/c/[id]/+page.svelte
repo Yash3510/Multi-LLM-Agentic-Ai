@@ -1,9 +1,10 @@
 <script lang="ts">
   // A conversation at /c/[id], as the running app addresses it (chat-composer look §1.3,
   // chat-messages look §1-3): the top bar with the title, the thread from 72 px down, and the
-  // composer at the bottom. Sending streams the answer from the data source
-  // (web-data-contract.md); Stop aborts it.
-  import { data as source, type Message, type StreamEvent } from '$lib/data';
+  // composer at the bottom. Sending starts a run and follows it (web-data-contract.md): Stop
+  // cancels the run, leaving the chat only stops following, and a dropped connection resumes.
+  import { data as source, type Message } from '$lib/data';
+  import { ends, watchRun } from '$lib/data/runs';
   import { m } from '$lib/i18n/generated/messages.js';
   import Composer from '$lib/ui/components/Composer.svelte';
   import EgressIndicator from '$lib/ui/components/EgressIndicator.svelte';
@@ -62,31 +63,30 @@
     if (following) void tick().then(() => toBottom());
   });
 
-  async function stream(answer: Message, events: AsyncIterable<StreamEvent>, signal: AbortSignal) {
+  // Follows the answer's run to its end, through the sign-off and any dropped connection.
+  async function follow(answer: Message, runId: string) {
+    const following = new AbortController();
+    controller = following;
     try {
-      for await (const event of events) {
+      for await (const event of watchRun(source, runId, 0, following.signal)) {
         answer.events?.push(event);
         if (event.type === 'delta') answer.text += event.text;
-        if (event.type === 'done' || event.type === 'error') answer.finished = true;
+        if (ends(event)) answer.finished = true;
       }
     } finally {
-      if (signal.aborted) {
-        answer.events?.push({ type: 'stopped', at: Date.now() });
-        answer.finished = true;
-      }
-      controller = undefined;
+      if (controller === following) controller = undefined;
     }
   }
 
+  // The run goes on to its decision, receipt and end on the follow already open.
   function decide(outcome: 'released' | 'withheld') {
-    const answer = waiting?.answer;
-    if (!answer) return;
-    controller = new AbortController();
-    void stream(
-      answer,
-      source.decide(chat.id, outcome, 'Asha Rao', controller.signal),
-      controller.signal,
-    );
+    const runId = waiting?.answer.runId;
+    if (runId) void source.decide(runId, outcome);
+  }
+
+  function stop() {
+    const runId = messages.at(-1)?.runId;
+    if (runId) void source.cancelRun(runId);
   }
 
   // Try again: the stopped answer goes and its question runs again.
@@ -112,8 +112,8 @@
     });
     // The pushed object is proxied; read it back so updates reach the screen.
     const answer = messages[messages.length - 1];
-    controller = new AbortController();
-    await stream(answer, source.ask(chat.id, question, controller.signal), controller.signal);
+    answer.runId = await source.ask(chat.id, question);
+    await follow(answer, answer.runId);
   }
   const lastResponse = $derived(messages.findLastIndex((message) => message.role === 'response'));
 </script>
@@ -184,7 +184,7 @@
           tools={7}
           onsend={ask}
           busy={controller !== undefined}
-          onstop={() => controller?.abort()}
+          onstop={stop}
           placeholder={m.composer_reply_placeholder()}
         />
       {/if}

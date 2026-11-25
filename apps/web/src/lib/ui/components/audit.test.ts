@@ -11,7 +11,7 @@ const props = {
   at: new Date(2026, 10, 4, 14, 5),
   chain: [
     { role: 'Planner', text: 'reading the request', time: '1.2s' },
-    { role: 'You', text: 'Released it · Asha Rao', time: '', tone: 'ink' as const },
+    { role: 'Sign-off', text: 'Released it · Asha Rao', time: '', tone: 'ink' as const },
   ],
   evidence: [
     { index: 1, title: 'Rule R2 · Ratio', cited: true },

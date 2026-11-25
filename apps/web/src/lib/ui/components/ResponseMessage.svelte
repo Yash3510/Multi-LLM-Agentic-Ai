@@ -131,7 +131,7 @@
       return [{ role, text, time: `+${((event.at - start) / 1000).toFixed(1)}s`, tone }];
     });
     chain.push({
-      role: 'You',
+      role: 'Sign-off',
       text: decision.outcome === 'released' ? `Released it · ${decision.by}` : 'Withheld it',
       time: '',
       tone: 'ink' as const,
