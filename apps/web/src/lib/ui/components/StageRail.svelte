@@ -112,7 +112,7 @@
     analyst: 'Analyst',
     author: 'Author',
     challenger: 'Challenger',
-    'sign-off': 'You',
+    'sign-off': 'Sign-off',
   };
 
   const LOOK: Record<StageState, NodeState> = {
