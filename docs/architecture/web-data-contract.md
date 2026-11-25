@@ -3,7 +3,7 @@ title: Web data contract
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-17
+updated: 2026-11-25
 covers:
   - apps/web/src/lib/data/
 tags: [4ce, architecture, frontend]
@@ -44,11 +44,14 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `exportChats()` / `importChats(chats)` / `archiveAllChats()` / `deleteAllChats()` | every chat with its messages (archived included) for a JSON export; importing adds chats and returns how many; archiving hides them from `listChats()` | the Data Controls page |
 | `listArchivedChats()` / `unarchiveChat(id)` / `unarchiveAllChats()` / `deleteChat(id)` | archived chats newest first; unarchiving returns a chat to `listChats()`; deleting removes it for good | the Archived Chats page |
 | `listMemories()` / `addMemory(draft)` / `updateMemory(id, draft)` / `deleteMemory(id)` / `clearMemories()` | the person's memories (`Memory`: content, type `user` or `context`, optional path, updated time), most recently changed first | the Personalization page |
-| `getChat(id)` | `Chat` with its `messages`, or `undefined` | the conversation screen (`/c/[id]`) |
-| `ask(chatId, question, signal?)` | an async stream of `StreamEvent`s, ending at the sign-off request (or `done`, `stopped`, `error`) | the composer and the live answer |
-| `decide(chatId, outcome, by, signal?)` | the rest of the run: `decision`, `receipt`, `done` | the sign-off panel |
+| `getChat(id)` | `Chat` with its `messages`, or `undefined`; a response carries its `runId` | the conversation screen (`/c/[id]`) |
+| `ask(chatId, question)` | starts a run and returns its id | the composer |
+| `getRun(id)` | the `Run` as it stands (id, chat, question, numbered events, finished), or `undefined` | every run screen |
+| `followRun(id, after, signal?)` | the run's events after `after`, then each new one, until the run ends; see [Runs](#runs) | the live answer, through `watchRun` |
+| `cancelRun(id)` | ends a live run with `stopped` | the composer's Stop |
+| `decide(runId, outcome)` | records the signed-in person's decision on a run waiting for sign-off, which then goes on to `decision`, `receipt` and `done`; rejects for any other run | the sign-off panel |
 
-The `AbortSignal` stops a stream. The person's Stop button and leaving the chat both abort.
+The person's Stop button cancels the run. Leaving the chat aborts the follow only: the run carries on.
 
 ## Session
 
@@ -97,11 +100,20 @@ The `AbortSignal` stops a stream. The person's Stop button and leaving the chat 
 
 ## Messages
 
-A `Message` is a user message or a response. A response carries its run's `events` and `finished`. Everything the answer shows (the stage rail, the status line, tools, sources, sign-off and receipt) is derived from the events, so a reloaded chat looks the same as a live one. A direct reply (no agent chain) carries `direct`: its status line, the model and the time.
+A `Message` is a user message or a response. A response carries its `runId`, its run's numbered `events` and `finished`. Everything the answer shows (the stage rail, the status line, tools, sources, sign-off and receipt) is derived from the events, so a reloaded chat looks the same as a live one. A direct reply (no agent chain) carries `direct`: its status line, the model and the time.
+
+## Runs
+
+A run has an id and keeps every event in order, each numbered by `seq` from 1 (a `RunEvent`, ADR-0035 §3), so the chat and every run screen read the same run.
+
+- **Following.** `followRun(id, after)` gives the events after `after`, then each new one as it happens. It stays open while the run waits for sign-off, and ends when the run ends (`done`, `stopped` or `error`) or the signal aborts.
+- **A dropped connection.** A follow that ends before the run did lost its connection. `watchRun(source, id, after, signal)` in [`runs.ts`](../../apps/web/src/lib/data/runs.ts) waits a second and follows again after the last `seq` it saw, so nothing is missed or repeated.
+- **Who decided** is the signed-in person; a screen never names them.
+- **The fake's runs** play at real pace whether anyone follows them or not. A question about rounding plays a Challenger FAIL and a replan; about the server being down, an error at the Analyst; about the connection dropping, a run whose first follow drops just after the Analyst starts. The stored chats' runs are `run-demo` and `run-0142`.
 
 ## Stream events
 
-Events arrive in order. `at` is the server's time in milliseconds.
+Events arrive in order, each with its run's `seq`. `at` is the server's time in milliseconds.
 
 | `type` | Carries | Shown as |
 | --- | --- | --- |
@@ -124,4 +136,4 @@ Events arrive in order. `at` is the server's time in milliseconds.
 
 ## Planned
 
-The generated API client (WP-UI-05), server-sent or WebSocket transport, reconnection with resume from the last event, and paging through the chat list are all planned. Only the session calls are on the server so far.
+The generated API client and the WebSocket (the rest of WP-UI-05, after the server's run endpoints in WP-RT-01) and paging through the chat list are planned. Following a run and resuming after the last event work against the fake source today ([WP-UI-05, part 1](frontend.md#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event)). Only the session calls are on the server so far.
