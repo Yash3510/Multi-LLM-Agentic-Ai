@@ -17,6 +17,16 @@ async function signOut(page: Page) {
   await page.getByRole('menuitem', { name: 'Sign Out' }).click();
 }
 
+// The dev server compiles the app's modules the first time a browser asks for them. On the
+// Windows CI runner that takes longer than an assertion's 5 s, so load the app once before the
+// tests: the wait has the hook's own timeout, and no assertion's time limit changes.
+test.beforeAll(async ({ browser }) => {
+  const page = await browser.newPage();
+  await page.goto('/auth');
+  await page.getByRole('button', { name: 'Sign in' }).waitFor();
+  await page.close();
+});
+
 test('signs in, stays signed in across a reload, and signs out', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/auth$/);
