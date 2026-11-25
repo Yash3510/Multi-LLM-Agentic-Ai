@@ -38,6 +38,10 @@
     /** The run's events, for the stage rail. */
     events?: StreamEvent[];
     finished?: boolean;
+    /** The run, linked from the status line to its run view. */
+    runId?: string;
+    /** Its dropped connection is being re-established. */
+    reconnecting?: boolean;
     /** Offered on the last answer: run it again after it stopped with an error. */
     onretry?: () => void;
   };
@@ -51,6 +55,8 @@
     direct,
     events,
     finished = true,
+    runId,
+    reconnecting = false,
     onretry,
   }: Props = $props();
 
@@ -193,7 +199,7 @@
       <div class="name">{model}</div>
       {#if events}
         <StageRail {events} {finished} onhandover={(role) => (handover = role)} />
-        <StatusLine {events} {finished} {handover} />
+        <StatusLine {events} {finished} {handover} {reconnecting} {runId} />
         {#if calls.length}<ToolGroup {calls} />{/if}
       {/if}
       {#if status}<div class="status">{status}</div>{/if}

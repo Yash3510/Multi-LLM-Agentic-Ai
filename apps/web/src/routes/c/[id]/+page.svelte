@@ -25,6 +25,8 @@
   // The thread as shown: the stored messages plus anything asked here. Reset on another chat.
   let messages = $state<Message[]>([]);
   let controller = $state<AbortController | undefined>();
+  // The followed answer's dropped connection is being re-established.
+  let reconnecting = $state(false);
   $effect.pre(() => {
     messages = [...data.chat.messages];
     // An answer still running when the chat opens again picks up after its last event.
@@ -74,7 +76,9 @@
     const following = new AbortController();
     controller = following;
     try {
-      for await (const event of watchRun(source, runId, after, { signal: following.signal })) {
+      const onreconnecting = (state: boolean) => (reconnecting = state);
+      const watch = watchRun(source, runId, after, { signal: following.signal, onreconnecting });
+      for await (const event of watch) {
         answer.events?.push(event);
         if (event.type === 'delta') answer.text += event.text;
         if (ends(event)) answer.finished = true;
@@ -149,6 +153,8 @@
           direct={message.direct}
           events={message.events}
           finished={message.finished}
+          runId={message.runId}
+          reconnecting={index === lastResponse && reconnecting}
           text={message.text}
           at={message.at}
           last={index === lastResponse}

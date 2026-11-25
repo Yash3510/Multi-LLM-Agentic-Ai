@@ -84,3 +84,12 @@ describe('StatusLine reconnecting', () => {
     );
   });
 });
+
+describe('StatusLine in the chat', () => {
+  it('links to the run view beside the line', () => {
+    const { getByRole } = render(StatusLine, {
+      props: { events: run, finished: false, runId: 'run-1' },
+    });
+    expect(getByRole('link', { name: 'View run' }).getAttribute('href')).toBe('/runs/run-1');
+  });
+});
