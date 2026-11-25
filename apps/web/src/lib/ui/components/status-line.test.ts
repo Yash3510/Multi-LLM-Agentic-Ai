@@ -70,3 +70,17 @@ describe('StatusLine hand-over', () => {
     );
   });
 });
+
+describe('StatusLine reconnecting', () => {
+  it('says the connection was lost while it reconnects, over the hand-over, and announces it', () => {
+    const { getByRole, container } = render(StatusLine, {
+      props: { events: run, finished: false, handover: 'author', reconnecting: true },
+    });
+    expect(getByRole('button', { name: 'Toggle status history' }).textContent).toContain(
+      'Connection lost. Reconnecting…',
+    );
+    expect(container.querySelector('[aria-live="polite"]')?.textContent).toBe(
+      'Connection lost. Reconnecting…',
+    );
+  });
+});

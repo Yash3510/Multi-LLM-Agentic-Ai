@@ -11,9 +11,13 @@
     finished: boolean;
     /** The rail's light is travelling to this role: the line says so until it lands. */
     handover?: RailStage;
+    /** A dropped connection is being re-established: the line says so until it is. */
+    reconnecting?: boolean;
   };
 
-  let { events, finished, handover }: Props = $props();
+  let { events, finished, handover, reconnecting = false }: Props = $props();
+
+  const RECONNECTING = 'Connection lost. Reconnecting…';
 
   const PASSING: Record<RailStage, string> = {
     planner: 'Passing to Planner…',
@@ -117,13 +121,19 @@
           ><Icon name="caret-right" size={12} /></span
         >
       {:else}
-        {@const line = handover ? PASSING[handover] : (rolled ?? plain(latest.description))}
+        {@const line = reconnecting
+          ? RECONNECTING
+          : handover
+            ? PASSING[handover]
+            : (rolled ?? plain(latest.description))}
         {#key line}
           <span class="live">{line}</span>
         {/key}
       {/if}
     </button>
-    <span class="sr-only" aria-live="polite">{plain(latest.description)}</span>
+    <span class="sr-only" aria-live="polite"
+      >{reconnecting && !finished ? RECONNECTING : plain(latest.description)}</span
+    >
     {#if open && statuses.length > 1}
       <ol class="history">
         {#each statuses as item, index (index)}
