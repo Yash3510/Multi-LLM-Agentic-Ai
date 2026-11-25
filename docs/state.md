@@ -3,7 +3,7 @@ title: State
 type: state
 status: active
 owner: R1
-updated: 2026-11-22
+updated: 2026-11-25
 tags: [4ce, state]
 ---
 
@@ -13,7 +13,7 @@ Where 4CE stands right now. Updated at the weekly planning and at every mileston
 
 ## What works
 
-Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-Ai](https://github.com/Yash3510/Multi-LLM-Agentic-Ai). Evidence: CI runs `just setup` and `just check` on fresh clones and is green on Linux, Windows and macOS (first green run 2026-10-12, at commit `2506b19`); the [work log](log/2026/10/2026-10-12-4ce-core.md) records the rest.
+Phase 0's foundations, on `4ce-core`, the trunk of [Yash3510/Multi-LLM-Agentic-Ai](https://github.com/Yash3510/Multi-LLM-Agentic-Ai). Evidence: CI runs `just setup` and `just check` on fresh clones and is green on Linux, Windows and macOS (first green run 2026-10-12, at commit `2506b19`); the [work log](log/2026/10/2026-10-12-4ce-core.md) records the rest. Windows was red from 2026-11-21: the sign-in browser test gave the dev server's first compile only 5 s; the test now loads the app once first ([log](log/2026/11/2026-11-25-fix-wp-ui-06-sign-in-test-on-windows.md)).
 
 - **The repository and its checks:** the [layout and working rules](architecture/repository.md), enforced by the repo check, the neutrality check, the import contracts, the [docs check](architecture/documentation.md#the-docs-check), the [licence gate, import scan and bundle check](architecture/licences.md), gitleaks and the commit-message hook. `just sync` starts each session.
 - **[`core/common`](../core/common/README.md):** typed settings.

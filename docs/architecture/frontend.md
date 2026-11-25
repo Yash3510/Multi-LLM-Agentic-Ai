@@ -3,7 +3,7 @@ title: Frontend
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-17
+updated: 2026-11-25
 covers:
   - apps/web/
 tags: [4ce, architecture, frontend]
@@ -116,7 +116,7 @@ just web-dev                                   # the web app on http://localhost
   4. the session is the person on 200, and `undefined` on 401 or `unreachable`; it asks with a load function's own `fetch` when given one;
   5. sign-out sends the CSRF cookie's value; 204 and 401 resolve; `csrf_failed` and `unreachable` reject;
   6. `chooseSource`: demo is fake throughout, dev signs in through the server and keeps the fake rest, production is refused.
-- Playwright (`e2e/sign-in.spec.ts`), through the dev server against `fource-server`, started with `uv run fource-server migrate` and `serve` on a throwaway SQLite database:
+- Playwright (`e2e/sign-in.spec.ts`), through the dev server against `fource-server`, started with `uv run fource-server migrate` and `serve` on a throwaway SQLite database. A `beforeAll` hook loads the app once first: the dev server compiles it on the first page it serves, which takes the Windows CI runner longer than an assertion's 5 s.
   7. a wrong password shows the server's message, keeps the email and clears the password;
   8. the right password opens the app, a reload stays signed in, and signing out returns to sign-in, where a reload stays;
   9. five wrong passwords lock the account, and the sixth attempt says when to try again.
