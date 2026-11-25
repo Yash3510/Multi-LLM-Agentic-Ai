@@ -31,11 +31,14 @@ import type {
   Usage,
   UsageDay,
   Memory,
+  Run,
+  RunEvent,
   StreamEvent,
   User,
   WorkspaceItem,
   WorkspaceModel,
 } from './types';
+import { ends, sleep } from './runs';
 
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
 
@@ -244,6 +247,9 @@ function failing(): Step[] {
   ];
 }
 
+/** Where the dropping run's connection is lost, once: just after the Analyst starts (event 7). */
+const DROP_AFTER = 7;
+
 type Folds = NonNullable<Receipt['folds']>;
 
 const FOLDS: Folds = [
@@ -335,9 +341,9 @@ function closing(outcome: 'released' | 'withheld', by: string, folds = FOLDS, so
   ];
 }
 
-/** A finished, released run stored with a chat, as a reloaded chat would come back. */
+/** A finished, released run (`run-<key>`) stored with a chat, as a reloaded chat comes back. */
 function storedRun(
-  id: string,
+  key: string,
   question: string,
   at: Date,
   run = script(),
@@ -345,16 +351,24 @@ function storedRun(
   sources = 2,
 ) {
   let time = at.getTime();
-  const events: StreamEvent[] = [...run, ...closing('released', 'Asha Rao', folds, sources)].map(
-    (step) => {
+  const events: RunEvent[] = [...run, ...closing('released', 'Asha Rao', folds, sources)].map(
+    (step, index) => {
       time += step.after;
-      return { ...step.event, at: time };
+      return { ...step.event, at: time, seq: index + 1 };
     },
   );
   const text = events.flatMap((event) => (event.type === 'delta' ? [event.text] : [])).join('');
   return [
-    { id: `${id}-q`, role: 'user' as const, text: question, at },
-    { id: `${id}-a`, role: 'response' as const, text, at, events, finished: true },
+    { id: `m-${key}-q`, role: 'user' as const, text: question, at },
+    {
+      id: `m-${key}-a`,
+      role: 'response' as const,
+      text,
+      at,
+      runId: `run-${key}`,
+      events,
+      finished: true,
+    },
   ];
 }
 
@@ -365,7 +379,7 @@ const CHATS: Chat[] = [
     updated: hoursAgo(1),
     outcome: 'released',
     messages: storedRun(
-      'm-demo',
+      'demo',
       'Is R2 · Ratio within the limit for CASE-0142? Check both batches.',
       hoursAgo(1),
       demo(),
@@ -378,7 +392,7 @@ const CHATS: Chat[] = [
     title: 'Is R2 · Ratio within the limit for CASE-0142?',
     updated: hoursAgo(2),
     outcome: 'released',
-    messages: storedRun('m-0142', 'Is R2 · Ratio within the limit for CASE-0142?', hoursAgo(2)),
+    messages: storedRun('0142', 'Is R2 · Ratio within the limit for CASE-0142?', hoursAgo(2)),
   },
   {
     id: 'c-0143',
@@ -426,24 +440,6 @@ const CHATS: Chat[] = [
     messages: [],
   },
 ];
-
-const sleep = (ms: number, signal?: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    if (!ms || signal?.aborted) return resolve();
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener('abort', () => (clearTimeout(timer), resolve()), { once: true });
-  });
-
-async function* replay(steps: Step[], pace: number, signal?: AbortSignal) {
-  let at = Date.now();
-  for (const step of steps) {
-    await sleep(step.after * pace, signal);
-    if (signal?.aborted) return;
-    at += step.after;
-    const event: StreamEvent = { ...step.event, at };
-    yield event;
-  }
-}
 
 /** `pace` scales every wait: 1 is real time, 0 replays at once (tests). */
 // Stand-ins sized like the capture account's workspace on the running app (3 base models, 3
@@ -640,6 +636,53 @@ export function createFakeSource({
   // This source's own copy, so bulk changes stay with it.
   let chats: Chat[] = [...CHATS];
   const archived = new Set<string>();
+  // The run store, as the server keeps it (ADR-0035 §3): the stored chats' finished runs, then
+  // each run asked here. A run plays on whether anyone follows it or not.
+  type Kept = Run & {
+    wake: (() => void)[];
+    stop: AbortController;
+    decided?: boolean;
+    drop?: number;
+  };
+  const runs = new Map<string, Kept>();
+  const keep = (run: Run): Kept => ({ ...run, wake: [], stop: new AbortController() });
+  for (const chat of CHATS)
+    chat.messages.forEach((message, index) => {
+      if (message.runId && message.events)
+        runs.set(
+          message.runId,
+          keep({
+            id: message.runId,
+            chatId: chat.id,
+            question: chat.messages[index - 1]?.text ?? '',
+            events: message.events,
+            finished: true,
+          }),
+        );
+    });
+  const append = (run: Kept, event: Unstamped) => {
+    run.events.push({ ...event, at: Date.now(), seq: run.events.length + 1 });
+    if (ends(event)) run.finished = true;
+    for (const wake of run.wake.splice(0)) wake();
+  };
+  // Plays steps at this source's pace; cancelling stops it between steps.
+  const play = async (run: Kept, steps: Step[]) => {
+    for (const step of steps) {
+      await sleep(step.after * pace, run.stop.signal);
+      if (run.finished) return;
+      append(run, step.event);
+    }
+  };
+  // Settles at the run's next event, or when the signal aborts.
+  const changed = (run: Kept, signal?: AbortSignal) =>
+    new Promise<void>((resolve) => {
+      const done = () => {
+        signal?.removeEventListener('abort', done);
+        resolve();
+      };
+      run.wake.push(done);
+      signal?.addEventListener('abort', done, { once: true });
+    });
   // Each change is a tick later than the last, so newest-first order holds within one millisecond.
   let clock = 0;
   const stamp = () => new Date((clock = Math.max(clock + 1, Date.now())));
@@ -1567,16 +1610,54 @@ export function createFakeSource({
       chats = [];
       archived.clear();
     },
-    ask(_chatId, question, signal) {
-      // A question about the server being down replays a run that stops at the Analyst, so the
+    async ask(chatId, question) {
+      const run = keep({ id: crypto.randomUUID(), chatId, question, events: [], finished: false });
+      runs.set(run.id, run);
+      // A question about the connection dropping loses it once, so resuming can be seen.
+      if (/drop/i.test(question)) run.drop = DROP_AFTER;
+      // A question about the server being down plays a run that stops at the Analyst, so the
       // run error card can be seen without a backend.
-      if (/server down/i.test(question)) return replay(failing(), pace, signal);
-      // A question about rounding replays a run the Challenger sends back once.
-      if (/rounded/i.test(question)) return replay(replanned(), pace, signal);
-      return replay(script(), pace, signal);
+      if (/server down/i.test(question)) void play(run, failing());
+      // A question about rounding plays a run the Challenger sends back once.
+      else if (/rounded/i.test(question)) void play(run, replanned());
+      else void play(run, script());
+      return run.id;
     },
-    decide(_chatId, outcome, by, signal) {
-      return replay(closing(outcome, by), pace, signal);
+    async getRun(id) {
+      const run = runs.get(id);
+      if (!run) return undefined;
+      const { chatId, question, events, finished } = run;
+      return { id, chatId, question, events: [...events], finished };
+    },
+    async *followRun(id, after, signal) {
+      const run = runs.get(id);
+      if (!run) return;
+      let next = after;
+      while (!signal?.aborted) {
+        const event = run.events[next];
+        if (event) {
+          next += 1;
+          yield event;
+          if (run.drop === event.seq) {
+            run.drop = undefined;
+            return;
+          }
+        } else if (run.finished) return;
+        else await changed(run, signal);
+      }
+    },
+    async cancelRun(id) {
+      const run = runs.get(id);
+      if (!run || run.finished) return;
+      run.stop.abort();
+      append(run, { type: 'stopped' });
+    },
+    async decide(runId, outcome) {
+      const run = runs.get(runId);
+      if (!run || run.finished || run.decided || run.events.at(-1)?.type !== 'sign-off')
+        throw new Error('This run is not waiting for sign-off.');
+      run.decided = true;
+      void play(run, closing(outcome, user?.name ?? 'Asha Rao'));
     },
   };
 }
