@@ -336,6 +336,11 @@
     cursor: default;
   }
 
+  /* The open stage on the run view, tinted as the details panel tints a tab under the pointer. */
+  .node[aria-selected='true'] {
+    background-color: var(--color-tint);
+  }
+
   .node:focus-visible {
     outline: none;
     box-shadow:
