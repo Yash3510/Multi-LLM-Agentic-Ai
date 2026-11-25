@@ -13,7 +13,7 @@
     releasedAt?: Date;
     /** The names of the sources the answer cites, for the Grounded label's hover. */
     cited?: string[];
-    /** Opens the audit record. */
+    /** Opens the audit record; without it there is no Audit button. */
     onaudit?: () => void;
     /** What changed on a later try, shown above the checks. */
     revision?: Revision;
@@ -77,9 +77,11 @@
     >
       <b>{copied ? 'Copied' : 'Fingerprint'}</b> <code>{receipt.fingerprint.slice(0, 8)}</code>
     </button>
-    <button type="button" class="label audit" onclick={onaudit}>
-      <Icon name="file-text" size={12} /><b>Audit</b>
-    </button>
+    {#if onaudit}
+      <button type="button" class="label audit" onclick={onaudit}>
+        <Icon name="file-text" size={12} /><b>Audit</b>
+      </button>
+    {/if}
   </div>
   {#if revision}<RevisionCard {revision} {passed} />{/if}
   {#if checks.length}
