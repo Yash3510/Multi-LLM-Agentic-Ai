@@ -173,9 +173,14 @@ const NODE: Record<Role, RailStage> = {
 /** Events between two status lines belong to the stage of the first; a replan line belongs to
  * the stage that sent the work back, and every line after it to the next try. */
 export function stageDetails(events: StreamEvent[]): Record<RailStage, StageDetail> {
-  const details = Object.fromEntries(
-    RAIL.map((stage) => [stage, { lines: [], calls: [], sources: [], text: '' }]),
-  ) as Record<RailStage, StageDetail>;
+  const empty = (): StageDetail => ({ lines: [], calls: [], sources: [], text: '' });
+  const details: Record<RailStage, StageDetail> = {
+    planner: empty(),
+    analyst: empty(),
+    author: empty(),
+    challenger: empty(),
+    'sign-off': empty(),
+  };
   const start = events[0]?.at ?? 0;
   let current: StageDetail | undefined;
   let tries = 1;
