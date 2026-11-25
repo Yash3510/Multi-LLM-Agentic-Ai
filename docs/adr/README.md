@@ -3,7 +3,7 @@ title: Architecture decision records
 type: index
 status: active
 owner: R1
-updated: 2026-11-17
+updated: 2026-11-25
 covers:
   - docs/adr/
 tags: [4ce, adr]
@@ -37,5 +37,5 @@ Numbers 0009 to 0034 are reserved by the master plan (§15) for the decisions it
 | [0042](0042-motion-language.md) | Motion language | proposed |
 | [0043](0043-soft-glass-surfaces.md) | Soft glass surfaces | proposed |
 | [0044](0044-file-storage-behind-one-interface.md) | File storage behind one interface | proposed |
-| [0046](0046-connect-screens-to-the-server-one-at-a-time.md) | Connect screens to the server one at a time | proposed |
+| [0046](0046-connect-screens-to-the-server-one-at-a-time.md) | Connect screens to the server one at a time | proposed; amended 2026-11-25 (WP-UI-05 in two parts) |
 
