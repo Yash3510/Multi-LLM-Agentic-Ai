@@ -38,7 +38,7 @@ The plan's run screens (run view, sign-off page, receipt, audit sheet) all read 
 | `apps/web/src/routes/c/[id]/+page.svelte` | the chat follows its run; Stop cancels it |
 | `apps/web/e2e/chat.spec.ts` | new: a dropped connection resumes and approve releases |
 | `apps/web/src/lib/ui/components/StageRail.svelte`, `ResponseMessage.svelte`, `rail.test.ts`, `audit.test.ts` | Sign-off in place of You |
-| `docs/architecture/frontend.md`, `web-data-contract.md`, `web-screens.md`, `design-system.md`, `docs/adr/0046-connect-screens-to-the-server-one-at-a-time.md`, `docs/state.md`, `docs/log/README.md` | the docs below |
+| `docs/architecture/frontend.md`, `web-data-contract.md`, `web-screens.md`, `design-system.md`, `docs/adr/0046-connect-screens-to-the-server-one-at-a-time.md`, `docs/adr/README.md`, `docs/state.md`, `docs/log/README.md` | the docs below |
 
 ## How it was verified
 
@@ -80,7 +80,7 @@ On macOS (arm64), Node 24.21.0, uv 0.12.17, Python 3.12.14, in a fresh worktree 
 - [Web data contract](../../../architecture/web-data-contract.md): the run calls, a Runs section, numbered events.
 - [Web screens](../../../architecture/web-screens.md): what the conversation has built so far.
 - [Design system](../../../architecture/design-system.md): the rail's labels.
-- [ADR-0046](../../../adr/0046-connect-screens-to-the-server-one-at-a-time.md): the amendment.
+- [ADR-0046](../../../adr/0046-connect-screens-to-the-server-one-at-a-time.md): the amendment, noted in the [ADR index](../../../adr/README.md).
 - [State](../../../state.md), this entry and the [log index](../../README.md).
 
 ## Known limits and follow-ups
