@@ -1,4 +1,4 @@
-import { render } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Role, StreamEvent } from '$lib/data';
 import StageRail from './StageRail.svelte';
@@ -126,5 +126,61 @@ describe('StageRail re-plan spark', () => {
       },
     });
     expect(opened.container.querySelector('.spark')).toBeNull();
+  });
+});
+
+describe('StageRail on the run view', () => {
+  const tab = (name: string) => screen.getByRole('tab', { name: new RegExp(`^${name}`) });
+
+  it('draws the nodes as tabs that open a stage, the open one selected', async () => {
+    const onselect = vi.fn();
+    render(StageRail, {
+      props: {
+        events: finishedRun,
+        finished: true,
+        selected: 'analyst',
+        onselect,
+        controls: 'stage',
+      },
+    });
+    expect(screen.getByRole('tablist', { name: 'Agent chain' })).toBeTruthy();
+    expect(tab('Analyst').getAttribute('aria-selected')).toBe('true');
+    expect(tab('Analyst').getAttribute('aria-controls')).toBe('stage');
+    expect(tab('Planner').getAttribute('aria-selected')).toBe('false');
+    await fireEvent.click(tab('Planner'));
+    expect(onselect).toHaveBeenCalledWith('planner');
+  });
+
+  it('moves across the nodes with the arrow keys, Home and End, from the open one', async () => {
+    render(StageRail, {
+      props: { events: finishedRun, finished: true, selected: 'analyst', onselect: vi.fn() },
+    });
+    expect(tab('Analyst').tabIndex).toBe(0);
+    expect(tab('Author').tabIndex).toBe(-1);
+    tab('Analyst').focus();
+    await fireEvent.keyDown(document.activeElement!, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(tab('Author'));
+    await fireEvent.keyDown(document.activeElement!, { key: 'Home' });
+    expect(document.activeElement).toBe(tab('Planner'));
+    await fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
+    expect(document.activeElement).toBe(tab('Sign-off'));
+    await fireEvent.keyDown(document.activeElement!, { key: 'End' });
+    expect(document.activeElement).toBe(tab('Sign-off'));
+  });
+
+  it('opens only the nodes a live run has reached', () => {
+    render(StageRail, {
+      props: {
+        events: finishedRun.slice(0, 3),
+        finished: false,
+        now: 5000,
+        paced: false,
+        selected: 'author',
+        onselect: vi.fn(),
+      },
+    });
+    expect(tab('Planner').hasAttribute('disabled')).toBe(false);
+    expect(tab('Author').hasAttribute('disabled')).toBe(false);
+    expect(tab('Challenger').hasAttribute('disabled')).toBe(true);
   });
 });

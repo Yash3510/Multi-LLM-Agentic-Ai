@@ -24,9 +24,24 @@
     paced?: boolean;
     /** Told the role the light is travelling to, and undefined when it lands. */
     onhandover?: (role: RailStage | undefined) => void;
+    /** The stage whose detail is open (the run view). */
+    selected?: RailStage;
+    /** Given, the reached nodes are tabs that open a stage's detail; the chat gives none. */
+    onselect?: (stage: RailStage) => void;
+    /** The id of the region a stage's detail opens in. */
+    controls?: string;
   };
 
-  let { events, finished, now, paced = true, onhandover }: Props = $props();
+  let {
+    events,
+    finished,
+    now,
+    paced = true,
+    onhandover,
+    selected,
+    onselect,
+    controls,
+  }: Props = $props();
 
   let clock = $state(Date.now());
   const run = $derived(deriveRun(events, finished, now ?? clock));
@@ -151,6 +166,31 @@
       : text;
   }
 
+  // As tabs, ←/→ move across the open nodes (wrapping), Home and End jump, Enter opens one.
+  const STEPS: Record<string, (at: number, last: number) => number> = {
+    ArrowRight: (at) => at + 1,
+    ArrowLeft: (at) => at - 1,
+    Home: () => 0,
+    End: (_, last) => last,
+  };
+
+  function move(event: KeyboardEvent & { currentTarget: HTMLElement }) {
+    const step = STEPS[event.key];
+    const tabs = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]:enabled')];
+    if (!step || !tabs.length) return;
+    event.preventDefault();
+    const at = tabs.findIndex((tab) => tab === document.activeElement);
+    const next = step(at, tabs.length - 1);
+    tabs[(next + tabs.length) % tabs.length]?.focus();
+  }
+
+  /** The tab reached by Tab: the open stage, else the first one that can open. */
+  const focusable = $derived(
+    selected && reached(shownState(RAIL.indexOf(selected)))
+      ? selected
+      : RAIL.find((_, index) => reached(shownState(index))),
+  );
+
   const ORDINAL = (n: number) => {
     const tens = n % 100;
     if (tens >= 11 && tens <= 13) return `${n}th`;
@@ -164,16 +204,32 @@
     data-replanned={run.replans > 0 ? '' : undefined}
     data-sweep={sweep ? '' : undefined}
   >
-    <ol class="row" aria-label="Agent chain">
+    <ol
+      class="row"
+      aria-label="Agent chain"
+      role={onselect ? 'tablist' : undefined}
+      onkeydown={onselect ? move : undefined}
+    >
       {#each RAIL as stage, index (stage)}
         {@const view = run.stages[stage]}
         {@const state = shownState(index)}
         {@const timeText = time(stage, state)}
-        <li class="column" data-stage={stage} data-state={state} style:--index={index}>
+        <li
+          class="column"
+          role={onselect ? 'presentation' : undefined}
+          data-stage={stage}
+          data-state={state}
+          style:--index={index}
+        >
           <button
             type="button"
             class="node"
-            disabled={run.running || state === 'skipped'}
+            role={onselect ? 'tab' : undefined}
+            aria-selected={onselect ? selected === stage : undefined}
+            aria-controls={onselect ? controls : undefined}
+            tabindex={onselect ? (stage === focusable ? 0 : -1) : undefined}
+            disabled={onselect ? !reached(state) : run.running || state === 'skipped'}
+            onclick={onselect ? () => onselect(stage) : undefined}
             aria-label={[
               NAMES[stage],
               view.passes > 1 ? `ran ${view.passes} times` : '',
