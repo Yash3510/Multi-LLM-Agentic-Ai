@@ -47,7 +47,7 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `getChat(id)` | `Chat` with its `messages`, or `undefined`; a response carries its `runId` | the conversation screen (`/c/[id]`) |
 | `ask(chatId, question)` | starts a run and returns its id | the composer |
 | `getRun(id)` | the `Run` as it stands (id, chat, question, numbered events, finished), or `undefined` | every run screen |
-| `followRun(id, after, signal?)` | the run's events after `after`, then each new one, until the run ends; see [Runs](#runs) | the live answer, through `watchRun` |
+| `followRun(id, after, signal?)` | the run's events after `after`, then each new one, until the run ends; rejects for a run that doesn't exist; see [Runs](#runs) | the live answer, through `watchRun` |
 | `cancelRun(id)` | ends a live run with `stopped` | the composer's Stop |
 | `decide(runId, outcome)` | records the signed-in person's decision on a run waiting for sign-off, which then goes on to `decision`, `receipt` and `done`; rejects for any other run | the sign-off panel |
 

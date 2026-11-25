@@ -140,7 +140,7 @@ just web-dev                                   # the web app on http://localhost
 
 ### WP-UI-05, part 1: runs in the fake source, followed from the last event
 
-**In progress.** The first part of [WP-UI-05](web-screens.md#proposed-work-packages), in the master plan's §12 template. The generated client and the live-event transport wait for the server's run endpoints (WP-RT-01). Until then the fake source is the stand-in, with no MSW ([ADR-0046](../adr/0046-connect-screens-to-the-server-one-at-a-time.md)).
+**Built, in draft PR 6** ([log](../log/2026/11/2026-11-25-wp-wp-ui-05-run-contract.md)). The first part of [WP-UI-05](web-screens.md#proposed-work-packages), in the master plan's §12 template. The generated client and the live-event transport wait for the server's run endpoints (WP-RT-01). Until then the fake source is the stand-in, with no MSW ([ADR-0046](../adr/0046-connect-screens-to-the-server-one-at-a-time.md)).
 
 **Goal:** a run has an id and numbered events. A screen can read it as it stands and follow it from the last event it saw, so the chat, the run view, the sign-off page, the receipt and the audit sheet all show the same run (ADR-0035 §3).
 
@@ -153,7 +153,7 @@ just web-dev                                   # the web app on http://localhost
 
 **Inputs and outputs:**
 
-- `followRun` yields the events after `after`, then each new one as it happens, and ends when the run ends (`done`, `stopped` or `error`) or the signal aborts. It stays open while the run waits for sign-off.
+- `followRun` yields the events after `after`, then each new one as it happens, and ends when the run ends (`done`, `stopped` or `error`) or the signal aborts. It stays open while the run waits for sign-off. It rejects for a run that doesn't exist, and a negative `after` starts at the first event.
 - A follow can end before the run does: the connection dropped. Following again after the last `seq` seen gives the rest, with no gap and no repeat.
 - `cancelRun` ends a live run with `stopped`. Aborting a follow only stops listening; the run carries on.
 - `decide` records the decision as the signed-in person's, so a screen never names who decided. Followers then get `decision`, `receipt` and `done`.
