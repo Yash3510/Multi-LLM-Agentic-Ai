@@ -58,6 +58,20 @@ describe('StageRail pacing', () => {
   const stateOf = (container: HTMLElement, stage: string) =>
     container.querySelector(`[data-stage="${stage}"]`)?.getAttribute('data-state');
 
+  it('tells the run view where its light rests, trailing the run', async () => {
+    vi.useFakeTimers();
+    const onshown = vi.fn();
+    const props = { finished: false, paced: true, onshown };
+    const view = render(StageRail, {
+      props: { ...props, events: finishedRun.slice(0, 2), now: 2000 },
+    });
+    expect(onshown).toHaveBeenLastCalledWith('analyst');
+    await view.rerender({ ...props, events: finishedRun.slice(0, 3), now: 5000 });
+    expect(onshown).toHaveBeenLastCalledWith('analyst');
+    await vi.advanceTimersByTimeAsync(2850);
+    expect(onshown).toHaveBeenLastCalledWith('author');
+  });
+
   it('starts at the frontier on first sight, without replaying', () => {
     const { container } = render(StageRail, {
       props: { events: finishedRun.slice(0, 3), finished: false, now: 5000, paced: true },

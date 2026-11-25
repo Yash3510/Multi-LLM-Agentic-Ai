@@ -30,6 +30,8 @@
     onselect?: (stage: RailStage) => void;
     /** The id of the region a stage's detail opens in. */
     controls?: string;
+    /** Told the stage the rail shows the run at: where the light rests, trailing the run. */
+    onshown?: (stage: RailStage) => void;
   };
 
   let {
@@ -41,6 +43,7 @@
     selected,
     onselect,
     controls,
+    onshown,
   }: Props = $props();
 
   let clock = $state(Date.now());
@@ -104,6 +107,12 @@
         );
       }
     });
+  });
+
+  // Where the rail shows the run: the light's node while pacing, else the run's frontier.
+  $effect(() => {
+    const index = pacing ? shown : frontier;
+    if (index >= 0) onshown?.(RAIL[index]);
   });
 
   /** The state a node shows: beyond the light it still looks unreached. */

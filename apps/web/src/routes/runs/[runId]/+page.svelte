@@ -38,6 +38,7 @@
   let reconnecting = $state(false);
   let picked = $state<RailStage>();
   let handover = $state<RailStage>();
+  let railAt = $state<RailStage>();
   let citing = $state<number>();
   let citationOpen = $state(false);
 
@@ -82,15 +83,17 @@
 
   const run = $derived(deriveRun(events, finished, Date.now()));
   const details = $derived(stageDetails(events));
-  // The open stage: the person's pick, else where the run is.
+  // The open stage: the person's pick, else where the rail's light rests, else where the run is.
   const frontier = $derived(
     RAIL.find((stage) => run.stages[stage].state === 'active') ??
       RAIL.findLast((stage) => run.stages[stage].passes > 0) ??
       'planner',
   );
-  const shown = $derived(picked ?? frontier);
+  const shown = $derived(picked ?? railAt ?? frontier);
   const view = $derived(run.stages[shown]);
   const detail = $derived(details[shown]);
+  // A stage that ran more than once labels each try's lines.
+  const retried = $derived(new Set(detail.lines.map((line) => line.try)).size > 1);
   const meta = $derived(
     [
       view.note ?? STATES[view.state],
@@ -159,6 +162,7 @@
       onselect={(stage) => (picked = stage)}
       controls="stage-detail"
       onhandover={(role) => (handover = role)}
+      onshown={(stage) => (railAt = stage)}
     />
     <div class="status">
       <StatusLine {events} {finished} {handover} {reconnecting} />
@@ -188,7 +192,7 @@
         {#if detail.lines.length}
           <ol class="lines">
             {#each detail.lines as line, index (index)}
-              {#if line.try > 1 && detail.lines[index - 1]?.try !== line.try}
+              {#if retried && detail.lines[index - 1]?.try !== line.try}
                 <li class="try">Try {line.try}</li>
               {/if}
               <li class="line">
