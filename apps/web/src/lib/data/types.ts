@@ -772,6 +772,7 @@ export interface DataSource {
   /**
    * The run's events after `after`, then each new one as it happens, until the run ends or the
    * signal aborts. Ending before the run does means the connection dropped (see `watchRun`).
+   * Rejects for a run that doesn't exist.
    */
   followRun(id: string, after: number, signal?: AbortSignal): AsyncIterable<RunEvent>;
   /** Ends a live run with `stopped`. */

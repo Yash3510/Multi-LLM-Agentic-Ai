@@ -1631,8 +1631,8 @@ export function createFakeSource({
     },
     async *followRun(id, after, signal) {
       const run = runs.get(id);
-      if (!run) return;
-      let next = after;
+      if (!run) throw new Error('No such run.');
+      let next = Math.max(0, after);
       while (!signal?.aborted) {
         const event = run.events[next];
         if (event) {
