@@ -1,12 +1,29 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakeSource } from './fake';
-import type { StreamEvent } from './types';
+import type { RunEvent } from './types';
 
-const collect = async (events: AsyncIterable<StreamEvent>) => {
-  const seen: StreamEvent[] = [];
+const collect = async <T>(events: AsyncIterable<T>) => {
+  const seen: T[] = [];
   for await (const event of events) seen.push(event);
   return seen;
 };
+
+/** Follows a run up to its sign-off request, as the chat does before the person decides. */
+const toSignOff = async (events: AsyncIterable<RunEvent>) => {
+  const seen: RunEvent[] = [];
+  for await (const event of events) {
+    seen.push(event);
+    if (event.type === 'sign-off') break;
+  }
+  return seen;
+};
+
+/** The sequence numbers a run's events should carry: one after another, from `first`. */
+const numbered = (events: RunEvent[], first = 1) => events.map((_, index) => index + first);
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('fake source', () => {
   it('lists chats newest first and finds one by id', async () => {
@@ -19,9 +36,11 @@ describe('fake source', () => {
     expect(await source.getChat('nope')).toBeUndefined();
   });
 
-  it('streams a run through the chain in time order and stops at the sign-off', async () => {
+  it('streams a run through the chain in time order to the sign-off, numbered from 1', async () => {
     const source = createFakeSource({ pace: 0 });
-    const events = await collect(source.ask('c-0142', 'Is R2 within the limit?'));
+    const id = await source.ask('c-0142', 'Is R2 within the limit?');
+    const events = await toSignOff(source.followRun(id, 0));
+    expect(events.map((event) => event.seq)).toEqual(numbered(events));
     const times = events.map((event) => event.at);
     expect(times).toEqual([...times].sort((a, b) => a - b));
     const stages = events.flatMap((event) => (event.type === 'status' ? [event.stage] : []));
@@ -33,22 +52,84 @@ describe('fake source', () => {
     expect(events.at(-1)?.type).toBe('sign-off');
   });
 
-  it('finishes with the decision, the receipt and done once the person decides', async () => {
+  it('finishes with the decision in the signed-in name, the receipt and done', async () => {
     const source = createFakeSource({ pace: 0 });
-    await collect(source.ask('c-0142', 'Is R2 within the limit?'));
-    const rest = await collect(source.decide('c-0142', 'released', 'Asha Rao'));
+    const id = await source.ask('c-0142', 'Is R2 within the limit?');
+    const asked = await toSignOff(source.followRun(id, 0));
+    await source.decide(id, 'released');
+    const rest = await collect(source.followRun(id, asked.length));
     expect(rest.map((event) => event.type)).toEqual(['decision', 'receipt', 'done']);
+    expect(rest[0]).toMatchObject({ outcome: 'released', by: 'Asha Rao' });
+    expect(rest.map((event) => event.seq)).toEqual(numbered(rest, asked.length + 1));
+    expect(await source.getRun(id)).toMatchObject({ id, chatId: 'c-0142', finished: true });
+    // Nothing is released by any other path: a run no longer waiting can't be decided again.
+    await expect(source.decide(id, 'released')).rejects.toThrow();
   });
 
-  it('stops when the reader aborts', async () => {
+  it('follows after a given event, with nothing missed or repeated', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const id = await source.ask('c-0142', 'Is R2 within the limit?');
+    const all = await toSignOff(source.followRun(id, 0));
+    expect(await toSignOff(source.followRun(id, 5))).toEqual(all.slice(5));
+  });
+
+  it('cancels a live run with stopped, and nothing comes after it', async () => {
+    vi.useFakeTimers();
     const source = createFakeSource({ pace: 1 });
+    const id = await source.ask('c-0142', 'Is R2 within the limit?');
+    await vi.advanceTimersByTimeAsync(2_000);
+    await source.cancelRun(id);
+    await vi.advanceTimersByTimeAsync(60_000);
+    const events = await collect(source.followRun(id, 0));
+    expect(events.length).toBeGreaterThan(1);
+    expect(events.at(-1)?.type).toBe('stopped');
+    expect(events.some((event) => event.type === 'sign-off')).toBe(false);
+    expect((await source.getRun(id))?.finished).toBe(true);
+  });
+
+  it('stops following when the reader aborts, while the run carries on', async () => {
+    vi.useFakeTimers();
+    const source = createFakeSource({ pace: 1 });
+    const id = await source.ask('c-0142', 'Is R2 within the limit?');
     const controller = new AbortController();
-    const seen: StreamEvent[] = [];
-    for await (const event of source.ask('c-0142', 'Is R2 within the limit?', controller.signal)) {
-      seen.push(event);
-      if (seen.length === 3) controller.abort();
-    }
+    const seen: RunEvent[] = [];
+    const following = (async () => {
+      for await (const event of source.followRun(id, 0, controller.signal)) {
+        seen.push(event);
+        if (seen.length === 3) controller.abort();
+      }
+    })();
+    await vi.advanceTimersByTimeAsync(60_000);
+    await following;
     expect(seen).toHaveLength(3);
+    expect((await source.getRun(id))?.events.at(-1)?.type).toBe('sign-off');
+  });
+
+  it('replays the run the Challenger sends back, and the run that fails', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const replanned = await toSignOff(
+      source.followRun(await source.ask('c-0142', 'Is the ratio rounded?'), 0),
+    );
+    expect(replanned.some((event) => event.type === 'status' && event.stage === 'replan')).toBe(
+      true,
+    );
+    const failing = await collect(
+      source.followRun(await source.ask('c-0142', 'Is the server down?'), 0),
+    );
+    expect(failing.at(-1)?.type).toBe('error');
+  });
+
+  it("finds the stored chats' runs by id, finished, with their messages' events", async () => {
+    const source = createFakeSource({ pace: 0 });
+    for (const key of ['demo', '0142']) {
+      const chat = await source.getChat(`c-${key}`);
+      const answer = chat?.messages.find((message) => message.role === 'response');
+      expect(answer?.runId).toBe(`run-${key}`);
+      const run = await source.getRun(`run-${key}`);
+      expect(run).toMatchObject({ chatId: `c-${key}`, finished: true, events: answer?.events });
+      expect(run?.events.map((event) => event.seq)).toEqual(numbered(run?.events ?? []));
+    }
+    expect(await source.getRun('nope')).toBeUndefined();
   });
 });
 
