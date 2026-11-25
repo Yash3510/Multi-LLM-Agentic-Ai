@@ -3,7 +3,7 @@ title: "Connect screens to the server one at a time"
 type: adr
 status: planned
 owner: R3
-updated: 2026-11-17
+updated: 2026-11-25
 covers: []
 tags: [4ce, adr]
 number: 46
@@ -42,6 +42,16 @@ Every screen in `apps/web` reads one `DataSource` ([web data contract](../archit
 - Stand-in screens still name the stand-in account where they show an owner.
 - When the last call moves, `chooseSource` loses the fake and production builds start working.
 
+## Amendment: WP-UI-05 in two parts (2026-11-25)
+
+The run screens (run view, sign-off page, receipt, audit sheet) need runs that a screen can find by id and follow from the last event, and the server has no run endpoints yet.
+
+1. **Part 1 now, in the fake source.** Runs get ids and numbered events, with `getRun`, `followRun` (the events after a given `seq`), `cancelRun`, and `watchRun` to resume after a dropped connection ([web data contract](../architecture/web-data-contract.md#runs)). The screens are built against these calls.
+2. **Part 2 with the server.** The generated client and the WebSocket wait for the run endpoints (WP-RT-01). The run calls then move over like the session calls did, as a `serverRuns()` laid over the fake in `source.ts`, with no screen changed.
+3. **No MSW and no new dependency.** The fake source stays the only stand-in until each call is on the server.
+
+The frontend owner approved this amendment on 2026-11-25.
+
 ## Status
 
-Proposed on 2026-11-17. To be accepted by the frontend owner (R3), and by R1 for the departure from ADR-0035 §4.
+Proposed on 2026-11-17; amended on 2026-11-25. To be accepted by the frontend owner (R3), and by R1 for the departure from ADR-0035 §4.
