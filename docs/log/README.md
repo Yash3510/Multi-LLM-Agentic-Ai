@@ -13,6 +13,7 @@ One entry per PR, newest first, named `YYYY/MM/YYYY-MM-DD-<branch-name>.md` and 
 
 | Date | Entry | Work package |
 | --- | --- | --- |
+| 2026-11-26 | [apps/web: the sign-off page](2026/11/2026-11-26-wp-wp-ui-02-sign-off-page.md) | WP-UI-02 (part 1) |
 | 2026-11-26 | [apps/web: the run view](2026/11/2026-11-26-wp-wp-ui-01-run-view.md) | WP-UI-01 (part 1) |
 | 2026-11-25 | [apps/web: runs with ids and numbered events in the fake source](2026/11/2026-11-25-wp-wp-ui-05-run-contract.md) | WP-UI-05 (part 1) |
 | 2026-11-21 | [File storage](2026/11/2026-11-21-wp-f-08-file-storage.md) | WP-F-08 |

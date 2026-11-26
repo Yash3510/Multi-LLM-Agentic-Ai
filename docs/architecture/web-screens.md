@@ -364,6 +364,7 @@ The rulebook itself, read-only, is a tab of the pack detail (`/packs/[packId]`).
   - decided: approved (ink ring with tick, then the receipt) or returned (the `sign-off-returned` glyph and the reason).
 - **M2 states (WP-UI-10):** "you started this run, so someone else must approve" (maker-checker); "approved once, waiting for a second person" (two-person rule); "this needs a higher `<Gate role>`" (authority).
 - **Milestone:** M1 for the fail-closed panel; M2 for the maker-checker, two-person and authority states. **Demo step:** 2, 3, 4. **Tablet:** yes.
+- **Built so far** ([WP-UI-02, part 1](frontend.md#wp-ui-02-part-1-the-sign-off-page)), on the fake source: the run view with the chat's sign-off panel docked while the run waits at the gate, linked from the run view's Sign-off stage. `approve` releases and Withhold withholds, on the run the chat shows, and a refused decision says nothing was released. Not yet: Return with a reason (part 2), the classification and risk tier, and the M2 states.
 
 ### `/approvals`: Approval queue
 

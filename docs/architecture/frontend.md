@@ -254,7 +254,7 @@ just web-dev                                   # the web app on http://localhost
 
 ### WP-UI-02, part 1: the sign-off page
 
-**In progress** on `wp/WP-UI-02-sign-off-page`, stacked on WP-UI-01, part 1. The first part of [WP-UI-02](web-screens.md#proposed-work-packages), in the master plan's §12 template; Return with a reason is part 2. The frontend owner decided on 2026-11-25 that sign-off stays in the chat and gets this page too, both reading one run.
+**Built, in draft PR 9** ([log](../log/2026/11/2026-11-26-wp-wp-ui-02-sign-off-page.md)), stacked on WP-UI-01, part 1. The first part of [WP-UI-02](web-screens.md#proposed-work-packages), in the master plan's §12 template; Return with a reason is part 2. The frontend owner decided on 2026-11-25 that sign-off stays in the chat and gets this page too, both reading one run.
 
 **Goal:** a named person decides at `/runs/[runId]/sign-off` whether a run's work is released. The page is the run view with the sign-off panel docked, on the same run as the chat, so a decision taken in either shows in both.
 
