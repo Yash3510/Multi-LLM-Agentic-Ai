@@ -260,7 +260,7 @@ just web-dev                                   # the web app on http://localhost
 
 **Interface:**
 
-- The run view's route takes an optional `sign-off` segment (`src/routes/runs/[runId]/[[panel=panel]]/`, with the matcher `src/params/panel.ts`). `/runs/[runId]` and `/runs/[runId]/sign-off` are one page; the second docks the panel.
+- `/runs/[runId]/sign-off` is its own route, whose page renders the run view's page with `signOff` set, so both addresses are one page on one run and only the second docks the panel. (An optional route segment would do the same in one folder, but the repository's folder rule allows plain `[param]` folders only.)
 - The panel is the chat's `SignOffPanel`, open only while the run waits at the gate. `decide(runId, outcome)` records the decision. If the source refuses it, because someone decided first, the page says nothing was released.
 - While the run waits, the run view's Sign-off stage links to this page.
 - No new endpoint: the decision is `POST /api/runs/{run_id}/decision`, as proposed in [WP-UI-05, part 1](#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event).
@@ -273,12 +273,12 @@ just web-dev                                   # the web app on http://localhost
 
 **Acceptance tests:**
 
-- Vitest: the matcher takes `sign-off` and nothing else.
+- Vitest: nothing new; the page is made of components that already have tests.
 - Playwright (`e2e/sign-off.spec.ts`, on the demo build): a question asked in the chat, opened at its sign-off page, waits for the gate, then `approve` releases it there and the chat shows it released; a decided run's sign-off page has no panel.
 
 **Ledger:** nothing new; the fake writes no ledger entries.
 
-**Files:** `src/params/panel.ts` and its test, `src/routes/runs/[runId]/[[panel=panel]]/` (the run view, moved), and `e2e/sign-off.spec.ts`, all under `apps/web/`.
+**Files:** `src/routes/runs/[runId]/` (the run view, with the docked panel), `src/routes/runs/[runId]/sign-off/` and `e2e/sign-off.spec.ts`, all under `apps/web/`.
 
 **Docs:** this page, [web screens](web-screens.md), `state.md` and a work-log entry.
 

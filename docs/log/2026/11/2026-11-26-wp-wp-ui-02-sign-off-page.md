@@ -18,20 +18,20 @@ tags: [4ce, log, frontend]
 ## What changed
 
 - **`/runs/[runId]/sign-off`** ([WP-UI-02, part 1](../../../architecture/frontend.md#wp-ui-02-part-1-the-sign-off-page)): the run view with the chat's sign-off panel docked while the run waits at the gate. Before the gate it says the panel opens there; after the decision it is the decided run view with its receipt.
-- **One page, one run:** the run view's route moved under an optional segment, `[[panel=panel]]`, whose matcher (`src/params/panel.ts`) takes only `sign-off`. `/runs/[runId]` and `/runs/[runId]/sign-off` are the same page on the same run, so a decision taken there or in the chat shows in both.
+- **One page, one run:** `/runs/[runId]/sign-off` is its own route, whose page renders the run view's page with `signOff` set. Both addresses show the same run, so a decision taken there or in the chat shows in both.
 - **Refusals:** a decision the source refuses (someone decided first) shows "Nothing was released" with the reason.
 - **The link:** while the run waits, the run view's Sign-off stage offers Review and decide.
 
 ## Why
 
-The plan gives sign-off its own page, the run view with the panel docked (web-screens.md, `/runs/[runId]/sign-off`), and the frontend owner decided on 2026-11-25 to keep the chat's panel as well, both on one run. The owner asked for step 2 in pull requests under ~400 changed lines each. Moving the route rather than extracting the run view into a component keeps this one small: git records the move as a rename, so only the changed lines count.
+The plan gives sign-off its own page, the run view with the panel docked (web-screens.md, `/runs/[runId]/sign-off`), and the frontend owner decided on 2026-11-25 to keep the chat's panel as well, both on one run. The owner asked for step 2 in pull requests under ~400 changed lines each. Reusing the run view's page, rather than extracting it into a component, keeps this one small. Extracting it would count every moved line.
 
 ## Files
 
 | Path | Change |
 | --- | --- |
-| `apps/web/src/params/panel.ts`, `panel.test.ts` | new: the matcher for the optional `sign-off` segment |
-| `apps/web/src/routes/runs/[runId]/[[panel=panel]]/+page.svelte`, `+page.ts` | moved from `src/routes/runs/[runId]/`; the docked panel, the refusal, the Review and decide link |
+| `apps/web/src/routes/runs/[runId]/+page.svelte`, `+page.ts` | the docked panel, the refusal, the Review and decide link; `signOff` in the page data |
+| `apps/web/src/routes/runs/[runId]/sign-off/+page.svelte`, `+page.ts` | new: the sign-off route, rendering the run view's page with `signOff` |
 | `apps/web/e2e/sign-off.spec.ts` | new: the sign-off page in the browser |
 | `docs/architecture/frontend.md`, `web-screens.md`, `docs/state.md`, `docs/log/README.md` | the docs below |
 
@@ -39,8 +39,8 @@ The plan gives sign-off its own page, the run view with the panel docked (web-sc
 
 On macOS (arm64), Node 24.21.0, in the worktree used since WP-UI-05, on this branch (stacked on `wp/WP-UI-01-run-view` at `b707080`).
 
-- **Test first:** `npx vitest run src/params/panel.test.ts` failed (`Failed to resolve import "./panel"`), then 1 passed.
-- **In the browser:** `npx playwright test e2e/sign-off.spec.ts --project=desktop --project=tablet`. The first run had 2 failures, both the test's own: a locator matched the decision in the stage detail and in the receipt alike. Scoped to the Sign-off details, the rerun gave 4 passed. The run view's tests still pass (6 of 6).
+- **The first shape failed the repository check.** The page was first one route with an optional segment (`[[panel=panel]]`, a matcher in `src/params/panel.ts`, test-first). `uv run python tools/repo_check.py` refused the folder: "folder '[[panel=panel]]' is not kebab-case". The rule allows plain `[param]` folders only, as approved on 2026-11-04. So the sign-off page became its own route rendering the run view's page, and the matcher and its test went. The repository check then exited 0, and the browser tests below were run again.
+- **In the browser:** `npx playwright test e2e/sign-off.spec.ts --project=desktop --project=tablet`. The first run had 2 failures, both the test's own: a locator matched the decision in the stage detail and in the receipt alike. Scoped to the Sign-off details, the rerun gave 4 passed. On the final route, `e2e/sign-off.spec.ts` with `e2e/run-view.spec.ts` gave 10 passed.
 - **By hand,** on the demo build at 1440×900: a question asked in `c-0143`, followed to its run view, then to Review and decide at the gate, released there with `approve`; the run view showed it released with its receipt, and the chat showed the same receipt.
 
 **Every check:** the results are added below once run on this branch.
@@ -49,7 +49,7 @@ On macOS (arm64), Node 24.21.0, in the worktree used since WP-UI-05, on this bra
 
 ## Decisions
 
-- The sign-off page is the run view's own route with an optional segment, not a second page that copies it.
+- The sign-off page renders the run view's page rather than copying it or moving it into a component. An optional route segment would be tidier, but the repository's folder rule doesn't allow one; widening that rule is the owner's call.
 - The panel is the chat's `SignOffPanel`, unchanged; its words about "the conversation" stay true, since the released answer shows there too.
 
 ## Docs updated
