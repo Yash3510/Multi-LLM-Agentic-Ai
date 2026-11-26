@@ -2,9 +2,10 @@
   // One run in full at /runs/[runId] (web-screens.md; WP-UI-01, part 1): the rail and status line,
   // the open stage's detail, Cancel while it runs, and once released the receipt, what was checked
   // and the details panel, as in the chat. It reads the run by id and follows it from its last
-  // event, through a dropped connection, so it shows the run the chat follows (ADR-0035 §3). At
-  // /runs/[runId]/sign-off it docks the chat's sign-off panel while the run waits at the gate
-  // (WP-UI-02, part 1), so a decision taken here or in the chat shows in both.
+  // event, through a dropped connection, so it shows the run the chat follows (ADR-0035 §3). The
+  // sign-off route renders this page with `signOff`, which docks the chat's sign-off panel while
+  // the run waits at the gate (WP-UI-02, part 1): a decision taken there or in the chat shows in
+  // both.
   import { data as source, type RunEvent } from '$lib/data';
   import { ends, watchRun } from '$lib/data/runs';
   import {
