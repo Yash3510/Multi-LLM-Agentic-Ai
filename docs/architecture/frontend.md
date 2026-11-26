@@ -336,7 +336,7 @@ just web-dev                                   # the web app on http://localhost
 
 ### WP-UI-03, part 1: the full receipt
 
-**In progress** on `wp/WP-UI-03-receipt`, stacked on WP-UI-02, part 2. The first part of [WP-UI-03](web-screens.md#proposed-work-packages); deliverables as file cards are part 2, and the audit sheet part 3.
+**Built, in draft PR 11** ([log](../log/2026/11/2026-11-26-wp-wp-ui-03-receipt.md)), stacked on WP-UI-02, part 2. The first part of [WP-UI-03](web-screens.md#proposed-work-packages); deliverables as file cards are part 2, and the audit sheet part 3.
 
 **Goal:** a released run's receipt gives the whole sealed record, where people already look: the details panel under the answer in the chat and at the end of the run view.
 
