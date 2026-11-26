@@ -41,6 +41,7 @@ On macOS (arm64), Node 24.21.0, in the worktree used since WP-UI-05, on this bra
 
 - **The first shape failed the repository check.** The page was first one route with an optional segment (`[[panel=panel]]`, a matcher in `src/params/panel.ts`, test-first). `uv run python tools/repo_check.py` refused the folder: "folder '[[panel=panel]]' is not kebab-case". The rule allows plain `[param]` folders only, as approved on 2026-11-04. So the sign-off page became its own route rendering the run view's page, and the matcher and its test went. The repository check then exited 0, and the browser tests below were run again.
 - **In the browser:** `npx playwright test e2e/sign-off.spec.ts --project=desktop --project=tablet`. The first run had 2 failures, both the test's own: a locator matched the decision in the stage detail and in the receipt alike. Scoped to the Sign-off details, the rerun gave 4 passed. On the final route, `e2e/sign-off.spec.ts` with `e2e/run-view.spec.ts` gave 10 passed.
+- **Review fix, test first:** the line for a run not yet at the gate also showed between the decision and the end of the run, a flash after Approve (in the fake the decision comes about 300 ms before `done`). The sign-off browser test now watches the page while releasing. Before the fix it failed (`sawGateLine` expected false, received true); with the line shown only until the review request arrives, `npx playwright test e2e/sign-off.spec.ts --project=desktop --project=tablet` gave 4 passed.
 - **By hand,** on the demo build at 1440×900: a question asked in `c-0143`, followed to its run view, then to Review and decide at the gate, released there with `approve`; the run view showed it released with its receipt, and the chat showed the same receipt.
 
 **Every check,** each `just check` recipe's commands run directly (`just` isn't installed here), on the final code:
@@ -78,3 +79,5 @@ The repository has no issues for these; each belongs to a later work package of 
 - The panel doesn't show the classification or the risk tier: the run record doesn't carry them yet.
 - The M2 states (maker-checker, two-person, authority) are WP-UI-10.
 - A typed address to a sign-off page reloads the app, and the fake forgets runs asked since (as before); the stored runs survive.
+- The panel's "Drafted on" names `qwen/qwen3-8b`, written into the chat and the run view, until a run carries its model.
+- The receipt's working time is the fake's fixed 9.4 s, while the status line sums the stages (12.2 s on the same run); the full receipt (WP-UI-03) is where they should agree.
