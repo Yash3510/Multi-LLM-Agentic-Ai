@@ -43,7 +43,19 @@ On macOS (arm64), Node 24.21.0, in the worktree used since WP-UI-05, on this bra
 - **In the browser:** `npx playwright test e2e/sign-off.spec.ts --project=desktop --project=tablet`. The first run had 2 failures, both the test's own: a locator matched the decision in the stage detail and in the receipt alike. Scoped to the Sign-off details, the rerun gave 4 passed. On the final route, `e2e/sign-off.spec.ts` with `e2e/run-view.spec.ts` gave 10 passed.
 - **By hand,** on the demo build at 1440×900: a question asked in `c-0143`, followed to its run view, then to Review and decide at the gate, released there with `approve`; the run view showed it released with its receipt, and the chat showed the same receipt.
 
-**Every check:** the results are added below once run on this branch.
+**Every check,** each `just check` recipe's commands run directly (`just` isn't installed here), on the final code:
+
+| Recipe | Commands | Result |
+| --- | --- | --- |
+| `lint` | `uv run ruff format --check .`, `uv run ruff check .`, `uv run pyright` | 229 files already formatted; all checks passed; 0 errors, 0 warnings |
+| `imports` | `uv run lint-imports` | 14 contracts kept, 0 broken |
+| `repo-check`, `neutrality` | `uv run python tools/repo_check.py`, `tools/neutrality_check.py` | exit 0, nothing reported (the first shape's run: exit 1, quoted above) |
+| `docs` | `uv run python tools/docs_check.py`, and with `--base wp/WP-UI-01-run-view` | exit 0 both times |
+| `licences` | `tools/sbom.py`, `licence_gate.py build/sbom/python.cdx.json`, `import_scan.py …`, `licence_gate.py --bundle` | 78 components checked; 114 files scanned; 5 bundled services checked |
+| `test` | `uv run pytest -m "not postgres and not redis and not minio"` | 807 passed, 97 deselected, 36.6 s |
+| `web-lint` | `npm --prefix apps/web run lint`, `run lint:design`, `run check` | ESLint and Prettier clean; design lint clean; svelte-check 1461 files, 0 errors, 0 warnings |
+| `web-test` | `npm --prefix apps/web test`, `npm --prefix apps/web exec -- vitest run --root . --dir tools` | 93 files, 579 tests passed; 3 files, 16 tests passed |
+| `web-e2e` | `npm --prefix apps/web run e2e` | 22 passed in 47.0 s: desktop and tablet on the demo build (the sign-off page's 2 tests and the run view's 3 among them), and the 2 sign-in tests on the `server` project; 0 `window.fetch` warnings |
 
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets, which this change doesn't touch.
 
