@@ -31,6 +31,7 @@ import type {
   Usage,
   UsageDay,
   Memory,
+  Message,
   Run,
   RunEvent,
   StreamEvent,
@@ -673,6 +674,14 @@ export function createFakeSource({
       append(run, step.event);
     }
   };
+  // An answer as far as its run has got: the events so far, their text, and whether it ended.
+  const answered = (message: Message): Message => {
+    const run = message.runId ? runs.get(message.runId) : undefined;
+    if (!run) return message;
+    const events = [...run.events];
+    const text = events.flatMap((event) => (event.type === 'delta' ? [event.text] : [])).join('');
+    return { ...message, text, events, finished: run.finished };
+  };
   // Settles at the run's next event, or when the signal aborts.
   const changed = (run: Kept, signal?: AbortSignal) =>
     new Promise<void>((resolve) => {
@@ -1150,7 +1159,8 @@ export function createFakeSource({
         .map(({ id, title, updated, outcome }) => ({ id, title, updated, outcome }));
     },
     async getChat(id) {
-      return chats.find((chat) => chat.id === id);
+      const chat = chats.find((one) => one.id === id);
+      return chat && { ...chat, messages: chat.messages.map(answered) };
     },
     async listUsers() {
       const self: AdminUser[] = user ? [{ ...user, created: joined, lastActive: new Date() }] : [];
@@ -1613,6 +1623,15 @@ export function createFakeSource({
     async ask(chatId, question) {
       const run = keep({ id: crypto.randomUUID(), chatId, question, events: [], finished: false });
       runs.set(run.id, run);
+      // The question and its answer stay with the chat; getChat fills the answer in from the run.
+      const at = new Date();
+      const asked: Message[] = [
+        { id: `m-${run.id}-q`, role: 'user', text: question, at },
+        { id: `m-${run.id}-a`, role: 'response', text: '', at, runId: run.id },
+      ];
+      chats = chats.map((chat) =>
+        chat.id === chatId ? { ...chat, messages: [...chat.messages, ...asked] } : chat,
+      );
       // A question about the connection dropping loses it once, so resuming can be seen.
       if (/drop/i.test(question)) run.drop = DROP_AFTER;
       // A question about the server being down plays a run that stops at the Analyst, so the

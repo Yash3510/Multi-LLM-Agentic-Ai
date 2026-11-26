@@ -3,7 +3,7 @@ title: Web screens
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-25
+updated: 2026-11-26
 covers:
   - apps/web/src/routes/
 tags: [4ce, architecture, frontend]
@@ -237,7 +237,7 @@ Every route in one table. Details follow, grouped by area. `[id]` segments are o
   - live: an answer streaming; a run moving along its rail.
   - decided: a run released or withheld, shown by its node glyph and a link to the receipt.
 - **Milestone:** M1. **Demo step:** 2, 3, 4. **Tablet:** yes, for review.
-- **Built so far:** the conversation lives at `/c/[id]`. Each answer follows its run by id on the fake source ([WP-UI-05, part 1](frontend.md#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event)): Stop cancels the run, leaving the chat only stops following, and a dropped connection resumes from the last event.
+- **Built so far:** the conversation lives at `/c/[id]`. Each answer follows its run by id on the fake source ([WP-UI-05, part 1](frontend.md#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event)): Stop cancels the run, leaving the chat only stops following, and a dropped connection resumes from the last event, the status line saying so meanwhile. Each answer links to its run view, and a question asked in the chat stays with it, so the chat opened again follows a live answer on ([WP-UI-01, part 1](frontend.md#wp-ui-01-part-1-the-run-view)).
 
 ### `/runs/[runId]`: Run view
 
@@ -258,6 +258,7 @@ Every route in one table. Details follow, grouped by area. `[id]` segments are o
   - live: one node working, the light handing over; the status line saying what is happening.
   - decided: released (ink ring with tick) or withheld (dash); everything read-only, with the receipt.
 - **Milestone:** M1. **Demo step:** 2 (the seeded fault caught and the replan), 3, 4. **Tablet:** yes, for review.
+- **Built so far** ([WP-UI-01, part 1](frontend.md#wp-ui-01-part-1-the-run-view)), on the fake source: the rail with each reached node opening its stage's detail (lines, tool calls, sources, the Author's draft, the checks, the decision), the status line, Cancel while live, the run error card, and the chat's receipt and details panel once released. Not yet: the routing table and budgets spent, "could not check", links to evidence review and the assessment, and the receipt in full (WP-UI-03).
 
 ## Cases and subjects
 

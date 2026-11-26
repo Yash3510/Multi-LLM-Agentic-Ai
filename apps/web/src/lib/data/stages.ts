@@ -1,6 +1,6 @@
 // The stage rail's state, derived only from a run's events (own-4ce features F20), so it shows
 // what actually happened and survives a reload.
-import type { Role, StreamEvent } from './types';
+import type { Role, Source, StreamEvent, ToolCall } from './types';
 
 /** The rail's nodes, in order. Reader works inside the Analyst's stage, as in the running app. */
 export const RAIL = ['planner', 'analyst', 'author', 'challenger', 'sign-off'] as const;
@@ -146,4 +146,64 @@ export function deriveRun(events: StreamEvent[], finished: boolean, now: number)
     workingMs,
     running,
   };
+}
+
+/** What one rail stage did, from the run's events: the run view's stage detail. */
+export interface StageDetail {
+  /** Its status lines, each with the time since the run started and the try it belongs to. */
+  lines: { ms: number; role: Role | 'replan'; text: string; try: number }[];
+  /** Tool calls made while it worked, each at its latest state. */
+  calls: ToolCall[];
+  /** Sources found while it worked, once each. */
+  sources: Source[];
+  /** The text it drafted. */
+  text: string;
+}
+
+/** Each role's node on the rail: Reader works inside the Analyst's stage. */
+const NODE: Record<Role, RailStage> = {
+  planner: 'planner',
+  reader: 'analyst',
+  analyst: 'analyst',
+  author: 'author',
+  challenger: 'challenger',
+  'sign-off': 'sign-off',
+};
+
+/** Events between two status lines belong to the stage of the first; a replan line belongs to
+ * the stage that sent the work back, and every line after it to the next try. */
+export function stageDetails(events: StreamEvent[]): Record<RailStage, StageDetail> {
+  const empty = (): StageDetail => ({ lines: [], calls: [], sources: [], text: '' });
+  const details: Record<RailStage, StageDetail> = {
+    planner: empty(),
+    analyst: empty(),
+    author: empty(),
+    challenger: empty(),
+    'sign-off': empty(),
+  };
+  const start = events[0]?.at ?? 0;
+  let current: StageDetail | undefined;
+  let tries = 1;
+  for (const event of events) {
+    if (event.type === 'status') {
+      if (event.stage !== 'replan') current = details[NODE[event.stage]];
+      current?.lines.push({
+        ms: event.at - start,
+        role: event.stage,
+        text: event.description,
+        try: tries,
+      });
+      if (event.stage === 'replan') tries += 1;
+    } else if (current && event.type === 'tool') {
+      const known = current.calls.findIndex((call) => call.id === event.call.id);
+      if (known >= 0) current.calls[known] = event.call;
+      else current.calls.push(event.call);
+    } else if (current && event.type === 'source') {
+      if (!current.sources.some((source) => source.index === event.source.index))
+        current.sources.push(event.source);
+    } else if (current && event.type === 'delta') {
+      current.text += event.text;
+    }
+  }
+  return details;
 }

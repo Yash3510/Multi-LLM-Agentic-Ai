@@ -6,9 +6,9 @@
   import { getLocale } from '$lib/i18n/generated/runtime.js';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { toIntlLocale } from '$lib/ui/format';
-  import { onChip, renderMarkdown, safeHtml } from '$lib/ui/markdown';
-  import { arrive } from '$lib/ui/arrive';
+  import { renderMarkdown } from '$lib/ui/markdown';
   import { writeClipboard } from './clipboard';
+  import AnswerBody from './AnswerBody.svelte';
   import Logomark from './Logomark.svelte';
   import StageRail from './StageRail.svelte';
   import StatusLine from './StatusLine.svelte';
@@ -38,6 +38,10 @@
     /** The run's events, for the stage rail. */
     events?: StreamEvent[];
     finished?: boolean;
+    /** The run, linked from the status line to its run view. */
+    runId?: string;
+    /** Its dropped connection is being re-established. */
+    reconnecting?: boolean;
     /** Offered on the last answer: run it again after it stopped with an error. */
     onretry?: () => void;
   };
@@ -51,6 +55,8 @@
     direct,
     events,
     finished = true,
+    runId,
+    reconnecting = false,
     onretry,
   }: Props = $props();
 
@@ -193,7 +199,7 @@
       <div class="name">{model}</div>
       {#if events}
         <StageRail {events} {finished} onhandover={(role) => (handover = role)} />
-        <StatusLine {events} {finished} {handover} />
+        <StatusLine {events} {finished} {handover} {reconnecting} {runId} />
         {#if calls.length}<ToolGroup {calls} />{/if}
       {/if}
       {#if status}<div class="status">{status}</div>{/if}
@@ -205,13 +211,7 @@
           onretry={last ? onretry : undefined}
         />
       {:else}
-        <div
-          class="body"
-          data-typing={typing ? '' : undefined}
-          {@attach safeHtml(html)}
-          {@attach onChip(cite)}
-          {@attach arrive()}
-        ></div>
+        <AnswerBody {html} oncite={cite} {typing} />
       {/if}
       {#if receipt && decision?.outcome === 'released'}
         <ReceiptStrip
@@ -357,159 +357,6 @@
 
   :global([data-theme='dark']) .name {
     color: var(--color-white);
-  }
-
-  .body {
-    color: var(--color-prose);
-    font-size: var(--text-body);
-    /* The answer prose's relaxed line (24.4 px at 15 px), measured on the running app. */
-    line-height: 1.625;
-    overflow-wrap: anywhere;
-  }
-
-  /* Answer prose (chat-messages look §5): 4 px paragraph margins, compact lists, quiet tables
-     and code on the code ground. */
-  .body :global(:is(p, ul, ol, table, pre, blockquote)) {
-    margin-block: var(--spacing-1);
-  }
-
-  .body :global(:is(ul, ol)) {
-    padding-inline-start: 1.5em;
-  }
-
-  .body :global(ul) {
-    list-style: disc;
-  }
-
-  .body :global(ol) {
-    list-style: decimal;
-  }
-
-  .body :global(li) {
-    margin-block: 2px;
-  }
-
-  .body :global(a) {
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  .body :global(strong) {
-    font-weight: var(--font-weight-medium);
-  }
-
-  /* A table is one outlined box, like a settings group. */
-  .body :global(table) {
-    margin-block: 10px 6px;
-    overflow: hidden;
-    border: 1px solid var(--color-line-1);
-    border-radius: var(--radius-control);
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: var(--text-small);
-  }
-
-  .body :global(:is(th, td)) {
-    padding: 6px 14px;
-    border-block-end: 1px solid var(--color-line-1);
-  }
-
-  .body :global(tr:last-child > td) {
-    border-block-end: 0;
-  }
-
-  /* Columns marked right-aligned in the markdown (numbers) keep their align attribute. */
-  .body :global(:is(th, td):not([align])) {
-    text-align: start;
-  }
-
-  /* A quiet header row on a soft ground; figures line up down a column. */
-  .body :global(th) {
-    background-color: var(--glass-soft);
-    color: var(--color-ink-3);
-    font-size: var(--text-caption);
-    font-weight: var(--font-weight-medium);
-  }
-
-  .body :global(td) {
-    color: var(--color-ink-1);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .body :global(pre) {
-    padding: var(--spacing-3);
-    overflow-x: auto;
-    border-radius: var(--radius-inset);
-    background-color: var(--color-code-ground);
-    color: var(--color-code-ink);
-    font-size: var(--text-small);
-  }
-
-  /* Evidence chips for [n] (own-4ce look S14). */
-  .body :global(.chip) {
-    display: inline-flex;
-    align-items: center;
-    max-inline-size: 16rem;
-    margin-inline: 3px 1px;
-    padding: 0 5px;
-    overflow: hidden;
-    border: 1px solid var(--color-line-1);
-    border-radius: 5px;
-    color: var(--color-ink-2);
-    font-size: 11px;
-    font-style: normal;
-    font-weight: var(--font-weight-medium);
-    line-height: 16px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    vertical-align: baseline;
-    translate: 0 -1px;
-    cursor: pointer;
-  }
-
-  .body :global(.chip:hover) {
-    background-color: var(--glass-soft);
-    color: var(--color-ink-1);
-  }
-
-  .body :global(:not(pre) > code) {
-    padding: 1px 4px;
-    border-radius: var(--radius-tight);
-    background-color: var(--color-gray-50);
-    font-size: 0.9em;
-  }
-
-  /* A block written while the answer streams fades in (arrive.ts); saved answers do not. */
-  .body > :global([data-arrive]) {
-    animation: arrive var(--duration-calm) var(--ease-out) both;
-  }
-
-  @keyframes arrive {
-    from {
-      opacity: 0;
-    }
-  }
-
-  /* The typing caret at the end of the text while it streams (chat-messages look §3.4). */
-  .body[data-typing] > :global(:last-child)::after {
-    content: '';
-    display: inline-block;
-    inline-size: 2px;
-    block-size: 14px;
-    margin-inline-start: 2px;
-    background-color: var(--color-gray-400);
-    vertical-align: baseline;
-    animation: pulse 1s ease-in-out infinite;
-  }
-
-  :global([data-theme='dark']) .body[data-typing] > :global(:last-child)::after {
-    background-color: var(--color-gray-500);
-  }
-
-  @keyframes pulse {
-    50% {
-      opacity: 0.3;
-    }
   }
 
   .bar {

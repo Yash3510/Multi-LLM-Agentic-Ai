@@ -5,15 +5,22 @@
   import type { Role, StreamEvent } from '$lib/data';
   import { deriveRun, formatStageTime, type RailStage } from '$lib/data/stages';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import Link from './Link.svelte';
 
   type Props = {
     events: StreamEvent[];
     finished: boolean;
     /** The rail's light is travelling to this role: the line says so until it lands. */
     handover?: RailStage;
+    /** A dropped connection is being re-established: the line says so until it is. */
+    reconnecting?: boolean;
+    /** The run, linked beside the line to its run view (the chat). */
+    runId?: string;
   };
 
-  let { events, finished, handover }: Props = $props();
+  let { events, finished, handover, reconnecting = false, runId }: Props = $props();
+
+  const RECONNECTING = 'Connection lost. Reconnecting…';
 
   const PASSING: Record<RailStage, string> = {
     planner: 'Passing to Planner…',
@@ -104,26 +111,35 @@
 
 {#if latest}
   <div class="status-line" data-live={finished ? undefined : ''}>
-    <button
-      type="button"
-      class="toggle"
-      aria-label="Toggle status history"
-      aria-expanded={open}
-      onclick={() => (open = !open)}
+    <div class="head">
+      <button
+        type="button"
+        class="toggle"
+        aria-label="Toggle status history"
+        aria-expanded={open}
+        onclick={() => (open = !open)}
+      >
+        {#if finished}
+          <span class="summary">{summary}</span>
+          <span class="caret" data-open={open ? '' : undefined}
+            ><Icon name="caret-right" size={12} /></span
+          >
+        {:else}
+          {@const line = reconnecting
+            ? RECONNECTING
+            : handover
+              ? PASSING[handover]
+              : (rolled ?? plain(latest.description))}
+          {#key line}
+            <span class="live">{line}</span>
+          {/key}
+        {/if}
+      </button>
+      {#if runId}<Link href={`/runs/${runId}`}>View run</Link>{/if}
+    </div>
+    <span class="sr-only" aria-live="polite"
+      >{reconnecting && !finished ? RECONNECTING : plain(latest.description)}</span
     >
-      {#if finished}
-        <span class="summary">{summary}</span>
-        <span class="caret" data-open={open ? '' : undefined}
-          ><Icon name="caret-right" size={12} /></span
-        >
-      {:else}
-        {@const line = handover ? PASSING[handover] : (rolled ?? plain(latest.description))}
-        {#key line}
-          <span class="live">{line}</span>
-        {/key}
-      {/if}
-    </button>
-    <span class="sr-only" aria-live="polite">{plain(latest.description)}</span>
     {#if open && statuses.length > 1}
       <ol class="history">
         {#each statuses as item, index (index)}
@@ -154,8 +170,22 @@
     font-size: var(--text-body);
   }
 
+  .head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-3);
+    min-inline-size: 0;
+  }
+
+  .head > :global([data-link]) {
+    flex-shrink: 0;
+    font-size: 13.5px;
+    white-space: nowrap;
+  }
+
   .toggle {
     display: inline-flex;
+    min-inline-size: 0;
     align-items: center;
     gap: var(--spacing-1);
     max-inline-size: 100%;

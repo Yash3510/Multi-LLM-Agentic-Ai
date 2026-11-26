@@ -70,3 +70,26 @@ describe('StatusLine hand-over', () => {
     );
   });
 });
+
+describe('StatusLine reconnecting', () => {
+  it('says the connection was lost while it reconnects, over the hand-over, and announces it', () => {
+    const { getByRole, container } = render(StatusLine, {
+      props: { events: run, finished: false, handover: 'author', reconnecting: true },
+    });
+    expect(getByRole('button', { name: 'Toggle status history' }).textContent).toContain(
+      'Connection lost. Reconnecting…',
+    );
+    expect(container.querySelector('[aria-live="polite"]')?.textContent).toBe(
+      'Connection lost. Reconnecting…',
+    );
+  });
+});
+
+describe('StatusLine in the chat', () => {
+  it('links to the run view beside the line', () => {
+    const { getByRole } = render(StatusLine, {
+      props: { events: run, finished: false, runId: 'run-1' },
+    });
+    expect(getByRole('link', { name: 'View run' }).getAttribute('href')).toBe('/runs/run-1');
+  });
+});

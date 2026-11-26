@@ -3,7 +3,7 @@ title: Design system
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-25
+updated: 2026-11-26
 covers:
   - apps/web/src/lib/ui/
 tags: [4ce, architecture, frontend]
@@ -250,6 +250,10 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 - **Decided:** an ink ring with a tick for released, or a dash for withheld.
 
 **Rail labels** are the plan's role names, uppercase in `micro` type: PLANNER, ANALYST, AUTHOR, CHALLENGER and SIGN-OFF. Reader's work shows in the status line. The audit record's decision row is labelled Sign-off too.
+
+**On the run view** (`/runs/[runId]`) the rail's reached nodes are tabs: the open stage takes the faint tint the details panel's tabs show under the pointer, and its detail opens below on the details panel's surface, a soft fill around one raised body. Until the person picks a stage, the open one follows the rail's light, so the detail never runs ahead of the rail. ←/→ move between the nodes, Home and End jump, Enter opens one; a node not reached is disabled. In the chat the rail is unchanged. A stage's detail gives its lines with their time in mono, each try under a TRY label when a stage ran more than once, and verdicts as a word (PASS, REVIEW, FAIL) in mono, coloured, never colour alone.
+
+**The status line** says "Connection lost. Reconnecting…" while a dropped connection is re-established, in place of the stage's words, and its live region announces it. In the chat a View run link sits beside it. The Author's draft on the run view uses the chat's answer prose (`AnswerBody`), chips and tables included. The receipt draws its Audit button only where there is an audit record to open: in the chat, not yet on the run view.
 
 **Skeletons:**
 

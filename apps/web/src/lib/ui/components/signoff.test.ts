@@ -69,6 +69,7 @@ describe('ReceiptStrip', () => {
         checks: request.checks,
         releasedAt: new Date(2026, 10, 4, 14, 5),
         cited: ['Rule R2 · Ratio'],
+        onaudit: () => {},
       },
     });
     expect(getByRole('group', { name: 'How this answer was produced' })).toBeTruthy();
@@ -88,6 +89,11 @@ describe('ReceiptStrip', () => {
     expect(container.querySelector('[data-label="grounded"]')?.getAttribute('title')).toBe(
       'Cited: Rule R2 · Ratio',
     );
+  });
+
+  it('offers Audit only where there is an audit record to open', () => {
+    const { queryByRole } = render(ReceiptStrip, { props: { receipt, checks: request.checks } });
+    expect(queryByRole('button', { name: 'Audit' })).toBeNull();
   });
 
   it('counts reservations in amber', () => {
