@@ -3,6 +3,7 @@
   // the answer was produced, the fingerprint (click to copy) and the audit record, then what was
   // checked. The provenance, each agent's output and the timeline are in DetailsPanel.
   import type { Receipt, Revision, SignOffRequest } from '$lib/data';
+  import { formatStageTime } from '$lib/data/stages';
   import RevisionCard from './RevisionCard.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { COPY_HOLD_MS, writeClipboard } from './clipboard';
@@ -62,7 +63,7 @@
         <b>Released</b> by {receipt.signedBy}{releasedAt ? `, ${clock.format(releasedAt)}` : ''}
       </span>
     {/if}
-    <span class="label"><b>{Math.round(receipt.seconds)}s</b> working</span>
+    <span class="label"><b>{formatStageTime(receipt.seconds * 1000)}</b> working</span>
     {#if receipt.externalCalls !== undefined}
       <span class="label"
         ><b>{receipt.externalCalls}</b>

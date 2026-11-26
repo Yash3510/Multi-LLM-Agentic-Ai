@@ -4,7 +4,9 @@
   // agent's own output, Timeline places every step on the run, and Sources says how each one was
   // used. Everything comes from the run's record (details.ts).
   import { Tabs } from 'bits-ui';
-  import type { Receipt, SignOffRequest, Source } from '$lib/data';
+  import type { Receipt, SignOffRequest, Source, StreamEvent } from '$lib/data';
+  import { formatStageTime } from '$lib/data/stages';
+  import { COPY_HOLD_MS, writeClipboard } from './clipboard';
   import {
     PROVENANCE,
     provenanceRows,
@@ -26,9 +28,21 @@
     steps?: { ms: number; stage: string; text: string }[];
     /** Opens a source's passage. */
     onopen?: (index: number) => void;
+    /** The sealed record, for the Receipt tab, and the decision it records. */
+    receipt?: Receipt;
+    decision?: Extract<StreamEvent, { type: 'decision' }>;
   };
 
-  let { folds = [], sources = [], checks = [], answer = '', steps = [], onopen }: Props = $props();
+  let {
+    folds = [],
+    sources = [],
+    checks = [],
+    answer = '',
+    steps = [],
+    onopen,
+    receipt,
+    decision,
+  }: Props = $props();
 
   const provenance = $derived(folds.find((fold) => fold.title === PROVENANCE));
   const rows = $derived(provenance ? provenanceRows(provenance.body, sources) : []);
@@ -41,11 +55,32 @@
       { value: 'reasoning', label: 'Reasoning', count: reasoning.length, show: reasoning.length },
       { value: 'timeline', label: 'Timeline', count: spans.length, show: spans.length },
       { value: 'sources', label: 'Sources', count: uses.length, show: uses.length },
+      { value: 'receipt', label: 'Receipt', count: 0, show: Boolean(receipt) },
     ].filter((tab) => tab.show),
   );
   let chosen = $state<string>();
   const value = $derived(tabs.some((tab) => tab.value === chosen) ? chosen : tabs[0]?.value);
   const percent = (part: number) => `${(part * 100).toFixed(2)}%`;
+
+  // The receipt's fingerprint shows short until asked for whole; who decided and when, zoned.
+  let whole = $state(false);
+  let copied = $state(false);
+  const named = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
+  const zoned = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZoneName: 'short',
+  });
+  async function copy(text: string) {
+    if (await writeClipboard(text)) {
+      copied = true;
+      setTimeout(() => (copied = false), COPY_HOLD_MS);
+    }
+  }
 </script>
 
 {#snippet ref(index: number, title?: string)}
@@ -175,6 +210,70 @@
             </li>
           {/each}
         </ul>
+      </Tabs.Content>
+
+      <Tabs.Content class="details-body" value="receipt">
+        {#if receipt}
+          <dl class="record">
+            <dt>Fingerprint</dt>
+            <dd>
+              <code class="print"
+                >{whole ? receipt.fingerprint : `${receipt.fingerprint.slice(0, 8)}…`}</code
+              >
+              <button
+                type="button"
+                class="open"
+                aria-expanded={whole}
+                onclick={() => (whole = !whole)}>{whole ? 'Show less' : 'Show all'}</button
+              >
+              <button type="button" class="open" onclick={() => copy(receipt.fingerprint)}
+                >{copied ? 'Copied' : 'Copy'}</button
+              >
+            </dd>
+            {#if decision}
+              <dt>Decided</dt>
+              <dd>
+                {decision.outcome === 'released'
+                  ? 'Released'
+                  : decision.reason
+                    ? 'Returned'
+                    : 'Withheld'}
+                by {decision.by}, {zoned.format(new Date(decision.at))}
+              </dd>
+            {/if}
+            {#if receipt.classification}<dt>Classification</dt>
+              <dd>{receipt.classification}</dd>{/if}
+            {#if receipt.pack}
+              <dt>Pack</dt>
+              <dd>
+                {receipt.pack.name}
+                {receipt.pack.version} · <code>{receipt.pack.hash.slice(0, 8)}…</code>
+              </dd>
+            {/if}
+            {#if receipt.routing?.length}
+              <dt>Models</dt>
+              <dd>
+                {#each receipt.routing as row (row.role)}
+                  <span>{named(row.role)} <code>{row.model}</code></span>
+                {/each}
+              </dd>
+            {/if}
+            <dt>Skills</dt>
+            <dd>
+              {#each receipt.skills ?? [] as skill (skill.name)}
+                <span>{skill.name} {skill.version} <code>{skill.hash.slice(0, 8)}…</code></span>
+              {:else}
+                None used
+              {/each}
+            </dd>
+            <dt>External connections</dt>
+            <dd>{receipt.externalCalls ?? 'Not observed'} during the run</dd>
+            {#if receipt.ledger !== undefined}<dt>Ledger entry</dt>
+              <dd>{receipt.ledger}</dd>{/if}
+            <dt>Working time</dt>
+            <dd>{formatStageTime(receipt.seconds * 1000)}</dd>
+          </dl>
+        {/if}
       </Tabs.Content>
     </Tabs.Root>
   </section>
@@ -423,6 +522,30 @@
 
   .what {
     color: var(--color-ink-2);
+  }
+
+  /* The receipt's record: labels in the panel's quiet ink, values beside them. */
+  .record {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--spacing-1) var(--spacing-4);
+    margin: 0;
+  }
+
+  .record dt {
+    color: var(--color-ink-3);
+  }
+
+  .record dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-1) var(--spacing-3);
+    margin: 0;
+  }
+
+  .print {
+    overflow-wrap: anywhere;
   }
 
   .verdict {
