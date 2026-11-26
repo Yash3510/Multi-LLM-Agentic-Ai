@@ -135,6 +135,20 @@ describe('fake source', () => {
     await expect(collect(source.followRun('nope', 0))).rejects.toThrow();
   });
 
+  it('records the reason with a return, and refuses a blank one', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const id = await source.ask('c-0143', 'Is R2 within the limit?');
+    await toSignOff(source.followRun(id, 0));
+    await expect(source.decide(id, 'withheld', '   ')).rejects.toThrow();
+    await source.decide(id, 'withheld', 'Say how the ratio was rounded.');
+    const events = await collect(source.followRun(id, 0));
+    expect(events.find((event) => event.type === 'decision')).toMatchObject({
+      outcome: 'withheld',
+      by: 'Asha Rao',
+      reason: 'Say how the ratio was rounded.',
+    });
+  });
+
   it('keeps a question asked in a chat with it, its answer as far as the run has got', async () => {
     const source = createFakeSource({ pace: 0 });
     const before = (await source.getChat('c-0143'))?.messages.length ?? 0;

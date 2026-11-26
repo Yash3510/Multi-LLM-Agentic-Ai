@@ -88,7 +88,14 @@ export type StreamEvent =
   | { type: 'tool'; at: number; call: ToolCall }
   | { type: 'source'; at: number; source: Source }
   | { type: 'sign-off'; at: number; request: SignOffRequest }
-  | { type: 'decision'; at: number; outcome: 'released' | 'withheld'; by: string }
+  | {
+      type: 'decision';
+      at: number;
+      outcome: 'released' | 'withheld';
+      by: string;
+      /** Why it went back: a withheld decision with a reason is a return. */
+      reason?: string;
+    }
   | { type: 'receipt'; at: number; receipt: Receipt }
   | { type: 'done'; at: number }
   | { type: 'stopped'; at: number }
@@ -777,6 +784,9 @@ export interface DataSource {
   followRun(id: string, after: number, signal?: AbortSignal): AsyncIterable<RunEvent>;
   /** Ends a live run with `stopped`. */
   cancelRun(id: string): Promise<void>;
-  /** Records the signed-in person's decision on a run waiting for sign-off; rejects otherwise. */
-  decide(runId: string, outcome: 'released' | 'withheld'): Promise<void>;
+  /**
+   * Records the signed-in person's decision on a run waiting for sign-off; rejects otherwise.
+   * A reason with `withheld` returns the work; a blank reason is refused.
+   */
+  decide(runId: string, outcome: 'released' | 'withheld', reason?: string): Promise<void>;
 }

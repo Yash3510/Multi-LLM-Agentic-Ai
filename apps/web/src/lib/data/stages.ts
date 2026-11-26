@@ -23,7 +23,15 @@ export interface StageView {
   ms: number;
   /** How many times the stage ran. */
   passes: number;
-  note?: 'stopped' | 'failed' | 'interrupted' | 'reviewing' | 'released' | 'withheld' | 'fail';
+  note?:
+    | 'stopped'
+    | 'failed'
+    | 'interrupted'
+    | 'reviewing'
+    | 'released'
+    | 'withheld'
+    | 'returned'
+    | 'fail';
 }
 
 export interface RunView {
@@ -59,6 +67,8 @@ export function deriveRun(events: StreamEvent[], finished: boolean, now: number)
   let replans = 0;
   let challengerFailed = false;
   let outcome: 'released' | 'withheld' | undefined;
+  // A withheld decision with a reason went back to whoever asked: the node notes a return.
+  let returned = false;
   let endedBy: { stage: Role; note: 'stopped' | 'failed' } | undefined;
   const open = () => {
     const last = segments.at(-1);
@@ -88,6 +98,7 @@ export function deriveRun(events: StreamEvent[], finished: boolean, now: number)
       if (event.done) close(event.at);
     } else if (event.type === 'decision') {
       outcome = event.outcome;
+      returned = Boolean(event.reason);
       close(event.at);
     } else if (event.type === 'done') {
       if (!outcome && segments.at(-1)?.stage === 'sign-off') outcome = 'released';
@@ -121,7 +132,8 @@ export function deriveRun(events: StreamEvent[], finished: boolean, now: number)
       return { state: 'requeued', ms, passes };
     if (stage === 'challenger' && challengerFailed)
       return { state: 'fail', ms, passes, note: 'fail' };
-    if (stage === 'sign-off' && outcome) return { state: outcome, ms, passes, note: outcome };
+    if (stage === 'sign-off' && outcome)
+      return { state: outcome, ms, passes, note: returned ? 'returned' : outcome };
     return { state: 'done', ms, passes };
   };
 
