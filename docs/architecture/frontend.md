@@ -85,7 +85,7 @@ just web-dev                                   # the web app on http://localhost
 3. **Sign-in, session and sign-out** against slice 1: the first screens with a real backend ([WP-UI-06, part 1](#wp-ui-06-part-1-sign-in-session-and-sign-out-against-the-server)).
 4. **Runs in the fake source:** ids, numbered events and following from the last event, so every run screen reads one run ([WP-UI-05, part 1](#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event)).
 5. **WP-UI-01:** chat, cases and the run view with the stage rail ([part 1, the run view](#wp-ui-01-part-1-the-run-view)). Runs, cases and live events come in later backend slices; until then, the fake source ([web data contract](web-data-contract.md)). Propose each endpoint's shape in a PR to this page, so the backend builds what the screens need.
-6. **WP-UI-02** sign-off panel ([part 1, the sign-off page](#wp-ui-02-part-1-the-sign-off-page)), **WP-UI-03** receipt and provenance, **WP-UI-04** Sovereignty page.
+6. **WP-UI-02** sign-off panel ([part 1, the sign-off page](#wp-ui-02-part-1-the-sign-off-page)), **WP-UI-03** receipt and provenance ([part 1, the full receipt](#wp-ui-03-part-1-the-full-receipt)), **WP-UI-04** Sovereignty page.
 
 ### WP-UI-06, part 1: sign-in, session and sign-out against the server
 
@@ -329,6 +329,40 @@ just web-dev                                   # the web app on http://localhost
 **Out of scope:** a returned run going back to the agents for another try; for now a return ends the run, and asking again is a new question. Also out of scope: the receipt in full and the audit sheet (WP-UI-03).
 
 **Depends on:** WP-UI-02, part 1 (draft PR 9).
+
+**Reviewer:** R3.
+
+**Size:** one pull request, under ~400 changed lines.
+
+### WP-UI-03, part 1: the full receipt
+
+**Built, in draft PR 11** ([log](../log/2026/11/2026-11-26-wp-wp-ui-03-receipt.md)), stacked on WP-UI-02, part 2. The first part of [WP-UI-03](web-screens.md#proposed-work-packages); deliverables as file cards are part 2, and the audit sheet part 3.
+
+**Goal:** a released run's receipt gives the whole sealed record, where people already look: the details panel under the answer in the chat and at the end of the run view.
+
+**Interface:**
+
+- `Receipt` gains the record's other facts: the `classification` in the pack's words, the `pack` (name, version and hash), the `routing` table (each role's model), the `skills` used with their version hashes, and the `ledger` position.
+- `DetailsPanel` gains a Receipt tab, last, given the `receipt` and the `decision`. It shows the fingerprint short with Show all and Copy, who decided and when with the time zone, the classification, pack, models, skills ("None used" when none), external connections, ledger entry and working time. A run with no receipt has no tab, and the record never changes after release.
+- The working time is the run's own: the fake sets `seconds` from the run's stages, so the receipt and the status line agree. The fake's record is neutral: classification Internal, pack Core 1.0.0, no skills, ledger entry 1042.
+- No new endpoint: these come with the run's `receipt` event.
+
+**Acceptance tests:**
+
+- Vitest: the fake's receipt carries the record and the run's working time; the Receipt tab shows the short fingerprint, the whole one on Show all, who decided, the pack, the models and the ledger entry.
+- Playwright (`e2e/run-view.spec.ts`): the stored run's Receipt tab, in the run view and the chat, gives the pack, the ledger entry and the whole fingerprint.
+
+**Ledger:** nothing new; the fake writes no ledger entries.
+
+**Files:** `src/lib/data/` (`types.ts`, `fake.ts` and its test), `src/lib/ui/components/` (`DetailsPanel.svelte`, `ReceiptStrip.svelte`, `ResponseMessage.svelte`, `signoff.test.ts`), `src/routes/runs/[runId]/+page.svelte` and `e2e/run-view.spec.ts`, all under `apps/web/`.
+
+**Docs:** this page, the [web data contract](web-data-contract.md), [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
+
+**Neutrality:** no sector terms; the pack and classification are neutral stand-ins.
+
+**Out of scope:** deliverables as file cards (part 2); the audit sheet (part 3); the QR code and evidence-pack export (M2); the compact sovereignty view beyond the egress count (WP-UI-04).
+
+**Depends on:** WP-UI-02, part 2 (draft PR 10).
 
 **Reviewer:** R3.
 

@@ -57,6 +57,16 @@ export interface Receipt {
   externalCalls?: number;
   /** Folds under the receipt: full provenance and each agent's own output, as markdown. */
   folds?: { title: string; body: string }[];
+  /** What was released is classified as, in the pack's words. */
+  classification?: string;
+  /** The pack the run used, with the hash of the version installed. */
+  pack?: { name: string; version: string; hash: string };
+  /** The routing table: which model each role ran on. */
+  routing?: { role: Role; model: string }[];
+  /** Skills the run used, each with its version hash. */
+  skills?: { name: string; version: string; hash: string }[];
+  /** The decision's position in the ledger. */
+  ledger?: number;
 }
 
 export interface Message {

@@ -100,7 +100,7 @@ describe('ReceiptStrip', () => {
       'Grounded 2 sources',
       'Checked Challenger passed it',
       'Released by Asha Rao, 14:05',
-      '9s working',
+      '9.4s working',
       '0 external calls, observed',
       'Fingerprint 3f9a21c0',
       'Audit',
@@ -127,6 +127,55 @@ describe('ReceiptStrip', () => {
       'Checked Challenger passed it, 1 reservation',
     );
     expect(checked?.getAttribute('data-tone')).toBe('warn');
+  });
+
+  it('gives the sealed record in a Receipt tab', async () => {
+    const fingerprint = '0604685d984d94b44870bea051662d5c981671e220f8073eae5ab3c26543b5f7';
+    const { getByRole } = render(DetailsPanel, {
+      props: {
+        sources,
+        checks: request.checks,
+        answer: 'Within the limit [1].',
+        receipt: {
+          fingerprint,
+          model: 'qwen/qwen3-8b',
+          seconds: 12.2,
+          sources: 1,
+          externalCalls: 0,
+          classification: 'Internal',
+          pack: { name: 'Core', version: '1.0.0', hash: '3f9a21c07be4d815' },
+          routing: [
+            { role: 'planner' as const, model: 'qwen/qwen3-8b' },
+            { role: 'challenger' as const, model: 'qwen/qwen3-1.7b' },
+          ],
+          skills: [],
+          ledger: 1042,
+        },
+        decision: {
+          type: 'decision' as const,
+          at: Date.UTC(2026, 10, 26, 17, 25),
+          outcome: 'released' as const,
+          by: 'Asha Rao',
+        },
+      },
+    });
+    await fireEvent.click(getByRole('tab', { name: 'Receipt' }));
+    const record = getByRole('tabpanel', { name: 'Receipt' });
+    expect(record.textContent).toContain('0604685d…');
+    expect(record.textContent).not.toContain(fingerprint);
+    await fireEvent.click(getByRole('button', { name: 'Show all' }));
+    const text = record.textContent?.replace(/\s+/g, ' ');
+    for (const fact of [
+      fingerprint,
+      'Released by Asha Rao',
+      'Internal',
+      'Core 1.0.0',
+      'qwen/qwen3-1.7b',
+      'None used',
+      '1042',
+      '12.2s',
+    ])
+      expect(text).toContain(fact);
   });
 
   it('shows provenance, the timeline and the sources as tabs of one panel', async () => {
