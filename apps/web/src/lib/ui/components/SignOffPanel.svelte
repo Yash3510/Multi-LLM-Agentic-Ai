@@ -11,13 +11,17 @@
     draft: string;
     sources: Source[];
     model: string;
-    ondecide: (outcome: 'released' | 'withheld') => void;
+    /** A reason with `withheld` returns the work to whoever asked. */
+    ondecide: (outcome: 'released' | 'withheld', reason?: string) => void;
   };
 
   let { request, draft, sources, model, ondecide }: Props = $props();
 
   let word = $state('');
   let refused = $state(false);
+  // Return swaps the typed word for the reason the work goes back with.
+  let returning = $state(false);
+  let reason = $state('');
   let showChanges = $state(false);
   const revision = $derived(request.revision);
   // Removals with no replacement are listed in the box; the rest are marked in the draft.
@@ -170,29 +174,58 @@
   </div>
 
   <div class="controls">
-    <span class="field-box">
-      <input
-        class="field"
-        bind:value={word}
-        placeholder="Type approve to release"
-        aria-label="Type approve to release"
-        oninput={() => (refused = false)}
-        onkeydown={(event) => {
-          if (event.key === 'Enter') approve();
-          if (event.key === 'Escape') word = '';
-        }}
-      />
-      {#if ready}<span class="tick" aria-hidden="true"><Icon name="check" size={16} /></span>{/if}
-    </span>
-    <button type="button" class="withhold" onclick={() => ondecide('withheld')}>Withhold</button>
-    <button type="button" class="approve" data-ready={ready ? '' : undefined} onclick={approve}>
-      Approve
-    </button>
+    {#if returning}
+      <span class="field-box">
+        <input
+          class="field"
+          bind:value={reason}
+          placeholder="Why it goes back"
+          aria-label="Why it goes back"
+          {@attach (field) => field.focus()}
+          onkeydown={(event) => {
+            if (event.key === 'Enter' && reason.trim()) ondecide('withheld', reason.trim());
+            if (event.key === 'Escape') returning = false;
+          }}
+        />
+      </span>
+      <button type="button" class="withhold" onclick={() => (returning = false)}>Cancel</button>
+      <button
+        type="button"
+        class="approve"
+        data-ready={reason.trim() ? '' : undefined}
+        disabled={!reason.trim()}
+        onclick={() => ondecide('withheld', reason.trim())}
+      >
+        Return it
+      </button>
+    {:else}
+      <span class="field-box">
+        <input
+          class="field"
+          bind:value={word}
+          placeholder="Type approve to release"
+          aria-label="Type approve to release"
+          oninput={() => (refused = false)}
+          onkeydown={(event) => {
+            if (event.key === 'Enter') approve();
+            if (event.key === 'Escape') word = '';
+          }}
+        />
+        {#if ready}<span class="tick" aria-hidden="true"><Icon name="check" size={16} /></span>{/if}
+      </span>
+      <button type="button" class="withhold" onclick={() => (returning = true)}>Return</button>
+      <button type="button" class="withhold" onclick={() => ondecide('withheld')}>Withhold</button>
+      <button type="button" class="approve" data-ready={ready ? '' : undefined} onclick={approve}>
+        Approve
+      </button>
+    {/if}
   </div>
   <p class="hint" data-refused={refused ? '' : undefined}>
-    {refused
-      ? 'Type approve to release it.'
-      : 'Nothing enters the conversation until you approve it. Withhold, press Esc, or leave it - anything other than approve keeps it back.'}
+    {returning
+      ? 'The reason goes back with the work, and nothing is released.'
+      : refused
+        ? 'Type approve to release it.'
+        : 'Nothing enters the conversation until you approve it. Withhold, press Esc, or leave it - anything other than approve keeps it back.'}
   </p>
 </section>
 
