@@ -85,7 +85,7 @@ just web-dev                                   # the web app on http://localhost
 3. **Sign-in, session and sign-out** against slice 1: the first screens with a real backend ([WP-UI-06, part 1](#wp-ui-06-part-1-sign-in-session-and-sign-out-against-the-server)).
 4. **Runs in the fake source:** ids, numbered events and following from the last event, so every run screen reads one run ([WP-UI-05, part 1](#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event)).
 5. **WP-UI-01:** chat, cases and the run view with the stage rail ([part 1, the run view](#wp-ui-01-part-1-the-run-view)). Runs, cases and live events come in later backend slices; until then, the fake source ([web data contract](web-data-contract.md)). Propose each endpoint's shape in a PR to this page, so the backend builds what the screens need.
-6. **WP-UI-02** sign-off panel ([part 1, the sign-off page](#wp-ui-02-part-1-the-sign-off-page)), **WP-UI-03** receipt and provenance ([part 1, the full receipt](#wp-ui-03-part-1-the-full-receipt)), **WP-UI-04** Sovereignty page.
+6. **WP-UI-02** sign-off panel ([part 1, the sign-off page](#wp-ui-02-part-1-the-sign-off-page)), **WP-UI-03** receipt and provenance ([part 1, the full receipt](#wp-ui-03-part-1-the-full-receipt); [part 2, file cards](#wp-ui-03-part-2-deliverables-as-file-cards)), **WP-UI-04** Sovereignty page.
 
 ### WP-UI-06, part 1: sign-in, session and sign-out against the server
 
@@ -367,6 +367,33 @@ just web-dev                                   # the web app on http://localhost
 **Reviewer:** R3.
 
 **Size:** one pull request, under ~400 changed lines.
+
+### WP-UI-03, part 2: deliverables as file cards
+
+**In progress** on `wp/WP-UI-03-file-cards`, stacked on part 1. The file card web-screens.md defines, used first for a released run's deliverables.
+
+**Goal:** the documents a released run produced show as file cards under its receipt, in the chat and at the end of the run view.
+
+**Interface:**
+
+- `FileInfo` in `types.ts`: a file's name, kind (`docx`, `xlsx`, `pptx`…), size in bytes, SHA-256, classification and state (`uploading`, `scanning`, `parsing`, `ready`, `failed`). `Receipt.deliverables` lists the run's files.
+- `FileCard`: the kind's Phosphor file icon and a neutral type tag, the name, the size (as the knowledge pages write it), the hash prefix and the classification; a file not yet ready says its state. `ReceiptStrip` shows the deliverables' cards, so both pages get them.
+- No new endpoint: the files come with the run's `receipt` event. Opening or downloading one waits for files from the server.
+
+**Acceptance tests:**
+
+- Vitest: the fake's receipt lists a ready `docx`; `FileCard` shows the tag, name, size, hash prefix and classification, and the state of a file not yet ready.
+- Playwright (`e2e/run-view.spec.ts`): the stored run's deliverable card shows in the run view and the chat.
+
+**Ledger:** nothing new. **Neutrality:** no sector terms; the file name uses the fixtures' neutral case id.
+
+**Files:** `src/lib/data/` (`types.ts`, `fake.ts`, `fake.test.ts`), `src/lib/ui/components/` (`FileCard.svelte` and its test, `ReceiptStrip.svelte`) and `e2e/run-view.spec.ts`, all under `apps/web/`.
+
+**Docs:** this page, the [web data contract](web-data-contract.md), [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
+
+**Out of scope:** opening and downloading files, upload progress, and attachments in the composer (WP-UI-09); revision cards per deliverable version; the audit sheet (part 3).
+
+**Depends on:** WP-UI-03, part 1 (draft PR 11). **Reviewer:** R3. **Size:** one pull request, under ~400 changed lines.
 
 ## When `apps/web` lands on `4ce-core`
 
