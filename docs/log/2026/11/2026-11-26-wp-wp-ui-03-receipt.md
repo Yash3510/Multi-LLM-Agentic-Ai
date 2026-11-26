@@ -40,7 +40,11 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-02-return-w
 - `signoff.test.ts`: the Receipt tab test and the strip's `9.4s working` failed, then 11 passed.
 - `e2e/run-view.spec.ts` "a released run's receipt gives the whole record…": failed (no Receipt tab), then the run view's tests 8 passed on desktop and tablet.
 
-**Every check:** the results are added below once run on this branch.
+**Every check,** each `just check` recipe run directly (`just` isn't installed here), all exit 0:
+
+- `lint`: 231 files already formatted (134 Python, 97 Markdown), all checks passed, pyright 0 errors; `imports`: 14 contracts kept; `repo-check`, `neutrality`: nothing reported.
+- `docs`: exit 0, and with `--base wp/WP-UI-02-return-with-reason`; `licences`: 78 components, 114 files scanned, 5 bundled services.
+- `test`: 807 passed, 97 deselected. `web-lint`: ESLint, Prettier and design lint clean, svelte-check 1462 files, 0 errors. `web-test`: 93 files, 584 tests; tools 16 tests. `web-e2e`: 26 passed in 46.8 s.
 
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets.
 
