@@ -360,6 +360,16 @@ function closing(
           routing: ROUTING,
           skills: [],
           ledger: 1042,
+          deliverables: [
+            {
+              name: 'CASE-0142 answer.docx',
+              kind: 'docx',
+              size: 18_874,
+              hash: '9c2e5b8f1a4d7c0e3b6f9a2d5c8e1b4f7a0d3c6e9b2f5a8d1c4e7b0a3d6f9c2e',
+              classification: 'Internal',
+              state: 'ready',
+            },
+          ],
         },
       },
     },
