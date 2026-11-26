@@ -343,26 +343,14 @@ just web-dev                                   # the web app on http://localhost
 **Interface:**
 
 - `Receipt` gains the record's other facts: the `classification` in the pack's words, the `pack` (name, version and hash), the `routing` table (each role's model), the `skills` used with their version hashes, and the `ledger` position.
-- `DetailsPanel` gains a Receipt tab, given the `receipt` and the `decision`. It shows:
-  - the fingerprint as 8 characters and `…`, with Show all for the whole fingerprint and Copy;
-  - who decided and when, with the time zone;
-  - the classification, the pack, the models, the skills (or "None used");
-  - the external connections observed during the run;
-  - the ledger entry and the working time.
-- The working time is the run's own: the fake sets `seconds` from the run's stages, so the receipt and the status line agree, and the strip writes it as the status line does.
+- `DetailsPanel` gains a Receipt tab, last, given the `receipt` and the `decision`. It shows the fingerprint short with Show all and Copy, who decided and when with the time zone, the classification, pack, models, skills ("None used" when none), external connections, ledger entry and working time. A run with no receipt has no tab, and the record never changes after release.
+- The working time is the run's own: the fake sets `seconds` from the run's stages, so the receipt and the status line agree. The fake's record is neutral: classification Internal, pack Core 1.0.0, no skills, ledger entry 1042.
 - No new endpoint: these come with the run's `receipt` event.
-
-**Inputs and outputs:**
-
-- A released run's details panel has a Receipt tab after the others; a run with no receipt has none. The record never changes after release.
-- The fake's record is synthetic and neutral: classification Internal, pack Core 1.0.0, the models the folds name, no skills, ledger entry 1042.
 
 **Acceptance tests:**
 
-- Vitest:
-  1. the fake's receipt carries the record, and its `seconds` is the run's working time, for an asked run and a stored one;
-  2. the Receipt tab shows the short fingerprint, the whole one on Show all, who decided, the pack, the models and the ledger entry.
-- Playwright (`e2e/run-view.spec.ts`): the stored run's Receipt tab gives the pack, the ledger entry and the whole fingerprint.
+- Vitest: the fake's receipt carries the record and the run's working time; the Receipt tab shows the short fingerprint, the whole one on Show all, who decided, the pack, the models and the ledger entry.
+- Playwright (`e2e/run-view.spec.ts`): the stored run's Receipt tab, in the run view and the chat, gives the pack, the ledger entry and the whole fingerprint.
 
 **Ledger:** nothing new; the fake writes no ledger entries.
 

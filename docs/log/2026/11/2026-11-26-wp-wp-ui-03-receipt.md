@@ -17,9 +17,7 @@ tags: [4ce, log, frontend]
 
 ## What changed
 
-- **The receipt's whole record** ([WP-UI-03, part 1](../../../architecture/frontend.md#wp-ui-03-part-1-the-full-receipt)):
-  - `Receipt` gains the classification, the pack with its hash, the routing table, the skills and the ledger position;
-  - the details panel shows them in a new Receipt tab, in the chat and the run view: the fingerprint short, whole on Show all and copyable, and who decided and when, with the time zone.
+- **The receipt's whole record** ([WP-UI-03, part 1](../../../architecture/frontend.md#wp-ui-03-part-1-the-full-receipt)): `Receipt` gains the classification, the pack with its hash, the routing table, the skills and the ledger position. A new Receipt tab in the details panel shows them in the chat and the run view, with the fingerprint whole on Show all and copyable, and the decision's time zone.
 - **One working time:** the fake sets the receipt's `seconds` from the run's stages, and the strip writes it as the status line does (12.2 s in both on `run-0142`, where the strip said 9 s).
 
 ## Why
@@ -31,8 +29,7 @@ web-screens.md lists what a receipt holds; the strip showed only part of it. Rev
 | Path | Change |
 | --- | --- |
 | `apps/web/src/lib/data/types.ts`, `fake.ts`, `fake.test.ts` | the record's fields; the fake's stand-ins and working time |
-| `apps/web/src/lib/ui/components/DetailsPanel.svelte`, `ReceiptStrip.svelte`, `ResponseMessage.svelte`, `signoff.test.ts` | the Receipt tab; the strip's working time; the chat passes the receipt |
-| `apps/web/src/routes/runs/[runId]/+page.svelte`, `apps/web/e2e/run-view.spec.ts` | the run view passes the receipt; the browser test |
+| `apps/web/src/lib/ui/components/` (`DetailsPanel.svelte`, `ReceiptStrip.svelte`, `ResponseMessage.svelte`, `signoff.test.ts`), `src/routes/runs/[runId]/+page.svelte`, `e2e/run-view.spec.ts` | the Receipt tab, passed the receipt by both pages; the strip's working time; the tests |
 | `docs/architecture/frontend.md`, `web-data-contract.md`, `web-screens.md`, `design-system.md`, `docs/state.md`, `docs/log/README.md` | the docs |
 
 ## How it was verified
