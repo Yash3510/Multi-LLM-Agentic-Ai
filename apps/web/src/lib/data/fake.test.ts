@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakeSource } from './fake';
+import { deriveRun } from './stages';
 import type { RunEvent } from './types';
 
 const collect = async <T>(events: AsyncIterable<T>) => {
@@ -133,6 +134,32 @@ describe('fake source', () => {
     expect(await source.getRun('nope')).toBeUndefined();
     // Following a run that doesn't exist fails, so a watcher doesn't wait for it forever.
     await expect(collect(source.followRun('nope', 0))).rejects.toThrow();
+  });
+
+  it("gives the receipt the sealed record and the run's own working time", async () => {
+    const source = createFakeSource({ pace: 0 });
+    const id = await source.ask('c-0143', 'Is R2 within the limit?');
+    await toSignOff(source.followRun(id, 0));
+    await source.decide(id, 'released');
+    const asked = await collect(source.followRun(id, 0));
+    const stored = (await source.getRun('run-0142'))?.events ?? [];
+    for (const events of [asked, stored]) {
+      const receipt = events.findLast((event) => event.type === 'receipt')?.receipt;
+      expect(receipt).toMatchObject({
+        classification: 'Internal',
+        pack: { name: 'Core', version: '1.0.0' },
+        skills: [],
+        ledger: 1042,
+      });
+      expect(receipt?.routing?.map((row) => row.role)).toEqual([
+        'planner',
+        'reader',
+        'analyst',
+        'author',
+        'challenger',
+      ]);
+      expect(receipt?.seconds).toBe(deriveRun(events, true, 0).workingMs / 1000);
+    }
   });
 
   it('records the reason with a return, and refuses a blank one', async () => {

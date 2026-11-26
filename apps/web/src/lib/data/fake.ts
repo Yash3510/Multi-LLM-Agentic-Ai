@@ -40,6 +40,7 @@ import type {
   WorkspaceModel,
 } from './types';
 import { ends, sleep } from './runs';
+import { deriveRun } from './stages';
 
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
 
@@ -320,12 +321,25 @@ function demo(): Step[] {
   ];
 }
 
+/** The receipt's sealed record: neutral stand-ins for the pack, the classification and the ledger. */
+const PACK = {
+  name: 'Core',
+  version: '1.0.0',
+  hash: '3f9a21c07be4d8152c6a0d9e4b7f13a8c5e2d6f9a1b4c7e0d3f6a9b2c5e8d1f4',
+};
+const ROUTING: NonNullable<Receipt['routing']> = [
+  { role: 'planner', model: 'qwen/qwen3-8b' },
+  { role: 'reader', model: 'qwen/qwen3-8b' },
+  { role: 'analyst', model: 'qwen/qwen3-8b' },
+  { role: 'author', model: 'qwen/qwen3-8b' },
+  { role: 'challenger', model: 'qwen/qwen3-1.7b' },
+];
+
+/** The decision, the receipt and the end, after a run's `seconds` of the agents' work. */
 function closing(
   outcome: 'released' | 'withheld',
   by: string,
-  folds = FOLDS,
-  sources = 2,
-  reason?: string,
+  { seconds, folds = FOLDS, sources = 2, reason }: Closing,
 ): Step[] {
   return [
     { after: 300, event: { type: 'decision', outcome, by, ...(reason ? { reason } : {}) } },
@@ -336,17 +350,32 @@ function closing(
         receipt: {
           fingerprint: '0604685d984d94b44870bea051662d5c981671e220f8073eae5ab3c26543b5f7',
           model: 'qwen/qwen3-8b',
-          seconds: 9.4,
+          seconds,
           sources,
           signedBy: by,
           externalCalls: 0,
           folds,
+          classification: 'Internal',
+          pack: PACK,
+          routing: ROUTING,
+          skills: [],
+          ledger: 1042,
         },
       },
     },
     { after: 100, event: { type: 'done' } },
   ];
 }
+
+interface Closing {
+  seconds: number;
+  folds?: Folds;
+  sources?: number;
+  reason?: string;
+}
+
+/** The agents' working time, in seconds, as the status line and the receipt both give it. */
+const working = (events: StreamEvent[]) => deriveRun(events, true, 0).workingMs / 1000;
 
 /** A finished, released run (`run-<key>`) stored with a chat, as a reloaded chat comes back. */
 function storedRun(
@@ -358,12 +387,17 @@ function storedRun(
   sources = 2,
 ) {
   let time = at.getTime();
-  const events: RunEvent[] = [...run, ...closing('released', 'Asha Rao', folds, sources)].map(
-    (step, index) => {
+  const stamp = (steps: Step[]) =>
+    steps.map((step): StreamEvent => {
       time += step.after;
-      return { ...step.event, at: time, seq: index + 1 };
-    },
-  );
+      return { ...step.event, at: time };
+    });
+  const played = stamp(run);
+  const seconds = working(played);
+  const events: RunEvent[] = [
+    ...played,
+    ...stamp(closing('released', 'Asha Rao', { seconds, folds, sources })),
+  ].map((event, index) => ({ ...event, seq: index + 1 }));
   const text = events.flatMap((event) => (event.type === 'delta' ? [event.text] : [])).join('');
   return [
     { id: `m-${key}-q`, role: 'user' as const, text: question, at },
@@ -1684,7 +1718,8 @@ export function createFakeSource({
       if (reason !== undefined && !reason.trim()) throw new Error('A return needs a reason.');
       run.decided = true;
       const why = outcome === 'withheld' ? reason?.trim() : undefined;
-      void play(run, closing(outcome, user?.name ?? 'Asha Rao', FOLDS, 2, why));
+      const seconds = working(run.events);
+      void play(run, closing(outcome, user?.name ?? 'Asha Rao', { seconds, reason: why }));
     },
   };
 }
