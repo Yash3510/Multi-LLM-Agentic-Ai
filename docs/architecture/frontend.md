@@ -292,6 +292,48 @@ just web-dev                                   # the web app on http://localhost
 
 **Size:** one pull request, under ~400 changed lines.
 
+### WP-UI-02, part 2: Return with a reason
+
+**Built, in draft PR 10** ([log](../log/2026/11/2026-11-26-wp-wp-ui-02-return-with-reason.md)), stacked on part 1. web-screens.md gives the sign-off panel a Return that sends the work back with a reason; the frontend owner asked for it in the chat's panel too (2026-11-25).
+
+**Goal:** the person at the gate can return the work with a reason instead of releasing it, from the sign-off page or the chat, and the reason stays with the run.
+
+**Interface:**
+
+- `decide(runId, outcome, reason?)`: a reason goes with `withheld` and makes it a return; a blank reason is refused. The `decision` event carries the `reason`.
+- `SignOffPanel`: Return opens a reason field in place of the typed word, with Cancel; Return it is enabled only once a reason is written. Withhold stays, for keeping the work back without a reason.
+- The rail's Sign-off node notes `returned`, with the withheld dash, which is the design system's returned glyph. The run view's Sign-off stage says who returned it, when and why, and the chat shows the reason under the answer.
+- No new endpoint: the reason goes in `POST /api/runs/{run_id}/decision` with the outcome.
+
+**Inputs and outputs:**
+
+- Return, a reason, Return it: the run is decided withheld with that reason, nothing is released, and it ends without a receipt, as a withheld run does.
+- Cancel, or Escape in the reason field, goes back to the typed word with nothing decided.
+
+**Acceptance tests:**
+
+- Vitest:
+  1. the fake records the reason with a return and refuses a blank one;
+  2. `deriveRun` notes `returned` for a withheld decision with a reason, and `withheld` without one;
+  3. the panel's Return asks for a reason, sends it with `withheld`, stays disabled while the reason is blank, and Cancel goes back.
+- Playwright (`e2e/return.spec.ts`, on the demo build): a run returned from the chat's panel shows the reason under the answer and in its run view's Sign-off stage.
+
+**Ledger:** nothing new; the fake writes no ledger entries. The server records the decision with its reason (WP-LG-01, `approval.decision`).
+
+**Files:** `src/lib/data/` (`types.ts`, `fake.ts`, `stages.ts` and their tests), `src/lib/ui/components/` (`SignOffPanel.svelte`, `ResponseMessage.svelte`, `signoff.test.ts`), `src/routes/c/[id]/+page.svelte`, `src/routes/runs/[runId]/+page.svelte` and `e2e/return.spec.ts`, all under `apps/web/`.
+
+**Docs:** this page, the [web data contract](web-data-contract.md), [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
+
+**Neutrality:** no sector terms.
+
+**Out of scope:** a returned run going back to the agents for another try; for now a return ends the run, and asking again is a new question. Also out of scope: the receipt in full and the audit sheet (WP-UI-03).
+
+**Depends on:** WP-UI-02, part 1 (draft PR 9).
+
+**Reviewer:** R3.
+
+**Size:** one pull request, under ~400 changed lines.
+
 ## When `apps/web` lands on `4ce-core`
 
 The first PR that adds `apps/web` also wires it into the repository's checks. In the same PR:

@@ -203,6 +203,9 @@
         {#if calls.length}<ToolGroup {calls} />{/if}
       {/if}
       {#if status}<div class="status">{status}</div>{/if}
+      {#if decision?.reason}
+        <p class="returned">Returned by {decision.by}: {decision.reason}</p>
+      {/if}
       {#if failure}
         <RunErrorCard
           detail={failure.message}
@@ -317,6 +320,13 @@
     color: var(--color-black);
     font-size: var(--text-body);
     line-height: 1.5;
+  }
+
+  /* A returned answer says why it went back, under the rail, in the status line's grey. */
+  .returned {
+    margin-block: 2px 10px;
+    color: var(--color-gray-600);
+    font-size: var(--text-body);
   }
 
   /* Gaps measured on the running app: 2 px under the name, 10 px before the body. */

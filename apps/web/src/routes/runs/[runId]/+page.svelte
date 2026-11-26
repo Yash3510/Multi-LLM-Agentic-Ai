@@ -144,10 +144,10 @@
     hourCycle: 'h23',
   });
 
-  async function decide(outcome: 'released' | 'withheld') {
+  async function decide(outcome: 'released' | 'withheld', reason?: string) {
     refusal = undefined;
     try {
-      await source.decide(data.run.id, outcome);
+      await source.decide(data.run.id, outcome, reason);
     } catch (error) {
       refusal = error instanceof Error ? error.message : String(error);
     }
@@ -246,9 +246,14 @@
         {#if shown === 'sign-off'}
           {#if decision}
             <p>
-              {decision.outcome === 'released' ? 'Released' : 'Withheld'} by {decision.by}, {clock.format(
+              {decision.outcome === 'released'
+                ? 'Released'
+                : decision.reason
+                  ? 'Returned'
+                  : 'Withheld'} by {decision.by}, {clock.format(
                 new Date(decision.at),
-              )}
+              )}{#if decision.reason}:
+                {decision.reason}{/if}
             </p>
           {:else if request && !finished}
             <p>

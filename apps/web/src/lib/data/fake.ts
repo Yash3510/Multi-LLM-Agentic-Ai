@@ -320,9 +320,15 @@ function demo(): Step[] {
   ];
 }
 
-function closing(outcome: 'released' | 'withheld', by: string, folds = FOLDS, sources = 2): Step[] {
+function closing(
+  outcome: 'released' | 'withheld',
+  by: string,
+  folds = FOLDS,
+  sources = 2,
+  reason?: string,
+): Step[] {
   return [
-    { after: 300, event: { type: 'decision', outcome, by } },
+    { after: 300, event: { type: 'decision', outcome, by, ...(reason ? { reason } : {}) } },
     {
       after: 200,
       event: {
@@ -1671,12 +1677,14 @@ export function createFakeSource({
       run.stop.abort();
       append(run, { type: 'stopped' });
     },
-    async decide(runId, outcome) {
+    async decide(runId, outcome, reason) {
       const run = runs.get(runId);
       if (!run || run.finished || run.decided || run.events.at(-1)?.type !== 'sign-off')
         throw new Error('This run is not waiting for sign-off.');
+      if (reason !== undefined && !reason.trim()) throw new Error('A return needs a reason.');
       run.decided = true;
-      void play(run, closing(outcome, user?.name ?? 'Asha Rao'));
+      const why = outcome === 'withheld' ? reason?.trim() : undefined;
+      void play(run, closing(outcome, user?.name ?? 'Asha Rao', FOLDS, 2, why));
     },
   };
 }

@@ -40,6 +40,25 @@ describe('SignOffPanel', () => {
     expect(ondecide).toHaveBeenCalledWith('withheld');
   });
 
+  it('returns the work with a reason, and Cancel goes back to the typed word', async () => {
+    const ondecide = vi.fn();
+    const { getByRole, queryByRole } = render(SignOffPanel, {
+      props: { request, draft: 'Yes.', sources, model: 'qwen/qwen3-8b', ondecide },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Return' }));
+    expect(getByRole('button', { name: 'Return it' }).hasAttribute('disabled')).toBe(true);
+    await fireEvent.click(getByRole('button', { name: 'Cancel' }));
+    expect(queryByRole('textbox', { name: 'Why it goes back' })).toBeNull();
+    expect(getByRole('textbox', { name: 'Type approve to release' })).toBeTruthy();
+
+    await fireEvent.click(getByRole('button', { name: 'Return' }));
+    await fireEvent.input(getByRole('textbox', { name: 'Why it goes back' }), {
+      target: { value: 'Say how the ratio was rounded. ' },
+    });
+    await fireEvent.click(getByRole('button', { name: 'Return it' }));
+    expect(ondecide).toHaveBeenCalledWith('withheld', 'Say how the ratio was rounded.');
+  });
+
   it('shows the verdict and what was checked', () => {
     const { getByText } = render(SignOffPanel, {
       props: { request, draft: 'Yes.', sources, model: 'qwen/qwen3-8b', ondecide: vi.fn() },

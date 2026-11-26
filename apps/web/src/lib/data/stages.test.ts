@@ -96,6 +96,29 @@ describe('deriveRun', () => {
   });
 });
 
+describe('deriveRun at the gate', () => {
+  const decided = (reason?: string) =>
+    deriveRun(
+      [
+        s(0, 'planner'),
+        s(1000, 'analyst'),
+        s(2000, 'sign-off'),
+        { type: 'decision', at: 3000, outcome: 'withheld', by: 'A. Rao', reason },
+        { type: 'done', at: 3100 },
+      ],
+      true,
+      3100,
+    );
+
+  it('notes a return on the Sign-off node, and a plain withhold as withheld', () => {
+    expect(decided('Say how it was rounded.').stages['sign-off']).toMatchObject({
+      state: 'withheld',
+      note: 'returned',
+    });
+    expect(decided().stages['sign-off']).toMatchObject({ state: 'withheld', note: 'withheld' });
+  });
+});
+
 describe('stageDetails', () => {
   const tool = (at: number, state: 'running' | 'done', output?: string): StreamEvent => ({
     type: 'tool',

@@ -89,9 +89,9 @@
   }
 
   // The run goes on to its decision, receipt and end on the follow already open.
-  function decide(outcome: 'released' | 'withheld') {
+  function decide(outcome: 'released' | 'withheld', reason?: string) {
     const runId = waiting?.answer.runId;
-    if (runId) void source.decide(runId, outcome);
+    if (runId) void source.decide(runId, outcome, reason);
   }
 
   function stop() {
