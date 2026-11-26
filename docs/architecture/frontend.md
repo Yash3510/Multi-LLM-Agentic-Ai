@@ -294,7 +294,7 @@ just web-dev                                   # the web app on http://localhost
 
 ### WP-UI-02, part 2: Return with a reason
 
-**In progress** on `wp/WP-UI-02-return-with-reason`, stacked on part 1. web-screens.md gives the sign-off panel a Return that sends the work back with a reason; the frontend owner asked for it in the chat's panel too (2026-11-25).
+**Built, in draft PR 10** ([log](../log/2026/11/2026-11-26-wp-wp-ui-02-return-with-reason.md)), stacked on part 1. web-screens.md gives the sign-off panel a Return that sends the work back with a reason; the frontend owner asked for it in the chat's panel too (2026-11-25).
 
 **Goal:** the person at the gate can return the work with a reason instead of releasing it, from the sign-off page or the chat, and the reason stays with the run.
 

@@ -49,7 +49,7 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `getRun(id)` | the `Run` as it stands (id, chat, question, numbered events, finished), or `undefined` | every run screen; the run view (`/runs/[runId]`) |
 | `followRun(id, after, signal?)` | the run's events after `after`, then each new one, until the run ends; rejects for a run that doesn't exist; see [Runs](#runs) | the live answer, through `watchRun` |
 | `cancelRun(id)` | ends a live run with `stopped` | the composer's Stop; the run view's Cancel |
-| `decide(runId, outcome)` | records the signed-in person's decision on a run waiting for sign-off, which then goes on to `decision`, `receipt` and `done`; rejects for any other run | the sign-off panel |
+| `decide(runId, outcome, reason?)` | records the signed-in person's decision on a run waiting for sign-off, which then goes on to `decision`, `receipt` and `done`; a reason with `withheld` returns the work, and a blank reason is refused; rejects for any other run | the sign-off panel, in the chat and on the sign-off page |
 
 The person's Stop button cancels the run. Leaving the chat aborts the follow only: the run carries on.
 
@@ -123,7 +123,7 @@ Events arrive in order, each with its run's `seq`. `at` is the server's time in 
 | `tool` | a `ToolCall`: id, name, input, output, state (`running`, `done`, `failed`); a repeated id updates the call | the tool-call row |
 | `source` | a `Source`: citation number, title, passage | the `[n]` citations and the sources list |
 | `sign-off` | the checks for the person to review, each with a verdict and the citation numbers it rests on (`cites`), and on a later try a `revision` (try number, objections, removed and added lines) | the sign-off panel and its changes view; the receipt's revision card |
-| `decision` | `released` or `withheld`, and who decided | the Sign-off node and the panel's result |
+| `decision` | `released` or `withheld`, who decided, and for a return the `reason` | the Sign-off node (noting `returned` for a return), the run view's Sign-off stage and, for a return, a line under the answer |
 | `receipt` | fingerprint, model, seconds, source count, who signed, external calls observed, and `folds` (titled markdown: full provenance and each agent's own output) | the receipt labels, then the folds; the execution timeline fold is built from the status events |
 | `done`, `stopped`, `error` | error: the server's `message` and optional plain-language `advice` | the end of the run; an error shows the run error card, which reads the cause from those two fields |
 
@@ -136,6 +136,14 @@ Events arrive in order, each with its run's `seq`. `at` is the server's time in 
 - `done` after the Sign-off stage with no decision means released.
 
 `stageDetails` in the same file gives the run view what each rail stage did: its status lines with the time since the run started and the try they belong to (each `replan` starts the next try, and its own line goes to the stage that sent the work back), the tool calls and sources found while it worked, with the Reader's in the Analyst's stage, and the text it drafted.
+
+## Known limits for runs from the server
+
+The fake's runs are simple enough that these hold today; a server's runs will need each settled.
+
+- **Answer text joins every try's deltas.** The chat's answer, the run view's text, `stageDetails`' Author text and the fake's `getChat` all append every `delta`. That is right only because the fake's first try streams no deltas. A server that streams both drafts needs a rule, such as starting over at each `replan` or keeping only the deltas after the last one.
+- **Sources are listed once per stage, not once per run.** The run view gathers each stage's sources, so two stages reporting the same citation number would list it twice.
+- **A refused cancel isn't handled.** The run view's Cancel and the chat's Stop don't expect `cancelRun` to reject. The fake never does; a server can.
 
 ## Planned
 
