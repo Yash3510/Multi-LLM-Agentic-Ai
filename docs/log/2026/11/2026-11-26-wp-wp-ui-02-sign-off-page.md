@@ -44,7 +44,7 @@ On macOS (arm64), Node 24.21.0, in the worktree used since WP-UI-05, on this bra
 - **Review fix, test first:** the line for a run not yet at the gate also showed between the decision and the end of the run, a flash after Approve (in the fake the decision comes about 300 ms before `done`). The sign-off browser test now watches the page while releasing. Before the fix it failed (`sawGateLine` expected false, received true); with the line shown only until the review request arrives, `npx playwright test e2e/sign-off.spec.ts --project=desktop --project=tablet` gave 4 passed.
 - **By hand,** on the demo build at 1440×900: a question asked in `c-0143`, followed to its run view, then to Review and decide at the gate, released there with `approve`; the run view showed it released with its receipt, and the chat showed the same receipt.
 
-**Every check,** each `just check` recipe's commands run directly (`just` isn't installed here), on the final code:
+**Every check,** each `just check` recipe's commands run directly (`just` isn't installed here), on the final code, the review fix included:
 
 | Recipe | Commands | Result |
 | --- | --- | --- |
@@ -53,10 +53,10 @@ On macOS (arm64), Node 24.21.0, in the worktree used since WP-UI-05, on this bra
 | `repo-check`, `neutrality` | `uv run python tools/repo_check.py`, `tools/neutrality_check.py` | exit 0, nothing reported (the first shape's run: exit 1, quoted above) |
 | `docs` | `uv run python tools/docs_check.py`, and with `--base wp/WP-UI-01-run-view` | exit 0 both times |
 | `licences` | `tools/sbom.py`, `licence_gate.py build/sbom/python.cdx.json`, `import_scan.py …`, `licence_gate.py --bundle` | 78 components checked; 114 files scanned; 5 bundled services checked |
-| `test` | `uv run pytest -m "not postgres and not redis and not minio"` | 807 passed, 97 deselected, 36.6 s |
+| `test` | `uv run pytest -m "not postgres and not redis and not minio"` | 807 passed, 97 deselected, 33.9 s |
 | `web-lint` | `npm --prefix apps/web run lint`, `run lint:design`, `run check` | ESLint and Prettier clean; design lint clean; svelte-check 1461 files, 0 errors, 0 warnings |
 | `web-test` | `npm --prefix apps/web test`, `npm --prefix apps/web exec -- vitest run --root . --dir tools` | 93 files, 579 tests passed; 3 files, 16 tests passed |
-| `web-e2e` | `npm --prefix apps/web run e2e` | 22 passed in 47.0 s: desktop and tablet on the demo build (the sign-off page's 2 tests and the run view's 3 among them), and the 2 sign-in tests on the `server` project; 0 `window.fetch` warnings |
+| `web-e2e` | `npm --prefix apps/web run e2e` | 22 passed in 45.0 s: desktop and tablet on the demo build (the sign-off page's 2 tests and the run view's 3 among them), and the 2 sign-in tests on the `server` project; 0 `window.fetch` warnings |
 
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets, which this change doesn't touch.
 
