@@ -48,7 +48,18 @@ On macOS (arm64), Node 24.21.0, in the worktree used since WP-UI-05, on this bra
 
 **In the browser:** `npx playwright test e2e/return.spec.ts --project=desktop --project=tablet`: 2 passed. A run returned from the chat's panel shows its reason under the answer, and in its run view's Sign-off stage, whose node notes returned.
 
-**Every check:** the results are added below once run on this branch.
+**Every check,** each `just check` recipe run directly (`just` isn't installed here), on the final code:
+
+| Recipe | Result |
+| --- | --- |
+| `lint` (`ruff format --check .`, `ruff check .`, `pyright`) | 230 files already formatted (134 Python, 96 Markdown); all checks passed; 0 errors |
+| `imports`, `repo-check`, `neutrality` | 14 contracts kept; exit 0, nothing reported |
+| `docs` (`docs_check.py`, and `--base wp/WP-UI-02-sign-off-page`) | exit 0 both times |
+| `licences` | 78 components checked; 114 files scanned; 5 bundled services checked |
+| `test` (`pytest -m "not postgres and not redis and not minio"`) | 807 passed, 97 deselected |
+| `web-lint` (`run lint`, `run lint:design`, `run check`) | ESLint and Prettier clean; design lint clean; svelte-check 1462 files, 0 errors |
+| `web-test` (`npm test`, tools vitest) | 93 files, 582 tests passed; 3 files, 16 tests passed |
+| `web-e2e` (`npm run e2e`) | 24 passed in 48.4 s, the 2 sign-in tests on the `server` project among them |
 
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets, which this change doesn't touch.
 
@@ -71,5 +82,6 @@ On macOS (arm64), Node 24.21.0, in the worktree used since WP-UI-05, on this bra
 The repository has no issues for these; each belongs to a later work package of [web screens](../../../architecture/web-screens.md#build-order).
 
 - A return ends the run; another try with the reason attached waits for the server's runs.
+- The chat still shows a withheld or returned draft in the thread, as it did for Withhold before this change, though the panel says nothing enters the conversation until it is approved.
 - The data contract's three known limits for runs from the server (see the contract).
 - As in part 1: the panel's "Drafted on" names `qwen/qwen3-8b` until runs carry their model, and the receipt's working time is the fake's fixed 9.4 s.
