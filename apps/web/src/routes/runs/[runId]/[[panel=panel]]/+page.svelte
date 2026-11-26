@@ -2,7 +2,9 @@
   // One run in full at /runs/[runId] (web-screens.md; WP-UI-01, part 1): the rail and status line,
   // the open stage's detail, Cancel while it runs, and once released the receipt, what was checked
   // and the details panel, as in the chat. It reads the run by id and follows it from its last
-  // event, through a dropped connection, so it shows the run the chat follows (ADR-0035 §3).
+  // event, through a dropped connection, so it shows the run the chat follows (ADR-0035 §3). At
+  // /runs/[runId]/sign-off it docks the chat's sign-off panel while the run waits at the gate
+  // (WP-UI-02, part 1), so a decision taken here or in the chat shows in both.
   import { data as source, type RunEvent } from '$lib/data';
   import { ends, watchRun } from '$lib/data/runs';
   import {
@@ -19,9 +21,11 @@
   import CitationDialog from '$lib/ui/components/CitationDialog.svelte';
   import DetailsPanel from '$lib/ui/components/DetailsPanel.svelte';
   import EgressIndicator from '$lib/ui/components/EgressIndicator.svelte';
+  import InlineAlert from '$lib/ui/components/InlineAlert.svelte';
   import Link from '$lib/ui/components/Link.svelte';
   import ReceiptStrip from '$lib/ui/components/ReceiptStrip.svelte';
   import RunErrorCard from '$lib/ui/components/RunErrorCard.svelte';
+  import SignOffPanel from '$lib/ui/components/SignOffPanel.svelte';
   import SourcesBar from '$lib/ui/components/SourcesBar.svelte';
   import StageRail from '$lib/ui/components/StageRail.svelte';
   import StatusLine from '$lib/ui/components/StatusLine.svelte';
@@ -41,12 +45,15 @@
   let railAt = $state<RailStage>();
   let citing = $state<number>();
   let citationOpen = $state(false);
+  // Why the source refused a decision taken here, e.g. someone decided first.
+  let refusal = $state<string>();
 
   $effect.pre(() => {
     const run = data.run;
     events = [...run.events];
     finished = run.finished;
     picked = undefined;
+    refusal = undefined;
     if (run.finished) return;
     const controller = new AbortController();
     void follow(run.id, run.events.at(-1)?.seq ?? 0, controller.signal);
@@ -136,13 +143,25 @@
     hourCycle: 'h23',
   });
 
+  async function decide(outcome: 'released' | 'withheld') {
+    refusal = undefined;
+    try {
+      await source.decide(data.run.id, outcome);
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error);
+    }
+  }
+
   const cite = (index: number) => {
     citing = index;
     citationOpen = true;
   };
 </script>
 
-<svelte:head><title>{`${data.run.question} / ${m.app_name()}`}</title></svelte:head>
+<svelte:head
+  ><title>{`${data.signOff ? 'Sign-off: ' : ''}${data.run.question} / ${m.app_name()}`}</title
+  ></svelte:head
+>
 
 <div class="run-view">
   <TopBar title={data.run.question}>
@@ -152,7 +171,7 @@
   </TopBar>
 
   <div class="page">
-    <h1 class="sr-only">Run: {data.run.question}</h1>
+    <h1 class="sr-only">{data.signOff ? 'Sign-off' : 'Run'}: {data.run.question}</h1>
     <p class="back"><Link href={`/c/${data.run.chatId}`}>Open the conversation</Link></p>
 
     <StageRail
@@ -233,7 +252,9 @@
           {:else if request && !finished}
             <p>
               Nothing is released until a person approves it.
-              <Link href={`/c/${data.run.chatId}`}>Review it in the conversation</Link>
+              {#if !data.signOff}
+                <Link href={`/runs/${data.run.id}/sign-off`}>Review and decide</Link>
+              {/if}
             </p>
           {/if}
         {/if}
@@ -255,6 +276,21 @@
       bind:open={citationOpen}
     />
   </div>
+
+  {#if data.signOff}
+    <div class="dock">
+      <div class="inner">
+        {#if refusal}
+          <InlineAlert tone="stop" title="Nothing was released">{refusal}</InlineAlert>
+        {/if}
+        {#if request && !decision && !finished}
+          <SignOffPanel {request} draft={text} {sources} model="qwen/qwen3-8b" ondecide={decide} />
+        {:else if !finished}
+          <p class="quiet">The sign-off panel opens when the run reaches the gate.</p>
+        {/if}
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -270,6 +306,31 @@
     max-inline-size: 928px;
     margin-inline: auto;
     padding: var(--spacing-6) var(--spacing-4) var(--spacing-12);
+  }
+
+  /* Docked as the chat docks its composer: at the bottom, over a fade of the page. */
+  .dock {
+    position: sticky;
+    inset-block-end: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    padding: 0 var(--spacing-2) 22px;
+    background: linear-gradient(to top, var(--color-surface-page) 60%, transparent);
+  }
+
+  .inner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    inline-size: 100%;
+    max-inline-size: 928px;
+  }
+
+  .inner > .quiet {
+    padding-block: var(--spacing-3);
+    font-size: var(--text-small);
+    text-align: center;
   }
 
   .back {
