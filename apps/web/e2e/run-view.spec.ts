@@ -54,3 +54,19 @@ test('a run that does not exist is not found', async ({ page }) => {
   await page.goto('/runs/no-such-run');
   await expect(page.getByText('Run not found')).toBeVisible();
 });
+
+test("a released run's receipt gives the whole record, in the run view and in the chat", async ({
+  page,
+}) => {
+  for (const path of ['/runs/run-0142', '/c/c-0142']) {
+    await page.goto(path);
+    await page.getByRole('tab', { name: 'Receipt' }).click();
+    const record = page.getByRole('tabpanel', { name: 'Receipt' });
+    await expect(record).toContainText('Core 1.0.0');
+    await expect(record).toContainText('1042');
+    await record.getByRole('button', { name: 'Show all' }).click();
+    await expect(record).toContainText(
+      '0604685d984d94b44870bea051662d5c981671e220f8073eae5ab3c26543b5f7',
+    );
+  }
+});

@@ -234,6 +234,8 @@
           answer={text}
           {steps}
           onopen={cite}
+          receipt={receipt.receipt}
+          {decision}
         />
         {#if audit}<AuditDialog bind:open={auditOpen} {...audit} />{/if}
       {:else if sources.length}

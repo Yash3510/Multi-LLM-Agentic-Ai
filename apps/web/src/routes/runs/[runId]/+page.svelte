@@ -275,7 +275,16 @@
         cited={sources.filter((item) => text.includes(`[${item.index}]`)).map((item) => item.title)}
         revision={request?.revision}
       />
-      <DetailsPanel folds={receipt.folds} {sources} {checks} answer={text} {steps} onopen={cite} />
+      <DetailsPanel
+        folds={receipt.folds}
+        {sources}
+        {checks}
+        answer={text}
+        {steps}
+        onopen={cite}
+        {receipt}
+        {decision}
+      />
     {/if}
     <CitationDialog
       source={sources.find((item) => item.index === citing)}
