@@ -286,7 +286,7 @@
         {/if}
         {#if request && !decision && !finished}
           <SignOffPanel {request} draft={text} {sources} model="qwen/qwen3-8b" ondecide={decide} />
-        {:else if !finished}
+        {:else if !request && !finished}
           <p class="quiet">The sign-off panel opens when the run reaches the gate.</p>
         {/if}
       </div>
