@@ -18,7 +18,7 @@ tags: [4ce, log, frontend]
 ## What changed
 
 - **The run view at `/runs/[runId]`** ([WP-UI-01, part 1](../../../architecture/frontend.md#wp-ui-01-part-1-the-run-view)). It shows the stage rail and status line, and the open stage's detail below them: its lines with their times, a second try marked, the Analyst's tool calls and sources (the Reader's included), the Author's draft, the Challenger's lines and the checks, and at Sign-off who decided or that it waits. It also has Cancel while live and the run error card, and once released, the chat's receipt and details panel. It reads the run with `getRun` and follows it from its last event, and an unknown run id is not found.
-- **The rail's nodes open stages** on the run view: reached nodes are tabs (click or Enter; ←/→, Home and End move between them), the open one tinted. The chat's rail is unchanged.
+- **The rail's nodes open stages** on the run view: reached nodes are tabs (click or Enter; ←/→, Home and End move between them), the open one tinted. Until the person picks one, the open stage follows the rail's light, which trails a live run one hop at a time. The chat's rail is unchanged.
 - **Reconnecting is said out loud:** `watchRun` takes an options object with `onreconnecting`, and the status line reads "Connection lost. Reconnecting…" meanwhile, in the chat and the run view.
 - **The chat links each answer to its run view** (View run, beside the status line).
 - **A question asked in a chat stays with it:** the fake keeps it and its answer, `getChat` fills the answer in from its run, and the chat opened again follows a live answer after its last event.
@@ -38,7 +38,7 @@ The plan's build order puts the run view next ([web screens](../../../architectu
 | `apps/web/src/lib/data/stages.ts`, `stages.test.ts` | `stageDetails` |
 | `apps/web/src/lib/data/runs.ts`, `runs.test.ts` | `watchRun`'s options and `onreconnecting` |
 | `apps/web/src/lib/data/fake.ts`, `fake.test.ts` | a question asked stays with its chat; `getChat` fills answers in from their runs |
-| `apps/web/src/lib/ui/components/StageRail.svelte`, `rail.test.ts` | the nodes as tabs on the run view, the open one tinted |
+| `apps/web/src/lib/ui/components/StageRail.svelte`, `rail.test.ts` | the nodes as tabs on the run view, the open one tinted; `onshown`, where the light rests |
 | `apps/web/src/lib/ui/components/StatusLine.svelte`, `status-line.test.ts` | the reconnect line and the View run link |
 | `apps/web/src/lib/ui/components/AnswerBody.svelte`, `ResponseMessage.svelte` | the answer's prose in its own component; the run id and reconnect state passed to the status line |
 | `apps/web/src/lib/ui/components/ReceiptStrip.svelte`, `signoff.test.ts` | Audit only with a handler |
@@ -56,6 +56,7 @@ On macOS (arm64), Node 24.21.0, in the worktree used since WP-UI-05, on this bra
 - `npx vitest run src/lib/data/runs.test.ts`: 2 failed (`signal?.addEventListener is not a function`: the options object reached the old signature), then `npx vitest run src/lib/data/` 5 files, 78 tests passed.
 - `npx vitest run src/lib/ui/components/status-line.test.ts`: the reconnect line 1 failed, then 5 passed; the View run link 1 failed, then 6 passed.
 - `npx vitest run src/lib/ui/components/rail.test.ts`: 3 failed (no tabs), then 10 passed.
+- `npx vitest run src/lib/ui/components/rail.test.ts` on the rail as committed before the last fix: "tells the run view where its light rests" 1 failed, then 11 passed. On a live run the detail had shown Sign-off while the rail's light was still at the Author.
 - `npx vitest run src/lib/data/fake.test.ts -t "keeps a question"`: 1 failed, then `src/lib/data/` 79 passed.
 - Not test-first: the Audit change came first. The receipt test that listed Audit then failed; it now passes a handler, and a new test checks there is no Audit without one.
 - svelte-check refused a type cast in the first `stageDetails` commit; the record is now built without it (its own commit).
@@ -65,7 +66,25 @@ On macOS (arm64), Node 24.21.0, in the worktree used since WP-UI-05, on this bra
 - `npx playwright test e2e/run-view.spec.ts --project=desktop --project=tablet`: the first run had 2 failures, both the test's own timing: it checked the chat while the page swap was still under way. The test now waits for the chat's composer, and the rerun gave 6 passed in 15.0 s. These tests cover the new route and link, so they were not run against the code before them.
 - By hand, on the demo build at 1440×900: the stored run's tabs by pointer and keyboard; then a question asked in `c-0143`, followed to its run view live and on to sign-off, back to the chat (answer and review panel still there), approved, and its run view released with the receipt.
 
-**Every check:** the results are added below once run on this branch.
+**Every check,** each `just check` recipe's commands run directly (`just` isn't installed here), on the final code:
+
+| Recipe | Commands | Result |
+| --- | --- | --- |
+| `lint` | `uv run ruff format --check .`, `uv run ruff check .`, `uv run pyright` | 228 files already formatted; all checks passed; 0 errors, 0 warnings |
+| `imports` | `uv run lint-imports` | 14 contracts kept, 0 broken |
+| `repo-check`, `neutrality` | `uv run python tools/repo_check.py`, `tools/neutrality_check.py` | exit 0, nothing reported |
+| `docs` | `uv run python tools/docs_check.py`, and with `--base wp/WP-UI-05-run-contract` | exit 0 both times |
+| `licences` | `tools/sbom.py`, `licence_gate.py build/sbom/python.cdx.json`, `import_scan.py …`, `licence_gate.py --bundle` | 78 components checked; 114 files scanned; 5 bundled services checked |
+| `test` | `uv run pytest -m "not postgres and not redis and not minio"` | 807 passed, 97 deselected, 33.8 s |
+| `web-lint` | `npm --prefix apps/web run lint`, `run lint:design`, `run check` | ESLint and Prettier clean; design lint clean; svelte-check 1456 files, 0 errors, 0 warnings |
+| `web-test` | `npm --prefix apps/web test`, `npm --prefix apps/web exec -- vitest run --root . --dir tools` | 93 files, 579 tests passed in 16.7 s; 3 files, 16 tests passed |
+| `web-e2e` | `npm --prefix apps/web run e2e` | 18 passed in 38.5 s: desktop and tablet on the demo build (the run view's 3 tests and the chat test among them), and the 2 sign-in tests on the `server` project; 0 `window.fetch` warnings |
+
+The web unit tests took three runs to give a clean result, for a reason outside the code: the machine was loaded (load average up to 10).
+
+1. During the full check: 5 tests timed out after about 20 s each and 7 test files' workers failed to start, so 537 passed and 5 failed. None of the 5 is in code this change touches.
+2. Run again on its own: 552 passed and none failed, but 6 test files' workers failed to start. Those 6 files then ran by themselves: 27 tests passed.
+3. A third full run, with the machine idle, gave the result in the table.
 
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets, which this change doesn't touch.
 
@@ -94,5 +113,6 @@ The repository has no issues for these; each belongs to a later work package of 
 - The shell's connection banner waits for the one shared connection (the rest of WP-UI-05); the status line says it per run meanwhile.
 - The Author's draft joins every try's text. Today's fake streams one draft, so it reads right; a run that drafts twice would show both until the record marks the draft.
 - The fake keeps runs and asked questions in memory: a full reload forgets them, as before.
+- The chat's Retry takes a stopped answer off the screen, but the chat keeps it: opened again, it shows both tries. Removing an exchange needs a data call the contract doesn't have yet.
 - The Windows CI job stays red on these branches until PR 7 lands (the sign-in browser test).
 - The change is about 1,300 lines against the ~400 guideline. About 330 of them are the answer's prose moved unchanged, and about a third are tests and docs.

@@ -199,7 +199,7 @@ just web-dev                                   # the web app on http://localhost
 - `src/routes/runs/[runId]/`: `+page.ts` loads the run with `getRun`; an unknown id is a 404.
 - `stageDetails(events)` in `src/lib/data/stages.ts`: what each rail stage did. That is its status lines, with the time since the run started and the try they belong to; the tool calls and sources found while it worked (the Reader's inside the Analyst's, as on the rail); and the text it drafted.
 - `watchRun(source, id, after, { signal, retryMs, onreconnecting })`: the signal and the retry wait move into an options object, which also tells the screen when a dropped connection starts and stops reconnecting.
-- `StageRail`: given `onselect`, its nodes become tabs that open a stage's detail, for any reached node, live or finished. ←/→, Home and End move between them, and Enter opens one. Without `onselect` (the chat) nothing changes.
+- `StageRail`: given `onselect`, its nodes become tabs that open a stage's detail, for any reached node, live or finished. ←/→, Home and End move between them, and Enter opens one. `onshown` reports where the rail's light rests. Without these (the chat) nothing changes.
 - `StatusLine`: `reconnecting` reads "Connection lost. Reconnecting…" on a live run; `href` adds a link to the run view.
 - `ReceiptStrip` shows its Audit button only when given `onaudit`: the run view's audit sheet comes with WP-UI-03.
 - `AnswerBody`: the answer's prose and its styles, moved out of `ResponseMessage` unchanged, so the run view shows the Author's draft as the chat shows an answer.
@@ -208,7 +208,7 @@ just web-dev                                   # the web app on http://localhost
 
 **Inputs and outputs:**
 
-- A live run shows the rail with the working node, the status line, a Cancel button and the selected stage's detail. The detail follows the working stage until the person picks a stage. A finished run shows the rail as it ended; a released one adds the receipt, what was checked and the details panel, as in the chat.
+- A live run shows the rail with the working node, the status line, a Cancel button and the selected stage's detail. The detail follows the rail's light, which trails a live run one hop at a time, until the person picks a stage. A finished run shows the rail as it ended; a released one adds the receipt, what was checked and the details panel, as in the chat.
 - A stage's detail shows its lines, with a second try marked as one; the Analyst's tool calls and sources (the Reader's included); the Author's draft; the Challenger's lines and the checks with their verdicts; and at Sign-off, who decided and when, or that it is waiting. A node not reached opens nothing.
 - Cancel ends the run `stopped`, in the run view and in the chat.
 - A dropped connection: the status line says "Connection lost. Reconnecting…" until the follow resumes, in the run view and in the chat. No event is missed or repeated.
@@ -220,7 +220,7 @@ just web-dev                                   # the web app on http://localhost
 - Vitest:
   1. `stageDetails`: the normal run gives the Planner its line, the Analyst the Reader's search with its tool call and both sources, the Author the answer's text and the Challenger its two lines. The replanned run marks the second try's Analyst, Author and Challenger lines as try 2, and gives the Challenger the replan line;
   2. `watchRun` calls `onreconnecting(true)` when a follow ends early and `onreconnecting(false)` when it follows again, once each for the dropping run, and never for a run whose connection holds;
-  3. `StageRail` with `onselect` draws tabs, the selected one `aria-selected`; a click selects; ←/→ move across the reached nodes and Enter selects; a node not reached is disabled;
+  3. `StageRail` with `onselect` draws tabs, the selected one `aria-selected`; a click selects; ←/→ move across the reached nodes and Enter selects; a node not reached is disabled; `onshown` reports where the light rests, trailing a live run;
   4. `StatusLine` with `reconnecting` replaces the live line and announces it; with `runId` it links to the run view;
   5. the fake keeps a question asked in a chat with it, its answer as far as the run has got, and another source keeps its own chats;
   6. `ReceiptStrip` without `onaudit` has no Audit button.
