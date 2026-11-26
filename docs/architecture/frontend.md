@@ -85,7 +85,7 @@ just web-dev                                   # the web app on http://localhost
 3. **Sign-in, session and sign-out** against slice 1: the first screens with a real backend ([WP-UI-06, part 1](#wp-ui-06-part-1-sign-in-session-and-sign-out-against-the-server)).
 4. **Runs in the fake source:** ids, numbered events and following from the last event, so every run screen reads one run ([WP-UI-05, part 1](#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event)).
 5. **WP-UI-01:** chat, cases and the run view with the stage rail ([part 1, the run view](#wp-ui-01-part-1-the-run-view)). Runs, cases and live events come in later backend slices; until then, the fake source ([web data contract](web-data-contract.md)). Propose each endpoint's shape in a PR to this page, so the backend builds what the screens need.
-6. **WP-UI-02** sign-off panel, **WP-UI-03** receipt and provenance, **WP-UI-04** Sovereignty page.
+6. **WP-UI-02** sign-off panel ([part 1, the sign-off page](#wp-ui-02-part-1-the-sign-off-page)), **WP-UI-03** receipt and provenance, **WP-UI-04** Sovereignty page.
 
 ### WP-UI-06, part 1: sign-in, session and sign-out against the server
 
@@ -251,6 +251,46 @@ just web-dev                                   # the web app on http://localhost
 **Reviewer:** R3.
 
 **Size:** one pull request.
+
+### WP-UI-02, part 1: the sign-off page
+
+**Built, in draft PR 9** ([log](../log/2026/11/2026-11-26-wp-wp-ui-02-sign-off-page.md)), stacked on WP-UI-01, part 1. The first part of [WP-UI-02](web-screens.md#proposed-work-packages), in the master plan's §12 template; Return with a reason is part 2. The frontend owner decided on 2026-11-25 that sign-off stays in the chat and gets this page too, both reading one run.
+
+**Goal:** a named person decides at `/runs/[runId]/sign-off` whether a run's work is released. The page is the run view with the sign-off panel docked, on the same run as the chat, so a decision taken in either shows in both.
+
+**Interface:**
+
+- `/runs/[runId]/sign-off` is its own route, whose page renders the run view's page with `signOff` set, so both addresses are one page on one run and only the second docks the panel. (An optional route segment would do the same in one folder, but the repository's folder rule allows plain `[param]` folders only.)
+- The panel is the chat's `SignOffPanel`, open only while the run waits at the gate. `decide(runId, outcome)` records the decision. If the source refuses it, because someone decided first, the page says nothing was released.
+- While the run waits, the run view's Sign-off stage links to this page.
+- No new endpoint: the decision is `POST /api/runs/{run_id}/decision`, as proposed in [WP-UI-05, part 1](#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event).
+
+**Inputs and outputs:**
+
+- At the gate the panel shows the draft, the checks, the sources and the typed-word release, as in the chat. `approve` releases and Withhold withholds; the run then goes on to its decision, receipt and end on the page, and the chat shows the same.
+- Before the gate the page is the live run view, with a line saying the panel opens at the gate. After the decision it is the decided run view with its receipt.
+- A decision the source refuses: "Nothing was released:" and the reason, and the run view stays as the source has it.
+
+**Acceptance tests:**
+
+- Vitest: nothing new; the page is made of components that already have tests.
+- Playwright (`e2e/sign-off.spec.ts`, on the demo build): a question asked in the chat, opened at its sign-off page, waits for the gate, then `approve` releases it there and the chat shows it released; a decided run's sign-off page has no panel.
+
+**Ledger:** nothing new; the fake writes no ledger entries.
+
+**Files:** `src/routes/runs/[runId]/` (the run view, with the docked panel), `src/routes/runs/[runId]/sign-off/` and `e2e/sign-off.spec.ts`, all under `apps/web/`.
+
+**Docs:** this page, [web screens](web-screens.md), `state.md` and a work-log entry.
+
+**Neutrality:** no sector terms.
+
+**Out of scope:** Return with a reason (part 2); the receipt in full and the audit sheet (WP-UI-03); the maker-checker, two-person and authority states (WP-UI-10); the classification and risk tier in the panel, which the run record doesn't carry yet.
+
+**Depends on:** WP-UI-01, part 1 (draft PR 8).
+
+**Reviewer:** R3.
+
+**Size:** one pull request, under ~400 changed lines.
 
 ## When `apps/web` lands on `4ce-core`
 
