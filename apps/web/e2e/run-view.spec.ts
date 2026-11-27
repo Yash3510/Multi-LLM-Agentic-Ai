@@ -55,11 +55,12 @@ test('a run that does not exist is not found', async ({ page }) => {
   await expect(page.getByText('Run not found')).toBeVisible();
 });
 
-test("a released run's receipt gives the whole record, in the run view and in the chat", async ({
+test("a released run's receipt gives its file and the whole record, in the run view and the chat", async ({
   page,
 }) => {
   for (const path of ['/runs/run-0142', '/c/c-0142']) {
     await page.goto(path);
+    await expect(page.getByText('CASE-0142 answer.docx')).toBeVisible();
     await page.getByRole('tab', { name: 'Receipt' }).click();
     const record = page.getByRole('tabpanel', { name: 'Receipt' });
     await expect(record).toContainText('Core 1.0.0');
