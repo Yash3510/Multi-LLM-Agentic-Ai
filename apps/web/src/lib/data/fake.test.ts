@@ -136,6 +136,29 @@ describe('fake source', () => {
     await expect(collect(source.followRun('nope', 0))).rejects.toThrow();
   });
 
+  it("gives the stored run's evidence, read into numbered observations", async () => {
+    const source = createFakeSource({ pace: 0 });
+    const run = await source.getRun('run-0142');
+    const read = run?.events.flatMap((event) =>
+      event.type === 'source' && event.source.evidenceId ? [event.source.evidenceId] : [],
+    );
+    expect(read).toEqual(['ev-0142-2']);
+    const evidence = await source.getEvidence('ev-0142-2');
+    expect(evidence).toMatchObject({ name: 'CASE-0142 second batch report', kind: 'Batch report' });
+    expect(evidence?.pages).toHaveLength(1);
+    expect(
+      evidence?.observations.map((one) => [one.index, one.label, one.value, one.unit]),
+    ).toEqual([
+      [1, 'Batch', 'Second', undefined],
+      [2, 'Ratio', '82.5', '%'],
+      [3, 'Duration', '42', 's'],
+    ]);
+    expect(
+      evidence?.observations.filter((one) => one.confidence < 1).map((one) => one.label),
+    ).toEqual(['Ratio']);
+    expect(await source.getEvidence('nope')).toBeUndefined();
+  });
+
   it("gives the receipt the sealed record and the run's own working time", async () => {
     const source = createFakeSource({ pace: 0 });
     const id = await source.ask('c-0143', 'Is R2 within the limit?');

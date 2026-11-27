@@ -228,6 +228,11 @@
         {/if}
         {#if detail.calls.length}<ToolGroup calls={detail.calls} />{/if}
         {#if detail.sources.length}<SourcesBar sources={detail.sources} onopen={cite} />{/if}
+        {#each detail.sources.filter((one) => one.evidenceId) as one (one.index)}
+          <p>
+            <Link href={`/evidence/${one.evidenceId}`}>Review what was read from {one.title}</Link>
+          </p>
+        {/each}
         {#if shown === 'author' && detail.text}
           <AnswerBody
             html={renderMarkdown(detail.text, sources)}

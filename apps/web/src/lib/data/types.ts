@@ -20,6 +20,38 @@ export interface Source {
   title: string;
   /** The cited passage. */
   passage: string;
+  /** The evidence the passage was read from, when it came from one. */
+  evidenceId?: string;
+}
+
+/** One thing the Reader read off a page: where it is, what it says, and how sure it was. */
+export interface Observation {
+  id: string;
+  /** Its number, in reading order. */
+  index: number;
+  /** The page it is on, from 1. */
+  page: number;
+  /** Its box, as fractions of the page's width and height. */
+  box: { x: number; y: number; width: number; height: number };
+  /** The pack's label for what was read. */
+  label: string;
+  value: string;
+  unit?: string;
+  /** How sure the Reader was, from 0 to 1; below 1 the screen asks for a check. */
+  confidence: number;
+}
+
+/** A piece of evidence as read: its pages and what was read off them. */
+export interface Evidence {
+  id: string;
+  name: string;
+  /** The `<Document kind>` it was read as. */
+  kind: string;
+  /** Each page's image and its size in pixels. */
+  pages: { image: string; width: number; height: number }[];
+  /** The model that read it. */
+  reader: string;
+  observations: Observation[];
 }
 
 export interface ToolCall {
@@ -801,6 +833,8 @@ export interface DataSource {
   ask(chatId: string, question: string): Promise<string>;
   /** A run as it stands, or undefined. */
   getRun(id: string): Promise<Run | undefined>;
+  /** A piece of evidence with its pages and observations, or undefined. */
+  getEvidence(id: string): Promise<Evidence | undefined>;
   /**
    * The run's events after `after`, then each new one as it happens, until the run ends or the
    * signal aborts. Ending before the run does means the connection dropped (see `watchRun`).
