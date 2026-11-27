@@ -301,6 +301,7 @@ const EVIDENCE: Evidence[] = [
         label: 'Batch',
         value: 'Second',
         confidence: 1,
+        verified: { by: 'Asha Rao', at: '2026-10-08T08:20:00.000Z' },
       },
       {
         id: 'ob-2',
@@ -793,6 +794,8 @@ export function createFakeSource({
   };
   const runs = new Map<string, Kept>();
   const keep = (run: Run): Kept => ({ ...run, wake: [], stop: new AbortController() });
+  // This source's own copy of the evidence, so a verification lasts until the page reloads.
+  const evidence = structuredClone(EVIDENCE);
   for (const chat of CHATS)
     chat.messages.forEach((message, index) => {
       if (message.runId && message.events)
@@ -1789,8 +1792,16 @@ export function createFakeSource({
       return run.id;
     },
     async getEvidence(id) {
-      const found = EVIDENCE.find((one) => one.id === id);
+      const found = evidence.find((one) => one.id === id);
       return found && structuredClone(found);
+    },
+    async verifyObservation(evidenceId, observationId) {
+      const found = evidence
+        .find((one) => one.id === evidenceId)
+        ?.observations.find((one) => one.id === observationId);
+      if (!found) throw new Error('That observation was not found.');
+      found.verified ??= { by: user?.name ?? 'Asha Rao', at: new Date().toISOString() };
+      return structuredClone(found);
     },
     async getRun(id) {
       const run = runs.get(id);

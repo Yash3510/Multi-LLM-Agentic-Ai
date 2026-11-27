@@ -39,6 +39,8 @@ export interface Observation {
   unit?: string;
   /** How sure the Reader was, from 0 to 1; below 1 the screen asks for a check. */
   confidence: number;
+  /** Who accepted it as read, and when (an ISO time); absent until someone verifies it. */
+  verified?: { by: string; at: string };
 }
 
 /** A piece of evidence as read: its pages and what was read off them. */
@@ -835,6 +837,8 @@ export interface DataSource {
   getRun(id: string): Promise<Run | undefined>;
   /** A piece of evidence with its pages and observations, or undefined. */
   getEvidence(id: string): Promise<Evidence | undefined>;
+  /** Accepts an observation as read, recording who and when; an earlier record stays. */
+  verifyObservation(evidenceId: string, observationId: string): Promise<Observation>;
   /**
    * The run's events after `after`, then each new one as it happens, until the run ends or the
    * signal aborts. Ending before the run does means the connection dropped (see `watchRun`).
