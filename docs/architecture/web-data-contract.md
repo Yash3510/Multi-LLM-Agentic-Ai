@@ -3,7 +3,7 @@ title: Web data contract
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-26
+updated: 2026-11-27
 covers:
   - apps/web/src/lib/data/
 tags: [4ce, architecture, frontend]
@@ -124,7 +124,7 @@ Events arrive in order, each with its run's `seq`. `at` is the server's time in 
 | `source` | a `Source`: citation number, title, passage | the `[n]` citations and the sources list |
 | `sign-off` | the checks for the person to review, each with a verdict and the citation numbers it rests on (`cites`), and on a later try a `revision` (try number, objections, removed and added lines) | the sign-off panel and its changes view; the receipt's revision card |
 | `decision` | `released` or `withheld`, who decided, and for a return the `reason` | the Sign-off node (noting `returned` for a return), the run view's Sign-off stage and, for a return, a line under the answer |
-| `receipt` | fingerprint, model, `seconds` (the agents' working time, as the status line sums it), source count, who signed, external calls observed, `folds` (titled markdown: full provenance and each agent's own output), and the record: `classification`, `pack` (name, version, hash), `routing` (each role's model), `skills` (with version hashes) and the `ledger` position | the receipt labels, then the folds and the details panel's Receipt tab; the execution timeline fold is built from the status events |
+| `receipt` | fingerprint, model, `seconds` (the agents' working time, as the status line sums it), source count, who signed, external calls observed, `folds` (titled markdown: full provenance and each agent's own output), and the record: `classification`, `pack` (name, version, hash), `routing` (each role's model), `skills` (with version hashes), the `ledger` position and the `deliverables`, each a `FileInfo` (name, kind, size, hash, classification and state) | the receipt labels, then the folds and the details panel's Receipt tab; the execution timeline fold is built from the status events |
 | `done`, `stopped`, `error` | error: the server's `message` and optional plain-language `advice` | the end of the run; an error shows the run error card, which reads the cause from those two fields |
 
 ## The six roles

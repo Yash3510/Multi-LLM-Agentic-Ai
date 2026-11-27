@@ -4,6 +4,7 @@
   // checked. The provenance, each agent's output and the timeline are in DetailsPanel.
   import type { Receipt, Revision, SignOffRequest } from '$lib/data';
   import { formatStageTime } from '$lib/data/stages';
+  import FileCard from './FileCard.svelte';
   import RevisionCard from './RevisionCard.svelte';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import { COPY_HOLD_MS, writeClipboard } from './clipboard';
@@ -84,6 +85,13 @@
       </button>
     {/if}
   </div>
+  {#if receipt.deliverables?.length}
+    <ul class="files" aria-label="Deliverables">
+      {#each receipt.deliverables as file, index (index)}
+        <li><FileCard {file} /></li>
+      {/each}
+    </ul>
+  {/if}
   {#if revision}<RevisionCard {revision} {passed} />{/if}
   {#if checks.length}
     <div class="checks">
@@ -236,6 +244,16 @@
   :is(.fingerprint, .audit):focus-visible {
     outline: none;
     box-shadow: var(--shadow-focus);
+  }
+
+  /* The run's documents, as file cards under the labels. */
+  .files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+    margin: var(--spacing-2) 0 0;
+    padding: 0;
+    list-style: none;
   }
 
   .checks {

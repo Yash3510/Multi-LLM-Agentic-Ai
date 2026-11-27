@@ -3,7 +3,7 @@ title: Web screens
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-26
+updated: 2026-11-27
 covers:
   - apps/web/src/routes/
 tags: [4ce, architecture, frontend]
@@ -406,7 +406,7 @@ The rulebook itself, read-only, is a tab of the pack detail (`/packs/[packId]`).
   - live: deliverables rendering after approval, each on its file card.
   - decided: the receipt is sealed and copyable; it never changes after release.
 - **Milestone:** M1; QR code and evidence-pack export at M2. **Demo step:** 2 (a signed deliverable with a QR code), 3 (the second pack's deliverable), 5 (export the evidence pack). **Tablet:** yes, for review.
-- **Built so far** ([WP-UI-03, part 1](frontend.md#wp-ui-03-part-1-the-full-receipt)), on the fake source: the whole record in the details panel's Receipt tab, in the chat and the run view. Not yet: deliverables as file cards (part 2), the QR code and evidence pack (M2), and the receipt for a withheld run.
+- **Built so far** ([WP-UI-03, part 1](frontend.md#wp-ui-03-part-1-the-full-receipt)), on the fake source: the whole record in the details panel's Receipt tab, in the chat and the run view. Deliverables show as file cards under the receipt ([part 2](frontend.md#wp-ui-03-part-2-deliverables-as-file-cards)). Not yet: opening or downloading them, the QR code and evidence pack (M2), and the receipt for a withheld run.
 
 ### `/runs/[runId]/audit`: Audit sheet
 

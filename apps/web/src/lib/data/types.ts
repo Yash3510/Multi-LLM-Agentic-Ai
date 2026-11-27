@@ -46,6 +46,19 @@ export interface SignOffRequest {
   revision?: Revision;
 }
 
+/** A file a run produced or a person added, as a file card shows it. */
+export interface FileInfo {
+  name: string;
+  /** Its type, shown as a tag: docx, xlsx, pptx, pdf… */
+  kind: string;
+  /** Size in bytes. */
+  size: number;
+  /** SHA-256 of its content. */
+  hash: string;
+  classification?: string;
+  state: 'uploading' | 'scanning' | 'parsing' | 'ready' | 'failed';
+}
+
 export interface Receipt {
   /** The run's fingerprint, shown short. */
   fingerprint: string;
@@ -67,6 +80,8 @@ export interface Receipt {
   skills?: { name: string; version: string; hash: string }[];
   /** The decision's position in the ledger. */
   ledger?: number;
+  /** The documents the run produced. */
+  deliverables?: FileInfo[];
 }
 
 export interface Message {

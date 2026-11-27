@@ -150,6 +150,7 @@ describe('fake source', () => {
         pack: { name: 'Core', version: '1.0.0' },
         skills: [],
         ledger: 1042,
+        deliverables: [{ name: 'CASE-0142 answer.docx', kind: 'docx', state: 'ready' }],
       });
       expect(receipt?.routing?.map((row) => row.role)).toEqual([
         'planner',

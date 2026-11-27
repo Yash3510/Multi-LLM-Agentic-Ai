@@ -3,7 +3,7 @@ title: Work log
 type: index
 status: active
 owner: R1
-updated: 2026-11-26
+updated: 2026-11-27
 tags: [4ce, index, log]
 ---
 
@@ -13,6 +13,7 @@ One entry per PR, newest first, named `YYYY/MM/YYYY-MM-DD-<branch-name>.md` and 
 
 | Date | Entry | Work package |
 | --- | --- | --- |
+| 2026-11-27 | [apps/web: deliverables as file cards](2026/11/2026-11-27-wp-wp-ui-03-file-cards.md) | WP-UI-03 (part 2) |
 | 2026-11-26 | [apps/web: the full receipt](2026/11/2026-11-26-wp-wp-ui-03-receipt.md) | WP-UI-03 (part 1) |
 | 2026-11-26 | [apps/web: Return with a reason](2026/11/2026-11-26-wp-wp-ui-02-return-with-reason.md) | WP-UI-02 (part 2) |
 | 2026-11-26 | [apps/web: the sign-off page](2026/11/2026-11-26-wp-wp-ui-02-sign-off-page.md) | WP-UI-02 (part 1) |

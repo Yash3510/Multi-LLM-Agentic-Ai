@@ -3,7 +3,7 @@ title: Design system
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-26
+updated: 2026-11-27
 covers:
   - apps/web/src/lib/ui/
 tags: [4ce, architecture, frontend]
@@ -252,6 +252,8 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 **Rail labels** are the plan's role names, uppercase in `micro` type: PLANNER, ANALYST, AUTHOR, CHALLENGER and SIGN-OFF. Reader's work shows in the status line. The audit record's decision row is labelled Sign-off too.
 
 **On the run view** (`/runs/[runId]`) the rail's reached nodes are tabs: the open stage takes the faint tint the details panel's tabs show under the pointer, and its detail opens below on the details panel's surface, a soft fill around one raised body. Until the person picks a stage, the open one follows the rail's light, so the detail never runs ahead of the rail. ←/→ move between the nodes, Home and End jump, Enter opens one; a node not reached is disabled. In the chat the rail is unchanged. A stage's detail gives its lines with their time in mono, each try under a TRY label when a stage ran more than once, and verdicts as a word (PASS, REVIEW, FAIL) in mono, coloured, never colour alone.
+
+**The file card** is one outlined box on the raised surface: the kind's file icon, the name in ink, then a neutral mono type tag, the size, the hash prefix, the classification and, until the file is ready, its state (red when it failed). A released run's deliverables sit under the receipt's labels.
 
 **The Receipt tab**, last in the details panel, lists the sealed record as label and value: the fingerprint short with Show all and Copy, the decision with its time zone, then the classification, pack, models, skills, external connections, ledger entry and working time.
 

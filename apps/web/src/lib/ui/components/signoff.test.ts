@@ -110,6 +110,22 @@ describe('ReceiptStrip', () => {
     );
   });
 
+  it('lists every deliverable, even two files with the same content', () => {
+    const file = {
+      name: 'Answer.docx',
+      kind: 'docx',
+      size: 1024,
+      hash: '9c2e5b8f1a4d7c0e',
+      state: 'ready' as const,
+    };
+    const deliverables = [file, { ...file, name: 'Answer, copy.docx' }];
+    const { getByText } = render(ReceiptStrip, {
+      props: { receipt: { ...receipt, deliverables }, checks: request.checks },
+    });
+    expect(getByText('Answer.docx')).toBeTruthy();
+    expect(getByText('Answer, copy.docx')).toBeTruthy();
+  });
+
   it('offers Audit only where there is an audit record to open', () => {
     const { queryByRole } = render(ReceiptStrip, { props: { receipt, checks: request.checks } });
     expect(queryByRole('button', { name: 'Audit' })).toBeNull();
