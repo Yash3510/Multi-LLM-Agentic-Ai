@@ -42,7 +42,7 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-03-audit-sh
 - `evidence-viewer.test.ts`: failed (no component), then 2 passed.
 - `e2e/evidence.spec.ts`: 2 failed (no route, no link), then with the run view's tests 12 passed on desktop and tablet.
 
-**Every check:** the results are added below once run on this branch.
+**Every check,** each `just check` recipe run directly (`just` isn't installed here), all exit 0: `lint` 234 files formatted (134 Python, 100 Markdown), pyright 0 errors; `imports` 14 contracts kept; `repo-check` and `neutrality` clean; `docs` exit 0, also with `--base wp/WP-UI-03-audit-sheet`; `licences` 78 components, 114 files, 5 services; `test` 807 passed, 97 deselected; `web-lint` clean, svelte-check 1477 files, 0 errors; `web-test` 96 files, 592 tests, tools 16; `web-e2e` 32 passed.
 
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets.
 
