@@ -417,6 +417,7 @@ The rulebook itself, read-only, is a tab of the pack detail (`/packs/[packId]`).
 - **Depends on:** WP-RT-07, WP-SO-01, WP-LG-01.
 - **States:** empty: a run not yet decided has no audit sheet (it says so and links to the run). loading: page skeleton. error: failed to load. live: n/a. decided: the only state it prints in.
 - **Milestone:** M1; the QR code in its footer at M2. **Demo step:** 2. **Tablet:** no.
+- **Built so far** ([WP-UI-03, part 3](frontend.md#wp-ui-03-part-3-the-audit-sheet)), on the fake source, opened from the run view's Audit button. Not yet: the QR code (M2) and the organisation's own mark (the 4CE mark stands in).
 
 ## Verification page
 

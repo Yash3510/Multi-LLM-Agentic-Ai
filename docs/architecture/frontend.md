@@ -397,7 +397,7 @@ just web-dev                                   # the web app on http://localhost
 
 ### WP-UI-03, part 3: the audit sheet
 
-**In progress** on `wp/WP-UI-03-audit-sheet`, stacked on part 2. The audit sheet web-screens.md defines at `/runs/[runId]/audit`, following the design system's print rules.
+**Built, in draft PR 13** ([log](../log/2026/11/2026-11-27-wp-wp-ui-03-audit-sheet.md)), stacked on part 2. The audit sheet web-screens.md defines at `/runs/[runId]/audit`, following the design system's print rules.
 
 **Goal:** a decided run as a printed A4 record, from the run view's Audit button, so paper and screen agree.
 

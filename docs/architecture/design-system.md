@@ -255,7 +255,7 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 
 **The file card** is one outlined box on the raised surface: the kind's file icon, the name in ink, then a neutral mono type tag, the size, the hash prefix, the classification and, until the file is ready, its state (red when it failed). A released run's deliverables sit under the receipt's labels.
 
-**The Receipt tab**, last in the details panel, lists the sealed record as label and value: the fingerprint short with Show all and Copy, the decision with its time zone, then the classification, pack, models, skills, external connections, ledger entry and working time.
+**The Receipt tab**, last in the details panel, lists the sealed record as label and value: the fingerprint and the pack hash short, each with Show all (whole, in groups of four) and Copy, the decision with its time zone, then the classification, pack, models, skills, external connections, ledger entry and working time.
 
 **Return** in the sign-off panel swaps the typed word for a reason field ("Why it goes back"), focused, with Cancel and Return it, which stays disabled until a reason is written. A returned run's Sign-off node notes `returned` with the withheld dash, the returned glyph. The run view's Sign-off stage and a line under the chat's answer, in the status line's grey, give the reason.
 
@@ -315,6 +315,8 @@ Search fields sit in a flat tint with a hairline ring (`--field-inset-fill`, `--
 - **Footer:** print time and user, the ledger position, and the QR code (§7.16).
 
 **The layout matches the Word deliverable,** so paper and file agree.
+
+The audit sheet (`/runs/[runId]/audit`) follows these rules: on screen a preview on the sunken ground with one Print button, in print only the sheet. Its QR code waits for M2.
 
 ## Icons
 
