@@ -405,17 +405,17 @@ just web-dev                                   # the web app on http://localhost
 
 - `src/routes/runs/[runId]/audit/`: `+page.ts` loads the run (an unknown id is a 404); `+page.svelte` is the sheet. On screen it is a print preview with one Print button; in print only the sheet shows, black on white with 1 px rules.
 - The sheet: the header (the 4CE mark, the classification banner and "Audit sheet"), the question, the static rail, the approval block (who, when with the time zone, the fingerprint in groups of four), the review shown (the released text and each check's verdict with the sources it cites), the record (pack with its hash in groups of four, models, external connections, ledger entry) and the footer (printed when and by whom, and the ledger entry). A run not yet decided says so and links to its run view.
-- `groupsOfFour(hash)` in `src/lib/ui/format.ts` writes a hash as the design system prints it. The Receipt tab uses it too, and gives the pack hash Show all and Copy like the fingerprint.
+- Hashes print whole in groups of four with the format module's `formatHashFull` (and short with `formatHashShort`). The Receipt tab now uses them too, and gives the pack hash Show all and Copy like the fingerprint.
 - The run view's receipt gets its Audit button back, opening the sheet; the chat's still opens its audit record.
 
 **Acceptance tests:**
 
-- Vitest: `groupsOfFour` splits a hash into groups of four; the Receipt tab shows both hashes whole, grouped, on Show all.
+- Vitest: the Receipt tab shows the fingerprint and the pack hash whole, in groups of four, on their Show all buttons.
 - Playwright (`e2e/audit.spec.ts`): the stored run's audit sheet, opened from its run view, has the banner, the approver, the grouped fingerprint and the checks, and one Print button; a run not yet decided says so.
 
 **Ledger:** nothing new; printing writes no entry yet. **Neutrality:** no sector terms.
 
-**Files:** `src/routes/runs/[runId]/audit/`, `src/routes/runs/[runId]/+page.svelte`, `src/lib/ui/format.ts` and its test, `src/lib/ui/components/DetailsPanel.svelte` and `signoff.test.ts`, and `e2e/audit.spec.ts` and `e2e/run-view.spec.ts`, all under `apps/web/`.
+**Files:** `src/routes/runs/[runId]/audit/`, `src/routes/runs/[runId]/+page.svelte`, `src/lib/ui/components/DetailsPanel.svelte` and `signoff.test.ts`, and `e2e/audit.spec.ts` and `e2e/run-view.spec.ts`, all under `apps/web/`.
 
 **Docs:** this page, [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
 
