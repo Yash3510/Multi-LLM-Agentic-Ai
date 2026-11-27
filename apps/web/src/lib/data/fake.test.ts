@@ -145,17 +145,19 @@ describe('fake source', () => {
     expect(read).toEqual(['ev-0142-2']);
     const evidence = await source.getEvidence('ev-0142-2');
     expect(evidence).toMatchObject({ name: 'CASE-0142 second batch report', kind: 'Batch report' });
-    expect(evidence?.pages).toHaveLength(1);
+    expect(evidence?.pages).toHaveLength(2);
     expect(
-      evidence?.observations.map((one) => [one.index, one.label, one.value, one.unit]),
+      evidence?.observations.map((one) => [one.index, one.page, one.label, one.value, one.unit]),
     ).toEqual([
-      [1, 'Batch', 'Second', undefined],
-      [2, 'Ratio', '82.5', '%'],
-      [3, 'Duration', '42', 's'],
+      [1, 1, 'Batch', 'Second', undefined],
+      [2, 1, 'Ratio', '82.5', '%'],
+      [3, 1, 'Duration', '42', 's'],
+      [4, 2, 'Temperature', '21', '°C'],
+      [5, 2, 'Checked on', '8 Oct 2026', undefined],
     ]);
     expect(
       evidence?.observations.filter((one) => one.confidence < 1).map((one) => one.label),
-    ).toEqual(['Ratio']);
+    ).toEqual(['Ratio', 'Temperature']);
     expect(await source.getEvidence('nope')).toBeUndefined();
   });
 

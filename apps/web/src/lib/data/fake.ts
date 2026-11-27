@@ -251,7 +251,7 @@ function failing(): Step[] {
   ];
 }
 
-/** The second batch report as read: one page drawn as an image, with three observations. */
+/** The second batch report as read: two pages drawn as images, with five observations. */
 const PAGE = [
   '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" font-family="sans-serif">',
   '<rect width="600" height="800" fill="white"/>',
@@ -263,14 +263,34 @@ const PAGE = [
   '</svg>',
 ].join('');
 
-const box = (top: number) => ({ x: 190 / 600, y: top / 800, width: 150 / 600, height: 44 / 800 });
+/** Its second page, with longer labels, so the values sit further right. */
+const PAGE_2 = [
+  '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" font-family="sans-serif">',
+  '<rect width="600" height="800" fill="white"/>',
+  '<text x="60" y="90" font-size="26">CASE-0142 · Second batch report, page 2</text>',
+  '<line x1="60" y1="115" x2="540" y2="115" stroke="black"/>',
+  '<text x="60" y="200" font-size="28">Temperature</text><text x="270" y="200" font-size="28">21 °C</text>',
+  '<text x="60" y="260" font-size="28">Checked on</text><text x="270" y="260" font-size="28">8 Oct 2026</text>',
+  '</svg>',
+].join('');
+
+const box = (top: number, left = 190, width = 150) => ({
+  x: left / 600,
+  y: top / 800,
+  width: width / 600,
+  height: 44 / 800,
+});
 
 const EVIDENCE: Evidence[] = [
   {
     id: 'ev-0142-2',
     name: 'CASE-0142 second batch report',
     kind: 'Batch report',
-    pages: [{ image: `data:image/svg+xml,${encodeURIComponent(PAGE)}`, width: 600, height: 800 }],
+    pages: [PAGE, PAGE_2].map((svg) => ({
+      image: `data:image/svg+xml,${encodeURIComponent(svg)}`,
+      width: 600,
+      height: 800,
+    })),
     reader: 'qwen/qwen3-8b',
     observations: [
       {
@@ -300,6 +320,25 @@ const EVIDENCE: Evidence[] = [
         label: 'Duration',
         value: '42',
         unit: 's',
+        confidence: 1,
+      },
+      {
+        id: 'ob-4',
+        index: 4,
+        page: 2,
+        box: box(170, 260, 170),
+        label: 'Temperature',
+        value: '21',
+        unit: '°C',
+        confidence: 0.74,
+      },
+      {
+        id: 'ob-5',
+        index: 5,
+        page: 2,
+        box: box(230, 260, 170),
+        label: 'Checked on',
+        value: '8 Oct 2026',
         confidence: 1,
       },
     ],

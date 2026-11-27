@@ -322,7 +322,7 @@ Every route in one table. Details follow, grouped by area. `[id]` segments are o
   - error: the render failed or the reading failed ("could not read", with the `unverified` glyph); a correction refused for a wrong unit, shown on the field.
   - live: the Reader still reading; observations appear one at a time, numbered in reading order.
   - decided: an observation used by a released assessment is sealed: read-only, with who verified it.
-- **Built so far** ([WP-UI-07, part 1](frontend.md#wp-ui-07-part-1-evidence-review)), on the fake source: the page with numbered boxes and the list in step, "check" on what was read unsure, `?box=`, reached from the run view's Analyst stage. Not yet: zoom and pan, pages, Verify and Correct (part 2).
+- **Built so far** ([WP-UI-07, part 1](frontend.md#wp-ui-07-part-1-evidence-review) and [part 2](frontend.md#wp-ui-07-part-2-pages-zoom-and-pan)), on the fake source: the page with numbered boxes and the list in step, "check" on what was read unsure, reached from the run view's Analyst stage; page navigation with `?page=` and `?box=`; zoom from 100 % to 400 %, panned by scrolling or by keyboard. Not yet: Verify and Correct and who verified each one (parts 3 and 4), the empty, loading, error, live and decided states.
 - **Milestone:** M1 (today's reading flow, §7.8, must reach parity). **Demo step:** 2 (the handwritten photo becomes boxed observations), 3 (two documents read). **Tablet:** yes, for review and capturing evidence.
 
 ## Rules and assessments
