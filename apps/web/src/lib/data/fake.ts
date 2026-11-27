@@ -31,6 +31,7 @@ import type {
   Usage,
   UsageDay,
   Memory,
+  Evidence,
   Message,
   Run,
   RunEvent,
@@ -112,6 +113,7 @@ function script(): Step[] {
           index: 2,
           title: 'CASE-0142 second batch report',
           passage: 'Measured ratio: 82.5 %.',
+          evidenceId: 'ev-0142-2',
         },
       },
     },
@@ -248,6 +250,61 @@ function failing(): Step[] {
     { after: 800, event: { type: 'error', message: 'All connection attempts failed' } },
   ];
 }
+
+/** The second batch report as read: one page drawn as an image, with three observations. */
+const PAGE = [
+  '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" font-family="sans-serif">',
+  '<rect width="600" height="800" fill="white"/>',
+  '<text x="60" y="90" font-size="26">CASE-0142 · Second batch report</text>',
+  '<line x1="60" y1="115" x2="540" y2="115" stroke="black"/>',
+  '<text x="60" y="200" font-size="28">Batch</text><text x="200" y="200" font-size="28">Second</text>',
+  '<text x="60" y="260" font-size="28">Ratio</text><text x="200" y="260" font-size="28">82.5 %</text>',
+  '<text x="60" y="320" font-size="28">Duration</text><text x="200" y="320" font-size="28">42 s</text>',
+  '</svg>',
+].join('');
+
+const box = (top: number) => ({ x: 190 / 600, y: top / 800, width: 150 / 600, height: 44 / 800 });
+
+const EVIDENCE: Evidence[] = [
+  {
+    id: 'ev-0142-2',
+    name: 'CASE-0142 second batch report',
+    kind: 'Batch report',
+    pages: [{ image: `data:image/svg+xml,${encodeURIComponent(PAGE)}`, width: 600, height: 800 }],
+    reader: 'qwen/qwen3-8b',
+    observations: [
+      {
+        id: 'ob-1',
+        index: 1,
+        page: 1,
+        box: box(170),
+        label: 'Batch',
+        value: 'Second',
+        confidence: 1,
+      },
+      {
+        id: 'ob-2',
+        index: 2,
+        page: 1,
+        box: box(230),
+        label: 'Ratio',
+        value: '82.5',
+        unit: '%',
+        confidence: 0.86,
+      },
+      {
+        id: 'ob-3',
+        index: 3,
+        page: 1,
+        box: box(290),
+        label: 'Duration',
+        value: '42',
+        unit: 's',
+        confidence: 1,
+      },
+    ],
+  },
+];
 
 /** Where the dropping run's connection is lost, once: just after the Analyst starts (event 7). */
 const DROP_AFTER = 7;
@@ -1691,6 +1748,10 @@ export function createFakeSource({
       else if (/rounded/i.test(question)) void play(run, replanned());
       else void play(run, script());
       return run.id;
+    },
+    async getEvidence(id) {
+      const found = EVIDENCE.find((one) => one.id === id);
+      return found && structuredClone(found);
     },
     async getRun(id) {
       const run = runs.get(id);
