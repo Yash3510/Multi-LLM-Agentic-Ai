@@ -25,3 +25,14 @@ test('an address with ?box= opens the evidence with that box selected', async ({
     'true',
   );
 });
+
+test('?page= opens a page, and ?box= opens the page its box is on', async ({ page }) => {
+  await page.goto('/evidence/ev-0142-2?page=2');
+  await expect(page.getByRole('img', { name: `Page 2 of ${REPORT}` })).toBeVisible();
+  await expect(page.getByText('Page 2 of 2')).toBeVisible();
+  await page.goto('/evidence/ev-0142-2?box=4');
+  await expect(page.getByRole('button', { name: 'Box 4: Temperature, 21 °C' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});

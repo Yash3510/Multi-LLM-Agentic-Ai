@@ -22,7 +22,7 @@
     <h1 class="sr-only">Evidence: {data.evidence.name}</h1>
     <p class="meta">Read as {data.evidence.kind} by <code>{data.evidence.reader}</code></p>
     {#key data.evidence.id}
-      <EvidenceViewer evidence={data.evidence} box={data.box} />
+      <EvidenceViewer evidence={data.evidence} page={data.page} box={data.box} />
     {/key}
   </div>
 </div>

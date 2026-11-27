@@ -1,47 +1,75 @@
 <script lang="ts">
   // The evidence viewer (web-screens.md): the page image with numbered observation boxes, and the
   // observation list in step with them. Selecting a box selects its row and the reverse; what was
-  // read with less than full confidence is drawn dashed and asks for a check.
+  // read with less than full confidence is drawn dashed and asks for a check. The list follows the
+  // page shown.
   import { untrack } from 'svelte';
   import type { Evidence, Observation } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import IconButton from './IconButton.svelte';
 
   type Props = {
     evidence: Evidence;
-    /** The observation number to open with selected (the address's `?box=`). */
+    /** The page to open, from 1 (the address's `?page=`). */
+    page?: number;
+    /** The observation number to open with selected, on its page (the address's `?box=`). */
     box?: number;
   };
 
-  let { evidence, box }: Props = $props();
+  let { evidence, page: asked, box }: Props = $props();
 
-  const page = $derived(evidence.pages[0]);
-  const observations = $derived(evidence.observations.filter((one) => one.page === 1));
-  let selected = $state(untrack(() => evidence.observations.find((one) => one.index === box)?.id));
+  const opened = untrack(() => evidence.observations.find((one) => one.index === box));
+  // A page outside the evidence opens the first.
+  const first = opened?.page ?? asked ?? 1;
+  let current = $state(untrack(() => (evidence.pages[first - 1] ? first : 1)));
+  let selected = $state(opened?.id);
+
+  const page = $derived(evidence.pages[current - 1]);
+  const observations = $derived(evidence.observations.filter((one) => one.page === current));
 
   const percent = (fraction: number) => `${(fraction * 100).toFixed(2)}%`;
   const reading = (one: Observation) => [one.value, one.unit].filter(Boolean).join(' ');
 </script>
 
 <div class="viewer">
-  {#if page}
-    <div class="page" style:aspect-ratio={`${page.width} / ${page.height}`}>
-      <img src={page.image} alt={`Page 1 of ${evidence.name}`} />
-      {#each observations as one (one.id)}
-        <button
-          type="button"
-          class="box"
-          style:left={percent(one.box.x)}
-          style:top={percent(one.box.y)}
-          style:width={percent(one.box.width)}
-          style:height={percent(one.box.height)}
-          aria-label={`Box ${one.index}: ${one.label}, ${reading(one)}`}
-          aria-pressed={selected === one.id}
-          data-unsure={one.confidence < 1 ? '' : undefined}
-          onclick={() => (selected = one.id)}><span class="tab">{one.index}</span></button
-        >
-      {/each}
-    </div>
-  {/if}
+  <div class="pane">
+    {#if evidence.pages.length > 1}
+      <div class="tools">
+        <IconButton
+          icon="caret-left"
+          label="Previous page"
+          disabled={current === 1}
+          onclick={() => (current -= 1)}
+        />
+        <span class="where" aria-live="polite">Page {current} of {evidence.pages.length}</span>
+        <IconButton
+          icon="caret-right"
+          label="Next page"
+          disabled={current === evidence.pages.length}
+          onclick={() => (current += 1)}
+        />
+      </div>
+    {/if}
+    {#if page}
+      <div class="page" style:aspect-ratio={`${page.width} / ${page.height}`}>
+        <img src={page.image} alt={`Page ${current} of ${evidence.name}`} />
+        {#each observations as one (one.id)}
+          <button
+            type="button"
+            class="box"
+            style:left={percent(one.box.x)}
+            style:top={percent(one.box.y)}
+            style:width={percent(one.box.width)}
+            style:height={percent(one.box.height)}
+            aria-label={`Box ${one.index}: ${one.label}, ${reading(one)}`}
+            aria-pressed={selected === one.id}
+            data-unsure={one.confidence < 1 ? '' : undefined}
+            onclick={() => (selected = one.id)}><span class="tab">{one.index}</span></button
+          >
+        {/each}
+      </div>
+    {/if}
+  </div>
   <ol class="list" aria-label="What was read">
     {#each observations as one (one.id)}
       <li>
@@ -78,6 +106,24 @@
     .viewer {
       grid-template-columns: minmax(0, 1fr);
     }
+  }
+
+  .pane {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+  }
+
+  .where {
+    color: var(--color-ink-3);
+    font-size: var(--text-small);
+    font-variant-numeric: tabular-nums;
   }
 
   /* The page keeps its own aspect ratio, so the boxes sit where they were read. */

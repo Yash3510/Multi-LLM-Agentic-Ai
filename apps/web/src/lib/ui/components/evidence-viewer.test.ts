@@ -24,7 +24,56 @@ const evidence = {
   ],
 };
 
+const twoPages = {
+  ...evidence,
+  pages: [...evidence.pages, ...evidence.pages],
+  observations: [
+    ...evidence.observations,
+    {
+      id: 'ob-3',
+      index: 3,
+      page: 2,
+      box,
+      label: 'Temperature',
+      value: '21',
+      unit: '°C',
+      confidence: 0.74,
+    },
+  ],
+};
+
 describe('EvidenceViewer', () => {
+  it('moves between pages, the list following the page shown', async () => {
+    const { getByRole, getByText, queryByRole } = render(EvidenceViewer, {
+      props: { evidence: twoPages },
+    });
+    expect(getByText('Page 1 of 2')).toBeTruthy();
+    expect(getByRole('button', { name: 'Previous page' }).hasAttribute('disabled')).toBe(true);
+    await fireEvent.click(getByRole('button', { name: 'Next page' }));
+    expect(getByRole('img', { name: `Page 2 of ${evidence.name}` })).toBeTruthy();
+    expect(getByRole('button', { name: /^3 Temperature/ })).toBeTruthy();
+    expect(queryByRole('button', { name: /^1 Batch/ })).toBeNull();
+    expect(getByRole('button', { name: 'Next page' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('opens on the page asked for, or on the page of the box asked for', () => {
+    const byPage = render(EvidenceViewer, { props: { evidence: twoPages, page: 2 } });
+    expect(byPage.getByRole('img', { name: `Page 2 of ${evidence.name}` })).toBeTruthy();
+    byPage.unmount();
+    const byBox = render(EvidenceViewer, { props: { evidence: twoPages, page: 1, box: 3 } });
+    expect(
+      byBox.getByRole('button', { name: 'Box 3: Temperature, 21 °C' }).getAttribute('aria-pressed'),
+    ).toBe('true');
+    byBox.unmount();
+    const outside = render(EvidenceViewer, { props: { evidence: twoPages, page: 7 } });
+    expect(outside.getByRole('img', { name: `Page 1 of ${evidence.name}` })).toBeTruthy();
+  });
+
+  it('shows no page controls for evidence with one page', () => {
+    const { queryByRole } = render(EvidenceViewer, { props: { evidence } });
+    expect(queryByRole('button', { name: 'Next page' })).toBeNull();
+  });
+
   it('keeps the selected box and its row in step, either way', async () => {
     const { getByRole } = render(EvidenceViewer, { props: { evidence } });
     const box2 = getByRole('button', { name: 'Box 2: Ratio, 82.5 %' });
