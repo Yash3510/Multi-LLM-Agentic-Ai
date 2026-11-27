@@ -3,7 +3,7 @@ title: Frontend
 type: architecture
 status: planned
 owner: R3
-updated: 2026-11-26
+updated: 2026-11-27
 covers:
   - apps/web/
 tags: [4ce, architecture, frontend]
@@ -370,7 +370,7 @@ just web-dev                                   # the web app on http://localhost
 
 ### WP-UI-03, part 2: deliverables as file cards
 
-**In progress** on `wp/WP-UI-03-file-cards`, stacked on part 1. The file card web-screens.md defines, used first for a released run's deliverables.
+**Built, in draft PR 12** ([log](../log/2026/11/2026-11-27-wp-wp-ui-03-file-cards.md)), stacked on part 1. The file card web-screens.md defines, used first for a released run's deliverables.
 
 **Goal:** the documents a released run produced show as file cards under its receipt, in the chat and at the end of the run view.
 
