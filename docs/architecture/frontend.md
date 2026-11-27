@@ -423,6 +423,34 @@ just web-dev                                   # the web app on http://localhost
 
 **Depends on:** WP-UI-03, part 2 (draft PR 12). **Reviewer:** R3. **Size:** one pull request, under ~400 changed lines.
 
+### WP-UI-07, part 1: evidence review
+
+**In progress** on `wp/WP-UI-07-evidence-review`, stacked on WP-UI-03, part 3. The first part of [WP-UI-07](web-screens.md#proposed-work-packages). Step 3 of the plan goes in four pull requests: evidence review in two parts (part 2: zoom and pan, page navigation, Verify and Correct), then the assessment in two (WP-UI-08).
+
+**Goal:** check what the Reader read from a piece of evidence against the page itself, at `/evidence/[evidenceId]`.
+
+**Interface:**
+
+- `Evidence` and `Observation` in `types.ts`: an evidence item's name, the `<Document kind>` it was read as, its pages (image and size), the reader's model, and its observations. Each observation has a number in reading order, its page, a box as fractions of the page, a label, a value and unit, and a confidence. `getEvidence(id)` gives one, and a `Source` can name the `evidenceId` it was read from.
+- The evidence viewer: the page image with numbered boxes, and the observation list in step with them. Selecting a box selects its row and the reverse. An observation read with less than full confidence shows the dashed `observation-unsure` glyph and "check". `?box=` opens with that box selected.
+- The run view's Analyst stage links each source that has evidence to its review.
+- Proposed endpoint for the backend: `GET /api/evidence/{evidence_id}`.
+
+**Acceptance tests:**
+
+- Vitest: the fake gives the stored run's evidence with its observations; the viewer keeps box and row selection in step, and marks an unsure observation.
+- Playwright (`e2e/evidence.spec.ts`): from the stored run's Analyst stage to the evidence review; `?box=` opens with its box selected.
+
+**Ledger:** nothing new. **Neutrality:** no sector terms; the page and its values use the fixtures' neutral case, rule and units.
+
+**Files:** `src/lib/data/` (`types.ts`, `fake.ts`, `fake.test.ts`), `src/lib/ui/components/EvidenceViewer.svelte` and its test, `src/routes/evidence/[evidenceId]/`, `src/routes/runs/[runId]/+page.svelte` and `e2e/evidence.spec.ts`, all under `apps/web/`.
+
+**Docs:** this page, the [web data contract](web-data-contract.md), [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
+
+**Out of scope:** zoom and pan, page navigation, Verify and Correct (part 2); the Reader's live reading; capture on tablets.
+
+**Depends on:** WP-UI-03, part 3 (draft PR 13). **Reviewer:** R3. **Size:** one pull request, about 400 changed lines.
+
 ## When `apps/web` lands on `4ce-core`
 
 The first PR that adds `apps/web` also wires it into the repository's checks. In the same PR:
