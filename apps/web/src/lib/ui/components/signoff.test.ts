@@ -178,11 +178,13 @@ describe('ReceiptStrip', () => {
     await fireEvent.click(getByRole('tab', { name: 'Receipt' }));
     const record = getByRole('tabpanel', { name: 'Receipt' });
     expect(record.textContent).toContain('0604685d…');
-    expect(record.textContent).not.toContain(fingerprint);
-    await fireEvent.click(getByRole('button', { name: 'Show all' }));
+    expect(record.textContent).not.toContain('0604 685d');
+    await fireEvent.click(getByRole('button', { name: 'Show all of the fingerprint' }));
+    await fireEvent.click(getByRole('button', { name: 'Show all of the pack hash' }));
     const text = record.textContent?.replace(/\s+/g, ' ');
     for (const fact of [
-      fingerprint,
+      '0604 685d 984d 94b4 4870 bea0 5166 2d5c 9816 71e2 20f8 073e ae5a b3c2 6543 b5f7',
+      '3f9a 21c0 7be4 d815',
       'Released by Asha Rao',
       'Internal',
       'Core 1.0.0',

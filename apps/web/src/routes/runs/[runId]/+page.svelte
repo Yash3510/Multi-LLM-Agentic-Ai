@@ -6,6 +6,8 @@
   // sign-off route renders this page with `signOff`, which docks the chat's sign-off panel while
   // the run waits at the gate (WP-UI-02, part 1): a decision taken there or in the chat shows in
   // both.
+  import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { data as source, type RunEvent } from '$lib/data';
   import { ends, watchRun } from '$lib/data/runs';
   import {
@@ -274,6 +276,7 @@
         releasedAt={new Date(decision.at)}
         cited={sources.filter((item) => text.includes(`[${item.index}]`)).map((item) => item.title)}
         revision={request?.revision}
+        onaudit={() => goto(resolve('/runs/[runId]/audit', { runId: data.run.id }))}
       />
       <DetailsPanel
         folds={receipt.folds}
