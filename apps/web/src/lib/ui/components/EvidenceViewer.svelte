@@ -89,7 +89,15 @@
           />
         </span>
       </div>
-      <div class="frame" bind:this={frame} style:aspect-ratio={`${page.width} / ${page.height}`}>
+      <!-- A scrolling region takes focus, so a zoomed page with no boxes still pans by keyboard. -->
+      <div
+        class="frame"
+        bind:this={frame}
+        role="region"
+        tabindex="0"
+        aria-label={`Page ${current} of ${evidence.pages.length}, zoom ${zoom * 100}%`}
+        style:aspect-ratio={`${page.width} / ${page.height}`}
+      >
         <div
           class="page"
           style:inline-size={`${zoom * 100}%`}
@@ -212,6 +220,7 @@
     box-shadow: var(--shadow-focus);
   }
 
+  .frame:focus-visible,
   .box:focus-visible,
   .row:focus-visible {
     outline: none;

@@ -86,6 +86,15 @@ describe('EvidenceViewer', () => {
     expect(getByText('Zoom 300%')).toBeTruthy();
   });
 
+  it('makes the page a focusable region named for its page and zoom, so it pans with no boxes', async () => {
+    const nothingRead = { ...twoPages, observations: [] };
+    const { getByRole } = render(EvidenceViewer, { props: { evidence: nothingRead, page: 2 } });
+    await fireEvent.click(getByRole('button', { name: 'Zoom in' }));
+    const region = getByRole('region', { name: 'Page 2 of 2, zoom 150%' });
+    region.focus();
+    expect(document.activeElement).toBe(region);
+  });
+
   it('shows no page controls for evidence with one page', () => {
     const { queryByRole } = render(EvidenceViewer, { props: { evidence } });
     expect(queryByRole('button', { name: 'Next page' })).toBeNull();
