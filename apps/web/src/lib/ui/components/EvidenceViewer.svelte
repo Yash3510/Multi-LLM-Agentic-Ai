@@ -21,8 +21,12 @@
 
   const opened = untrack(() => evidence.observations.find((one) => one.index === box));
   // A page outside the evidence opens the first.
-  const first = opened?.page ?? asked ?? 1;
-  let current = $state(untrack(() => (evidence.pages[first - 1] ? first : 1)));
+  let current = $state(
+    untrack(() => {
+      const first = opened?.page ?? asked ?? 1;
+      return evidence.pages[first - 1] ? first : 1;
+    }),
+  );
   let selected = $state(opened?.id);
 
   const page = $derived(evidence.pages[current - 1]);
