@@ -87,7 +87,7 @@
   </div>
   {#if receipt.deliverables?.length}
     <ul class="files" aria-label="Deliverables">
-      {#each receipt.deliverables as file (file.hash)}
+      {#each receipt.deliverables as file, index (index)}
         <li><FileCard {file} /></li>
       {/each}
     </ul>
