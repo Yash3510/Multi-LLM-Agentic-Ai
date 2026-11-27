@@ -49,3 +49,17 @@ test('zoomed in by keyboard, the page pans with the arrow keys from a box', asyn
   await page.keyboard.press('ArrowDown');
   await expect.poll(() => frame.evaluate((element) => element.scrollTop)).toBeGreaterThan(before);
 });
+
+test('Verify says who verified an observation, still shown on another page and back', async ({
+  page,
+}) => {
+  await page.goto('/evidence/ev-0142-2');
+  const verified = page.getByText(/^Verified by Asha Rao, /);
+  await expect(verified).toHaveCount(1);
+  await page.getByRole('button', { name: 'Verify 2: Ratio' }).click();
+  await expect(verified).toHaveCount(2);
+  await page.getByRole('button', { name: 'Next page' }).click();
+  await page.getByRole('button', { name: 'Previous page' }).click();
+  await expect(verified).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Verify 2: Ratio' })).toHaveCount(0);
+});

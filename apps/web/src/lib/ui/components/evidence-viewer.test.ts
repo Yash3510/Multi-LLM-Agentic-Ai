@@ -1,5 +1,6 @@
 import { fireEvent, render } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { formatDateTime } from '$lib/ui/format';
 import EvidenceViewer from './EvidenceViewer.svelte';
 
 const box = { x: 0.3, y: 0.2, width: 0.25, height: 0.05 };
@@ -93,6 +94,28 @@ describe('EvidenceViewer', () => {
     const region = getByRole('region', { name: 'Page 2 of 2, zoom 150%' });
     region.focus();
     expect(document.activeElement).toBe(region);
+  });
+
+  it('offers Verify on what is not yet verified, and says who verified the rest and when', async () => {
+    const at = '2026-10-08T08:20:00.000Z';
+    const [batch, ratio] = evidence.observations;
+    const read = {
+      ...evidence,
+      observations: [{ ...batch, verified: { by: 'Asha Rao', at } }, ratio],
+    };
+    const onverify = vi.fn();
+    const { getByRole, getByText, queryAllByRole } = render(EvidenceViewer, {
+      props: { evidence: read, onverify },
+    });
+    expect(getByText(`Verified by Asha Rao, ${formatDateTime(at)}`)).toBeTruthy();
+    expect(queryAllByRole('button', { name: /^Verify / })).toHaveLength(1);
+    await fireEvent.click(getByRole('button', { name: 'Verify 2: Ratio' }));
+    expect(onverify).toHaveBeenCalledWith(ratio);
+  });
+
+  it('offers no Verify without a way to verify', () => {
+    const { queryAllByRole } = render(EvidenceViewer, { props: { evidence } });
+    expect(queryAllByRole('button', { name: /^Verify / })).toHaveLength(0);
   });
 
   it('shows no page controls for evidence with one page', () => {

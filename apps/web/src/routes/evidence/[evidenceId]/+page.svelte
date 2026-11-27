@@ -1,13 +1,26 @@
 <script lang="ts">
-  // Evidence review (web-screens.md, /evidence/[evidenceId]; WP-UI-07, part 1): what the Reader
-  // read from a piece of evidence, checked against the page itself.
+  // Evidence review (web-screens.md, /evidence/[evidenceId]; WP-UI-07): what the Reader read from
+  // a piece of evidence, checked against the page itself, and verified.
+  import { invalidateAll } from '$app/navigation';
+  import { data as source, type Observation } from '$lib/data';
   import { m } from '$lib/i18n/generated/messages.js';
   import EgressIndicator from '$lib/ui/components/EgressIndicator.svelte';
   import EvidenceViewer from '$lib/ui/components/EvidenceViewer.svelte';
   import TopBar from '$lib/ui/components/TopBar.svelte';
+  import { toast } from '$lib/ui/toast.svelte';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
+
+  // Verified, the evidence loads again, so the page shows what the source now holds.
+  async function verify(one: Observation) {
+    try {
+      await source.verifyObservation(data.evidence.id, one.id);
+      await invalidateAll();
+    } catch (error) {
+      toast(error instanceof Error ? error.message : String(error), 'error');
+    }
+  }
 </script>
 
 <svelte:head><title>{`${data.evidence.name} / ${m.app_name()}`}</title></svelte:head>
@@ -22,7 +35,7 @@
     <h1 class="sr-only">Evidence: {data.evidence.name}</h1>
     <p class="meta">Read as {data.evidence.kind} by <code>{data.evidence.reader}</code></p>
     {#key data.evidence.id}
-      <EvidenceViewer evidence={data.evidence} page={data.page} box={data.box} />
+      <EvidenceViewer evidence={data.evidence} page={data.page} box={data.box} onverify={verify} />
     {/key}
   </div>
 </div>
