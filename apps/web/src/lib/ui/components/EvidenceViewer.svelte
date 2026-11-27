@@ -2,8 +2,9 @@
   // The evidence viewer (web-screens.md): the page image with numbered observation boxes, and the
   // observation list in step with them. Selecting a box selects its row and the reverse; what was
   // read with less than full confidence is drawn dashed and asks for a check. The list follows the
-  // page shown.
-  import { untrack } from 'svelte';
+  // page shown. Zoomed in, the frame scrolls, so panning is the browser's own: wheel, trackpad,
+  // touch and scrollbars, and the arrow keys once a box has focus.
+  import { tick, untrack } from 'svelte';
   import type { Evidence, Observation } from '$lib/data';
   import Icon from '$lib/ui/icons/Icon.svelte';
   import IconButton from './IconButton.svelte';
@@ -27,46 +28,85 @@
   const page = $derived(evidence.pages[current - 1]);
   const observations = $derived(evidence.observations.filter((one) => one.page === current));
 
+  // From the page fitting its frame to four times that.
+  const ZOOMS = [1, 1.5, 2, 3, 4];
+  let zoom = $state(1);
+  let frame: HTMLDivElement | undefined = $state();
+
+  // The point at the frame's centre stays there.
+  async function zoomBy(step: number) {
+    const next = ZOOMS[ZOOMS.indexOf(zoom) + step];
+    if (!next || !frame) return;
+    const { scrollLeft, scrollTop, scrollWidth, scrollHeight, clientWidth, clientHeight } = frame;
+    zoom = next;
+    await tick();
+    frame.scrollLeft =
+      ((scrollLeft + clientWidth / 2) / scrollWidth) * frame.scrollWidth - clientWidth / 2;
+    frame.scrollTop =
+      ((scrollTop + clientHeight / 2) / scrollHeight) * frame.scrollHeight - clientHeight / 2;
+  }
+
   const percent = (fraction: number) => `${(fraction * 100).toFixed(2)}%`;
   const reading = (one: Observation) => [one.value, one.unit].filter(Boolean).join(' ');
 </script>
 
 <div class="viewer">
   <div class="pane">
-    {#if evidence.pages.length > 1}
-      <div class="tools">
-        <IconButton
-          icon="caret-left"
-          label="Previous page"
-          disabled={current === 1}
-          onclick={() => (current -= 1)}
-        />
-        <span class="where" aria-live="polite">Page {current} of {evidence.pages.length}</span>
-        <IconButton
-          icon="caret-right"
-          label="Next page"
-          disabled={current === evidence.pages.length}
-          onclick={() => (current += 1)}
-        />
-      </div>
-    {/if}
     {#if page}
-      <div class="page" style:aspect-ratio={`${page.width} / ${page.height}`}>
-        <img src={page.image} alt={`Page ${current} of ${evidence.name}`} />
-        {#each observations as one (one.id)}
-          <button
-            type="button"
-            class="box"
-            style:left={percent(one.box.x)}
-            style:top={percent(one.box.y)}
-            style:width={percent(one.box.width)}
-            style:height={percent(one.box.height)}
-            aria-label={`Box ${one.index}: ${one.label}, ${reading(one)}`}
-            aria-pressed={selected === one.id}
-            data-unsure={one.confidence < 1 ? '' : undefined}
-            onclick={() => (selected = one.id)}><span class="tab">{one.index}</span></button
-          >
-        {/each}
+      <div class="tools">
+        {#if evidence.pages.length > 1}
+          <IconButton
+            icon="caret-left"
+            label="Previous page"
+            disabled={current === 1}
+            onclick={() => (current -= 1)}
+          />
+          <span class="where" aria-live="polite">Page {current} of {evidence.pages.length}</span>
+          <IconButton
+            icon="caret-right"
+            label="Next page"
+            disabled={current === evidence.pages.length}
+            onclick={() => (current += 1)}
+          />
+        {/if}
+        <span class="zoom">
+          <IconButton
+            icon="minus"
+            label="Zoom out"
+            disabled={zoom === ZOOMS[0]}
+            onclick={() => zoomBy(-1)}
+          />
+          <span class="where" aria-live="polite">Zoom {zoom * 100}%</span>
+          <IconButton
+            icon="plus"
+            label="Zoom in"
+            disabled={zoom === ZOOMS.at(-1)}
+            onclick={() => zoomBy(1)}
+          />
+        </span>
+      </div>
+      <div class="frame" bind:this={frame} style:aspect-ratio={`${page.width} / ${page.height}`}>
+        <div
+          class="page"
+          style:inline-size={`${zoom * 100}%`}
+          style:aspect-ratio={`${page.width} / ${page.height}`}
+        >
+          <img src={page.image} alt={`Page ${current} of ${evidence.name}`} />
+          {#each observations as one (one.id)}
+            <button
+              type="button"
+              class="box"
+              style:left={percent(one.box.x)}
+              style:top={percent(one.box.y)}
+              style:width={percent(one.box.width)}
+              style:height={percent(one.box.height)}
+              aria-label={`Box ${one.index}: ${one.label}, ${reading(one)}`}
+              aria-pressed={selected === one.id}
+              data-unsure={one.confidence < 1 ? '' : undefined}
+              onclick={() => (selected = one.id)}><span class="tab">{one.index}</span></button
+            >
+          {/each}
+        </div>
       </div>
     {/if}
   </div>
@@ -126,12 +166,25 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    margin-inline-start: auto;
+  }
+
+  /* The frame is the page at its fit, and scrolls when zoomed in. Its content box keeps the page's
+     aspect ratio, so at 100% nothing scrolls. */
+  .frame {
+    box-sizing: content-box;
+    overflow: auto;
+    border: 1px solid var(--color-line-1);
+    border-radius: var(--radius-control);
+  }
+
   /* The page keeps its own aspect ratio, so the boxes sit where they were read. */
   .page {
     position: relative;
-    border: 1px solid var(--color-line-1);
-    border-radius: var(--radius-control);
-    overflow: hidden;
   }
 
   .page img {

@@ -69,6 +69,23 @@ describe('EvidenceViewer', () => {
     expect(outside.getByRole('img', { name: `Page 1 of ${evidence.name}` })).toBeTruthy();
   });
 
+  it('zooms from the page fitting to four times its size, and back', async () => {
+    const { getByRole, getByText } = render(EvidenceViewer, { props: { evidence } });
+    const zoomIn = getByRole('button', { name: 'Zoom in' });
+    const zoomOut = getByRole('button', { name: 'Zoom out' });
+    const page = getByRole('img').parentElement;
+    expect(getByText('Zoom 100%')).toBeTruthy();
+    expect(zoomOut.hasAttribute('disabled')).toBe(true);
+    await fireEvent.click(zoomIn);
+    expect(getByText('Zoom 150%')).toBeTruthy();
+    expect(page?.style.inlineSize).toBe('150%');
+    for (let step = 0; step < 3; step += 1) await fireEvent.click(zoomIn);
+    expect(getByText('Zoom 400%')).toBeTruthy();
+    expect(zoomIn.hasAttribute('disabled')).toBe(true);
+    await fireEvent.click(zoomOut);
+    expect(getByText('Zoom 300%')).toBeTruthy();
+  });
+
   it('shows no page controls for evidence with one page', () => {
     const { queryByRole } = render(EvidenceViewer, { props: { evidence } });
     expect(queryByRole('button', { name: 'Next page' })).toBeNull();

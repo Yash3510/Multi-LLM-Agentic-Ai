@@ -36,3 +36,16 @@ test('?page= opens a page, and ?box= opens the page its box is on', async ({ pag
     'true',
   );
 });
+
+test('zoomed in by keyboard, the page pans with the arrow keys from a box', async ({ page }) => {
+  await page.goto('/evidence/ev-0142-2');
+  await page.getByRole('button', { name: 'Zoom in' }).focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Zoom 200%')).toBeVisible();
+  const frame = page.getByRole('img', { name: `Page 1 of ${REPORT}` }).locator('xpath=../..');
+  await page.getByRole('button', { name: 'Box 1: Batch, Second' }).focus();
+  const before = await frame.evaluate((element) => element.scrollTop);
+  await page.keyboard.press('ArrowDown');
+  await expect.poll(() => frame.evaluate((element) => element.scrollTop)).toBeGreaterThan(before);
+});

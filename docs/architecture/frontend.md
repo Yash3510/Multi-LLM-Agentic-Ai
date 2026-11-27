@@ -461,14 +461,14 @@ just web-dev                                   # the web app on http://localhost
 
 - Page navigation: Previous page and Next page around "Page n of m", when the evidence has more than one page. The list shows that page's observations, so boxes and rows stay in step.
 - `?page=` opens a page. `?box=` opens its box's page, with the box selected.
-- Zoom, from 100 % (the page fits) to 400 %: Zoom out and Zoom in, or `+`, `-` and `0` on the focused page. The view stays centred on the same point.
-- Pan when zoomed: drag the page, scroll it, or use the arrow keys on the focused page.
+- Zoom, from 100 % (the page fits) to 400 %, with Zoom out and Zoom in by pointer or keyboard. The point at the centre stays there.
+- Pan when zoomed: the page scrolls in its frame, by wheel, trackpad, touch or scrollbar, and by keyboard with the arrow keys once a box has focus (tabbing to a box brings it into view).
 - The fake's stored run reads a second page.
 
 **Acceptance tests:**
 
-- Vitest: the fake's evidence has two pages; the viewer moves between pages with the list following, opens on the page of `?box=`, and zooms by button and by key.
-- Playwright (`e2e/evidence.spec.ts`): `?page=2` opens the second page; zoomed in, the page scrolls.
+- Vitest: the fake's evidence has two pages; the viewer moves between pages with the list following, opens on the page asked for or the page of `?box=`, and zooms from 100 % to 400 % and back.
+- Playwright (`e2e/evidence.spec.ts`): `?page=2` opens the second page and `?box=4` the page its box is on; zoomed in by keyboard, the arrow keys pan the page.
 
 **Ledger:** nothing new. **Neutrality:** no sector terms; the second page uses the fixtures' neutral case and units.
 
@@ -476,7 +476,7 @@ just web-dev                                   # the web app on http://localhost
 
 **Docs:** this page, the [web data contract](web-data-contract.md), [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
 
-**Out of scope:** Verify and Correct (parts 3 and 4); zoom by wheel or pinch beyond the browser's own; keeping the address in step with the page shown.
+**Out of scope:** Verify and Correct (parts 3 and 4); zoom by wheel or pinch beyond the browser's own; dragging the page to pan with a mouse; keeping the address in step with the page shown.
 
 **Depends on:** WP-UI-07, part 1 (draft PR 14). **Reviewer:** R3. **Size:** one pull request, planned at about 340 changed lines.
 
