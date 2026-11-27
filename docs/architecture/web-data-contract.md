@@ -111,7 +111,7 @@ A run has an id and keeps every event in order, each numbered by `seq` from 1 (a
 - **A dropped connection.** A follow that ends before the run did lost its connection. `watchRun(source, id, after, { signal, retryMs, onreconnecting })` in [`runs.ts`](../../apps/web/src/lib/data/runs.ts) waits a second and follows again after the last `seq` it saw, so nothing is missed or repeated. It calls `onreconnecting(true)` when the follow drops and `onreconnecting(false)` when it follows again, so the status line can say so.
 - **Opening a run again.** A chat keeps the questions asked in it: opening it again shows each answer as far as its run has got, and the chat follows a live one after its last event. The run view does the same with `getRun`.
 - **Who decided** is the signed-in person; a screen never names them.
-- **The fake's runs** play at real pace whether anyone follows them or not. A question about rounding plays a Challenger FAIL and a replan; about the server being down, an error at the Analyst; about the connection dropping, a run whose first follow drops just after the Analyst starts. The stored chats' runs are `run-demo` and `run-0142`.
+- **The fake's runs** play at real pace whether anyone follows them or not. A question about rounding plays a Challenger FAIL and a replan; about the server being down, an error at the Analyst; about the connection dropping, a run whose first follow drops just after the Analyst starts. The stored chats' runs are `run-demo` and `run-0142`. `run-0142` cites evidence the fake has, `ev-0142-2`: two pages with five observations, two of them read unsure.
 
 ## Stream events
 
