@@ -18,7 +18,7 @@ tags: [4ce, log, frontend]
 ## What changed
 
 - **Page navigation** ([WP-UI-07, part 2](../../../architecture/frontend.md#wp-ui-07-part-2-pages-zoom-and-pan)): Previous page and Next page around "Page n of m", with the list following the page shown. `?page=` opens a page, and `?box=` the page its box is on.
-- **Zoom and pan:** Zoom out and Zoom in, from 100 % (the page fits) to 400 %, keeping the centre where it was. Zoomed in, the page scrolls in its frame, so panning is the browser's own: wheel, trackpad, touch, scrollbar, or the arrow keys once the page or a box has focus. The page is a focusable region named for its page and zoom (review of #15).
+- **Zoom and pan:** Zoom out and Zoom in, from 100 % (the page fits) to 400 %, keeping the centre where it was. Zoomed in, the page scrolls in its frame, so panning is the browser's own: wheel, trackpad, touch, scrollbar, or the arrow keys once the page or a box has focus. The page is a region named for its page and zoom (review of #15).
 - **The fake's stored run reads a second page**, with two more observations, one of them unsure.
 
 ## Why
@@ -50,21 +50,23 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-07-evidence
 
 **svelte-check's warning** (`5de53b1`): the first full run showed one warning, the viewer reading its page prop outside `untrack`, which keeps only the first value. That is the intent, so the read moved inside `untrack`, and that warning is gone.
 
-**Review fix** (`2d17cc7`, test first): the frame scrolled but couldn't take focus. A test that a zoomed page with nothing read is a focusable region named "Page 2 of 2, zoom 150%" failed (no region), then the viewer's 7 tests passed. svelte-check then reports one warning, `a11y_no_noninteractive_tabindex`, kept as above.
+**Review fix** (`2d17cc7`, test first): the frame scrolled but couldn't take focus. A test that a zoomed page with nothing read is a focusable region named "Page 2 of 2, zoom 150%" failed (no region), then the viewer's 7 tests passed. svelte-check then reported one warning, `a11y_no_noninteractive_tabindex`.
+
+**Review decision** (`92ba981`): the tab stop came out and the region kept its name, and the component test now checks the named region. Then svelte-check 1477 files, 0 errors, 0 warnings; the viewer's 7 tests passed; the evidence browser tests, 8 passed on desktop and tablet. The full check ran again on part 3's branch, which contains this.
 
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets; browsers other than Chromium (the Playwright projects are Chromium only), so panning with the arrow keys in Safari and Firefox is unverified.
 
 ## Decisions
 
 - Panning is the browser's own scrolling, not a drag handler, so it works by pointer, touch and keyboard with no pointer code.
-- The frame is a focusable region (review of #15): a scrolling region must take focus (axe's `scrollable-region-focusable`), so a page with nothing read still pans by keyboard. svelte-check warns that a region isn't interactive (`a11y_no_noninteractive_tabindex`); the warning stays, as the repository has no ignore comments, and an exception would need an ADR.
+- The frame is a region named for its page and zoom, without a tab stop (review of #15). Current Chrome and Firefox let a scroller with nothing focusable in it take focus on their own, so a page with nothing read still pans by keyboard there. A tab stop made svelte-check warn that a region isn't interactive (`a11y_no_noninteractive_tabindex`), and the repository has no ignore comments.
 - No `+` and `-` shortcuts: Zoom out and Zoom in are buttons, so they already work by keyboard.
 - When `?box=` and `?page=` disagree, the box's page opens; a page outside the evidence opens the first.
 
 ## Known limits and follow-ups
 
 - Verify and Correct, and who verified each observation, come in parts 3 and 4.
-- svelte-check reports one warning, `a11y_no_noninteractive_tabindex` on the page region, until an ADR decides an exception.
+- In Safari a scroller with nothing focusable in it can't take focus, so a zoomed page with nothing read can't be panned by keyboard there.
 - Selecting a row doesn't scroll its box into view when zoomed in.
 - At fit, a page taller than the window needs the window scrolled to reach the bottom of its frame.
 - From the review of #14: links built from a raw path with an id (seven in the app, such as the run view's evidence link) lose an id shaped like `(x)` and fail on one with `[x]`, because `appHref` resolves the path as a route; SvelteKit's `resolve` with params doesn't encode `?`, `#` or `%` either. Left for a follow-up across all seven.
