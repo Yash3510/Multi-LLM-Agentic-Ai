@@ -111,6 +111,19 @@ describe('EvidenceViewer', () => {
     expect(onverify).toHaveBeenCalledWith(ratio);
   });
 
+  it('drops the check prompt and the dashed box once verified, keeping the confidence', () => {
+    const [batch, ratio] = evidence.observations;
+    const verified = { by: 'Asha Rao', at: '2026-11-27T14:00:00.000Z' };
+    const read = { ...evidence, observations: [batch, { ...ratio, verified }] };
+    const { getByRole } = render(EvidenceViewer, { props: { evidence: read } });
+    const row = getByRole('button', { name: /^2 Ratio/ });
+    expect(row.textContent).not.toContain('check');
+    expect(row.textContent).toContain('86%');
+    expect(getByRole('button', { name: 'Box 2: Ratio, 82.5 %' }).hasAttribute('data-unsure')).toBe(
+      false,
+    );
+  });
+
   it('offers no Verify without a way to verify', () => {
     const { queryAllByRole } = render(EvidenceViewer, { props: { evidence } });
     expect(queryAllByRole('button', { name: /^Verify / })).toHaveLength(0);

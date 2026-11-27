@@ -58,6 +58,7 @@ test('Verify says who verified an observation, still shown on another page and b
   await expect(verified).toHaveCount(1);
   await page.getByRole('button', { name: 'Verify 2: Ratio' }).click();
   await expect(verified).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^2 Ratio/ })).not.toContainText('check');
   await page.getByRole('button', { name: 'Next page' }).click();
   await page.getByRole('button', { name: 'Previous page' }).click();
   await expect(verified).toHaveCount(2);

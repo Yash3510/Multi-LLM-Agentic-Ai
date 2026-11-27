@@ -67,6 +67,8 @@
 
   const percent = (fraction: number) => `${(fraction * 100).toFixed(2)}%`;
   const reading = (one: Observation) => [one.value, one.unit].filter(Boolean).join(' ');
+  // Read unsure and not yet verified: dashed, and asking for a check. Verified, it is settled.
+  const unsure = (one: Observation) => one.confidence < 1 && !one.verified;
 </script>
 
 <div class="viewer">
@@ -129,7 +131,7 @@
               style:height={percent(one.box.height)}
               aria-label={`Box ${one.index}: ${one.label}, ${reading(one)}`}
               aria-pressed={selected === one.id}
-              data-unsure={one.confidence < 1 ? '' : undefined}
+              data-unsure={unsure(one) ? '' : undefined}
               onclick={() => (selected = one.id)}><span class="tab">{one.index}</span></button
             >
           {/each}
@@ -150,7 +152,7 @@
           <span class="label">{one.label}</span>
           <span class="value">{reading(one)}</span>
           <span class="confidence">{Math.round(one.confidence * 100)}%</span>
-          {#if one.confidence < 1}
+          {#if unsure(one)}
             <span class="check"><Icon name="observation-unsure" size={14} />check</span>
           {/if}
         </button>
