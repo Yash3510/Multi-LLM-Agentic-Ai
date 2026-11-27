@@ -41,6 +41,14 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-07-pages-an
 - `evidence-viewer.test.ts`, Verify only on what isn't verified and only with a way to verify, and who verified the rest: failed (no "Verified by"), then 9 passed.
 - `e2e/evidence.spec.ts`, Verify on the stored run's evidence, still shown after another page and back: failed with the page not passing a way to verify, then with the other evidence tests 10 passed on desktop and tablet.
 
+**Every check,** each `just check` recipe run directly (`just` isn't installed here), all exit 0, on `d2f5fa1`:
+
+- `lint`: 236 files already formatted, all checks passed, pyright 0 errors; `imports`: 14 contracts kept; `repo-check`, `neutrality`: nothing reported.
+- `docs`: exit 0, and with `--base wp/WP-UI-07-pages-and-zoom`; `licences`: 78 components, 114 files scanned, 5 bundled services.
+- `test`: 807 passed, 97 deselected. `web-lint`: ESLint, Prettier and design lint clean, svelte-check 1477 files, 0 errors, 1 warning (part 2's page region). `web-test`: 96 files, 600 tests; tools 16 tests. `web-e2e`: 38 passed.
+
+**From the screenshots** (`d2f5fa1`): on a tablet, a selected row's tint stopped above its Verify button, which straddled the tint's edge. The whole item takes the tint now.
+
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets.
 
 ## Decisions
