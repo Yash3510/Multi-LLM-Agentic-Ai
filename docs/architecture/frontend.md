@@ -85,7 +85,7 @@ just web-dev                                   # the web app on http://localhost
 3. **Sign-in, session and sign-out** against slice 1: the first screens with a real backend ([WP-UI-06, part 1](#wp-ui-06-part-1-sign-in-session-and-sign-out-against-the-server)).
 4. **Runs in the fake source:** ids, numbered events and following from the last event, so every run screen reads one run ([WP-UI-05, part 1](#wp-ui-05-part-1-runs-in-the-fake-source-followed-from-the-last-event)).
 5. **WP-UI-01:** chat, cases and the run view with the stage rail ([part 1, the run view](#wp-ui-01-part-1-the-run-view)). Runs, cases and live events come in later backend slices; until then, the fake source ([web data contract](web-data-contract.md)). Propose each endpoint's shape in a PR to this page, so the backend builds what the screens need.
-6. **WP-UI-02** sign-off panel ([part 1, the sign-off page](#wp-ui-02-part-1-the-sign-off-page)), **WP-UI-03** receipt and provenance ([part 1, the full receipt](#wp-ui-03-part-1-the-full-receipt); [part 2, file cards](#wp-ui-03-part-2-deliverables-as-file-cards)), **WP-UI-04** Sovereignty page.
+6. **WP-UI-02** sign-off panel ([part 1, the sign-off page](#wp-ui-02-part-1-the-sign-off-page)), **WP-UI-03** receipt and provenance ([part 1, the full receipt](#wp-ui-03-part-1-the-full-receipt); [part 2, file cards](#wp-ui-03-part-2-deliverables-as-file-cards); [part 3, the audit sheet](#wp-ui-03-part-3-the-audit-sheet)), **WP-UI-04** Sovereignty page.
 
 ### WP-UI-06, part 1: sign-in, session and sign-out against the server
 
@@ -394,6 +394,34 @@ just web-dev                                   # the web app on http://localhost
 **Out of scope:** opening and downloading files, upload progress, and attachments in the composer (WP-UI-09); revision cards per deliverable version; the audit sheet (part 3).
 
 **Depends on:** WP-UI-03, part 1 (draft PR 11). **Reviewer:** R3. **Size:** one pull request, under ~400 changed lines.
+
+### WP-UI-03, part 3: the audit sheet
+
+**In progress** on `wp/WP-UI-03-audit-sheet`, stacked on part 2. The audit sheet web-screens.md defines at `/runs/[runId]/audit`, following the design system's print rules.
+
+**Goal:** a decided run as a printed A4 record, from the run view's Audit button, so paper and screen agree.
+
+**Interface:**
+
+- `src/routes/runs/[runId]/audit/`: `+page.ts` loads the run (an unknown id is a 404); `+page.svelte` is the sheet. On screen it is a print preview with one Print button; in print only the sheet shows, black on white with 1 px rules.
+- The sheet: the header (the 4CE mark, the classification banner and "Audit sheet"), the question, the static rail, the approval block (who, when with the time zone, the fingerprint in groups of four), the review shown (the released text and each check's verdict with the sources it cites), the record (pack with its hash in groups of four, models, external connections, ledger entry) and the footer (printed when and by whom, and the ledger entry). A run not yet decided says so and links to its run view.
+- `groupsOfFour(hash)` in `src/lib/ui/format.ts` writes a hash as the design system prints it. The Receipt tab uses it too, and gives the pack hash Show all and Copy like the fingerprint.
+- The run view's receipt gets its Audit button back, opening the sheet; the chat's still opens its audit record.
+
+**Acceptance tests:**
+
+- Vitest: `groupsOfFour` splits a hash into groups of four; the Receipt tab shows both hashes whole, grouped, on Show all.
+- Playwright (`e2e/audit.spec.ts`): the stored run's audit sheet, opened from its run view, has the banner, the approver, the grouped fingerprint and the checks, and one Print button; a run not yet decided says so.
+
+**Ledger:** nothing new; printing writes no entry yet. **Neutrality:** no sector terms.
+
+**Files:** `src/routes/runs/[runId]/audit/`, `src/routes/runs/[runId]/+page.svelte`, `src/lib/ui/format.ts` and its test, `src/lib/ui/components/DetailsPanel.svelte` and `signoff.test.ts`, and `e2e/audit.spec.ts` and `e2e/run-view.spec.ts`, all under `apps/web/`.
+
+**Docs:** this page, [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
+
+**Out of scope:** the QR code in the footer (M2, after the QR step is approved); the organisation's own mark (the 4CE mark stands in); the chat's audit record dialog, which stays as it is.
+
+**Depends on:** WP-UI-03, part 2 (draft PR 12). **Reviewer:** R3. **Size:** one pull request, under ~400 changed lines.
 
 ## When `apps/web` lands on `4ce-core`
 
