@@ -29,12 +29,15 @@
   );
 
   const VERDICTS = { pass: 'PASS', review: 'REVIEW', fail: 'FAIL' } as const;
-  const printed = formatDateTime(new Date());
+  // Stamped again as the sheet prints, so a later or second print carries its own time.
+  let printed = $state(formatDateTime(new Date()));
   const named = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
   // A check's sources, by their titles: the clauses its verdict rests on.
   const clauses = (cites: number[] = []) =>
     cites.map((index) => sources.find((one) => one.index === index)?.title ?? `[${index}]`);
 </script>
+
+<svelte:window onbeforeprint={() => (printed = formatDateTime(new Date()))} />
 
 <svelte:head><title>{`Audit sheet: ${data.run.question} / ${m.app_name()}`}</title></svelte:head>
 
