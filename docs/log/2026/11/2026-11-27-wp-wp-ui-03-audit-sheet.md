@@ -49,6 +49,8 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-03-file-car
 
 **In print:** the stored run's sheet was rendered with Playwright's print media and as an A4 PDF (`page.emulateMedia`, `page.pdf`, against the demo build). The first render showed two faults, both fixed: the Print button still painted, and the footer ran words together, because Svelte trims a block's leading space. The second render printed only the sheet, on one page.
 
+**Review fix** (`a1d39b2`, test first): the footer's print time was set when the page opened, so a sheet printed later, or twice, carried the wrong time. It is now stamped again on `beforeprint`. A test moves the clock and fires `beforeprint`: it failed (the opening time stayed), then passed.
+
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets; printing on paper.
 
 ## Decisions
@@ -60,4 +62,5 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-03-file-car
 
 - The QR code in the footer waits for M2 (the QR step needs the owner's go).
 - The 4CE mark stands in for the organisation's.
+- The chat's Audit still opens its audit record dialog, not the sheet. web-screens.md gives the chat a link to the receipt (View run) and routes nobody from the chat to the sheet; whether the dialog should give way to the sheet is a later call.
 - `FileCard` writes sizes with the knowledge pages' `fileSize` (18.4 KB) while the format module has `formatBytes` (decimal kB); the design system wants one format module, so they should be unified.
