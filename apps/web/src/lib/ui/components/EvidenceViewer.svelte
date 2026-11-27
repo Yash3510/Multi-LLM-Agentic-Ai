@@ -292,8 +292,10 @@
     text-align: start;
   }
 
-  .row:hover,
-  .row[aria-pressed='true'] {
+  /* The whole item takes the tint, so a selected row's Verify line sits inside it. */
+  .list li:has(> .row:hover),
+  .list li:has(> .row[aria-pressed='true']) {
+    border-radius: var(--radius-control);
     background-color: var(--color-tint);
   }
 
