@@ -42,13 +42,13 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-07-evidence
 - `evidence-viewer.test.ts`, moving between pages and opening on one: 2 failed, then 5 passed. Zooming: failed (no Zoom in), then 6 passed.
 - `e2e/evidence.spec.ts`, `?page=` and `?box=` on page 2, and zoomed in by keyboard with the arrow keys panning from a box: with part 1's tests, 8 passed on desktop and tablet.
 
-**Every check,** each `just check` recipe run directly (`just` isn't installed here), all exit 0, on `5de53b1`:
+**Every check,** each `just check` recipe run directly (`just` isn't installed here), all exit 0, on `879254a` (with the review fix):
 
 - `lint`: 235 files already formatted, all checks passed, pyright 0 errors; `imports`: 14 contracts kept; `repo-check`, `neutrality`: nothing reported.
 - `docs`: exit 0, and with `--base wp/WP-UI-07-evidence-review`; `licences`: 78 components, 114 files scanned, 5 bundled services.
-- `test`: 807 passed, 97 deselected. `web-lint`: ESLint, Prettier and design lint clean, svelte-check 1477 files, 0 errors, 0 warnings. `web-test`: 96 files, 596 tests; tools 16 tests. `web-e2e`: 36 passed.
+- `test`: 807 passed, 97 deselected. `web-lint`: ESLint, Prettier and design lint clean, svelte-check 1477 files, 0 errors, 1 warning (the review fix's, below). `web-test`: 96 files, 597 tests; tools 16 tests. `web-e2e`: 36 passed.
 
-**svelte-check's warning** (`5de53b1`): the first full run showed one warning, the viewer reading its page prop outside `untrack`, which keeps only the first value. That is the intent, so the read moved inside `untrack`, and the run above has no warnings.
+**svelte-check's warning** (`5de53b1`): the first full run showed one warning, the viewer reading its page prop outside `untrack`, which keeps only the first value. That is the intent, so the read moved inside `untrack`, and that warning is gone.
 
 **Review fix** (`2d17cc7`, test first): the frame scrolled but couldn't take focus. A test that a zoomed page with nothing read is a focusable region named "Page 2 of 2, zoom 150%" failed (no region), then the viewer's 7 tests passed. svelte-check then reports one warning, `a11y_no_noninteractive_tabindex`, kept as above.
 
