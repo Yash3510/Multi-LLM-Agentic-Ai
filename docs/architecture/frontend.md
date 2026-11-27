@@ -425,7 +425,7 @@ just web-dev                                   # the web app on http://localhost
 
 ### WP-UI-07, part 1: evidence review
 
-**Built, in draft PR 14** ([log](../log/2026/11/2026-11-27-wp-wp-ui-07-evidence-review.md)), stacked on WP-UI-03, part 3. The first part of [WP-UI-07](web-screens.md#proposed-work-packages). Step 3 of the plan goes in four pull requests: evidence review in two parts (part 2: zoom and pan, page navigation, Verify and Correct), then the assessment in two (WP-UI-08).
+**Built, in draft PR 14** ([log](../log/2026/11/2026-11-27-wp-wp-ui-07-evidence-review.md)), stacked on WP-UI-03, part 3. The first part of [WP-UI-07](web-screens.md#proposed-work-packages). Step 3 of the plan goes in six pull requests: evidence review in four parts (part 2: pages, zoom and pan; parts 3 and 4: Verify and Correct, first in the contract, then on the page), then the assessment in two (WP-UI-08).
 
 **Goal:** check what the Reader read from a piece of evidence against the page itself, at `/evidence/[evidenceId]`.
 
@@ -447,9 +447,38 @@ just web-dev                                   # the web app on http://localhost
 
 **Docs:** this page, the [web data contract](web-data-contract.md), [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
 
-**Out of scope:** zoom and pan, page navigation, Verify and Correct (part 2); the Reader's live reading; capture on tablets.
+**Out of scope:** zoom and pan, page navigation (part 2); Verify and Correct (parts 3 and 4); the Reader's live reading; capture on tablets.
 
-**Depends on:** WP-UI-03, part 3 (draft PR 13). **Reviewer:** R3. **Size:** one pull request, about 400 changed lines.
+**Depends on:** WP-UI-03, part 3 (draft PR 13). **Reviewer:** R3. **Size:** one pull request, 533 changed lines, accepted in review.
+
+### WP-UI-07, part 2: pages, zoom and pan
+
+**In progress** on `wp/WP-UI-07-pages-and-zoom`, stacked on WP-UI-07, part 1. The rest of evidence review goes in three pull requests, each planned under about 400 changed lines and split by layer: this one (the viewer and the route), then Verify and Correct in the contract and the fake (part 3), then on the page (part 4).
+
+**Goal:** move between a piece of evidence's pages and read one closely, at `/evidence/[evidenceId]`.
+
+**Interface:**
+
+- Page navigation: Previous page and Next page around "Page n of m", when the evidence has more than one page. The list shows that page's observations, so boxes and rows stay in step.
+- `?page=` opens a page. `?box=` opens its box's page, with the box selected.
+- Zoom, from 100 % (the page fits) to 400 %: Zoom out and Zoom in, or `+`, `-` and `0` on the focused page. The view stays centred on the same point.
+- Pan when zoomed: drag the page, scroll it, or use the arrow keys on the focused page.
+- The fake's stored run reads a second page.
+
+**Acceptance tests:**
+
+- Vitest: the fake's evidence has two pages; the viewer moves between pages with the list following, opens on the page of `?box=`, and zooms by button and by key.
+- Playwright (`e2e/evidence.spec.ts`): `?page=2` opens the second page; zoomed in, the page scrolls.
+
+**Ledger:** nothing new. **Neutrality:** no sector terms; the second page uses the fixtures' neutral case and units.
+
+**Files:** `src/lib/data/fake.ts` and `fake.test.ts`, `src/lib/ui/components/EvidenceViewer.svelte` and its test, `src/routes/evidence/[evidenceId]/` and `e2e/evidence.spec.ts`, all under `apps/web/`.
+
+**Docs:** this page, the [web data contract](web-data-contract.md), [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
+
+**Out of scope:** Verify and Correct (parts 3 and 4); zoom by wheel or pinch beyond the browser's own; keeping the address in step with the page shown.
+
+**Depends on:** WP-UI-07, part 1 (draft PR 14). **Reviewer:** R3. **Size:** one pull request, planned at about 340 changed lines.
 
 ## When `apps/web` lands on `4ce-core`
 
