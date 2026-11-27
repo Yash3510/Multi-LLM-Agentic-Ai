@@ -41,7 +41,11 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-03-receipt`
 - `file-card.test.ts`: failed (no component), then 2 passed.
 - `e2e/run-view.spec.ts` "a released run's receipt gives its file…": failed (no card), then the run view's tests 8 passed on desktop and tablet.
 
-**Every check:** the results are added below once run on this branch.
+**Every check,** each `just check` recipe run directly (`just` isn't installed here), all exit 0:
+
+- `lint`: 232 files already formatted (134 Python, 98 Markdown), all checks passed, pyright 0 errors; `imports`: 14 contracts kept; `repo-check`, `neutrality`: nothing reported.
+- `docs`: exit 0, and with `--base wp/WP-UI-03-receipt`; `licences`: 78 components, 114 files scanned, 5 bundled services.
+- `test`: 807 passed, 97 deselected. `web-lint`: ESLint, Prettier and design lint clean, svelte-check 1464 files, 0 errors. `web-test`: 94 files, 586 tests; tools 16 tests. `web-e2e`: 26 passed.
 
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets.
 
