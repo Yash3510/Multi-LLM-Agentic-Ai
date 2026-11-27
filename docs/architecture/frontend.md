@@ -425,7 +425,7 @@ just web-dev                                   # the web app on http://localhost
 
 ### WP-UI-07, part 1: evidence review
 
-**In progress** on `wp/WP-UI-07-evidence-review`, stacked on WP-UI-03, part 3. The first part of [WP-UI-07](web-screens.md#proposed-work-packages). Step 3 of the plan goes in four pull requests: evidence review in two parts (part 2: zoom and pan, page navigation, Verify and Correct), then the assessment in two (WP-UI-08).
+**Built, in draft PR 14** ([log](../log/2026/11/2026-11-27-wp-wp-ui-07-evidence-review.md)), stacked on WP-UI-03, part 3. The first part of [WP-UI-07](web-screens.md#proposed-work-packages). Step 3 of the plan goes in four pull requests: evidence review in two parts (part 2: zoom and pan, page navigation, Verify and Correct), then the assessment in two (WP-UI-08).
 
 **Goal:** check what the Reader read from a piece of evidence against the page itself, at `/evidence/[evidenceId]`.
 

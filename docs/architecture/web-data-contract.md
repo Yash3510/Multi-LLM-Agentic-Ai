@@ -47,6 +47,7 @@ What the web app needs from the 4CE backend, as the screens read it. The screens
 | `getChat(id)` | `Chat` with its `messages`, or `undefined`; a response carries its `runId`, and its text, events and `finished` are its run's as far as it has got | the conversation screen (`/c/[id]`) |
 | `ask(chatId, question)` | starts a run and returns its id; the question and its answer stay with the chat | the composer |
 | `getRun(id)` | the `Run` as it stands (id, chat, question, numbered events, finished), or `undefined` | every run screen; the run view (`/runs/[runId]`) |
+| `getEvidence(id)` | an `Evidence`: name, the `<Document kind>` it was read as, its pages (image and size), the reader's model, and its `Observation`s (number in reading order, page, box as fractions of the page, label, value, unit, confidence), or `undefined` | evidence review (`/evidence/[evidenceId]`) |
 | `followRun(id, after, signal?)` | the run's events after `after`, then each new one, until the run ends; rejects for a run that doesn't exist; see [Runs](#runs) | the live answer, through `watchRun` |
 | `cancelRun(id)` | ends a live run with `stopped` | the composer's Stop; the run view's Cancel |
 | `decide(runId, outcome, reason?)` | records the signed-in person's decision on a run waiting for sign-off, which then goes on to `decision`, `receipt` and `done`; a reason with `withheld` returns the work, and a blank reason is refused; rejects for any other run | the sign-off panel, in the chat and on the sign-off page |
@@ -121,7 +122,7 @@ Events arrive in order, each with its run's `seq`. `at` is the server's time in 
 | `status` | `stage` (one of the six roles, or `replan`), `description`, optional `done` | the stage rail and the live status line |
 | `delta` | a piece of the answer's markdown | the answer text, streamed |
 | `tool` | a `ToolCall`: id, name, input, output, state (`running`, `done`, `failed`); a repeated id updates the call | the tool-call row |
-| `source` | a `Source`: citation number, title, passage | the `[n]` citations and the sources list |
+| `source` | a `Source`: citation number, title, passage, and the `evidenceId` it was read from when there is one | the `[n]` citations and the sources list; the run view links evidence to its review |
 | `sign-off` | the checks for the person to review, each with a verdict and the citation numbers it rests on (`cites`), and on a later try a `revision` (try number, objections, removed and added lines) | the sign-off panel and its changes view; the receipt's revision card |
 | `decision` | `released` or `withheld`, who decided, and for a return the `reason` | the Sign-off node (noting `returned` for a return), the run view's Sign-off stage and, for a return, a line under the answer |
 | `receipt` | fingerprint, model, `seconds` (the agents' working time, as the status line sums it), source count, who signed, external calls observed, `folds` (titled markdown: full provenance and each agent's own output), and the record: `classification`, `pack` (name, version, hash), `routing` (each role's model), `skills` (with version hashes), the `ledger` position and the `deliverables`, each a `FileInfo` (name, kind, size, hash, classification and state) | the receipt labels, then the folds and the details panel's Receipt tab; the execution timeline fold is built from the status events |
