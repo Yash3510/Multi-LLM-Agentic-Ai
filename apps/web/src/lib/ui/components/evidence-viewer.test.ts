@@ -1,5 +1,6 @@
 import { fireEvent, render } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { formatDateTime } from '$lib/ui/format';
 import EvidenceViewer from './EvidenceViewer.svelte';
 
 const box = { x: 0.3, y: 0.2, width: 0.25, height: 0.05 };
@@ -91,6 +92,41 @@ describe('EvidenceViewer', () => {
     expect(getByRole('region', { name: 'Page 2 of 2, zoom 100%' })).toBeTruthy();
     await fireEvent.click(getByRole('button', { name: 'Zoom in' }));
     expect(getByRole('region', { name: 'Page 2 of 2, zoom 150%' })).toBeTruthy();
+  });
+
+  it('offers Verify on what is not yet verified, and says who verified the rest and when', async () => {
+    const at = '2026-10-08T08:20:00.000Z';
+    const [batch, ratio] = evidence.observations;
+    const read = {
+      ...evidence,
+      observations: [{ ...batch, verified: { by: 'Asha Rao', at } }, ratio],
+    };
+    const onverify = vi.fn();
+    const { getByRole, getByText, queryAllByRole } = render(EvidenceViewer, {
+      props: { evidence: read, onverify },
+    });
+    expect(getByText(`Verified by Asha Rao, ${formatDateTime(at)}`)).toBeTruthy();
+    expect(queryAllByRole('button', { name: /^Verify / })).toHaveLength(1);
+    await fireEvent.click(getByRole('button', { name: 'Verify 2: Ratio' }));
+    expect(onverify).toHaveBeenCalledWith(ratio);
+  });
+
+  it('drops the check prompt and the dashed box once verified, keeping the confidence', () => {
+    const [batch, ratio] = evidence.observations;
+    const verified = { by: 'Asha Rao', at: '2026-11-27T14:00:00.000Z' };
+    const read = { ...evidence, observations: [batch, { ...ratio, verified }] };
+    const { getByRole } = render(EvidenceViewer, { props: { evidence: read } });
+    const row = getByRole('button', { name: /^2 Ratio/ });
+    expect(row.textContent).not.toContain('check');
+    expect(row.textContent).toContain('86%');
+    expect(getByRole('button', { name: 'Box 2: Ratio, 82.5 %' }).hasAttribute('data-unsure')).toBe(
+      false,
+    );
+  });
+
+  it('offers no Verify without a way to verify', () => {
+    const { queryAllByRole } = render(EvidenceViewer, { props: { evidence } });
+    expect(queryAllByRole('button', { name: /^Verify / })).toHaveLength(0);
   });
 
   it('shows no page controls for evidence with one page', () => {

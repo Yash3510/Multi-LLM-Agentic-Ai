@@ -480,6 +480,34 @@ just web-dev                                   # the web app on http://localhost
 
 **Depends on:** WP-UI-07, part 1 (draft PR 14). **Reviewer:** R3. **Size:** one pull request, planned at about 340 changed lines.
 
+### WP-UI-07, part 3: Verify
+
+**In progress** on `wp/WP-UI-07-verify`, stacked on WP-UI-07, part 2. Planned under about 400 changed lines; Correct follows in part 4.
+
+**Goal:** accept an observation as read, and see who verified each one and when, at `/evidence/[evidenceId]`.
+
+**Interface:**
+
+- `Observation.verified` in `types.ts`: who verified it and when. `verifyObservation(evidenceId, observationId)` records the signed-in person and the time and gives the observation back. Verifying again keeps the first record; an unknown evidence or observation is refused.
+- The fake keeps its evidence per source, so a verification lasts until the page reloads. The stored run's first observation arrives verified.
+- Evidence review: each row not yet verified has Verify, and a verified row says "Verified by" the person and the date and time, with the `check` glyph. A verified observation is settled: "check" goes and its box is drawn solid, while its confidence stays. After a verify the page loads the evidence again; a refusal shows as an error toast.
+- Proposed endpoint for the backend: `POST /api/evidence/{evidence_id}/observations/{observation_id}/verify`, giving the observation and writing the `observation.verified` ledger entry (WP-LG-01).
+
+**Acceptance tests:**
+
+- Vitest: the fake records who verified and when, keeps the first record, and refuses an unknown observation; the viewer offers Verify only on an observation not yet verified and only when given a way to verify, and says who verified one and when.
+- Playwright (`e2e/evidence.spec.ts`): Verify on the stored run's evidence says who verified it, still shown after moving to another page and back.
+
+**Ledger:** the backend writes `observation.verified`; the fake writes nothing. **Neutrality:** no sector terms.
+
+**Files:** `src/lib/data/` (`types.ts`, `fake.ts`, `fake.test.ts`), `src/lib/ui/components/EvidenceViewer.svelte` and its test, `src/routes/evidence/[evidenceId]/+page.svelte` and `e2e/evidence.spec.ts`, all under `apps/web/`.
+
+**Docs:** this page, the [web data contract](web-data-contract.md), [web screens](web-screens.md), the [design system](design-system.md), `state.md` and a work-log entry.
+
+**Out of scope:** Correct (part 4); sealing an observation a released assessment used (with the assessment, WP-UI-08); who may verify (the Author and the Reviewer), which the server decides.
+
+**Depends on:** WP-UI-07, part 2 (draft PR 15). **Reviewer:** R3. **Size:** one pull request, planned at about 280 changed lines.
+
 ## When `apps/web` lands on `4ce-core`
 
 The first PR that adds `apps/web` also wires it into the repository's checks. In the same PR:

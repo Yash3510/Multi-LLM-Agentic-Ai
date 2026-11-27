@@ -3,10 +3,13 @@
   // observation list in step with them. Selecting a box selects its row and the reverse; what was
   // read with less than full confidence is drawn dashed and asks for a check. The list follows the
   // page shown. Zoomed in, the frame scrolls, so panning is the browser's own: wheel, trackpad,
-  // touch and scrollbars, and the arrow keys once a box has focus.
+  // touch and scrollbars, and the arrow keys once the page or a box has focus. Given `onverify`,
+  // each observation not yet verified can be accepted as read; a verified one says who and when.
   import { tick, untrack } from 'svelte';
   import type { Evidence, Observation } from '$lib/data';
+  import { formatDateTime } from '$lib/ui/format';
   import Icon from '$lib/ui/icons/Icon.svelte';
+  import Button from './Button.svelte';
   import IconButton from './IconButton.svelte';
 
   type Props = {
@@ -15,9 +18,21 @@
     page?: number;
     /** The observation number to open with selected, on its page (the address's `?box=`). */
     box?: number;
+    /** Accepts an observation as read; without it, the list is read-only. */
+    onverify?: (observation: Observation) => Promise<void> | void;
   };
 
-  let { evidence, page: asked, box }: Props = $props();
+  let { evidence, page: asked, box, onverify }: Props = $props();
+
+  let verifying = $state<string>();
+  async function verify(one: Observation) {
+    verifying = one.id;
+    try {
+      await onverify?.(one);
+    } finally {
+      verifying = undefined;
+    }
+  }
 
   const opened = untrack(() => evidence.observations.find((one) => one.index === box));
   // A page outside the evidence opens the first.
@@ -52,6 +67,8 @@
 
   const percent = (fraction: number) => `${(fraction * 100).toFixed(2)}%`;
   const reading = (one: Observation) => [one.value, one.unit].filter(Boolean).join(' ');
+  // Read unsure and not yet verified: dashed, and asking for a check. Verified, it is settled.
+  const unsure = (one: Observation) => one.confidence < 1 && !one.verified;
 </script>
 
 <div class="viewer">
@@ -114,7 +131,7 @@
               style:height={percent(one.box.height)}
               aria-label={`Box ${one.index}: ${one.label}, ${reading(one)}`}
               aria-pressed={selected === one.id}
-              data-unsure={one.confidence < 1 ? '' : undefined}
+              data-unsure={unsure(one) ? '' : undefined}
               onclick={() => (selected = one.id)}><span class="tab">{one.index}</span></button
             >
           {/each}
@@ -135,10 +152,27 @@
           <span class="label">{one.label}</span>
           <span class="value">{reading(one)}</span>
           <span class="confidence">{Math.round(one.confidence * 100)}%</span>
-          {#if one.confidence < 1}
+          {#if unsure(one)}
             <span class="check"><Icon name="observation-unsure" size={14} />check</span>
           {/if}
         </button>
+        {#if one.verified}
+          <p class="after verified">
+            <Icon name="check" size={14} />Verified by {one.verified.by}, {formatDateTime(
+              one.verified.at,
+            )}
+          </p>
+        {:else if onverify}
+          <div class="after">
+            <Button
+              variant="secondary"
+              size="small"
+              aria-label={`Verify ${one.index}: ${one.label}`}
+              loading={verifying === one.id}
+              onclick={() => verify(one)}>Verify</Button
+            >
+          </div>
+        {/if}
       </li>
     {:else}
       <li class="none">Nothing was read from this page.</li>
@@ -260,8 +294,10 @@
     text-align: start;
   }
 
-  .row:hover,
-  .row[aria-pressed='true'] {
+  /* The whole item takes the tint, so a selected row's Verify line sits inside it. */
+  .list li:has(> .row:hover),
+  .list li:has(> .row[aria-pressed='true']) {
+    border-radius: var(--radius-control);
     background-color: var(--color-tint);
   }
 
@@ -283,6 +319,19 @@
     align-items: center;
     gap: var(--spacing-1);
     color: var(--color-caution);
+  }
+
+  /* Under a row, lined up with its label: Verify, or who verified it and when. */
+  .after {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    padding: 0 var(--spacing-3) var(--spacing-2) calc(24px + 2 * var(--spacing-3));
+  }
+
+  .verified {
+    color: var(--color-ink-3);
+    font-size: var(--text-small);
   }
 
   .none {

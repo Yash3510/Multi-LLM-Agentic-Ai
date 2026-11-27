@@ -310,7 +310,7 @@ Every route in one table. Details follow, grouped by area. `[id]` segments are o
 - **People:** Author and Reviewer verify and correct; Viewer and Auditor read. **Run roles:** Reader (who read it).
 - **Components:**
   - the evidence viewer: the page image (rendered at the core kind's size, §7.8) with numbered observation boxes; page navigation; zoom and pan
-  - the observation list in step with the boxes: number, parameter label, value and unit, confidence, and the dashed `observation-unsure` glyph with "check" on anything read with less than full confidence
+  - the observation list in step with the boxes: number, parameter label, value and unit, confidence, and the dashed `observation-unsure` glyph with "check" on anything read with less than full confidence and not yet verified
   - per observation: **Verify** (accept as read) and **Correct** (enter the right value and unit; the unit must be in the parameter's dimension, §7.9)
   - who verified each one and when; the `<Document kind>` it was read as
   - deep links: `?page=` and `?box=` open a page with one box selected, so the assessment and the case can point at the exact box
@@ -322,7 +322,7 @@ Every route in one table. Details follow, grouped by area. `[id]` segments are o
   - error: the render failed or the reading failed ("could not read", with the `unverified` glyph); a correction refused for a wrong unit, shown on the field.
   - live: the Reader still reading; observations appear one at a time, numbered in reading order.
   - decided: an observation used by a released assessment is sealed: read-only, with who verified it.
-- **Built so far** ([WP-UI-07, part 1](frontend.md#wp-ui-07-part-1-evidence-review) and [part 2](frontend.md#wp-ui-07-part-2-pages-zoom-and-pan)), on the fake source: the page with numbered boxes and the list in step, "check" on what was read unsure, reached from the run view's Analyst stage; page navigation with `?page=` and `?box=`; zoom from 100 % to 400 %, panned by scrolling or by keyboard. Not yet: Verify and Correct and who verified each one (parts 3 and 4), the empty, loading, error, live and decided states.
+- **Built so far** ([WP-UI-07, part 1](frontend.md#wp-ui-07-part-1-evidence-review), [part 2](frontend.md#wp-ui-07-part-2-pages-zoom-and-pan) and [part 3](frontend.md#wp-ui-07-part-3-verify)), on the fake source: the page with numbered boxes and the list in step, "check" on what was read unsure, reached from the run view's Analyst stage; page navigation with `?page=` and `?box=`; zoom from 100 % to 400 %, panned by scrolling or by keyboard; Verify, with who verified each observation and when. Not yet: Correct (part 4), and the empty, loading, error, live and decided states.
 - **Milestone:** M1 (today's reading flow, §7.8, must reach parity). **Demo step:** 2 (the handwritten photo becomes boxed observations), 3 (two documents read). **Tablet:** yes, for review and capturing evidence.
 
 ## Rules and assessments

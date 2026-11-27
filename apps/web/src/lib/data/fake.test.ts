@@ -161,6 +161,28 @@ describe('fake source', () => {
     expect(await source.getEvidence('nope')).toBeUndefined();
   });
 
+  it('records who verified an observation and when, keeping the first record', async () => {
+    const source = createFakeSource({ pace: 0 });
+    const before = await source.getEvidence('ev-0142-2');
+    expect(before?.observations.map((one) => one.verified?.by)).toEqual([
+      'Asha Rao',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    const verified = await source.verifyObservation('ev-0142-2', 'ob-2');
+    expect(verified.verified?.by).toBe('Asha Rao');
+    expect(Number.isNaN(Date.parse(verified.verified?.at ?? ''))).toBe(false);
+    expect((await source.verifyObservation('ev-0142-2', 'ob-2')).verified).toEqual(
+      verified.verified,
+    );
+    const after = await source.getEvidence('ev-0142-2');
+    expect(after?.observations[1]?.verified).toEqual(verified.verified);
+    await expect(source.verifyObservation('ev-0142-2', 'nope')).rejects.toThrow();
+    await expect(source.verifyObservation('nope', 'ob-1')).rejects.toThrow();
+  });
+
   it("gives the receipt the sealed record and the run's own working time", async () => {
     const source = createFakeSource({ pace: 0 });
     const id = await source.ask('c-0143', 'Is R2 within the limit?');
