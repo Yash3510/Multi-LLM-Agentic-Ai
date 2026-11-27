@@ -13,6 +13,7 @@ One entry per PR, newest first, named `YYYY/MM/YYYY-MM-DD-<branch-name>.md` and 
 
 | Date | Entry | Work package |
 | --- | --- | --- |
+| 2026-11-27 | [apps/web: Verify in evidence review](2026/11/2026-11-27-wp-wp-ui-07-verify.md) | WP-UI-07 (part 3) |
 | 2026-11-27 | [apps/web: evidence pages, zoom and pan](2026/11/2026-11-27-wp-wp-ui-07-pages-and-zoom.md) | WP-UI-07 (part 2) |
 | 2026-11-27 | [apps/web: evidence review](2026/11/2026-11-27-wp-wp-ui-07-evidence-review.md) | WP-UI-07 (part 1) |
 | 2026-11-27 | [apps/web: the audit sheet](2026/11/2026-11-27-wp-wp-ui-03-audit-sheet.md) | WP-UI-03 (part 3) |
