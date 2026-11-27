@@ -41,7 +41,11 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-03-file-car
 - `audit.test.ts`, a run not yet decided: failed (no page), then passed.
 - `e2e/audit.spec.ts`, the stored run's sheet from its run view: with the run view's tests, 10 passed on desktop and tablet.
 
-**Every check:** the results are added below once run on this branch.
+**Every check,** each `just check` recipe run directly (`just` isn't installed here), all exit 0:
+
+- `lint`: 233 files already formatted (134 Python, 99 Markdown), all checks passed, pyright 0 errors; `imports`: 14 contracts kept; `repo-check`, `neutrality`: nothing reported.
+- `docs`: exit 0, and with `--base wp/WP-UI-03-file-cards`; `licences`: 78 components, 114 files scanned, 5 bundled services.
+- `test`: 807 passed, 97 deselected. `web-lint`: ESLint, Prettier and design lint clean, svelte-check 1470 files, 0 errors. `web-test`: 95 files, 588 tests; tools 16 tests. `web-e2e`: 28 passed.
 
 **In print:** the stored run's sheet was rendered with Playwright's print media and as an A4 PDF (`page.emulateMedia`, `page.pdf`, against the demo build). The first render showed two faults, both fixed: the Print button still painted, and the footer ran words together, because Svelte trims a block's leading space. The second render printed only the sheet, on one page.
 
