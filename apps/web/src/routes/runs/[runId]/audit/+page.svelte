@@ -99,9 +99,12 @@
       {/if}
 
       <footer class="foot">
-        Printed {printed}{#if data.user}
-          by {data.user.name}{/if}{#if receipt?.ledger !== undefined}
-          · Ledger entry {receipt.ledger}{/if}
+        {[
+          `Printed ${printed}${data.user ? ` by ${data.user.name}` : ''}`,
+          receipt?.ledger !== undefined ? `Ledger entry ${receipt.ledger}` : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
       </footer>
     </article>
   {:else}
@@ -220,6 +223,10 @@
   @media print {
     :global(body *) {
       visibility: hidden;
+    }
+
+    .bar {
+      display: none;
     }
 
     .sheet,
