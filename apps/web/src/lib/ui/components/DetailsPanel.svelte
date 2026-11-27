@@ -6,6 +6,7 @@
   import { Tabs } from 'bits-ui';
   import type { Receipt, SignOffRequest, Source, StreamEvent } from '$lib/data';
   import { formatStageTime } from '$lib/data/stages';
+  import { formatHashFull, formatHashShort } from '$lib/ui/format';
   import { COPY_HOLD_MS, writeClipboard } from './clipboard';
   import {
     PROVENANCE,
@@ -63,8 +64,9 @@
   const percent = (part: number) => `${(part * 100).toFixed(2)}%`;
 
   // The receipt's fingerprint shows short until asked for whole; who decided and when, zoned.
-  let whole = $state(false);
-  let copied = $state(false);
+  type Hash = 'fingerprint' | 'pack hash';
+  let whole = $state<Record<Hash, boolean>>({ fingerprint: false, 'pack hash': false });
+  let copied = $state<Hash>();
   const named = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
   const zoned = new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
@@ -75,13 +77,31 @@
     hourCycle: 'h23',
     timeZoneName: 'short',
   });
-  async function copy(text: string) {
+  // Copy takes the raw hash, not the grouped one shown.
+  async function copy(text: string, which: Hash) {
     if (await writeClipboard(text)) {
-      copied = true;
-      setTimeout(() => (copied = false), COPY_HOLD_MS);
+      copied = which;
+      setTimeout(() => (copied = undefined), COPY_HOLD_MS);
     }
   }
 </script>
+
+{#snippet hash(value: string, which: Hash)}
+  <code class="print">{whole[which] ? formatHashFull(value) : formatHashShort(value)}</code>
+  <button
+    type="button"
+    class="open"
+    aria-label={`${whole[which] ? 'Show less of' : 'Show all of'} the ${which}`}
+    aria-expanded={whole[which]}
+    onclick={() => (whole[which] = !whole[which])}>{whole[which] ? 'Show less' : 'Show all'}</button
+  >
+  <button
+    type="button"
+    class="open"
+    aria-label={`Copy the ${which}`}
+    onclick={() => copy(value, which)}>{copied === which ? 'Copied' : 'Copy'}</button
+  >
+{/snippet}
 
 {#snippet ref(index: number, title?: string)}
   <button
@@ -216,20 +236,7 @@
         {#if receipt}
           <dl class="record">
             <dt>Fingerprint</dt>
-            <dd>
-              <code class="print"
-                >{whole ? receipt.fingerprint : `${receipt.fingerprint.slice(0, 8)}…`}</code
-              >
-              <button
-                type="button"
-                class="open"
-                aria-expanded={whole}
-                onclick={() => (whole = !whole)}>{whole ? 'Show less' : 'Show all'}</button
-              >
-              <button type="button" class="open" onclick={() => copy(receipt.fingerprint)}
-                >{copied ? 'Copied' : 'Copy'}</button
-              >
-            </dd>
+            <dd>{@render hash(receipt.fingerprint, 'fingerprint')}</dd>
             {#if decision}
               <dt>Decided</dt>
               <dd>
@@ -247,7 +254,7 @@
               <dt>Pack</dt>
               <dd>
                 {receipt.pack.name}
-                {receipt.pack.version} · <code>{receipt.pack.hash.slice(0, 8)}…</code>
+                {receipt.pack.version} · {@render hash(receipt.pack.hash, 'pack hash')}
               </dd>
             {/if}
             {#if receipt.routing?.length}

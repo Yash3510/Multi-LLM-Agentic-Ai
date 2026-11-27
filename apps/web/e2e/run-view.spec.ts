@@ -65,9 +65,9 @@ test("a released run's receipt gives its file and the whole record, in the run v
     const record = page.getByRole('tabpanel', { name: 'Receipt' });
     await expect(record).toContainText('Core 1.0.0');
     await expect(record).toContainText('1042');
-    await record.getByRole('button', { name: 'Show all' }).click();
+    await record.getByRole('button', { name: 'Show all of the fingerprint' }).click();
     await expect(record).toContainText(
-      '0604685d984d94b44870bea051662d5c981671e220f8073eae5ab3c26543b5f7',
+      '0604 685d 984d 94b4 4870 bea0 5166 2d5c 9816 71e2 20f8 073e ae5a b3c2 6543 b5f7',
     );
   }
 });
