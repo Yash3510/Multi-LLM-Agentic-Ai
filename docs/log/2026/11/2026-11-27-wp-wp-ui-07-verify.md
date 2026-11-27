@@ -18,7 +18,7 @@ tags: [4ce, log, frontend]
 ## What changed
 
 - **Verifying in the contract** ([WP-UI-07, part 3](../../../architecture/frontend.md#wp-ui-07-part-3-verify)): `Observation.verified` (who and when) and `verifyObservation(evidenceId, observationId)`, which records the signed-in person and the time, keeps an earlier record, and refuses an unknown observation. The fake keeps its own copy of the evidence, so a verification lasts until the page reloads; the stored run's first observation arrives verified.
-- **Verify in evidence review:** each row not yet verified has Verify, and a verified row says who verified it and when, with the `check` glyph. The page asks the data source, then loads the evidence again; a refusal shows as an error toast. Without a way to verify, the list is read-only.
+- **Verify in evidence review:** each row not yet verified has Verify, and a verified row says who verified it and when, with the `check` glyph. The page asks the data source, then loads the evidence again; a refusal shows as an error toast. Without a way to verify, the list is read-only. A verified observation is settled: "check" goes and its box is drawn solid, while its confidence stays (review of #16).
 
 ## Why
 
@@ -49,6 +49,8 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-07-pages-an
 
 **From the screenshots** (`d2f5fa1`): on a tablet, a selected row's tint stopped above its Verify button, which straddled the tint's edge. The whole item takes the tint now.
 
+**Review fix** (`dce9c60`, test first): after Verify, an observation read unsure still showed "check" and kept its dashed box. A test that a verified observation drops both and keeps its confidence failed, then the viewer's 10 tests passed; the browser test also checks the verified row. Part 2's named region (without a tab stop) was merged into this branch first (`303e069`).
+
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets.
 
 ## Decisions
@@ -63,3 +65,4 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-07-pages-an
 - An observation a released assessment used should be sealed, read-only with who verified it; that waits for the assessment (WP-UI-08), as the fake doesn't yet say which observations an assessment used.
 - Everyone signed in sees Verify. Who may verify (the Author and the Reviewer) is the server's call; the page will follow it once the contract carries the person's role on the run.
 - The fake writes no `observation.verified` ledger entry; the backend will (WP-LG-01).
+- From the review of #14: the seven links built from a raw path with an id, such as the run view's evidence link, lose an id shaped like `(draft)` and fail on one with `[y]`, because `appHref` resolves the path as a route. A separate fix waits for the owner's go.

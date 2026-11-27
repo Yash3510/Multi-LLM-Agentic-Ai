@@ -310,7 +310,7 @@ Every route in one table. Details follow, grouped by area. `[id]` segments are o
 - **People:** Author and Reviewer verify and correct; Viewer and Auditor read. **Run roles:** Reader (who read it).
 - **Components:**
   - the evidence viewer: the page image (rendered at the core kind's size, §7.8) with numbered observation boxes; page navigation; zoom and pan
-  - the observation list in step with the boxes: number, parameter label, value and unit, confidence, and the dashed `observation-unsure` glyph with "check" on anything read with less than full confidence
+  - the observation list in step with the boxes: number, parameter label, value and unit, confidence, and the dashed `observation-unsure` glyph with "check" on anything read with less than full confidence and not yet verified
   - per observation: **Verify** (accept as read) and **Correct** (enter the right value and unit; the unit must be in the parameter's dimension, §7.9)
   - who verified each one and when; the `<Document kind>` it was read as
   - deep links: `?page=` and `?box=` open a page with one box selected, so the assessment and the case can point at the exact box

@@ -490,7 +490,7 @@ just web-dev                                   # the web app on http://localhost
 
 - `Observation.verified` in `types.ts`: who verified it and when. `verifyObservation(evidenceId, observationId)` records the signed-in person and the time and gives the observation back. Verifying again keeps the first record; an unknown evidence or observation is refused.
 - The fake keeps its evidence per source, so a verification lasts until the page reloads. The stored run's first observation arrives verified.
-- Evidence review: each row not yet verified has Verify, and a verified row says "Verified by" the person and the date and time, with the `check` glyph. After a verify the page loads the evidence again; a refusal shows as an error toast.
+- Evidence review: each row not yet verified has Verify, and a verified row says "Verified by" the person and the date and time, with the `check` glyph. A verified observation is settled: "check" goes and its box is drawn solid, while its confidence stays. After a verify the page loads the evidence again; a refusal shows as an error toast.
 - Proposed endpoint for the backend: `POST /api/evidence/{evidence_id}/observations/{observation_id}/verify`, giving the observation and writing the `observation.verified` ledger entry (WP-LG-01).
 
 **Acceptance tests:**
