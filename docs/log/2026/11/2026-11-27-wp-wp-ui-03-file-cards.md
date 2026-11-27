@@ -47,6 +47,8 @@ On macOS (arm64), Node 24.21.0, on this branch (stacked on `wp/WP-UI-03-receipt`
 - `docs`: exit 0, and with `--base wp/WP-UI-03-receipt`; `licences`: 78 components, 114 files scanned, 5 bundled services.
 - `test`: 807 passed, 97 deselected. `web-lint`: ESLint, Prettier and design lint clean, svelte-check 1464 files, 0 errors. `web-test`: 94 files, 586 tests; tools 16 tests. `web-e2e`: 26 passed.
 
+**Review fix** (`9aa691c`, test first): the cards were keyed by hash, so two files with the same content would break the strip (`each_key_duplicate`). A test with two such files failed, then passed with the cards keyed by position. After the fix: `npm --prefix apps/web test` 94 files, 587 tests passed; svelte-check 0 errors; the run view's browser tests 8 passed. The full check above ran before the fix.
+
 **Not run:** `just secrets` (gitleaks isn't installed here); the PostgreSQL, Redis and MinIO test sets.
 
 ## Decisions
