@@ -4,10 +4,11 @@
   // in print only the sheet shows, black on white with 1 px rules.
   import { m } from '$lib/i18n/generated/messages.js';
   import AnswerBody from '$lib/ui/components/AnswerBody.svelte';
+  import Button from '$lib/ui/components/Button.svelte';
   import Link from '$lib/ui/components/Link.svelte';
   import Logomark from '$lib/ui/components/Logomark.svelte';
   import StageRail from '$lib/ui/components/StageRail.svelte';
-  import { formatHashFull } from '$lib/ui/format';
+  import { formatDateTime, formatHashFull } from '$lib/ui/format';
   import { renderMarkdown } from '$lib/ui/markdown';
   import type { PageProps } from './$types';
 
@@ -28,16 +29,7 @@
   );
 
   const VERDICTS = { pass: 'PASS', review: 'REVIEW', fail: 'FAIL' } as const;
-  const zoned = new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    timeZoneName: 'short',
-  });
-  const printed = zoned.format(new Date());
+  const printed = formatDateTime(new Date());
   const named = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
   // A check's sources, by their titles: the clauses its verdict rests on.
   const clauses = (cites: number[] = []) =>
@@ -50,13 +42,13 @@
   {#if decision}
     <div class="bar">
       <Link href={`/runs/${data.run.id}`}>Back to the run</Link>
-      <button type="button" class="print" onclick={() => window.print()}>Print</button>
+      <Button variant="secondary" size="small" onclick={() => window.print()}>Print</Button>
     </div>
     <article class="sheet" aria-label="Audit sheet">
       <header class="head">
         <Logomark size={22} />
         {#if receipt?.classification}<p class="banner">{receipt.classification}</p>{/if}
-        <span class="kind">Audit sheet</span>
+        <b>Audit sheet</b>
       </header>
       <h1>{data.run.question}</h1>
       <StageRail {events} finished={data.run.finished} paced={false} />
@@ -64,7 +56,7 @@
       <section aria-labelledby="approval">
         <h2 id="approval">Approval</h2>
         <p>
-          {verb} by {decision.by}, {zoned.format(new Date(decision.at))}{#if decision.reason}:
+          {verb} by {decision.by}, {formatDateTime(decision.at)}{#if decision.reason}:
             {decision.reason}{/if}
         </p>
         {#if receipt}<p class="hash">{formatHashFull(receipt.fingerprint)}</p>{/if}
@@ -143,13 +135,6 @@
     font-size: var(--text-small);
   }
 
-  .print {
-    padding: var(--spacing-1) var(--spacing-4);
-    border: 1px solid var(--color-line-2);
-    border-radius: var(--radius-pill);
-    background-color: var(--color-surface-raised);
-  }
-
   /* The paper is black on white in either theme, with 1 px rules and no fills (design system). */
   .sheet {
     box-sizing: border-box;
@@ -179,10 +164,6 @@
     text-transform: uppercase;
   }
 
-  .kind {
-    font-weight: var(--font-weight-medium);
-  }
-
   h1 {
     margin-block: var(--spacing-4);
     font-size: var(--text-body);
@@ -194,11 +175,15 @@
     border-block-start: 1px solid var(--ref-black);
   }
 
-  h2 {
-    margin: 0 0 var(--spacing-2);
+  h2,
+  .checks b {
     font-family: var(--font-mono);
     font-size: var(--text-tag);
     letter-spacing: 0.06em;
+  }
+
+  h2 {
+    margin: 0 0 var(--spacing-2);
     text-transform: uppercase;
   }
 
@@ -212,11 +197,6 @@
     margin: var(--spacing-2) 0 0;
     padding: 0;
     list-style: none;
-  }
-
-  .checks b {
-    font-family: var(--font-mono);
-    font-size: var(--text-tag);
   }
 
   dl {

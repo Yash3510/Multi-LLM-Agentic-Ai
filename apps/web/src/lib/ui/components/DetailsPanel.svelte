@@ -6,7 +6,7 @@
   import { Tabs } from 'bits-ui';
   import type { Receipt, SignOffRequest, Source, StreamEvent } from '$lib/data';
   import { formatStageTime } from '$lib/data/stages';
-  import { formatHashFull, formatHashShort } from '$lib/ui/format';
+  import { formatDateTime, formatHashFull, formatHashShort } from '$lib/ui/format';
   import { COPY_HOLD_MS, writeClipboard } from './clipboard';
   import {
     PROVENANCE,
@@ -68,15 +68,6 @@
   let whole = $state<Record<Hash, boolean>>({ fingerprint: false, 'pack hash': false });
   let copied = $state<Hash>();
   const named = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
-  const zoned = new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    timeZoneName: 'short',
-  });
   // Copy takes the raw hash, not the grouped one shown.
   async function copy(text: string, which: Hash) {
     if (await writeClipboard(text)) {
@@ -245,7 +236,7 @@
                   : decision.reason
                     ? 'Returned'
                     : 'Withheld'}
-                by {decision.by}, {zoned.format(new Date(decision.at))}
+                by {decision.by}, {formatDateTime(decision.at)}
               </dd>
             {/if}
             {#if receipt.classification}<dt>Classification</dt>
