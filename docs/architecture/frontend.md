@@ -462,12 +462,12 @@ just web-dev                                   # the web app on http://localhost
 - Page navigation: Previous page and Next page around "Page n of m", when the evidence has more than one page. The list shows that page's observations, so boxes and rows stay in step.
 - `?page=` opens a page. `?box=` opens its box's page, with the box selected.
 - Zoom, from 100 % (the page fits) to 400 %, with Zoom out and Zoom in by pointer or keyboard. The point at the centre stays there.
-- Pan when zoomed: the page scrolls in its frame, by wheel, trackpad, touch or scrollbar, and by keyboard with the arrow keys once the page or a box has focus. The page is a region with a tab stop, named for its page and zoom ("Page 2 of 2, zoom 200%"), so a page with nothing read still pans.
+- Pan when zoomed: the page scrolls in its frame, by wheel, trackpad, touch or scrollbar, and by keyboard with the arrow keys once the page or a box has focus. The page is a region named for its page and zoom ("Page 2 of 2, zoom 200%"). With nothing focusable in it, current Chrome and Firefox let it take focus, so a page with nothing read still pans there; Safari doesn't.
 - The fake's stored run reads a second page.
 
 **Acceptance tests:**
 
-- Vitest: the fake's evidence has two pages; the viewer moves between pages with the list following, opens on the page asked for or the page of `?box=`, zooms from 100 % to 400 % and back, and makes the page a focusable region named for its page and zoom.
+- Vitest: the fake's evidence has two pages; the viewer moves between pages with the list following, opens on the page asked for or the page of `?box=`, zooms from 100 % to 400 % and back, and names the page as a region for its page and zoom.
 - Playwright (`e2e/evidence.spec.ts`): `?page=2` opens the second page and `?box=4` the page its box is on; zoomed in by keyboard, the arrow keys pan the page.
 
 **Ledger:** nothing new. **Neutrality:** no sector terms; the second page uses the fixtures' neutral case and units.

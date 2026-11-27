@@ -104,12 +104,12 @@
           />
         </span>
       </div>
-      <!-- A scrolling region takes focus, so a zoomed page with no boxes still pans by keyboard. -->
+      <!-- A named region. Current Chrome and Firefox let a scroller with nothing focusable in it take
+           focus, so a zoomed page with no boxes still pans by keyboard there; Safari doesn't. -->
       <div
         class="frame"
         bind:this={frame}
         role="region"
-        tabindex="0"
         aria-label={`Page ${current} of ${evidence.pages.length}, zoom ${zoom * 100}%`}
         style:aspect-ratio={`${page.width} / ${page.height}`}
       >

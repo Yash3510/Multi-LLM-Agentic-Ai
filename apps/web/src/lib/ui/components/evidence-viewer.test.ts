@@ -87,13 +87,11 @@ describe('EvidenceViewer', () => {
     expect(getByText('Zoom 300%')).toBeTruthy();
   });
 
-  it('makes the page a focusable region named for its page and zoom, so it pans with no boxes', async () => {
-    const nothingRead = { ...twoPages, observations: [] };
-    const { getByRole } = render(EvidenceViewer, { props: { evidence: nothingRead, page: 2 } });
+  it('names the page as a region, for its page and zoom', async () => {
+    const { getByRole } = render(EvidenceViewer, { props: { evidence: twoPages, page: 2 } });
+    expect(getByRole('region', { name: 'Page 2 of 2, zoom 100%' })).toBeTruthy();
     await fireEvent.click(getByRole('button', { name: 'Zoom in' }));
-    const region = getByRole('region', { name: 'Page 2 of 2, zoom 150%' });
-    region.focus();
-    expect(document.activeElement).toBe(region);
+    expect(getByRole('region', { name: 'Page 2 of 2, zoom 150%' })).toBeTruthy();
   });
 
   it('offers Verify on what is not yet verified, and says who verified the rest and when', async () => {
