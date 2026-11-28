@@ -3,7 +3,7 @@ title: Architecture overview
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-21
+updated: 2026-11-22
 tags: [4ce, architecture]
 ---
 
@@ -11,7 +11,7 @@ tags: [4ce, architecture]
 
 4CE is a self-hosted engine that turns an organisation's documents and rulebooks into decisions it can sign: grounded in its evidence, checked against its rules, approved by a named person, recorded as proof, and nothing leaves the building.
 
-This page is the map. Each subsystem gets its own canonical page as it is built. Today the repository tooling, `core/common`, `core/db`, `core/identity`, `core/jobs`, `core/ledger`, `core/live`, `core/storage`, `apps/server`, the draft specs in `core/packs` and the [bundled services](services.md) exist; everything marked _planned_ is design, not code.
+This page is the map. Each subsystem gets its own canonical page as it is built. Today the repository tooling, `core/common`, `core/db`, `core/identity`, `core/jobs`, `core/ledger`, `core/live`, `core/storage`, `apps/server`, `apps/web`, the draft specs in `core/packs` and the [bundled services](services.md) exist; everything marked _planned_ is design, not code.
 
 ## The universal loop
 
@@ -65,10 +65,11 @@ PostgreSQL, Redis, MinIO, Prometheus and Grafana run as unmodified separate serv
 
 | Package | Responsibility | State |
 | --- | --- | --- |
-| [`core/common`](../../core/common/README.md) | Typed settings | built |
+| [`core/common`](../../core/common/README.md) | Typed settings, UUIDv7 ids, the clock and the base error | built |
 | [`core/db`](database.md) | Engines, sessions, organisation scoping, row-level security | built |
 | [`core/packs`](../../core/packs/README.md) | Pack spec, loader, validator, signing, registry, namespacing | draft specs built; the rest _planned_ |
 | [`apps/server`](api.md) | The API, the `fource-server` command, migrations | built |
+| [`apps/web`](frontend.md) | The web UI; Pack Studio later | built: sign-in, the session and sign-out on the server, every other screen on stand-in data ([ADR-0046](../adr/0046-connect-screens-to-the-server-one-at-a-time.md), proposed) |
 | `core/domain` | Subjects, cases, evidence, observations, assessments | _planned_ |
 | [`core/identity`](identity.md) | Users, passwords, tokens, lockout; route guards per role next, then groups, OIDC/SAML client | built (users, passwords, tokens, lockout) |
 | `core/policy` | Policy store, evaluator, decisions, risk tiers | _planned_ |
@@ -94,7 +95,7 @@ PostgreSQL, Redis, MinIO, Prometheus and Grafana run as unmodified separate serv
 | `core/sovereignty` | Egress monitor, surface audit, offline guard, canary | _planned_ |
 | `core/web` | Web broker and the Firecrawl adapter (off by default) | _planned_ |
 
-The frontend's foundations are proposed in [ADR-0035](../adr/0035-frontend-foundations.md) and its design values in the [design system](design-system.md). Pranay, the frontend owner, develops it from the [frontend page](frontend.md); on `4ce-core` the backend and the database come first, and the server's OpenAPI document is the contract between the two.
+The frontend's foundations are proposed in [ADR-0035](../adr/0035-frontend-foundations.md) and its design values in the [design system](design-system.md). Pranay, the frontend owner, develops it from the [frontend page](frontend.md); it is on `4ce-core`, its screens move from stand-in data to the server one at a time, and the server's OpenAPI document is the contract between the two.
 
 ## Related pages
 

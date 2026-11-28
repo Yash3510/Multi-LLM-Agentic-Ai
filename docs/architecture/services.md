@@ -3,11 +3,12 @@ title: Bundled services
 type: architecture
 status: active
 owner: R4
-updated: 2026-11-21
+updated: 2026-11-22
 covers:
   - deploy/compose/
   - deploy/config/
   - deploy/third-party/
+  - tools/licence_gate.py
 tags: [4ce, architecture, deploy]
 ---
 
@@ -30,16 +31,16 @@ just services  # build MinIO the first time, start everything, wait until health
 just down      # stop everything; the data volumes are kept
 ```
 
-Both read `.env` (copy [`.env.example`](../../.env.example) and replace every `change-me`); the stack refuses to start without its passwords. `just services` publishes each service on `127.0.0.1` only: PostgreSQL 5432, Redis 6379, MinIO 9000 (console 9001), Prometheus 9090, Grafana 3000.
+Both read `.env` (copy [`.env.example`](../../.env.example) and replace every `change-me`; `just setup` does it with fresh secrets); the stack refuses to start without its passwords. `just services` publishes each service on `127.0.0.1` only: PostgreSQL 5432, Redis 6379, MinIO 9000 (console 9001), Prometheus 9090, Grafana 3000.
 
-The server uses Redis only when `FOURCE_REDIS_URL` is set (commented out in [`.env.example`](../../.env.example)); without it, live state stays in the process ([live state](live.md)).
+The server uses PostgreSQL only when `FOURCE_DATABASE_URL` names it, and Redis only when `FOURCE_REDIS_URL` is set (both commented out in [`.env.example`](../../.env.example)); without them it runs on SQLite ([database](database.md)) and live state stays in the process ([live state](live.md)).
 
 ## How they are set up
 
 - **[`deploy/compose/core.yml`](../../deploy/compose/core.yml)** is the stack itself. Every service sits on an internal network with no route out, runs with a read-only root file system, drops every Linux capability (adding back only what an entrypoint needs to hand its data folder to an unprivileged user), cannot gain privileges, and has a health check. Pulled images are pinned by digest.
 - **[`deploy/compose/dev.yml`](../../deploy/compose/dev.yml)** publishes the ports for development. Publishing needs a second, non-internal network, which also gives the services a route out, so it never ships in an appliance.
-- **Nothing phones home.** Grafana's usage reporting, update and plugin checks, news feed, Gravatar, external snapshots and plugin preinstalls are off; MinIO's update check and call-home are off.
-- **Configuration** lives in `deploy/config/<service>/`: Prometheus's scrape list, Grafana's provisioned Prometheus data source, and the MinIO build.
+- **Nothing phones home.** Grafana's usage reporting, update and plugin checks, feedback links, news feed, Gravatar, external snapshots, plugin preinstalls, plugin signing-key downloads and plugin installs from its UI are off; MinIO's update check and call-home are off.
+- **Configuration** lives in `deploy/config/<service>/`: Prometheus's scrape list, Grafana's provisioned Prometheus data source, PostgreSQL's app-role script, and the MinIO build.
 - **PostgreSQL's app role.** `deploy/config/postgres/10-app-role.sh` runs once on a new data volume and creates `fource_app` from `FOURCE_POSTGRES_APP_PASSWORD`: not a superuser and unable to bypass row-level security. The server connects as it; migrations run as the owner (`FOURCE_DATABASE_ADMIN_URL`). A volume created before this script has no app role; `just test-postgres` creates it, or run the script's `CREATE ROLE` line with `docker compose --env-file .env -f deploy/compose/core.yml exec postgres psql -U fource -d fource`.
 
 ## MinIO
@@ -50,14 +51,14 @@ MinIO's community edition is archived and publishes source only, so [`minio.dock
 
 ## The third-party bundle
 
-`deploy/third-party/<service>/` holds each service's `LICENSE` and `NOTICE` (from upstream, at the exact commit), `VERSION` (the image in use, then the upstream version) and `SOURCE` (the upstream tag, commit and source archive). `just licences` fails when an image has no complete folder, when `VERSION` doesn't name the image in use, when a pulled image isn't pinned by digest, or when a folder belongs to no service.
+`deploy/third-party/<service>/` holds each service's `LICENSE` and `NOTICE` (from upstream, at the exact commit), `VERSION` (the image in use, then the upstream version) and `SOURCE` (the upstream tag, commit and source archive). `just licences` fails when a service has no image name, when an image has no complete folder, when `VERSION` doesn't name the image in use, when a pulled image isn't pinned by digest, when a built image's build file records no `ARG <NAME>_COMMIT=` or its `SOURCE` doesn't record that commit, or when a folder belongs to no service.
 
 ## Measured
 
 On 2026-10-12, on the Debian laptop (Docker 26.1.5), with a `.env` of random passwords:
 
 - `docker compose config` accepts the merged files, and refuses to start without the passwords.
-- `just dev` pulled the images, built MinIO from source and reported all five containers healthy; `just down` stopped them.
+- `just dev` (the name `just services` had then) pulled the images, built MinIO from source and reported all five containers healthy; `just down` stopped them.
 - PostgreSQL answered `select version()` with 18.6; Redis answered `PONG` with the password and `WRONGPASS` without it; `minio --version` reported `RELEASE.2025-10-15T17-29-55Z` at commit `9e49d5e7`; Prometheus's `/-/ready` returned 200 and reported revision `5241a27f`; Grafana's `/api/health` reported 13.2.3, and an anonymous dashboard request got 401.
 
 Unverified: the stack on Windows (WSL2) and macOS (Lima), and that the internal network has no route out when `dev.yml` is left off.

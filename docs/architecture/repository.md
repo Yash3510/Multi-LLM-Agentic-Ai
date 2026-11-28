@@ -3,7 +3,7 @@ title: Repository layout and working rules
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-21
+updated: 2026-11-22
 covers:
   - justfile
   - pyproject.toml
@@ -12,6 +12,12 @@ covers:
   - .gitattributes
   - .gitignore
   - .pre-commit-config.yaml
+  - .github/workflows/ci.yml
+  - .github/dependabot.yml
+  - tools/commit_words.py
+  - tools/scaffold.py
+  - tools/sync.py
+  - tools/dev/env.py
 tags: [4ce, architecture, repository]
 ---
 
@@ -29,8 +35,8 @@ Folders marked _planned_ don't exist yet; they arrive with their work packages.
 | --- | --- | --- |
 | `.github/` | `CODEOWNERS`, `pull_request_template.md`, `ISSUE_TEMPLATE/`, `dependabot.yml`, `workflows/` | partly built |
 | `.obsidian/` | shared vault settings only: `app.json`, `core-plugins.json`, `templates.json` | built |
-| `apps/server/` | the FastAPI app: thin wiring, no business logic, and the one Alembic migration history | package and migrations built; routes _planned_ |
-| `apps/web/` | the SvelteKit UI and Pack Studio ([frontend](frontend.md)) | _planned_; on hold here while Pranay, the frontend owner, develops it |
+| `apps/server/` | the FastAPI app: thin wiring, no business logic, and the one Alembic migration history | package, migrations and the health and sign-in routes built; other routes _planned_ |
+| `apps/web/` | the SvelteKit UI and Pack Studio ([frontend](frontend.md)) | the UI built, developed by Pranay, the frontend owner: sign-in on the server, every other screen on stand-in data; Pack Studio _planned_ |
 | `core/<package>/` | sector-neutral Python packages, all uv workspace members | `common`, `db`, `identity`, `jobs`, `ledger`, `live`, `packs` and `storage` built |
 | `packs/sector/<pack-id>/`, `packs/cross/<pack-id>/` | one industry or one department each | _planned_ |
 | `skills/<skill-name>/` | 4CE's built-in skills | _planned_ |
@@ -38,7 +44,7 @@ Folders marked _planned_ don't exist yet; they arrive with their work packages.
 | `evals/` | the eval harness; golden data lives in each pack | _planned_ |
 | `deploy/` | `compose/`, `config/<service>/` and `third-party/<component>/` ([bundled services](services.md)); `installer/` and `systemd/` later | partly built |
 | `docs/` | the knowledge base and Obsidian vault ([documentation rules](documentation.md)) | built |
-| `tools/` | repository scripts, each run through a `just` command | built |
+| `tools/` | repository scripts, each run through a `just` command or a git hook | built |
 
 **The root holds only** the folders above plus `.editorconfig`, `.env.example`, `.gitattributes`, `.gitignore`, `.pre-commit-config.yaml`, `.python-version`, `justfile`, `pyproject.toml`, `uv.lock`, `AGENTS.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `LICENSE`, `README.md` and `SECURITY.md`. Anything else at the root fails the repo check.
 
@@ -72,14 +78,14 @@ core/rules/
 - `apps/*` wire everything together and hold no business logic.
 - `tools/` may import anything, and nothing imports `tools/`.
 
-import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. A layers contract puts `fource.server` above `fource.storage` above `fource.identity` above `fource.jobs` above `fource.live` above `fource.ledger` above `fource.db` above `fource.common`, so the core never imports the server. `fource.live` may not import the database, and only `fource.live` imports Redis. Likewise S3 is reached only through `fource.storage`: a forbidden-imports contract keeps boto3, botocore and s3transfer out of every other package (it lists the packages it checks, so a new package is added to it by hand). A forbidden-imports contract keeps the ledger verifier's modules (`chain`, `checkpoints`, `verify`) free of `fource.common`, `fource.db`, SQLAlchemy and pydantic; the packs rule arrives with the Pack SDK.
+import-linter enforces these as contracts in `pyproject.toml` (`just imports`). Today: `common` imports no other 4CE package, and each core package's modules are imported only through its `__init__.py`. `just new-package` adds that public-API contract for every new package. A layers contract puts `fource.server` above `fource.storage` above `fource.identity` above `fource.jobs` above `fource.live` above `fource.ledger` above `fource.db` above `fource.common`, so the core never imports the server. `fource.live` may not import the database, and only `fource.live` imports Redis (its forbidden-imports contract lists every other package except `fource.packs`). Likewise S3 is reached only through `fource.storage`: a forbidden-imports contract keeps boto3, botocore and s3transfer out of every other package (it lists the packages it checks, so a new package is added to it by hand). A forbidden-imports contract keeps the ledger verifier's modules (`chain`, `checkpoints`, `verify`) free of `fource.common`, `fource.db`, SQLAlchemy and pydantic; the packs rule arrives with the Pack SDK.
 
 ## Naming
 
 | Thing | Convention | Example |
 | --- | --- | --- |
 | Folders | kebab-case (Python package folders inside `src/` are snake_case) | `finance-expenses/`, `third-party/` |
-| Python modules | snake_case | `fource/rules/engine.py` |
+| Python modules | snake_case; a database migration is numbered | `fource/rules/engine.py`, `0001_create_orgs.py` |
 | Python classes, functions | PascalCase, snake_case | `RulePack`, `evaluate_band()` |
 | Svelte components | PascalCase (a component's test beside it: `Name.test.ts`; a test harness: `Name.test.svelte`) | `SignOffPanel.svelte` |
 | SvelteKit route files | the framework's names | `+page.svelte`, `+layout.ts`, `+server.ts` |
@@ -89,13 +95,13 @@ import-linter enforces these as contracts in `pyproject.toml` (`just imports`). 
 | Pack ids and pack file names | kebab-case | `industrial-energy`, `sop-mec-014.json` |
 | Ids inside packs | snake_case, namespaced by pack | `industrial-energy/seal_leak` |
 | ADRs | `NNNN-kebab-title.md` | `0018-sector-neutral-core.md` |
-| Tests | `test_<module>.py`; end-to-end tests by scenario | `test_two_pack.py` |
+| Tests | `test_<module>.py`; end-to-end tests by scenario; in `apps/web`, `<module>.test.ts` beside the code and browser tests in `e2e/` as `<scenario>.spec.ts` | `test_two_pack.py`, `sign-in.spec.ts` |
 | Environment variables | `FOURCE_` prefix, upper snake case | `FOURCE_DATABASE_URL` |
 | Branches | `<type>/<work-package-or-topic>` | `wp/RL-01-rule-engine-core` |
 
 Other files are lower case. Upper-case names are limited to `README.md`, `CHANGELOG.md`, `AGENTS.md` and the third-party `LICENSE`, `NOTICE`, `VERSION` and `SOURCE` files, plus the root files above and the names GitHub requires in `.github/`.
 
-**Banned in any file or folder name:** version or status words (`v2`, `final`, `new`, `old`, `backup`, `copy`, `temp`, `test2`), spaces, and dates. Dates are allowed only where the docs rules require them: `docs/log/`, `docs/history/` and `docs/assurance/`. Git keeps the history; file names don't.
+**Banned in any file or folder name:** version or status words (`v2`, `final`, `new`, `old`, `backup`, `copy`, `temp`, `tmp`, `test2`), spaces, and dates. Dates are allowed only where the docs rules require them: `docs/log/`, `docs/history/` and `docs/assurance/`. Git keeps the history; file names don't.
 
 ## Where does it go?
 
@@ -124,7 +130,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 - Logs, caches, local databases and uploaded files.
 - Obsidian per-person files: `.obsidian/workspace*.json`, caches, plugin state.
 - Tool-specific agent instruction or configuration files. [`AGENTS.md`](../../AGENTS.md) files are the only agent instructions committed.
-- Binaries over 1 MB outside Git LFS, Jupyter notebooks, commented-out code, and `TODO`s without an issue number.
+- Binaries over 1 MB outside Git LFS, Jupyter notebooks, commented-out code, and `TODO`s without an issue number (the repo check wants `TODO(#123)` in code).
 - Personal scratch files. Exclude these in your own `.git/info/exclude`, not in the shared `.gitignore`.
 
 ## Working rules
@@ -158,7 +164,7 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 
 ### Checks
 
-`just check` runs every check locally, exactly as CI does. Before each commit, the git hooks (`.pre-commit-config.yaml`, installed by `just setup`) run the fast ones: ruff, the repo, neutrality and docs checks, and gitleaks on the staged changes; the commit-message hooks reject anything that isn't a Conventional Commit, and any message holding a sector term, a tool's name or attribution, or words about how the work was organised rather than what changed ([`tools/commit_words.py`](../../tools/commit_words.py), which keeps its word lists as digests; a teammate's `Co-authored-by` is fine).
+`just check` runs every check locally, exactly as CI does, except the PostgreSQL, Redis and MinIO tests and the pull request rules, which CI runs in jobs of their own ([below](#ci)). Before each commit, the git hooks (`.pre-commit-config.yaml`, installed by `just setup`) run the fast ones: ruff, the repo, neutrality and docs checks, and gitleaks on the staged changes; the commit-message hooks reject anything that isn't a Conventional Commit, and any message holding a sector term, a tool's name or attribution, or words about how the work was organised rather than what changed ([`tools/commit_words.py`](../../tools/commit_words.py), which keeps its word lists as digests; a teammate's `Co-authored-by` is fine).
 
 | Check | Tool | State |
 | --- | --- | --- |
@@ -167,31 +173,45 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | Repo hygiene, and every pack's `pack.yaml` against the spec | [`tools/repo_check.py`](../../tools/repo_check.py) | built |
 | Sector neutrality | [`tools/neutrality_check.py`](../../tools/neutrality_check.py) | built |
 | Commit message words | [`tools/commit_words.py`](../../tools/commit_words.py), a commit-msg hook | built |
-| Tests | pytest | built |
-| Frontend formatting, lint and types | prettier, eslint, svelte-check | _planned_ with `apps/web` |
+| Tests | pytest; for `apps/web`, vitest (`just web-test`) and Playwright (`just web-e2e`) | built |
+| Frontend formatting, lint and types | prettier, eslint, the design lint ([`tools/design-lint/check.mjs`](../../tools/design-lint/check.mjs)) and svelte-check (`just web-lint`) | built |
 | Package boundaries | import-linter (`just imports`) | built |
 | Licences, imports and SBOM | [`tools/licence_gate.py`](../../tools/licence_gate.py), [`tools/import_scan.py`](../../tools/import_scan.py) ([licences](licences.md)) | built |
 | Third-party bundle | `tools/licence_gate.py --bundle` ([bundled services](services.md#the-third-party-bundle)) | built |
 | Secrets | gitleaks: staged changes before each commit, the whole branch history in `just secrets` | built |
 | Docs | [`tools/docs_check.py`](../../tools/docs_check.py) | built |
 
+### CI
+
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs on every push to `4ce-core` and every pull request:
+
+| Job | Runs |
+| --- | --- |
+| `just check` | `just setup`, Playwright's Chromium, then `just check`, on Linux, Windows and macOS |
+| PostgreSQL tests | `just test-postgres` against the PostgreSQL 18.6 image compose uses |
+| Redis tests | `just test-redis` against the Redis 8.10.2 image compose uses |
+| MinIO tests | `just test-minio` against the [MinIO image](services.md#minio), built as compose builds it |
+| pull request rules | Pull requests only: every commit and the title are Conventional Commits and no commit is empty or whitespace-only (`tools/repo_check.py --commits` and `--commit-msg`), then `tools/docs_check.py --base`, with `--allow-drift` when the PR carries `docs-unaffected` |
+
+Editing a pull request's title or labels re-runs only the pull request rules.
+
 ### Commands
 
 | Command | Does |
 | --- | --- |
-| `just setup` | Install Python through uv, sync every package from the lockfile (failing if it is out of date), and install pre-commit and its git hooks |
+| `just setup` | Install Python through uv, sync every package from the lockfile (failing if it is out of date), install the web app from its lockfile (`npm ci`), create `.env` from `.env.example` with fresh secrets unless one exists, and install pre-commit and its git hooks |
 | `just sync` | Start of every session: fast-forward `4ce-core` from GitHub and list the docs pages changed since your last sync. It never overwrites local commits. |
 | `just test` | Every test except the PostgreSQL-only, Redis-only and MinIO-only ones |
 | `just test-postgres` | The PostgreSQL-only tests; run `just services` first |
 | `just test-redis` | The Redis-only tests; needs `FOURCE_TEST_REDIS_URL`, CI's Redis job |
 | `just test-minio` | The MinIO-only tests (the `minio` marker); needs `FOURCE_TEST_S3_ENDPOINT`, `FOURCE_TEST_S3_ACCESS_KEY` and `FOURCE_TEST_S3_SECRET_KEY` naming a MinIO they may write to (a missing variable fails the tests, never skips them), which is what CI's MinIO job starts from the image [compose](services.md#minio) uses |
-| `just lint` | Formatting, lint and types |
+| `just lint` | Python formatting, lint and types |
 | `just repo-check` | The repo check |
 | `just imports` | The package-boundary contracts |
 | `just neutrality` | The neutrality check |
-| `just licences` | The SBOM, licence gate and import scan |
+| `just licences` | The SBOM, licence gate, import scan and third-party bundle check |
 | `just secrets` | gitleaks over the branch's whole history |
-| `just dev` | Bring the database up to date and run the server with live reload (SQLite unless `.env` says PostgreSQL). Behind a proxy, run `fource-server serve --forwarded-allow-ips <proxy address>` instead ([API](api.md#running-it)); the proxy must set `X-Forwarded-For`, and the list is never `*` |
+| `just dev` | Bring the database up to date and run the server with live reload (SQLite unless `.env` says PostgreSQL). Behind a proxy, run `fource-server serve --forwarded-allow-ips <proxy address>` instead ([API](api.md#running-it)); the proxy must set `X-Forwarded-For`, and the list is never `*`, `0.0.0.0/0` or `::/0` |
 | `just migrate` | Bring the database schema up to date |
 | `just create-user <email> --role <role>` | Add a user; asks for the password |
 | `just worker` | Run queued jobs; `--once` for the due ones |
@@ -202,7 +222,13 @@ Other files are lower case. Upper-case names are limited to `README.md`, `CHANGE
 | `just new-package <name>` | Scaffold `core/<name>/` from the package template and install it |
 | `just new-pack <sector\|cross> <id>` | Scaffold a pack with a valid `pack.yaml` (risk tier 3 until lowered on purpose) |
 | `just new-doc <type> <name>` | Create a docs page or work-log entry from its template (`just new-doc log <branch-name>`) |
-| `just check` | Every check, as CI runs it |
+| `just web-install` | The web app (Node 24): install from its lockfile (`npm ci`), as `just setup` does |
+| `just web-format` | The web app: rewrite its files in prettier's format |
+| `just web-lint` | The web app: prettier and eslint, the design lint, then svelte-check for types |
+| `just web-test` | The web app's unit tests (vitest), plus the icon generator's and the design lint's |
+| `just web-e2e` | The web app's browser tests (Playwright): a demo build, and sign-in against a throwaway server; run `npx --prefix apps/web playwright install chromium` once first |
+| `just web-dev` | Run the web app with live reload on http://localhost:5173, sending `/api` to the server `just dev` runs |
+| `just check` | Every check, as CI's `just check` job runs it |
 
 ### Dependencies: uv for everything Python
 
@@ -216,17 +242,18 @@ uv installs Python, creates environments, adds packages, locks and runs. pip is 
 | Add a development-only tool | `uv add --dev pytest` |
 | Update one dependency | `uv lock --upgrade-package pint` |
 | Run anything in the project environment | `uv run pytest` |
-| Install in CI and in images | `uv sync --frozen` |
+| Install in CI | `uv sync --all-packages --locked`, which fails on an out-of-date `uv.lock` (the pull request rules job uses `--frozen`) |
+| Install in images | `uv sync --frozen` |
 
 - `pyproject.toml` declares dependencies and the one `uv.lock` pins them. No `requirements.txt`, `setup.py`, `Pipfile` or `poetry.lock`.
 - A new dependency is named in its PR with its licence.
-- Dependabot opens weekly grouped update PRs against `4ce-core`, titled `chore(deps): …`. They pass every check like any other PR; the person reviewing one adds its work-log entry (`just new-doc log <branch-name>`) before merging.
+- Dependabot opens weekly grouped update PRs for the uv packages and the GitHub Actions (not npm yet) against `4ce-core`, titled `chore(deps): …`. They pass every check like any other PR; the person reviewing one adds its work-log entry (`just new-doc log <branch-name>`) before merging.
 - The frontend uses npm with its committed `package-lock.json`.
 
 ### Line endings, editors and large files
 
 - `.gitattributes` forces LF line endings and routes PDF, PNG, JPG, XLSX, DOCX and PPTX files through Git LFS.
-- `.editorconfig` sets 4-space indents for Python and 2 for everything else, a final newline, and trimmed trailing whitespace.
+- `.editorconfig` sets 4-space indents for Python and the justfile and 2 for everything else, a final newline, and trimmed trailing whitespace except in Markdown, where two trailing spaces are a line break.
 - Anything over 1 MB that isn't in LFS fails the repo check.
 
 ## Decisions

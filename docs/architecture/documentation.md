@@ -3,7 +3,7 @@ title: Documentation rules
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-12
+updated: 2026-11-22
 covers:
   - docs/templates/
   - .obsidian/
@@ -32,7 +32,7 @@ tags: [4ce, architecture, documentation]
 ## The vault
 
 - **The repository root is the Obsidian vault.**
-- **`.obsidian/` commits only shared settings.** `app.json` hides the source trees so search and the graph show only the knowledge base and keeps links relative; `core-plugins.json` enables only core plugins (Templates, Properties, Backlinks, Graph and Bases); `templates.json` points Templates at `docs/templates/`. Per-person files are git-ignored.
+- **`.obsidian/` commits only shared settings.** `app.json` hides the source trees so search and the graph show only the knowledge base and keeps links relative; `core-plugins.json` enables only core plugins (Templates, Properties, Backlinks, Graph, Bases, File explorer, Search, Quick switcher and Outline); `templates.json` points Templates at `docs/templates/`. Per-person files are git-ignored.
 - **No community plugins are required.** Everything renders in plain Obsidian and on GitHub.
 - **Links are relative markdown links,** such as `[Repository](repository.md)`, never `[[wikilinks]]`, so they work in Obsidian and on GitHub. Section links use heading anchors.
 
@@ -53,9 +53,9 @@ tags: [4ce, architecture, documentation]
 | [`history/`](../history/README.md) | Milestone pages and the timeline |
 | [`research/`](../research/README.md) | Studies, spikes, competitor notes, meeting notes |
 | [`assurance/`](../assurance/README.md) | Published Assurance Reports, `assurance/<version>/` |
-| [`templates/`](../templates/README.md) | One template per page type |
+| [`templates/`](../templates/README.md) | One template for each page type `just new-doc` creates |
 
-File names are kebab-case and every folder has a `README.md` index. New pages start from a template in `docs/templates/` (Obsidian's Templates plugin reads that folder).
+File names are kebab-case and every folder except the work log's year and month folders has a `README.md` index. New pages start from a template in `docs/templates/` (Obsidian's Templates plugin reads that folder).
 
 ## Frontmatter
 
@@ -122,7 +122,7 @@ Every PR adds exactly one entry, `docs/log/YYYY/MM/YYYY-MM-DD-<branch-name>.md`,
 
 | Check | Fails when |
 | --- | --- |
-| Frontmatter | A page misses a required field, or uses a type, status or tag outside the lists |
+| Frontmatter | A page misses a required field, uses a type, status, owner or tag outside the lists, or has an `updated` that isn't a `YYYY-MM-DD` date. A testing result's extra fields aren't checked. |
 | Links | A relative link or heading anchor doesn't resolve |
 | Orphans | A page isn't reachable from `docs/README.md` |
 | Names | A file breaks the naming or banned-name rules |

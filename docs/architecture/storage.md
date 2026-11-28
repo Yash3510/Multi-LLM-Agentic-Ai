@@ -23,10 +23,10 @@ How 4CE keeps files: originals, renders, deliverables, index snapshots. The code
 | --- | --- | --- |
 | `FOURCE_STORAGE` | `local` | `local` or `s3` |
 | `FOURCE_STORAGE_MAX_FILE_MB` | 512 | The size of one file at most; 1 to 65536 |
-| `FOURCE_S3_ENDPOINT` | unset | `http://` or `https://`, a host and an optional port, with no path, user, query or fragment. Needed with `s3` |
+| `FOURCE_S3_ENDPOINT` | unset | `http://` or `https://`, a host and an optional port, with no path, user, query or fragment; the host is letters, digits and hyphens between dots, or an IPv6 address. Needed with `s3` |
 | `FOURCE_S3_ACCESS_KEY`, `FOURCE_S3_SECRET_KEY` | unset | The credentials. Needed with `s3`; the secret is never shown in a log or a repr |
 | `FOURCE_S3_BUCKET` | `fource` | 3 to 63 lower-case letters, digits and hyphens, starting and ending with a letter or digit |
-| `FOURCE_S3_REGION` | `us-east-1` | 1 to 32 lower-case letters, digits and hyphens, not all digits |
+| `FOURCE_S3_REGION` | `us-east-1` | 1 to 32 lower-case letters, digits and hyphens, starting and ending with a letter or digit, not all digits |
 
 `Settings` refuses `FOURCE_STORAGE=s3` when the endpoint or either key is missing or blank. `fource-server migrate` creates the bucket when `FOURCE_STORAGE=s3` and it is missing (`Created the bucket …` or `Found the bucket …`); the server never creates it, so a misspelt name can't start an empty store. `/api/health` reports `"storage": "ok"` or `"unavailable"` and answers 503 when it is unavailable ([API](api.md#endpoints)): the local store is `ok` when its folder exists (or can be made), is writable and, on Linux and macOS, no other account can change it ([Writing](#writing-reading-deleting)), the S3 store when a `HEAD` on the bucket succeeds.
 
@@ -48,9 +48,9 @@ How 4CE keeps files: originals, renders, deliverables, index snapshots. The code
 
 ## The S3 client
 
-`make_s3_client` is the only place that builds one, with boto3 and a botocore session that reads no `AWS_*` variable and no `~/.aws` file: no profile, no configuration or credentials file, no data path, no service data from `~/.aws/models` (only botocore's own, so no file there can change S3's endpoint rules), no client plugin named by `BOTOCORE_EXPERIMENTAL__PLUGINS`, no client-side monitoring (which would send a datagram per call to a host the environment names). It gets its endpoint, keys and region explicitly, checks TLS against certifi's bundle whatever `AWS_CA_BUNDLE` or `REQUESTS_CA_BUNDLE` say, uses no proxy (`proxies={}`; only `None` would fall back to the environment), addresses buckets by path, waits 5 s to connect and 60 s to read, and tries a request at most three times. Health's check uses a second client that tries once, with 2 s to connect and 2 s to read, so a stopped store shows `unavailable` within seconds instead of after three long attempts. A wrong-region answer is retried at the same host, with the region it names. Every PUT and part signs the SHA-256 of its body, and request checksums are added only where an operation requires one, so the server always checks the body it stored.
+`make_s3_client` is the only place that builds one, with boto3 and a botocore session whose configuration reads no `AWS_*` variable and no `~/.aws` file: no profile, no configuration or credentials file, no data path, no service data from `~/.aws/models` (only botocore's own, so no file there can change S3's endpoint rules), no client plugin named by `BOTOCORE_EXPERIMENTAL__PLUGINS`, no client-side monitoring (which would send a datagram per call to a host the environment names). It gets its endpoint, keys and region explicitly, checks TLS against certifi's bundle whatever `AWS_CA_BUNDLE` or `REQUESTS_CA_BUNDLE` say, uses no proxy (`proxies={}`; only `None` would fall back to the environment), addresses buckets by path, waits 5 s to connect and 60 s to read, and tries a request at most three times. Health's check uses a second client that tries once, with 2 s to connect and 2 s to read, so a stopped store shows `unavailable` within seconds instead of after three long attempts. A wrong-region answer is retried at the same host, with the region it names. Every PUT and part signs the SHA-256 of its body, and request checksums are added only where an operation requires one, so the server always checks the body it stored.
 
-**The trust store.** `verify=True` checks TLS against **certifi's bundle**, which botocore loads when certifi is installed (it is a dependency here). That bundle is the "default trust store" this page means, not the operating system's. botocore's own bundled copy (`botocore/cacert.pem`, MPL-2.0) is used only when certifi can't be imported, so it is never read; the project lead approved it on certifi's terms (ADR-0037, 2026-11-21; [licences](licences.md)).
+**The trust store.** `verify=True` checks TLS against **certifi's bundle**, which botocore loads when certifi is installed (here it comes with httpx, a development dependency, which `uv sync` installs by default; no runtime package needs it). That bundle is the "default trust store" this page means, not the operating system's. botocore's own bundled copy (`botocore/cacert.pem`, MPL-2.0) is used only when certifi can't be imported, so an install made with `uv sync` never reads it; the project lead approved it on certifi's terms (ADR-0037, 2026-11-21; [licences](licences.md)).
 
 Every boto3 call runs in a worker thread that is never abandoned: a cancellation that arrives during a call takes effect when the call returns (bounded by the timeouts of up to three attempts and the back-off between them); the clean-up after it (closing a body, aborting an upload) is shielded. boto3 is imported only when `FOURCE_STORAGE=s3`. The `botocore`, `boto3` and `s3transfer` loggers stay at WARNING and `urllib3` at ERROR whatever the root level, because botocore logs request headers, Authorization included, at DEBUG, and urllib3's warnings name the store's host or a URL; never lower them. The client pools up to 40 connections, one for each of anyio's worker threads, so concurrent calls never overflow the pool.
 
@@ -95,7 +95,7 @@ Some variables still reach botocore without changing where a request goes or who
 | `file_too_large` | 413 | Over `FOURCE_STORAGE_MAX_FILE_MB` |
 | `file_damaged` | 500 | The bytes are missing or differ from the record |
 
-Messages never carry an endpoint, key, path, file name or content; logs carry the S3 error code at most.
+Messages never carry an endpoint, key, path, file name or content; logs carry the S3 error code, or the error's class, at most.
 
 ## Known limits
 

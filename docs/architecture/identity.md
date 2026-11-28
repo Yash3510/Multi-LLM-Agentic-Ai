@@ -3,7 +3,7 @@ title: Identity
 type: architecture
 status: active
 owner: R1
-updated: 2026-10-31
+updated: 2026-11-22
 covers:
   - core/identity/
 tags: [4ce, architecture, identity, security]
@@ -59,7 +59,7 @@ Every identity action writes an entry in the organisation's [ledger](ledger.md),
 | --- | --- | --- | --- |
 | a user is created | `identity.user.create` | `system` | `user`, `roles` |
 | a sign-in succeeds | `identity.signin.success` | `user:<id>` | `user`, `token` (the token's id) |
-| a sign-in fails | `identity.signin.failure` | `anonymous` | `reason`: `unknown_email`, `inactive`, `wrong_password` or `locked`; `user` when the email is known |
+| a sign-in fails | `identity.signin.failure` | `anonymous` | `reason`: `unknown_email`, `inactive`, `wrong_password` or `locked`; `user` when the email is known; `inputs_sha256` the keyed hash of an unknown email (context `4ce-ledger-unknown-email-v1`) |
 | the fifth failure locks the account | `identity.lockout` | `system` | `user`, `until` (UTC time) |
 | a sign-out revokes a token | `identity.signout` | `user:<id>` | `user`, `token` |
 | a client address first goes over the sign-in limit | `identity.signin.throttled` | `anonymous` | `limit`, `until` (UTC time); `inputs_sha256` the keyed hash of the client address (context `4ce-ledger-client-address-v1`), once per throttle window |

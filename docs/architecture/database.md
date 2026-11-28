@@ -3,7 +3,7 @@ title: Database
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-21
+updated: 2026-11-22
 covers:
   - core/db/
   - apps/server/src/fource/server/migrations/
@@ -53,7 +53,7 @@ On PostgreSQL the same organisation is also enforced by the database:
 
 ## What needs PostgreSQL
 
-The SQLite suite (`just test`) cannot show row-level security, so the tests marked `postgres` run only against PostgreSQL: the app role cannot read, write or unlock another organisation's rows, and the paths that differ by engine (NUL and over-long values, `UPDATE … RETURNING`). On PostgreSQL they also cover the ledger (the app role can only add and read entries; the insert-only trigger refuses the owner too, though the owner can still disable it, which only checkpoints kept outside the database detect; concurrent writers keep the chain whole, including the very first entries of an empty ledger) and the start-up refusal of a role that bypasses row-level security, owns a table under it, or is a member of such an owner. They also cover [file storage](storage.md): `stored_files` under forced row-level security with no `DELETE` for the app role, and the app role unable to reach or delete another organisation's files. They also cover the [jobs](jobs.md): row-level security per organisation, `SKIP LOCKED` with five takers and past a held row, two staggered workers running a recurring interval once, and a NOTIFY waking a listening worker. Run them with `just services`, `just test-postgres`, `just down`. CI runs them against a PostgreSQL 18 service in its own job.
+The SQLite suite (`just test`) cannot show row-level security, so the tests marked `postgres` run only against PostgreSQL: the app role cannot read or write another organisation's rows, or turn row-level security off, and the paths that differ by engine (NUL and over-long values, `UPDATE … RETURNING`). On PostgreSQL they also cover the ledger (the app role can only add and read entries; the insert-only trigger refuses the owner too, though the owner can still disable it, which only checkpoints kept outside the database detect; concurrent writers keep the chain whole, including the very first entries of an empty ledger) and the start-up refusal of a role that bypasses row-level security, owns a table under it, or is a member of such an owner. They also cover [file storage](storage.md): `stored_files` under forced row-level security with no `DELETE` for the app role, and the app role unable to reach or delete another organisation's files. They also cover the [jobs](jobs.md): row-level security per organisation, `SKIP LOCKED` with five takers and past a held row, two staggered workers running a recurring interval once, and a NOTIFY waking a listening worker. Run them with `just services`, `just test-postgres`, `just down`. CI runs them against a PostgreSQL 18 service in its own job.
 
 To run them against a throwaway PostgreSQL on another port (when `localhost:5432` is a shared server you must not touch), start the same image on that port and set `FOURCE_TEST_POSTGRES_PORT` along with `FOURCE_POSTGRES_PASSWORD` and `FOURCE_POSTGRES_APP_PASSWORD`. The default stays 5432, which is what CI uses.
 
@@ -62,7 +62,7 @@ To run them against a throwaway PostgreSQL on another port (when `localhost:5432
 - **Windows and PostgreSQL.** psycopg's async mode doesn't run on Windows' default event loop. The server and its commands use a selector event loop so it can work, but PostgreSQL from a Windows host is not exercised in CI (unverified). Production runs on Linux.
 - Bulk and Core statements are not scoped in code (above): a Core column select must filter by organisation explicitly, as `read_entries` does, because ScopedSession's confinement does not reach it (on SQLite that filter is the only guard).
 - **The start-up role check looks at `current_user` only.** It does not catch a connection whose `session_user` is a more privileged role that has `SET ROLE`d down (`RESET ROLE` would undo it), nor, before PostgreSQL 16, a role with `CREATEROLE` (it can grant itself the owner's membership). Either needs a deliberately misconfigured role, so the check does not guard against them.
-- **A SQLite batch rebuild of `ledger_entries` must recreate its insert-only triggers** (`ledger_entries_no_update`, `ledger_entries_no_delete`); a migration that rebuilds the table otherwise drops them silently.
+- **A SQLite batch rebuild of `ledger_entries` must recreate its insert-only triggers** (`ledger_entries_no_update`, `ledger_entries_no_delete`), **and one of `stored_files` its trigger `stored_files_no_delete`**; a migration that rebuilds the table otherwise drops them silently.
 
 ## Decisions
 

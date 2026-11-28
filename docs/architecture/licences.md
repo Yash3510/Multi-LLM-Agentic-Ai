@@ -14,7 +14,7 @@ tags: [4ce, architecture, licences]
 
 # Licences and the licence gate
 
-4CE owns its code and ships nothing it can't legally ship. Every build generates an SBOM and fails on any dependency the policy doesn't allow. `just licences` runs all three steps, and `just check` includes it.
+4CE owns its code and ships nothing it can't legally ship. Every build generates an SBOM and fails on any dependency the policy doesn't allow. `just licences` runs all four steps, and `just check` includes it.
 
 ## The policy
 
@@ -40,7 +40,7 @@ Master plan Appendix A. Changing it is R4's decision, recorded in an ADR; it is 
 
 4. **Third-party bundle.** `tools/licence_gate.py --bundle` checks that every bundled service ships its licence, notices, exact version and source; see [bundled services](services.md#the-third-party-bundle).
 
-**Scope today:** the Python environment, including development tools, and the bundled services. The npm side arrives with `apps/web`.
+**Scope today:** the Python environment, including development tools, and the bundled services. `apps/web` is on `4ce-core`, but its npm packages aren't checked yet: reading the npm SBOM waits on ADR-0036 ([frontend](frontend.md)).
 
 ## Measured
 
@@ -70,6 +70,8 @@ On 2026-10-31, at commit `aab1c6c`, on Linux, with the queue and the live store 
 - **Three packages go through [`tools/licence-review.toml`](../../tools/licence-review.toml)**: s3transfer and python-dateutil, read from their licence files on 2026-11-17, and botocore, read on 2026-11-21 (below, with its approval). s3transfer says "Apache License 2.0" with a classifier the gate can't match (its LICENSE.txt is the Apache 2.0 text); python-dateutil says only "Dual License" (its LICENSE puts contributions since 2017-12-01 under Apache-2.0 and all the code under BSD-3-Clause), recorded as `Apache-2.0 AND BSD-3-Clause`.
 - **botocore's CA bundle.** botocore's code is Apache-2.0, but its NOTICE puts the Mozilla CA root certificates it ships, `botocore/cacert.pem`, under MPL-2.0: the same file certifi carries. The project lead approved it on certifi's terms on 2026-11-21 ([ADR-0037](../adr/0037-licence-approvals-for-the-backend-stack.md) point 2): used unmodified, and never read, because botocore uses certifi's copy whenever certifi is installed, as it is in 4CE. `tools/licence-review.toml` records botocore as `Apache-2.0 AND MPL-2.0`, and an `[[approved]]` entry names ADR-0037 for exactly that expression.
 
+On 2026-11-21, at commit `b4f3487`, on Linux, with file storage added, `just licences` checked 78 components and scanned 114 files with no problems, and checked the 5 bundled services ([log](../log/2026/11/2026-11-21-wp-f-08-file-storage.md#how-it-was-verified)).
+
 ## Decisions
 
-[ADR-0015](../adr/0015-licence-allowlist-and-sbom-gate.md) (the gate) and [ADR-0023](../adr/0023-third-party-services.md) (third-party services); [ADR-0036](../adr/0036-mpl-build-tools-and-licence-mapping.md) is proposed.
+[ADR-0015](../adr/0015-licence-allowlist-and-sbom-gate.md) (the gate), [ADR-0023](../adr/0023-third-party-services.md) (third-party services), [ADR-0037](../adr/0037-licence-approvals-for-the-backend-stack.md) (the approvals) and [ADR-0036](../adr/0036-mpl-build-tools-and-licence-mapping.md) (MPL-2.0 build tools and the licence mapping); all four are proposed.

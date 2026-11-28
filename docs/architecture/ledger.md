@@ -3,7 +3,7 @@ title: "Ledger"
 type: architecture
 status: active
 owner: R1
-updated: 2026-11-21
+updated: 2026-11-22
 covers:
   - core/ledger/
   - apps/server/src/fource/server/ledger_commands.py
@@ -57,7 +57,7 @@ Each organisation has its own chain, counting from 1. An entry holds hashes and 
 
 ## Verifying
 
-`just ledger verify [--org SLUG] [--public-key FILE] [--checkpoints DIR]` reads the organisation's chain and every checkpoint file of that organisation in the folder (default `<FOURCE_DATA_DIR>/ledger/checkpoints`), uses the public key beside the private key unless `--public-key` is given, and reports each problem as `entry N: kind: message`. When it has a public key it first prints `Checked against key <id>.`, the SHA-256 of the raw public key. **An auditor should verify with their own copies** of the public key (`--public-key`) and of the checkpoint files (`--checkpoints`), not the ones on the machine being checked, and compare the printed key id with the one they hold:
+`just ledger verify [--org SLUG] [--public-key FILE] [--checkpoints DIR]` reads the organisation's chain and every checkpoint file of that organisation in the folder (default `<FOURCE_DATA_DIR>/ledger/checkpoints`), uses the public key beside the private key unless `--public-key` is given, and reports each problem as `entry N: kind: message`. When it has a public key it prints `Checked against key <id>.`, the SHA-256 of the raw public key. **An auditor should verify with their own copies** of the public key (`--public-key`) and of the checkpoint files (`--checkpoints`), not the ones on the machine being checked, and compare the printed key id with the one they hold:
 
 | Problem | Means |
 | --- | --- |
@@ -88,7 +88,7 @@ Exit 0 is not proof of the chain's length: a cut-off tail is only visible agains
 
 Anything that cannot be read is a failure (exit 1), never "no checkpoints": an explicit `--checkpoints` folder that doesn't exist, an unreadable or malformed checkpoint file, key file or folder, and a default folder that is a dangling link. Only a missing default folder means none. Rows changed in the database (any odd cell value) are reported as problems, never a crash.
 
-The verifier (`chain.py`, `checkpoints.py`, `verify.py`) uses only the standard library and `cryptography`, and takes entries from anywhere, so it can later run on an auditor's machine without a database. An import contract (`just imports`) keeps `fource.common`, `fource.db`, SQLAlchemy and pydantic out of those three modules.
+The verifier (`chain.py`, `checkpoints.py`, `verify.py`) uses only the standard library and `cryptography`, and takes entries from anywhere, so it can later run on an auditor's machine without a database. An import contract (`just imports`) keeps `fource.common`, `fource.db`, SQLAlchemy, pydantic and pydantic-settings out of those three modules.
 
 ## Known limits
 
